@@ -1,0 +1,57 @@
+name: Statute snapshot audit
+
+on:
+  schedule:
+    - cron: "20 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: statute-snapshot-audit
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      LAW_OPEN_API_OC: ${{ secrets.LAW_OPEN_API_OC }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+      - name: Require National Law Information credential
+        run: test -n "$LAW_OPEN_API_OC"
+      - name: Refresh official statute snapshots
+        run: >-
+          python tools/build_statutes.py
+          --refresh-official
+          --report reports/statute_audit.json
+      - name: Refresh static web data
+        run: python tools/export_web_bundle.py
+      - name: Verify
+        run: python -m pytest
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automation/statute-snapshot-refresh
+          delete-branch: true
+          commit-message: "chore: refresh statute snapshots"
+          title: "chore: refresh statute snapshots"
+          body: |
+            Daily comparison with the National Law Information Open API.
+            Review each changed article before merging.
+
+            Human review checklist:
+            - [ ] Review `reports/statute_audit.json` affected rule IDs.
+            - [ ] Confirm the article number still applies to recruitment notices.
+            - [ ] Compare the complete official text and effective date.
+            - [ ] Review every linked law-rule message and alternative.
+            - [ ] Run the holdout regression evaluation when rule behavior changes.
+            - [ ] Confirm the static web bundle and MCP return the same ruleset version.
+          labels: statute-update
