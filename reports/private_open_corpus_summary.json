@@ -1,0 +1,30 @@
+{
+  "deidentification": [
+    "email",
+    "phone",
+    "labeled_contact_name",
+    "organization"
+  ],
+  "employment_types": {
+    "regular": 2035,
+    "temporary": 965
+  },
+  "holdout": 900,
+  "occupations": {
+    "field": 2149,
+    "office": 674,
+    "research": 33,
+    "tech": 144
+  },
+  "raw_postings_committed": false,
+  "reclassified_preserving_fixed_partitions": true,
+  "sectors": {
+    "private": 3000
+  },
+  "sources": {
+    "jincheon-jobs": 3000
+  },
+  "total": 3000,
+  "train": 2100,
+  "train_holdout_hash_overlap": 0
+}

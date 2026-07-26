@@ -1,0 +1,23 @@
+id: equal-employment-act
+name: 남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률
+articles:
+  제7조:
+    title: 모집과 채용
+    text: '제7조(모집과 채용)
+
+
+      ① 사업주는 근로자를 모집하거나 채용할 때 남녀를 차별하여서는 아니 된다.
+
+
+      ② 사업주는 근로자를 모집ㆍ채용할 때 그 직무의 수행에 필요하지 아니한 용모ㆍ키ㆍ체중 등의 신체적 조건, 미혼 조건, 그 밖에 고용노동부령으로 정하는 조건을 제시하거나 요구하여서는 아니 된다. <개정 2010.6.4,
+      2021.5.18>
+
+
+      [전문개정 2007.12.21]'
+    effective_date: '2025-10-01'
+    hash: sha256:5c7f701ed578a50449c0e2b72e15726d88c00803ebc94199dfec00c1b6bcfa83
+snapshot_date: '2026-07-26'
+source: 국가법령정보센터
+source_url: https://www.law.go.kr/법령/남녀고용평등과일ㆍ가정양립지원에관한법률
+retrieved_via: national-law-open-api
+official_id: '000130'

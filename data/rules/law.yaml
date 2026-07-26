@@ -1,0 +1,524 @@
+- id: AGE-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 젊은
+    - 20대
+    - 30대 이하
+    exclude:
+    - term: 청년인턴
+      window: 10
+    - term: 청년고용
+      window: 10
+    - term: 청년채용
+      window: 10
+  dimension: 분배
+  severity: high
+  basis:
+    type: statute
+    law: 고용상 연령차별금지 및 고령자고용촉진에 관한 법률
+    article: 제4조의4
+    statute_id: age-discrimination-act
+    snapshot_date: '2026-07-26'
+  message: 연령을 직접 또는 간접적으로 지칭하는 표현이 확인되었습니다.
+  alternatives:
+  - 해당 직무 수행에 필요한 역량ㆍ경력 요건으로 대체
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 1-3
+- id: AGE-002
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 나이 제한
+    - 연령 제한
+    - re:\d{2}\s*세\s*(?:이하|미만|이상)
+    exclude:
+    - term: 정년
+      window: 12
+    - term: re:연령\s*제한(?:은|이)?\s*없(?:음|습니다|다)
+      window: 10
+  dimension: 분배
+  severity: high
+  basis:
+    type: statute
+    law: 고용상 연령차별금지 및 고령자고용촉진에 관한 법률
+    article: 제4조의4
+    statute_id: age-discrimination-act
+    snapshot_date: '2026-07-26'
+  message: 특정 연령을 자격 기준으로 제시한 표현이 확인되었습니다.
+  alternatives:
+  - 연령 대신 직무 수행에 필요한 자격과 경험을 명시
+  provenance:
+    method: manual
+    corpus_hits: 33
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 1-3
+- id: SEX-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 남성만
+    - 여성만
+    - 남자만
+    - 여자만
+    - 남성에 한함
+    - 여성에 한함
+    - 're:(?:성별|모집\s*성별)\s*[:：]?\s*(?:남성|여성|남자|여자)(?!\s*(?:무관|제한\s*없))'
+  dimension: 분배
+  severity: high
+  basis:
+    type: statute
+    law: 남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률
+    article: 제7조
+    statute_id: equal-employment-act
+    snapshot_date: '2026-07-26'
+  message: 특정 성별로 지원 대상을 제한하는 표현이 확인되었습니다.
+  alternatives:
+  - 성별 대신 직무 수행에 필요한 조건을 구체적으로 명시
+  provenance:
+    method: manual
+    corpus_hits: 629
+    corpus_split: private
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 1-2
+- id: SEX-002
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 미혼자
+    - 미혼 여성
+    - 미혼 남성
+    - 결혼 계획이 없는
+  dimension: 분배
+  severity: high
+  basis:
+    type: statute
+    law: 남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률
+    article: 제7조
+    statute_id: equal-employment-act
+    snapshot_date: '2026-07-26'
+  message: 혼인 여부를 조건으로 제시한 표현이 확인되었습니다.
+  alternatives:
+  - 혼인 여부 조건을 삭제하고 근무 조건을 직접 명시
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 1-2
+- id: BODY-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - re:(?:신장|키)\s*\d{2,3}\s*(?:cm|센티미터)
+  dimension: 분배
+  severity: high
+  basis:
+    type: statute
+    law: 남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률
+    article: 제7조
+    statute_id: equal-employment-act
+    snapshot_date: '2026-07-26'
+  message: 키를 신체적 조건으로 제시한 표현이 확인되었습니다.
+  alternatives:
+  - 작업 범위ㆍ장비 사용 등 직무상 필요한 수행 조건으로 표현
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 1-2
+- id: BODY-002
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - re:(?:체중|몸무게)\s*\d{2,3}\s*(?:kg|킬로그램)
+  dimension: 분배
+  severity: high
+  basis:
+    type: statute
+    law: 남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률
+    article: 제7조
+    statute_id: equal-employment-act
+    snapshot_date: '2026-07-26'
+  message: 체중을 신체적 조건으로 제시한 표현이 확인되었습니다.
+  alternatives:
+  - 신체 수치 대신 직무 수행에 필요한 기능을 명시
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 1-2
+- id: LOOK-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 용모 단정
+    - 단정한 외모
+    - 외모가 준수
+    - 준수한 외모
+  dimension: 분배
+  severity: medium
+  basis:
+    type: statute
+    law: 남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률
+    article: 제7조
+    statute_id: equal-employment-act
+    snapshot_date: '2026-07-26'
+  message: 용모를 조건으로 읽을 수 있는 표현이 확인되었습니다.
+  alternatives:
+  - 업무상 필요한 복장ㆍ위생ㆍ안전 기준을 구체적으로 명시
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 1-2
+- id: PREG-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 임신 여부
+    - 임신 계획
+    - 출산 계획
+    - 자녀 계획
+  dimension: 분배
+  severity: high
+  basis:
+    type: statute
+    law: 국가인권위원회법
+    article: 제2조
+    statute_id: national-human-rights-act
+    snapshot_date: '2026-07-26'
+  message: 임신 또는 출산 계획과 관련된 정보 요구가 확인되었습니다.
+  alternatives:
+  - 해당 정보 요구를 삭제하고 실제 근무 조건만 안내
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 1-2
+- id: FAMILY-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 가족관계증명서
+    - 부모 직업
+    - 부모의 직업
+    - 형제자매 직업
+    - 가족 재산
+  dimension: 정보
+  severity: high
+  basis:
+    type: statute
+    law: 채용절차의 공정화에 관한 법률
+    article: 제4조의3
+    statute_id: recruitment-procedure-act
+    snapshot_date: '2026-07-26'
+  message: 직계 존비속 또는 형제자매에 관한 정보 요구가 확인되었습니다.
+  alternatives:
+  - 가족 관련 항목을 기초심사자료에서 제외
+  provenance:
+    method: manual
+    corpus_hits: 1
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 2-1
+- id: ORIGIN-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 출신지역 기재
+    - 출신 지역 기재
+    - 본적 기재
+    - 고향 기재
+    - 출생지 기재
+  dimension: 정보
+  severity: high
+  basis:
+    type: statute
+    law: 채용절차의 공정화에 관한 법률
+    article: 제4조의3
+    statute_id: recruitment-procedure-act
+    snapshot_date: '2026-07-26'
+  message: 출신지역 관련 정보 요구가 확인되었습니다.
+  alternatives:
+  - 출신지역 항목을 삭제하고 근무 가능 지역만 확인
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 2-1
+- id: ASSET-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 재산 내역
+    - 재산 증명
+    - 부동산 보유
+    - 보유 재산
+  dimension: 정보
+  severity: high
+  basis:
+    type: statute
+    law: 채용절차의 공정화에 관한 법률
+    article: 제4조의3
+    statute_id: recruitment-procedure-act
+    snapshot_date: '2026-07-26'
+  message: 지원자 본인의 재산 관련 정보 요구가 확인되었습니다.
+  alternatives:
+  - 재산 관련 항목을 기초심사자료에서 제외
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 2-1
+- id: SCHOOL-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 부모 학력
+    - 부모의 학력
+    - 형제자매 학력
+    - 가족 학력
+  dimension: 정보
+  severity: high
+  basis:
+    type: statute
+    law: 채용절차의 공정화에 관한 법률
+    article: 제4조의3
+    statute_id: recruitment-procedure-act
+    snapshot_date: '2026-07-26'
+  message: 직계 존비속 또는 형제자매의 학력 정보 요구가 확인되었습니다.
+  alternatives:
+  - 가족의 학력 관련 항목을 기초심사자료에서 제외
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 2-1
+- id: HEALTH-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 병력 기재
+    - 과거 병력
+    - 질병 이력
+    - 치료 이력
+  dimension: 정보
+  severity: medium
+  basis:
+    type: statute
+    law: 국가인권위원회법
+    article: 제2조
+    statute_id: national-human-rights-act
+    snapshot_date: '2026-07-26'
+  message: 병력 또는 치료 이력과 관련된 정보 요구가 확인되었습니다.
+  alternatives:
+  - 직무 수행과 직접 관련된 작업 조건과 지원 방식을 별도로 안내
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 2-2
+- id: DISABILITY-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 비장애인만
+    - 장애인 제외
+    - 장애가 없는 사람
+    - 장애가 없어야
+  dimension: 분배
+  severity: high
+  basis:
+    type: statute
+    law: 장애인고용촉진 및 직업재활법
+    article: 제5조
+    statute_id: disability-employment-act
+    snapshot_date: '2026-07-26'
+  message: 장애를 이유로 지원 대상을 제한하는 표현이 확인되었습니다.
+  alternatives:
+  - 장애 여부 대신 직무의 핵심 수행 요건과 제공 가능한 지원을 명시
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 1-4
+- id: IP-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 저작권은 회사에 귀속
+    - 지식재산권은 회사에 귀속
+    - 과제 결과물은 회사 소유
+    - 제출물의 권리는 회사
+  dimension: 절차
+  severity: high
+  basis:
+    type: statute
+    law: 채용절차의 공정화에 관한 법률
+    article: 제4조
+    statute_id: recruitment-procedure-act
+    snapshot_date: '2026-07-26'
+  message: 채용서류 또는 과제의 지식재산권 귀속을 요구하는 표현이 확인되었습니다.
+  alternatives:
+  - 평가 목적의 제한된 이용 범위와 보관 기간을 명시
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 2부 2-3
+- id: PHOTO-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 사진 필수
+    - 증명사진 필수
+    - 전신사진 제출
+    - 프로필 사진 제출
+  dimension: 정보
+  severity: medium
+  basis:
+    type: statute
+    law: 개인정보 보호법
+    article: 제16조
+    statute_id: personal-information-act
+    snapshot_date: '2026-07-26'
+  message: 사진을 필수 제출자료로 요구하는 표현이 확인되었습니다.
+  alternatives:
+  - 직무와 직접 관련되지 않은 사진 제출 항목을 재검토
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 1부 2-2
+- id: AI-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - AI가 최종 결정
+    - AI 자동 탈락
+    - 자동 평가로 결정
+    - 인공지능이 최종 결정
+  dimension: 절차
+  severity: medium
+  basis:
+    type: statute
+    law: 개인정보 보호법
+    article: 제37조의2
+    statute_id: personal-information-act
+    snapshot_date: '2026-07-26'
+  message: 완전히 자동화된 채용 결정을 나타내는 표현이 확인되었습니다.
+  alternatives:
+  - 자동화 적용 범위와 인적 개입ㆍ설명 요구 절차를 함께 안내
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 3부 3-2
+- id: RETURN-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 채용서류는 반환하지 않음
+    - 제출서류 일체 반환 불가
+    - 서류 반환 불가
+  dimension: 정보
+  severity: medium
+  basis:
+    type: statute
+    law: 채용절차의 공정화에 관한 법률
+    article: 제11조
+    statute_id: recruitment-procedure-act
+    snapshot_date: '2026-07-26'
+  message: 채용서류 반환을 일률적으로 제한하는 표현이 확인되었습니다.
+  alternatives:
+  - 적용 범위와 반환 청구 방법ㆍ기간ㆍ파기 절차를 구분하여 안내
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 2부 4-1
+- id: COST-001
+  layer: law
+  trigger:
+    type: presence
+    patterns:
+    - 're:(?:채용\s*심사|전형|인적성\s*검사|신체\s*검사|건강\s*검진|AI\s*역량\s*검사)\s*(?:에\s*드는\s*)?(?:비용|비|수수료)[^\n]{0,20}(?:지원자|구직자|응시자|본인)\s*부담'
+    - 're:(?:지원자|구직자|응시자|본인)\s*부담[^\n]{0,20}(?:채용\s*심사|전형|인적성\s*검사|신체\s*검사|건강\s*검진|AI\s*역량\s*검사)\s*(?:에\s*드는\s*)?(?:비용|비|수수료)'
+    exclude:
+    - term: 고용노동부장관의 승인
+      window: 80
+    - term: 고용노동부 장관의 승인
+      window: 80
+  dimension: 절차
+  severity: high
+  basis:
+    type: statute
+    law: 채용절차의 공정화에 관한 법률
+    article: 제9조
+    statute_id: recruitment-procedure-act
+    snapshot_date: '2026-07-26'
+  message: 채용심사와 관련된 비용을 지원자에게 부담시키는 표현이 확인되었습니다.
+  alternatives:
+  - 채용서류 제출에 드는 비용과 그 밖의 채용심사비용을 구분하고 적용 범위와 부담 주체를 재검토
+  provenance:
+    method: manual
+    corpus_hits: 0
+    corpus_split: public
+    reviewed_by: fairpost-maintainers
+    reviewed_at: '2026-07-26'
+  book_ref: 2부 2-1ㆍ2025 공정채용 가이드북 56쪽

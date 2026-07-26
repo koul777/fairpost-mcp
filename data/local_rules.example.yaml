@@ -1,0 +1,16 @@
+- id: Q-LOCAL-001
+  layer: question
+  trigger:
+    type: presence
+    patterns: [기관 자체 표현]
+  dimension: 절차
+  question: 이 표현은 기관의 채용 운영 원칙과 일치합니까?
+  follow_up:
+    - 관련 내부 기준과 담당 검토자를 확인했습니까?
+  basis:
+    type: consensus
+  provenance:
+    method: manual
+    reviewed_by: 기관 검수자
+    reviewed_at: "2026-07-26"
+  book_ref: 기관 채용규정

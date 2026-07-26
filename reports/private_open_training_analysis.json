@@ -1,0 +1,95 @@
+{
+  "candidate_summary": {
+    "any_law_rule": 773,
+    "by_dimension": {
+      "분배": 772,
+      "정보": 1
+    },
+    "multiple_law_rules": 50
+  },
+  "contains_organization_identifiers": false,
+  "contains_posting_text": false,
+  "input": {
+    "records": 2100,
+    "sectors": {
+      "private": 2100
+    },
+    "sha256": "513418b671c9f8d4bd39a3475e02a5fbd5ffa8a0a74a724cd3e9cef0f9ae38e8",
+    "sources": {
+      "jincheon-jobs": 2100
+    },
+    "split": "train_only"
+  },
+  "law_rule_posting_hits": {
+    "AGE-001": 0,
+    "AGE-002": 193,
+    "AI-001": 0,
+    "ASSET-001": 0,
+    "BODY-001": 0,
+    "BODY-002": 0,
+    "COST-001": 0,
+    "DISABILITY-001": 0,
+    "FAMILY-001": 1,
+    "HEALTH-001": 0,
+    "IP-001": 0,
+    "LOOK-001": 0,
+    "ORIGIN-001": 0,
+    "PHOTO-001": 0,
+    "PREG-001": 0,
+    "RETURN-001": 0,
+    "SCHOOL-001": 0,
+    "SEX-001": 629,
+    "SEX-002": 0
+  },
+  "matching_version": "match-ca275dca7bba6d1a",
+  "question_posting_hits": {
+    "Q-DIST-001": 765,
+    "Q-DIST-002": 2080,
+    "Q-DIST-003": 23,
+    "Q-DIST-004": 255,
+    "Q-DIST-005": 9,
+    "Q-DIST-006": 10,
+    "Q-DIST-007": 28,
+    "Q-DIST-008": 0,
+    "Q-DIST-009": 0,
+    "Q-DIST-010": 163,
+    "Q-DIST-011": 0,
+    "Q-INFO-001": 2100,
+    "Q-INFO-002": 1959,
+    "Q-INFO-003": 484,
+    "Q-INFO-004": 2088,
+    "Q-INFO-005": 2100,
+    "Q-INFO-006": 0,
+    "Q-INFO-007": 2100,
+    "Q-INFO-008": 2100,
+    "Q-INFO-009": 0,
+    "Q-INTER-001": 3,
+    "Q-INTER-002": 3,
+    "Q-INTER-003": 0,
+    "Q-INTER-004": 0,
+    "Q-PROC-001": 1948,
+    "Q-PROC-002": 2099,
+    "Q-PROC-003": 1,
+    "Q-PROC-004": 0,
+    "Q-PROC-005": 0,
+    "Q-PROC-006": 1365,
+    "Q-PROC-007": 0,
+    "Q-PROC-008": 116,
+    "Q-PROC-009": 2100,
+    "Q-PROC-010": 0
+  },
+  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
+  "slot_found_posting_hits": {
+    "ai_disclosure": 0,
+    "appeal_channel": 0,
+    "compensation": 2100,
+    "contact_point": 1616,
+    "document_return": 12,
+    "evaluation_criteria": 1,
+    "preference_items": 1335,
+    "qualification_rationale": 20,
+    "result_notice": 141,
+    "schedule": 2099,
+    "selection_stages": 152
+  }
+}

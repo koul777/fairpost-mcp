@@ -1,0 +1,573 @@
+- id: Q-DIST-001
+  layer: question
+  trigger: {type: absence, field: preference_items}
+  dimension: 분배
+  question: 우대사항은 가점과 참고 요소 중 어떤 방식으로 적용됩니까?
+  follow_up: ["적용 단계와 범위가 지원자에게 명확히 안내됩니까?"]
+  basis: {type: consensus}
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 1부 1-1ㆍ1-5
+
+- id: Q-DIST-002
+  layer: question
+  trigger: {type: absence, field: qualification_rationale}
+  dimension: 분배
+  question: 제시한 자격요건은 각각 어떤 직무 수행과 연결됩니까?
+  follow_up:
+    - 직무분석 또는 채용 직무기술서에서 도출한 요건입니까?
+    - 직무전문가와 요구 수준을 검토했습니까?
+    - 특수한 제한이 필요하다면 그 필요성과 근거를 문서화했습니까?
+    - 필요성을 설명하기 어려운 요건을 완화할 수 있습니까?
+  basis:
+    type: research
+    title: 2023 능력중심 채용모델 활용 가이드(인사담당자)
+    publisher: 고용노동부ㆍ한국산업인력공단
+    year: 2023
+    pages: [30, 42, 43, 44]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 1부 1-1ㆍ1-5
+
+- id: Q-DIST-003
+  layer: question
+  trigger:
+    type: presence
+    patterns: [즉시 출근, 바로 출근, 즉시 근무]
+  dimension: 분배
+  question: 즉시 출근 조건은 돌봄ㆍ이동 등의 준비 시간이 필요한 지원자에게 어떤 영향을 줍니까?
+  follow_up: ["업무상 필요한 시작일과 협의 가능한 범위를 나누어 안내할 수 있습니까?"]
+  basis: {type: consensus}
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 1부 1-1
+
+- id: Q-DIST-004
+  layer: question
+  trigger:
+    type: presence
+    patterns: [자차 보유, 차량 소지, 운전 가능자]
+  dimension: 분배
+  question: 차량 보유 또는 운전 조건은 해당 직무의 핵심 업무에 직접 필요합니까?
+  follow_up: ["대체 이동수단이나 조직의 지원수단을 함께 검토했습니까?"]
+  basis: {type: consensus}
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 1부 1-1
+
+- id: Q-INFO-001
+  layer: question
+  trigger: {type: absence, field: appeal_channel}
+  dimension: 정보
+  question: 결과에 의문이 생긴 지원자는 어디로 연락합니까?
+  follow_up:
+    - 그 문의가 실제로 검토되는 절차가 있습니까?
+    - 검토 결과는 지원자에게 회신됩니까?
+    - 지원자 의견을 다음 채용 절차 개선에 반영하는 방법이 있습니까?
+  basis:
+    type: research
+    title: 2023 능력중심 채용모델 활용 가이드(인사담당자)
+    publisher: 고용노동부ㆍ한국산업인력공단
+    year: 2023
+    pages: [31, 39]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 2부 2-2ㆍ3부 3-3
+
+- id: Q-INFO-002
+  layer: question
+  trigger: {type: absence, field: result_notice}
+  dimension: 정보
+  question: 전형 결과는 언제 어떤 방식으로 안내합니까?
+  follow_up:
+    - 합격자와 불합격자 모두에게 안내합니까?
+    - 각 단계의 결과 안내 방식이 서로 다르면 구분되어 있습니까?
+    - 불합격 사유를 제공하는 대상ㆍ시점ㆍ방법을 정했습니까?
+  basis:
+    type: research
+    title: 2024년 능력중심 채용모델 평가위원 가이드북
+    publisher: 고용노동부ㆍ한국산업인력공단
+    year: 2024
+    pages: [6, 12, 23]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 2부 2-2ㆍ3부 3-3
+
+- id: Q-INFO-003
+  layer: question
+  trigger: {type: absence, field: contact_point}
+  dimension: 정보
+  question: 지원자가 공고 내용이나 절차를 문의할 창구는 어디입니까?
+  follow_up:
+    - 담당 부서ㆍ전화ㆍ이메일ㆍ운영시간 중 필요한 정보를 제시했습니까?
+    - 원서 접수나 지원서 작성에 도움이 필요한 지원자가 이용할 수 있습니까?
+  basis:
+    type: research
+    title: 2023 능력중심 채용모델 활용 가이드(인사담당자)
+    publisher: 고용노동부ㆍ한국산업인력공단
+    year: 2023
+    pages: [39]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 3부 3-3ㆍ4부 4-1
+
+- id: Q-INFO-004
+  layer: question
+  trigger: {type: absence, field: document_return}
+  dimension: 정보
+  question: 제출한 채용서류의 반환 청구와 파기 절차를 어떻게 안내합니까?
+  follow_up: ["대상 서류ㆍ청구 기간ㆍ방법ㆍ파기 시점을 구분했습니까?"]
+  basis: {type: consensus}
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 2부 2-1ㆍ4부 4-1
+
+- id: Q-INFO-005
+  layer: question
+  trigger: {type: absence, field: ai_disclosure}
+  dimension: 정보
+  question: 채용 과정에서 AI 또는 자동화 시스템을 사용합니까?
+  follow_up: ["사용한다면 적용 단계ㆍ활용 범위ㆍ문의 경로를 어떻게 알립니까?"]
+  basis: {type: consensus}
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 2부 2-2ㆍ3부 3-3
+
+- id: Q-INFO-006
+  layer: question
+  trigger: {type: absence, field: compensation}
+  dimension: 정보
+  question: 지원자가 판단할 수 있도록 보수 조건과 산정 기준을 어디까지 제시합니까?
+  follow_up: ["고정 보수와 변동 요소, 수습기간 조건을 구분했습니까?"]
+  basis: {type: consensus}
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 1부 1-1ㆍ4부 4-1
+
+- id: Q-INTER-001
+  layer: question
+  trigger:
+    type: presence
+    patterns: [밝은 성격, 활발한 성격, 외향적인 성격, 친화력 좋은, 책임감 있는 분]
+  dimension: 대인
+  question: 성격을 지칭한 표현은 실제 관찰 가능한 업무 행동으로 바꿀 수 있습니까?
+  follow_up: ["필요한 협업ㆍ응대 행동을 구체적인 상황과 함께 설명했습니까?"]
+  basis: {type: consensus}
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 3부 3-1
+
+- id: Q-INTER-002
+  layer: question
+  trigger:
+    type: presence
+    patterns: [가족 같은 분위기, 가족같은 분위기, 가족 같은 회사, 가족같은 회사]
+  dimension: 대인
+  question: 가족 같은 조직이라는 표현이 지원자에게 기대하는 관계와 경계를 구체적으로 설명합니까?
+  follow_up: ["협업 방식ㆍ근무시간ㆍ의사소통 원칙처럼 관찰 가능한 운영 기준으로 바꿀 수 있습니까?"]
+  basis: {type: consensus}
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 3부 3-1
+
+- id: Q-PROC-001
+  layer: question
+  trigger: {type: absence, field: selection_stages}
+  dimension: 절차
+  question: 지원자는 어떤 전형 단계를 거치게 됩니까?
+  follow_up:
+    - 단계의 순서와 각 단계에서 확인하는 내용을 알 수 있습니까?
+    - 각 단계가 직무기술서의 어떤 지식ㆍ기술ㆍ태도를 확인하는지 연결했습니까?
+  basis:
+    type: research
+    title: 2023 능력중심 채용모델 활용 가이드(인사담당자)
+    publisher: 고용노동부ㆍ한국산업인력공단
+    year: 2023
+    pages: [39, 47]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 2부 2-1
+
+- id: Q-PROC-002
+  layer: question
+  trigger: {type: absence, field: evaluation_criteria}
+  dimension: 절차
+  question: 각 전형 단계에서는 어떤 기준으로 지원자를 검토합니까?
+  follow_up:
+    - 기준이 직무기술서의 지식ㆍ기술ㆍ태도와 연결됩니까?
+    - 지원서를 검토하기 전에 기준의 적용 순서와 비중을 확정했습니까?
+    - 지원자에게 공개한 기준과 실제 평가 기준이 일치합니까?
+  basis:
+    type: research
+    title: 2024년 능력중심 채용모델 평가위원 가이드북
+    publisher: 고용노동부ㆍ한국산업인력공단
+    year: 2024
+    pages: [10, 16, 18, 30]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 2부 2-2
+
+- id: Q-PROC-003
+  layer: question
+  trigger: {type: absence, field: schedule}
+  dimension: 절차
+  question: 지원 준비에 필요한 전형 일정은 언제 안내됩니까?
+  follow_up: ["일정 변경 시 통보 방식과 시점을 정했습니까?"]
+  basis: {type: consensus}
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 2부 2-1
+
+- id: Q-PROC-004
+  layer: question
+  trigger:
+    type: presence
+    patterns: [AI 채용, AI 면접, AI 영상면접, AI 역량검사, AI 서류심사, 인공지능 면접, 인공지능 활용, 알고리즘 평가, 자동화된 결정, 자동 서류 심사, 자동 평가]
+  dimension: 절차
+  question: 자동화된 평가 결과에 대해 지원자가 인간의 재검토를 요청하고 담당자가 결과를 보류ㆍ수정할 수 있습니까?
+  follow_up:
+    - 재검토를 신청할 공식 창구ㆍ기한ㆍ처리 절차가 있습니까?
+    - 재검토 결과와 이유를 지원자에게 회신합니까?
+    - 자동화 결과를 따르지 않을 수 있는 인간의 권한이 실제로 보장됩니까?
+  basis: {type: consensus}
+  provenance:
+    method: manual
+    reviewed_by: fairpost-maintainers
+    reviewed_at: "2026-07-26"
+    source_document: 공정_2부_절차공정성(확인본)_2차.docx
+    source_section: 2-2
+  book_ref: 2부 2-2ㆍ3부 3-3
+
+- id: Q-PROC-005
+  layer: question
+  trigger:
+    type: presence
+    patterns: [면접 과제, 사전 과제, 채용 과제, 실기 과제]
+  dimension: 절차
+  question: 채용 과제에 필요한 시간과 산출물 이용 범위는 지원자에게 충분히 안내됩니까?
+  follow_up: ["과제 분량과 제출 형식, 보상 여부, 보관ㆍ폐기 기준을 정했습니까?"]
+  basis: {type: consensus}
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 2부 2-1
+
+- id: Q-PROC-006
+  layer: question
+  trigger:
+    type: presence
+    patterns: [우대, 가점, 가산점]
+  dimension: 절차
+  question: 우대 또는 가점 항목은 어느 단계에서 어떤 방식으로 반영됩니까?
+  follow_up: ["같은 조건이 중복 반영되지 않도록 적용 규칙을 정했습니까?"]
+  basis: {type: consensus}
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 1부 1-1
+
+- id: Q-DIST-005
+  layer: question
+  trigger:
+    type: presence
+    patterns: [특정 학교, 출신학교, 4년제 대학, 대졸 이상, 학사 이상, 학력 제한]
+  dimension: 분배
+  question: 학력 또는 학교 관련 요건은 해당 직무를 수행하는 데 직접 필요합니까?
+  follow_up:
+    - 같은 역량을 경력ㆍ과제ㆍ자격 등 다른 방법으로 확인할 수 있습니까?
+    - 직무분석에서 확인한 필요 지식과 요구 수준을 근거로 정했습니까?
+  basis:
+    type: research
+    title: 2023 능력중심 채용모델 활용 가이드(인사담당자)
+    publisher: 고용노동부ㆍ한국산업인력공단
+    year: 2023
+    pages: [30, 38, 43, 44]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 1부 1-1ㆍ4부 4-3
+
+- id: Q-DIST-006
+  layer: question
+  trigger:
+    type: presence
+    patterns: [지역 거주자, 거주지 제한, 지역 제한, 주민등록상 주소, 해당 지역 거주]
+  dimension: 분배
+  question: 거주지 관련 제한은 직무 또는 적용되는 채용 정책상 반드시 필요합니까?
+  follow_up:
+    - 출신지역이 아니라 실제 근무 가능 여부로 확인할 수 있습니까?
+    - 제한의 적용 근거와 기준일을 지원자에게 명확히 안내했습니까?
+  basis:
+    type: research
+    title: 2023 능력중심 채용모델 활용 가이드(인사담당자)
+    publisher: 고용노동부ㆍ한국산업인력공단
+    year: 2023
+    pages: [30, 38, 39]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 1부 1-1ㆍ4부 4-3
+
+- id: Q-DIST-007
+  layer: question
+  trigger:
+    type: presence
+    patterns: [신체 건강, 건강한 자, 신체검사 합격, 신체 조건]
+  dimension: 분배
+  question: 건강 또는 신체 조건은 직무의 핵심 업무를 수행하는 데 필요한 조건으로 구체화되어 있습니까?
+  follow_up:
+    - 추상적인 건강 기준을 실제 작업 조건과 안전 요건으로 바꿀 수 있습니까?
+    - 합리적 편의나 보조수단을 제공한 뒤에도 필요한 조건인지 검토했습니까?
+  basis:
+    type: research
+    title: 2023 능력중심 채용모델 활용 가이드(인사담당자)
+    publisher: 고용노동부ㆍ한국산업인력공단
+    year: 2023
+    pages: [30, 38]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 1부 1-1ㆍ3부 3-1
+
+- id: Q-PROC-007
+  layer: question
+  trigger:
+    type: presence
+    patterns: [필기전형, 필기시험, 인성검사, 직업기초능력평가]
+  dimension: 절차
+  question: 필기 또는 검사 전형에서 필요한 편의를 요청하는 방법이 안내되어 있습니까?
+  follow_up:
+    - 장애 등 개별 사정에 따른 편의의 신청 기한ㆍ창구ㆍ제공 범위를 정했습니까?
+    - 검사 내용이 해당 직무의 역량과 직접 연결됩니까?
+  basis:
+    type: research
+    title: 2023 능력중심 채용모델 활용 가이드(인사담당자)
+    publisher: 고용노동부ㆍ한국산업인력공단
+    year: 2023
+    pages: [39, 47]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 1부 1-1ㆍ3부 3-1
+
+- id: Q-PROC-008
+  layer: question
+  trigger:
+    type: presence
+    patterns: [면접전형, 면접시험, 면접평가, 구조화 면접]
+  dimension: 절차
+  question: 면접 질문과 평가 기준은 직무역량을 중심으로 사전에 구조화되어 있습니까?
+  follow_up:
+    - 모든 지원자에게 공통 기준과 일관된 방식으로 질문합니까?
+    - 행동사례를 확인하는 질문과 채점 기준을 미리 정했습니까?
+    - 두 명 이상의 평가자가 기준을 이해하도록 사전 교육과 협의를 했습니까?
+  basis:
+    type: research
+    title: 2024년 능력중심 채용모델 평가위원 가이드북
+    publisher: 고용노동부ㆍ한국산업인력공단
+    year: 2024
+    pages: [30, 31, 32, 37, 41]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 2부 2-1ㆍ3부 3-3
+
+- id: Q-INFO-007
+  layer: question
+  trigger:
+    type: presence
+    patterns: [채용, 모집, 구인, 지원자, 채용공고]
+  dimension: 정보
+  question: 지원자가 지원 여부를 판단하는 데 필요한 기본 정보가 공고에 구체적으로 제시되어 있습니까?
+  follow_up:
+    - 기업명ㆍ근무지ㆍ채용형태ㆍ근무기간과 근무시간을 확인할 수 있습니까?
+    - 담당 업무와 필요한 지식ㆍ기술ㆍ태도ㆍ자격 수준을 구분해 설명했습니까?
+    - 접수 방법ㆍ제출서류ㆍ담당자 연락처를 확인할 수 있습니까?
+    - 급여ㆍ복지ㆍ휴가 등 중요한 근로조건을 지원 전에 확인할 수 있습니까?
+  basis:
+    type: research
+    title: 공정채용 가이드북
+    publisher: 한국산업인력공단
+    year: 2025
+    pages: [34, 37, 38]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 1부 1-1ㆍ4부 4-1
+
+- id: Q-INFO-008
+  layer: question
+  trigger:
+    type: presence
+    patterns: [채용, 모집, 구인, 지원자, 채용공고]
+  dimension: 정보
+  question: 합격자와 불합격자에게 결과뿐 아니라 이해 가능한 피드백을 어떻게 제공합니까?
+  follow_up:
+    - 결과를 지체 없이 개별적으로 안내할 대상ㆍ시점ㆍ방법을 정했습니까?
+    - 판박이 문구가 아니라 실제 평가 기준과 연결된 구체적 사유를 제공합니까?
+    - 지원자가 다음 기회를 준비할 수 있는 개선 방향을 함께 안내합니까?
+    - 피드백 내용이 평가 기록과 일치하고 지원자를 존중하는 언어로 작성됩니까?
+  basis:
+    type: research
+    title: 공정채용 가이드북
+    publisher: 한국산업인력공단
+    year: 2025
+    pages: [56, 57, 61, 62, 64]
+  provenance:
+    method: manual
+    reviewed_by: fairpost-maintainers
+    reviewed_at: "2026-07-26"
+    source_document: 공정_2부_절차공정성(확인본)_2차.docx
+    source_section: 2-2
+  book_ref: 2부 2-2ㆍ3부 3-3
+
+- id: Q-PROC-009
+  layer: question
+  trigger:
+    type: presence
+    patterns: [채용, 모집, 구인, 지원자, 채용공고]
+  dimension: 절차
+  question: 공고 후 일정ㆍ전형ㆍ평가기준이 변경될 때 지원자에게 언제 어떤 방법으로 알립니까?
+  follow_up:
+    - 변경 전후의 내용과 이유를 기록하고 모든 지원자에게 같은 시점에 알립니까?
+    - 변경으로 특정 지원자에게 예측하지 못한 불이익이 생기지 않는지 검토합니까?
+    - 채용광고와 실제 근로조건이 달라지지 않도록 최종 계약까지 대조합니까?
+  basis:
+    type: research
+    title: 공정채용 가이드북
+    publisher: 한국산업인력공단
+    year: 2025
+    pages: [35, 37]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-26"}
+  book_ref: 2부 2-1
+
+- id: Q-INFO-009
+  layer: question
+  trigger:
+    type: presence
+    patterns: [AI 채용, AI 면접, AI 영상면접, AI 역량검사, AI 서류심사, 인공지능 면접, 인공지능 활용, 알고리즘 평가, 자동화된 결정, 자동 서류 심사, 자동 평가]
+  dimension: 정보
+  question: AI가 수집하는 데이터와 평가 항목, 활용 단계와 결정에서의 역할을 지원자에게 사전에 설명합니까?
+  follow_up:
+    - 지원서ㆍ영상ㆍ표정ㆍ음성ㆍ게임 응답 중 어떤 데이터를 수집합니까?
+    - 평가 항목과 가중치 또는 중요도, 결과의 의미를 이해 가능한 언어로 알립니까?
+    - AI 결과가 참고자료ㆍ필터ㆍ최종 결정 중 어디에 사용되는지 구분합니까?
+    - 보관 기간ㆍ삭제 방법ㆍ설명 요구와 문의 경로를 안내합니까?
+  basis: {type: consensus}
+  provenance:
+    method: manual
+    reviewed_by: fairpost-maintainers
+    reviewed_at: "2026-07-26"
+    source_document: 공정_2부_절차공정성(확인본)_2차.docx
+    source_section: 2-2
+  book_ref: 2부 2-2ㆍ4부 4-1
+
+- id: Q-PROC-010
+  layer: question
+  trigger:
+    type: presence
+    patterns: [AI 채용, AI 면접, AI 영상면접, AI 역량검사, AI 서류심사, 인공지능 면접, 인공지능 활용, 알고리즘 평가, 자동화된 결정, 자동 서류 심사, 자동 평가]
+  dimension: 절차
+  question: AI 채용 결정의 최종 책임자와 인간의 개입 기준이 문서로 지정되어 있습니까?
+  follow_up:
+    - AI와 인간이 각각 맡는 단계와 권한을 구분했습니까?
+    - 이상 신호가 나타나면 결과를 중단ㆍ무시ㆍ재처리할 책임자가 있습니까?
+    - 인간이 AI 결과를 형식적으로 승인하지 않도록 독립적인 판단 근거를 남깁니까?
+  basis: {type: consensus}
+  provenance:
+    method: manual
+    reviewed_by: fairpost-maintainers
+    reviewed_at: "2026-07-26"
+    source_document: 공정_2부_절차공정성(확인본)_2차.docx
+    source_section: 2-2
+  book_ref: 1부 1-3ㆍ2부 2-2ㆍ3부 3-3
+
+- id: Q-INTER-003
+  layer: question
+  trigger:
+    type: presence
+    patterns: [AI 채용, AI 면접, AI 영상면접, AI 역량검사, AI 서류심사, 인공지능 면접, 인공지능 활용, 알고리즘 평가, 자동화된 결정, 자동 서류 심사, 자동 평가]
+  dimension: 대인
+  question: 자동화된 채용 과정에서도 지원자가 자신의 맥락을 설명하고 소명할 기회를 가집니까?
+  follow_up:
+    - 정해진 응답 외에 보충 설명이나 오류 정정을 제출할 수 있습니까?
+    - 자동화 구간에도 질문을 받을 사람의 안내ㆍ문의 접점이 남아 있습니까?
+    - 지원자의 설명을 실제 재검토와 최종 판단에 반영합니까?
+  basis: {type: consensus}
+  provenance:
+    method: manual
+    reviewed_by: fairpost-maintainers
+    reviewed_at: "2026-07-26"
+    source_document: 공정_3부_대인공정성(확인본)_2차.docx
+    source_section: 3-3
+  book_ref: 3부 3-3
+
+- id: Q-INTER-004
+  layer: question
+  trigger:
+    type: presence
+    patterns: [AI 면접, AI 영상면접, 인공지능 면접, 영상 분석, 표정 분석, 음성 분석, 시선 분석, 안면 분석, 감정 분석]
+  dimension: 대인
+  question: 표정ㆍ음성ㆍ시선 등 비언어 정보를 분석한다면 그 사실과 한계를 지원자에게 미리 알립니까?
+  follow_up:
+    - 어떤 비언어 정보가 어떤 목적으로 평가에 사용되는지 구체적으로 설명합니까?
+    - 문화ㆍ장애ㆍ질병ㆍ통신환경에 따른 차이가 불이익으로 이어지지 않는지 검증했습니까?
+    - 필요한 지원자에게 대체 평가나 합리적 편의를 요청할 방법을 제공합니까?
+  basis: {type: consensus}
+  provenance:
+    method: manual
+    reviewed_by: fairpost-maintainers
+    reviewed_at: "2026-07-26"
+    source_document: 공정_3부_대인공정성(확인본)_2차.docx
+    source_section: 3-3
+  book_ref: 2부 2-2ㆍ3부 3-3
+
+- id: Q-DIST-008
+  layer: question
+  trigger:
+    type: presence
+    patterns: [AI 채용, AI 면접, AI 영상면접, AI 역량검사, AI 서류심사, 인공지능 면접, 인공지능 활용, 알고리즘 평가, 자동화된 결정, 자동 서류 심사, 자동 평가]
+  dimension: 분배
+  question: AI 채용의 학습데이터와 결과에 과거의 성별ㆍ연령ㆍ학교 편향이 반복되지 않는지 검증했습니까?
+  follow_up:
+    - 데이터의 출처ㆍ기간ㆍ집단별 대표성을 확인했습니까?
+    - AI 추천 결과와 인간의 독립적인 검토 결과를 집단별로 비교합니까?
+    - 벤더의 홍보자료와 구분되는 외부 감사 또는 편향 검증 자료를 확보했습니까?
+    - 배포 후에도 집단별 통과율과 오류를 정기적으로 점검합니까?
+  basis: {type: consensus}
+  provenance:
+    method: manual
+    reviewed_by: fairpost-maintainers
+    reviewed_at: "2026-07-26"
+    source_document: 공정_4부_정보공정성(확인본)_2차.docx
+    source_section: 4-2ㆍ4-4
+  book_ref: 1부 1-3ㆍ4부 4-2ㆍ4-4
+
+- id: Q-DIST-009
+  layer: question
+  trigger:
+    type: presence
+    patterns: [AI 채용, AI 면접, AI 영상면접, AI 역량검사, AI 서류심사, 인공지능 면접, 인공지능 활용, 알고리즘 평가, 자동화된 결정, 자동 서류 심사, 자동 평가]
+  dimension: 분배
+  question: 민감정보를 제외한 뒤에도 다른 정보가 대리변수로 같은 차별을 재현하지 않는지 확인했습니까?
+  follow_up:
+    - 우편번호ㆍ졸업연도ㆍ군복무ㆍ재직기간ㆍ학교ㆍ동아리 등 후보를 목록으로 관리합니까?
+    - 대리변수를 포함하거나 제외했을 때 집단별 결과가 어떻게 달라지는지 시험합니까?
+    - 직무와 무관한 대리변수를 수집ㆍ평가에서 제거합니까?
+  basis: {type: consensus}
+  provenance:
+    method: manual
+    reviewed_by: fairpost-maintainers
+    reviewed_at: "2026-07-26"
+    source_document: 공정_4부_정보공정성(확인본)_2차.docx
+    source_section: 4-3
+  book_ref: 4부 4-3
+
+- id: Q-DIST-010
+  layer: question
+  trigger:
+    type: presence
+    patterns: [졸업 연도, 졸업년도, 군필, 군 복무, 병역, 재직 기간, 근속 기간, 우편번호, 거주 지역, 출신학교, 출신 학교, 동아리, 취미]
+  dimension: 분배
+  question: 이 정보가 성별ㆍ연령ㆍ경제적 배경 등을 간접 추론하는 대리변수로 작동할 가능성은 없습니까?
+  follow_up:
+    - 해당 정보가 직무 수행에 필요한 이유를 문서로 설명할 수 있습니까?
+    - 같은 역량을 더 직접적이고 덜 침해적인 방법으로 확인할 수 있습니까?
+    - 자동화 평가에 사용한다면 집단별 불리한 영향을 별도로 시험했습니까?
+  basis: {type: consensus}
+  provenance:
+    method: manual
+    reviewed_by: fairpost-maintainers
+    reviewed_at: "2026-07-26"
+    source_document: 공정_4부_정보공정성(확인본)_2차.docx
+    source_section: 4-3
+  book_ref: 4부 4-3
+
+- id: Q-DIST-011
+  layer: question
+  trigger:
+    type: presence
+    patterns: [AI 채용, AI 면접, AI 영상면접, AI 역량검사, AI 서류심사, 인공지능 면접, 인공지능 활용, 알고리즘 평가, 자동화된 결정, 자동 서류 심사, 자동 평가]
+  dimension: 분배
+  question: AI가 과거 합격자를 복제하는 대신 이 직무의 미래 역량과 다양한 잠재력을 찾도록 설계되어 있습니까?
+  follow_up:
+    - 학습한 고성과자 데이터가 현재 조직ㆍ직무와 실제로 맞습니까?
+    - 전형적이지 않은 경력과 배경의 지원자를 인간이 재검토하는 경로가 있습니까?
+    - 과거 적합성보다 학습 가능성과 미래 스킬을 평가할 기준이 있습니까?
+  basis: {type: consensus}
+  provenance:
+    method: manual
+    reviewed_by: fairpost-maintainers
+    reviewed_at: "2026-07-26"
+    source_document: 공정_4부_정보공정성(확인본)_2차.docx
+    source_section: 4-3
+  book_ref: 1부 1-4ㆍ4부 4-3

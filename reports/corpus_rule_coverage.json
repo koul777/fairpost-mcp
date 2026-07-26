@@ -1,0 +1,97 @@
+{
+  "candidate_summary": {
+    "any_law_rule": 33,
+    "by_dimension": {
+      "분배": 33,
+      "정보": 1
+    },
+    "multiple_law_rules": 1
+  },
+  "contains_organization_identifiers": false,
+  "contains_posting_text": false,
+  "input": {
+    "records": 210,
+    "sectors": {
+      "public": 210
+    },
+    "sha256": "fcff93d7a3ab76b497b36e9fab6fcefc058e259c719c352b2a9e823a04d8590b",
+    "sources": {
+      "cleaneye": 67,
+      "gojobs": 69,
+      "job-alio": 74
+    },
+    "split": "train_only"
+  },
+  "law_rule_posting_hits": {
+    "AGE-001": 0,
+    "AGE-002": 33,
+    "AI-001": 0,
+    "ASSET-001": 0,
+    "BODY-001": 0,
+    "BODY-002": 0,
+    "COST-001": 0,
+    "DISABILITY-001": 0,
+    "FAMILY-001": 1,
+    "HEALTH-001": 0,
+    "IP-001": 0,
+    "LOOK-001": 0,
+    "ORIGIN-001": 0,
+    "PHOTO-001": 0,
+    "PREG-001": 0,
+    "RETURN-001": 0,
+    "SCHOOL-001": 0,
+    "SEX-001": 0,
+    "SEX-002": 0
+  },
+  "matching_version": "match-ca275dca7bba6d1a",
+  "question_posting_hits": {
+    "Q-DIST-001": 67,
+    "Q-DIST-002": 130,
+    "Q-DIST-003": 16,
+    "Q-DIST-004": 3,
+    "Q-DIST-005": 7,
+    "Q-DIST-006": 68,
+    "Q-DIST-007": 5,
+    "Q-DIST-008": 1,
+    "Q-DIST-009": 1,
+    "Q-DIST-010": 62,
+    "Q-DIST-011": 1,
+    "Q-INFO-001": 197,
+    "Q-INFO-002": 166,
+    "Q-INFO-003": 90,
+    "Q-INFO-004": 196,
+    "Q-INFO-005": 209,
+    "Q-INFO-006": 64,
+    "Q-INFO-007": 209,
+    "Q-INFO-008": 209,
+    "Q-INFO-009": 1,
+    "Q-INTER-001": 0,
+    "Q-INTER-002": 0,
+    "Q-INTER-003": 1,
+    "Q-INTER-004": 1,
+    "Q-PROC-001": 95,
+    "Q-PROC-002": 194,
+    "Q-PROC-003": 69,
+    "Q-PROC-004": 1,
+    "Q-PROC-005": 0,
+    "Q-PROC-006": 145,
+    "Q-PROC-007": 13,
+    "Q-PROC-008": 84,
+    "Q-PROC-009": 209,
+    "Q-PROC-010": 1
+  },
+  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
+  "slot_found_posting_hits": {
+    "ai_disclosure": 1,
+    "appeal_channel": 13,
+    "compensation": 146,
+    "contact_point": 120,
+    "document_return": 14,
+    "evaluation_criteria": 16,
+    "preference_items": 143,
+    "qualification_rationale": 80,
+    "result_notice": 44,
+    "schedule": 141,
+    "selection_stages": 115
+  }
+}

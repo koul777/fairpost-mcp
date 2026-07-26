@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "fairpost": {
+      "type": "http",
+      "url": "https://fairpost-mcp.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${FAIRPOST_MCP_TOKEN}"
+      }
+    },
+    "fairpost-local": {
+      "type": "http",
+      "url": "http://127.0.0.1:8000/mcp"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+.env
+.env.*
+!.env.example
+dist/
+build/
+*.egg-info/
+
+# Collected postings are local research inputs and are never redistributed.
+.corpus*/
+
+# Organization-specific answers and rules stay local.
+answers.json
+data/local_rules.yaml
+
+# Local browser and test artifacts.
+playwright-report/
+test-results/
+screenshots/
+tmp/
+*.log
+
+.vercel
+.env*

@@ -1,0 +1,43 @@
+{
+  "built_at": "2026-07-26T17:55:51+09:00",
+  "package": "fairpost",
+  "version": "0.3.0",
+  "wheel": {
+    "path": "dist/fairpost-0.3.0-py3-none-any.whl",
+    "bytes": 77627,
+    "sha256": "e6eff670bbb22774d1c9dccad0f42542e83f281855731005de90ef29f6843397"
+  },
+  "sdist": {
+    "path": "dist/fairpost-0.3.0.tar.gz",
+    "bytes": 160105,
+    "sha256": "4e4386fecf102b993c4b2b4be693c70c82d0b8122717a48c6af856788f156e3b"
+  },
+  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
+  "matching_version": "match-ca275dca7bba6d1a",
+  "verification": {
+    "tests_passed": 122,
+    "data_rules": 53,
+    "question_cards": 34,
+    "statute_snapshots": 6,
+    "web_parity_training_records": 2310,
+    "web_parity_mismatches": 0,
+    "prd_corpus_total": 600,
+    "prd_corpus_train": 420,
+    "prd_corpus_holdout": 180,
+    "prd_corpus_hash_overlap": 0,
+    "human_labeling_status": "awaiting_human_annotations",
+    "human_labeling_holdout_records": 180,
+    "distribution_audit_passed": true,
+    "sdist_members": 120,
+    "wheel_members": 35,
+    "claude_project_http_registered": true,
+    "official_mcp_inspector_call_passed": true,
+    "vercel_asgi_protocol_test_passed": true,
+    "vercel_production_deployed": true,
+    "vercel_production_url": "https://fairpost-mcp.vercel.app",
+    "vercel_remote_tool_call_passed": true,
+    "work24_live_recheck": "api_business_error"
+  },
+  "release_tag": null,
+  "release_tag_note": "The working directory is not a Git repository, so release-tag evidence is not available."
+}

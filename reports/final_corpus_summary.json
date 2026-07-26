@@ -1,0 +1,34 @@
+{
+  "combined_from_fixed_partitions": true,
+  "deidentification": [
+    "email",
+    "phone",
+    "labeled_contact_name",
+    "organization"
+  ],
+  "employment_types": {
+    "regular": 2081,
+    "temporary": 1219
+  },
+  "holdout": 990,
+  "occupations": {
+    "field": 2173,
+    "office": 915,
+    "research": 45,
+    "tech": 167
+  },
+  "raw_postings_committed": false,
+  "sectors": {
+    "private": 3000,
+    "public": 300
+  },
+  "sources": {
+    "cleaneye": 100,
+    "gojobs": 100,
+    "jincheon-jobs": 3000,
+    "job-alio": 100
+  },
+  "total": 3300,
+  "train": 2310,
+  "train_holdout_hash_overlap": 0
+}

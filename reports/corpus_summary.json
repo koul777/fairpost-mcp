@@ -1,0 +1,32 @@
+{
+  "deidentification": [
+    "email",
+    "phone",
+    "labeled_contact_name",
+    "organization"
+  ],
+  "employment_types": {
+    "regular": 46,
+    "temporary": 254
+  },
+  "holdout": 90,
+  "occupations": {
+    "field": 24,
+    "office": 241,
+    "research": 12,
+    "tech": 23
+  },
+  "raw_postings_committed": false,
+  "reclassified_preserving_fixed_partitions": true,
+  "sectors": {
+    "public": 300
+  },
+  "sources": {
+    "cleaneye": 100,
+    "gojobs": 100,
+    "job-alio": 100
+  },
+  "total": 300,
+  "train": 210,
+  "train_holdout_hash_overlap": 0
+}

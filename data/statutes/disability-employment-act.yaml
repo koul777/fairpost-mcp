@@ -1,0 +1,25 @@
+id: disability-employment-act
+name: 장애인고용촉진 및 직업재활법
+articles:
+  제5조:
+    title: 사업주의 책임
+    text: '제5조(사업주의 책임)
+
+
+      ① 사업주는 장애인의 고용에 관한 정부의 시책에 협조하여야 하고, 장애인이 가진 능력을 정당하게 평가하여 고용의 기회를 제공함과 동시에 적정한 고용관리를 할 의무를 가진다.
+
+
+      ② 사업주는 근로자가 장애인이라는 이유로 채용ㆍ승진ㆍ전보 및 교육훈련 등 인사관리상의 차별대우를 하여서는 아니 된다.
+
+
+      ③ 삭제 <2017.11.28>
+
+
+      ④ 삭제 <2017.11.28>'
+    effective_date: '2025-11-11'
+    hash: sha256:cb59b527f5b253d7f8684b53f90cd57f0059872599d83609659be5458b11e629
+snapshot_date: '2026-07-26'
+source: 국가법령정보센터
+source_url: https://www.law.go.kr/법령/장애인고용촉진및직업재활법
+retrieved_via: national-law-open-api
+official_id: '001763'

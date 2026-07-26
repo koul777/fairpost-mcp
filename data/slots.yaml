@@ -1,0 +1,136 @@
+selection_stages:
+  label: 전형 단계
+  accept_patterns: [전형 절차, 전형 단계, 서류전형, 면접전형, 필기전형, 채용 절차]
+  search_sections: [전형절차, 일정]
+  components:
+    - id: document_stage
+      patterns: [서류전형, 서류 심사]
+    - id: interview_stage
+      patterns: [면접전형, 면접 심사]
+    - id: job_mapping
+      patterns: [직무능력, 직무역량, 지식ㆍ기술ㆍ태도, 직무기술서]
+evaluation_criteria:
+  label: 평가 기준
+  accept_patterns: [평가 기준, 심사 기준, 평정 기준, 평가 항목, 심사 항목, 평가 요소, 배점]
+  search_sections: [전형절차, 자격요건, 우대사항]
+  components:
+    - id: criteria_named
+      patterns: [평가 기준, 평가 항목, 평가 요소, 심사 기준]
+    - id: weighting_named
+      patterns: [배점, 비중, 가중치]
+    - id: job_linkage
+      patterns: [직무능력, 직무역량, 지식ㆍ기술ㆍ태도, 직무기술서]
+schedule:
+  label: 전형 일정
+  accept_patterns: [전형 일정, 채용 일정, 접수 기간, 면접 일시, 발표 예정, 일정은]
+  search_sections: [일정, 전형절차]
+  components:
+    - id: application_date
+      patterns: [접수 기간, 접수 마감, 지원 기간]
+    - id: assessment_date
+      patterns: [면접 일시, 면접 일정, 필기 일정]
+    - id: change_notice
+      patterns: [일정 변경, 변경 시, 변경사항, 별도 공지]
+result_notice:
+  label: 결과 안내
+  accept_patterns: [결과 통보, 결과 안내, 개별 통보, 홈페이지 공지, 발표 예정, 합격자 발표, 최종 발표, 합격 여부, 불합격 통보]
+  search_sections: [일정, 전형절차, 유의사항]
+  components:
+    - id: notice_channel
+      patterns: [이메일, 문자, 홈페이지, 개별 통보]
+    - id: notice_time
+      patterns: [예정, 이내, 발표일, 결과 발표]
+    - id: notice_audience
+      patterns: [합격자, 불합격자, 지원자 전원, 채용 여부]
+appeal_channel:
+  label: 이의제기 경로
+  accept_patterns: [이의신청, 이의제기, 재심사, 재심의, 재검토, 불복, 결과 문의, 이의 접수, 소명 기회, 정정 요청, 인간 검토]
+  search_sections: [전형절차, 유의사항, 기타]
+  components:
+    - id: channel_named
+      patterns: [담당, 부서, 팀, 이메일, 전화, 홈페이지, 온라인, 신청서]
+    - id: has_deadline
+      patterns: [이내, 까지, 기한]
+    - id: human_review
+      patterns: [인간 검토, 사람의 검토, 담당자 재검토, 인적 개입, 재심사, 재심의]
+    - id: feedback_collected
+      patterns: [의견 수렴, 만족도 조사, 채용 만족도]
+contact_point:
+  label: 문의 창구
+  accept_patterns:
+    - 문의처
+    - 문의 전화
+    - 채용 문의
+    - 담당 부서
+    - 담당자
+    - 연락처
+    - 전화번호
+    - 이메일
+    - 전자우편
+    - "re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}"
+    - "re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}"
+  search_sections: [문의처, 유의사항, 기타]
+  components:
+    - id: department
+      patterns: [담당 부서, 인사팀, 채용팀, 인사부]
+    - id: phone
+      patterns: ["re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}"]
+    - id: email
+      patterns: ["re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}"]
+    - id: hours
+      patterns: [운영시간, 문의 가능 시간, 평일, 업무시간]
+document_return:
+  label: 채용서류 반환ㆍ파기 안내
+  accept_patterns: [채용서류 반환, 서류 반환, 반환 청구, 채용서류 파기, 서류 파기]
+  search_sections: [제출서류, 유의사항, 기타]
+  components:
+    - id: return_period
+      patterns: [반환 기간, 반환 청구, 이내, 까지]
+    - id: disposal_notice
+      patterns: [파기, 폐기]
+ai_disclosure:
+  label: AI 활용 안내
+  accept_patterns: [AI 채용, AI 면접, AI 영상면접, AI 역량검사, AI 서류심사, 인공지능 활용, 인공지능 면접, 알고리즘 평가, 자동화된 결정, 자동 서류 심사, 자동 평가]
+  search_sections: [전형절차, 유의사항]
+  components:
+    - id: usage_scope
+      patterns: [활용 범위, 평가에 활용, 참고자료, 서류 심사, 면접, 자동 평가]
+    - id: data_scope
+      patterns: [지원서, 자기소개서, 영상, 표정, 시선, 음성, 게임, 응답 데이터]
+    - id: decision_role
+      patterns: [참고, 필터, 자동 탈락, 최종 결정, 합격 결정]
+    - id: human_review
+      patterns: [인간 검토, 사람의 검토, 담당자 검토, 인적 개입, 재검토]
+    - id: explanation_channel
+      patterns: [설명 요구, 이의신청, 문의처, 담당자]
+compensation:
+  label: 보수 조건
+  accept_patterns: [급여, 보수, 연봉, 월급, 시급, 임금, 보수 수준]
+  search_sections: [근무조건, 개요]
+  components:
+    - id: amount_or_range
+      patterns: ["re:\\d[\\d,]*(?:만)?\\s*원", 협의, 내규에 따름]
+    - id: payment_period
+      patterns: [연봉, 월급, 시급, 일급]
+preference_items:
+  label: 우대사항 적용 방식
+  accept_patterns: [우대사항, 가점, 우대 조건, 우대 적용, 가산점, 참고사항]
+  search_sections: [우대사항, 전형절차]
+  components:
+    - id: item_named
+      patterns: [우대사항, 우대 조건, 대상자]
+    - id: application_method
+      patterns: [가점, 가산점, 동점자, 참고]
+qualification_rationale:
+  label: 자격요건의 직무 관련성
+  accept_patterns: [직무 수행에 필요, 업무 수행에 필요, 직무 관련, 업무 관련, 필수 역량, 필요 역량, 직무기술서, 직무수행 내용, 필요 지식, 필요 기술, 직무수행 태도]
+  search_sections: [자격요건, 개요]
+  components:
+    - id: requirement_named
+      patterns: [자격요건, 필수요건, 지원자격]
+    - id: rationale_named
+      patterns: [직무 수행, 업무 수행, 직무 관련, 업무 관련]
+    - id: job_description_named
+      patterns: [직무기술서, 직무 설명자료, 직무분석]
+    - id: target_level_named
+      patterns: [요구 수준, 목표 수준, 숙련 수준, 능력 수준]

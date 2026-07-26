@@ -1,0 +1,23 @@
+{
+  "checked_at": "2026-07-26T16:47:58+09:00",
+  "endpoint": "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do",
+  "request": {
+    "callTp": "L",
+    "returnType": "XML",
+    "startPage": 1,
+    "display": 1,
+    "auth_key_included": true,
+    "auth_key_recorded": false,
+    "env_value_quoted": true,
+    "raw_key_length": 38,
+    "effective_key_length": 36,
+    "outer_quotes_removed": true
+  },
+  "http_status": 200,
+  "content_type": "application/xml;charset=UTF-8",
+  "response_root": "GO24",
+  "result": "api_business_error",
+  "error": "개인회원은 사용할 수 없는 OPEN-API입니다.",
+  "interpretation": "요청 형식과 XML 파싱 문제가 아니라 고용24가 현재 키를 개인회원 권한으로 식별한 결과입니다.",
+  "prd_impact": "PRD 7.1의 민간 Work24 300건 코퍼스는 이 계정 권한이 변경되기 전까지 공식 API에서 재수집할 수 없습니다."
+}

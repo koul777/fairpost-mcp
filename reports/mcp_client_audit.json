@@ -1,0 +1,58 @@
+{
+  "audited_at": "2026-07-26T17:55:00+09:00",
+  "contains_posting_text": false,
+  "endpoint": "https://fairpost-mcp.vercel.app/api/mcp",
+  "local_endpoint": "http://127.0.0.1:8000/mcp",
+  "project_config": {
+    "path": ".mcp.json",
+    "registered": true,
+    "transport": "http",
+    "default_server": "fairpost",
+    "default_is_remote": true,
+    "authorization_uses_environment_reference": true,
+    "local_alias": "fairpost-local"
+  },
+  "claude_code": {
+    "authenticated": null,
+    "invocation_passed": false,
+    "project_registration_passed": true,
+    "status": "servers-discovered-pending-user-approval",
+    "version": "2.1.219"
+  },
+  "codex": {
+    "global_registration_passed": true,
+    "name": "fairpost",
+    "transport": "streamable_http",
+    "endpoint": "https://fairpost-mcp.vercel.app/api/mcp",
+    "bearer_token_env_var": "FAIRPOST_MCP_TOKEN",
+    "enabled": true,
+    "remote_protocol_verification_passed": true,
+    "tools_verified": 3,
+    "reload_required_for_current_session": true
+  },
+  "official_inspector": {
+    "endpoint": "http://127.0.0.1:8000/mcp",
+    "finding": {
+      "article": "제7조",
+      "id": "SEX-001",
+      "law": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률"
+    },
+    "is_error": false,
+    "tool_call_exit_code": 0,
+    "tool_called": "check_job_posting",
+    "transport": "http",
+    "version": "1.0.0"
+  },
+  "sdk_protocol": {
+    "local_protocol_passed": true,
+    "vercel_protocol_audit": "reports/vercel_deployment_audit.json",
+    "all_tools_called": true,
+    "tools": [
+      "check_job_posting",
+      "get_saved_answers",
+      "save_answer"
+    ]
+  },
+  "passed": true,
+  "remaining_external_action": "Claude Code에서 프로젝트 MCP 승인 후 실제 Claude 도구 호출"
+}

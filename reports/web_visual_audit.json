@@ -1,0 +1,63 @@
+{
+  "audit_date": "2026-07-26",
+  "browser": {
+    "name": "Google Chrome",
+    "version": "150.0.7871.184",
+    "mode": "Playwright headless with system Chrome"
+  },
+  "scenarios": [
+    {
+      "name": "desktop-result",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "empty_state_display": "none",
+      "result_visible": true,
+      "finding_count": 2,
+      "question_count": 10,
+      "out_of_viewport_controls": 0,
+      "screenshot": "tmp/visual-qa/desktop-final.png"
+    },
+    {
+      "name": "mobile-result",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "empty_state_display": "none",
+      "result_visible": true,
+      "finding_count": 2,
+      "question_count": 10,
+      "out_of_viewport_controls": 0,
+      "rightmost_toolbar_control": 362,
+      "screenshot": "tmp/visual-qa/mobile-final.png"
+    },
+    {
+      "name": "standalone-file-result",
+      "launch_url": "file:///C:/workspace/fairmcp/web/index.html",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "document_scroll_width": 1280,
+      "horizontal_overflow": false,
+      "empty_state_display": "none",
+      "result_visible": true,
+      "finding_count": 2,
+      "question_count": 10,
+      "console_errors": 0,
+      "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
+      "screenshot": "tmp/visual-qa/standalone-final.png"
+    }
+  ],
+  "visual_review": {
+    "text_clipping": false,
+    "control_overlap": false,
+    "result_empty_state_overlap": false
+  }
+}

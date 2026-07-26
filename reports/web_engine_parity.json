@@ -1,0 +1,15 @@
+{
+  "contains_posting_text": false,
+  "input": {
+    "path": "C:/workspace/fairmcp/.corpus-final/train/records.jsonl",
+    "records": 2310,
+    "sha256": "095c072d8d477a74109c7423d6358edd0dc81fc662feec3a7af663a4338c3f74",
+    "split": "train_only"
+  },
+  "matched_records": 2310,
+  "mismatch_ids": [],
+  "mismatched_records": 0,
+  "passed": true,
+  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
+  "web_ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d"
+}

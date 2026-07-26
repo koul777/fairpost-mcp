@@ -1,0 +1,29 @@
+{
+  "deidentification": [
+    "email",
+    "phone",
+    "labeled_contact_name",
+    "organization"
+  ],
+  "employment_types": {
+    "temporary": 300
+  },
+  "holdout": 90,
+  "occupations": {
+    "field": 13,
+    "office": 269,
+    "research": 7,
+    "tech": 11
+  },
+  "raw_postings_committed": false,
+  "reclassified_preserving_fixed_partitions": true,
+  "sectors": {
+    "public": 300
+  },
+  "sources": {
+    "youth-job-site": 300
+  },
+  "total": 300,
+  "train": 210,
+  "train_holdout_hash_overlap": 0
+}

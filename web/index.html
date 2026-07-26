@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'none'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="color-scheme" content="light" />
+    <title>fairpost | 채용공고문 공정성 체크</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">fp</span>
+        <div>
+          <h1>fairpost</h1>
+          <p>채용공고문 공정성 체크</p>
+        </div>
+      </div>
+      <div class="privacy" role="status">
+        <span class="privacy-dot" aria-hidden="true"></span>
+        입력 내용은 이 브라우저 밖으로 전송되지 않습니다
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="editor-pane" aria-labelledby="editor-title">
+        <div class="pane-header">
+          <div>
+            <p class="eyebrow">공고문 원문</p>
+            <h2 id="editor-title">점검할 내용</h2>
+          </div>
+          <div class="editor-actions">
+            <button id="sample-button" class="button button-quiet" type="button">
+              예시 입력
+            </button>
+            <button id="clear-button" class="icon-button" type="button" title="입력 지우기" aria-label="입력 지우기">
+              ×
+            </button>
+          </div>
+        </div>
+        <textarea
+          id="posting-input"
+          spellcheck="false"
+          placeholder="채용공고문 원문을 여기에 붙여 넣으세요."
+          aria-label="채용공고문 원문"
+        ></textarea>
+        <div class="editor-footer">
+          <span id="char-count">0자</span>
+          <button id="check-button" class="button button-primary" type="button">
+            공고문 점검
+          </button>
+        </div>
+      </section>
+
+      <section class="results-pane" aria-labelledby="results-title">
+        <div class="results-toolbar">
+          <div>
+            <p class="eyebrow">점검 결과</p>
+            <h2 id="results-title">검토 의견서</h2>
+          </div>
+          <button id="copy-button" class="button button-secondary" type="button" disabled>
+            <span aria-hidden="true">⧉</span>
+            의견서 복사
+          </button>
+        </div>
+
+        <div id="empty-state" class="empty-state">
+          <div class="empty-symbol" aria-hidden="true">⌁</div>
+          <p>공고문을 입력하면 세 가지 검토 블록이 여기에 표시됩니다.</p>
+        </div>
+
+        <div id="result-content" class="result-content" hidden>
+          <div class="summary-strip" aria-label="결과 개수">
+            <div><strong id="finding-count">0</strong><span>확인된 사항</span></div>
+            <div><strong id="missing-count">0</strong><span>확인되지 않은 항목</span></div>
+            <div><strong id="question-count">0</strong><span>함께 볼 질문</span></div>
+          </div>
+
+          <section class="result-block" aria-labelledby="findings-heading">
+            <div class="block-heading">
+              <span class="block-index">01</span>
+              <div>
+                <h3 id="findings-heading">확인된 사항</h3>
+                <p>공고문에서 법령 조항과 함께 살펴볼 표현</p>
+              </div>
+            </div>
+            <div id="findings-list" class="item-list"></div>
+          </section>
+
+          <section class="result-block" aria-labelledby="slots-heading">
+            <div class="block-heading">
+              <span class="block-index">02</span>
+              <div>
+                <h3 id="slots-heading">확인되지 않은 항목</h3>
+                <p>공고문에서 관련 안내 표현을 발견하지 못한 항목</p>
+              </div>
+            </div>
+            <div id="slots-list" class="slot-grid"></div>
+          </section>
+
+          <section class="result-block" aria-labelledby="questions-heading">
+            <div class="block-heading">
+              <span class="block-index">03</span>
+              <div>
+                <h3 id="questions-heading">함께 생각해 볼 질문</h3>
+                <p>조직이 채용 절차를 구체화할 때 검토할 내용</p>
+              </div>
+            </div>
+            <div id="questions-list" class="item-list"></div>
+          </section>
+
+          <aside class="disclaimer" id="disclaimer"></aside>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <span>규칙 사전 <code id="ruleset-version">불러오는 중</code></span>
+      <span>로컬 규칙 엔진 · 외부 API 미사용</span>
+    </footer>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="data.js"></script>
+    <script src="engine.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

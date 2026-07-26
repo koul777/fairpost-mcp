@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fairpost"
+version = "0.3.0"
+description = "Deterministic, offline job-posting fairness checklist"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+  "PyYAML>=6.0,<7",
+  "mcp>=1.0,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4,<9"]
+
+[project.scripts]
+fairpost = "cli.main:main"
+fairpost-mcp = "mcp_server.server:main"
+fairpost-mcp-stdio = "mcp_server.server:main_stdio"
+
+[tool.setuptools]
+packages = ["core", "cli", "mcp_server"]
+
+[tool.setuptools.data-files]
+"share/fairpost/data" = [
+  "data/slots.yaml",
+  "data/local_rules.example.yaml",
+]
+"share/fairpost/data/rules" = [
+  "data/rules/law.yaml",
+  "data/rules/questions.yaml",
+  "data/rules/rejected.yaml",
+]
+"share/fairpost/data/statutes" = [
+  "data/statutes/age-discrimination-act.yaml",
+  "data/statutes/disability-employment-act.yaml",
+  "data/statutes/equal-employment-act.yaml",
+  "data/statutes/national-human-rights-act.yaml",
+  "data/statutes/personal-information-act.yaml",
+  "data/statutes/recruitment-procedure-act.yaml",
+]
+"share/fairpost/web" = [
+  "web/app.js",
+  "web/data.js",
+  "web/engine.js",
+  "web/index.html",
+  "web/styles.css",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

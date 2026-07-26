@@ -1,0 +1,47 @@
+{
+  "verified_at": "2026-07-26T18:43:46+09:00",
+  "production_url": "https://fairpost-mcp.vercel.app",
+  "mcp_endpoint": "https://fairpost-mcp.vercel.app/api/mcp",
+  "health_endpoint": "https://fairpost-mcp.vercel.app/api/health",
+  "deployment_id": null,
+  "deployment_target": "production",
+  "health": {
+    "status": "ok",
+    "transport": "streamable-http",
+    "stateless": true,
+    "authentication": "bearer",
+    "answer_store": "unavailable",
+    "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
+    "matching_version": "match-ca275dca7bba6d1a"
+  },
+  "unauthorized_status": 401,
+  "server_name": "fairpost",
+  "tools": [
+    "check_job_posting",
+    "get_saved_answers",
+    "save_answer"
+  ],
+  "test_case": {
+    "id": "restricted-sex-eligibility",
+    "raw_posting_recorded": false,
+    "finding_count": 1,
+    "finding_id": "SEX-001",
+    "basis_type": "statute",
+    "statute": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률",
+    "article": "제7조",
+    "is_error": false
+  },
+  "save_answer_is_error": true,
+  "checks": {
+    "health_ok": true,
+    "bearer_required": true,
+    "expected_tools": true,
+    "tool_call_succeeded": true,
+    "sex_rule_detected": true,
+    "article_7_returned": true,
+    "equal_employment_law_returned": true,
+    "save_behavior_matches_store": true
+  },
+  "passed": true,
+  "secret_recorded": false
+}

@@ -1,0 +1,39 @@
+{
+  "prepared_at": "2026-07-26T17:54:38+09:00",
+  "status": "awaiting_human_annotations",
+  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
+  "matching_version": "match-ca275dca7bba6d1a",
+  "holdout_records": 180,
+  "holdout_source": {
+    "records_path": ".corpus-prd/holdout/records.jsonl",
+    "records_bytes": 499464,
+    "records_sha256": "2bdf495875f726b85af75f72be2b8483242f938be71fb28e03aded822d9b537a",
+    "manifest_path": ".corpus-prd/holdout/manifest.json",
+    "manifest_bytes": 19988,
+    "manifest_sha256": "81b9451c09db8398eedb809fb96e517db080ee2bc1af16ad89e94fe4d85d029a"
+  },
+  "labeler": {
+    "path": ".corpus-prd/holdout/labeler.html",
+    "bytes": 651491,
+    "sha256": "391b5b06bc3ea0d65444dc0fb1e4a85a5193f1d045520097ea0600bc297799ec",
+    "network_requests": "blocked"
+  },
+  "expected_annotation_path": ".corpus-prd/holdout/annotations.jsonl",
+  "evaluation_command": "python tools/evaluate.py .corpus-prd/holdout/annotations.jsonl --train-manifest .corpus-prd/train/manifest.json --holdout-manifest .corpus-prd/holdout/manifest.json --holdout-records .corpus-prd/holdout/records.jsonl --enforce-targets --output reports/evaluation.json",
+  "evaluation_gate": {
+    "minimum_holdout_by_sector": {
+      "public": 90,
+      "private": 90
+    },
+    "expression_precision": 0.9,
+    "absence_recall": 0.85,
+    "absence_precision": 0.8,
+    "undefined_metric_passes": false,
+    "measurement_units": {
+      "expression_detection": "posting_rule_pair",
+      "absence_detection": "posting_slot_pair",
+      "dictionary_coverage": "human_labeled_expression_occurrence"
+    }
+  },
+  "release_claim": "G1/G2 성능 목표는 사람이 180건 전체를 라벨링하고 평가 명령이 통과하기 전까지 미측정입니다."
+}

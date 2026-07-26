@@ -1,0 +1,35 @@
+include README.md
+include CONTRIBUTING.md
+include LICENSE
+include LICENSE-DATA
+include pyproject.toml
+include .mcp.json
+include .vercelignore
+include vercel.json
+include index.html
+recursive-include api *.py
+recursive-include core *.py
+recursive-include cli *.py
+recursive-include mcp_server *.py
+recursive-include data *.yaml
+recursive-include web *.html *.css *.js
+recursive-include tools *.py *.cjs
+recursive-include tests *.py *.cjs
+recursive-include docs *.md
+recursive-include reports *.json
+recursive-include .github *.yml *.yaml
+global-exclude *.py[cod]
+global-exclude __pycache__
+global-exclude .env
+global-exclude .env.*
+global-exclude answers.json
+global-exclude annotations.jsonl
+global-exclude labeler.html
+global-exclude llm_tasks.jsonl
+global-exclude build_artifact.json
+global-exclude distribution_audit.json
+prune .corpus
+prune .corpus-*
+prune tmp
+prune build
+prune dist

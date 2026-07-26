@@ -1,0 +1,25 @@
+- candidate: 성실한 분
+  corpus_hits: 0
+  corpus_split: public
+  decision: rejected
+  reason: 직무 무관 인성 서술이나 특정 집단 배제와의 연결 근거 부족
+  reviewed_by: fairpost-maintainers
+  reviewed_at: "2026-07-26"
+
+- candidate: 책임감 있는 분
+  corpus_hits: 0
+  corpus_split: public
+  decision: deferred
+  reason: 단독으로 법률 관련 표현이라 보기 어렵고 관찰 가능한 업무 행동으로 구체화할 검토 질문이 적합
+  converted_to: Q-INTER-001
+  reviewed_by: fairpost-maintainers
+  reviewed_at: "2026-07-26"
+
+- candidate: 가족 같은 분위기
+  corpus_hits: 0
+  corpus_split: public
+  decision: deferred
+  reason: 맥락에 따라 의미가 달라 법률층의 결정 규칙으로 사용하기 어려움
+  converted_to: Q-INTER-002
+  reviewed_by: fairpost-maintainers
+  reviewed_at: "2026-07-26"

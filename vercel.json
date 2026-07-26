@@ -1,0 +1,47 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 30,
+      "excludeFiles": "{.corpus*/**,build/**,dist/**,tmp/**,tests/**,tools/**,reports/**,docs/**,.env,.env.*,*.egg-info/**}"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/mcp",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/claude-mcp",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/health",
+      "destination": "/api"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    }
+  ]
+}

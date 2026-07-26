@@ -1,0 +1,95 @@
+{
+  "candidate_summary": {
+    "any_law_rule": 161,
+    "by_dimension": {
+      "분배": 160,
+      "정보": 1
+    },
+    "multiple_law_rules": 0
+  },
+  "contains_organization_identifiers": false,
+  "contains_posting_text": false,
+  "input": {
+    "records": 210,
+    "sectors": {
+      "public": 210
+    },
+    "sha256": "2b6ad55d6b8bdf7d59013e9907077e83d1225a6d4fc7581632071ed633cba6e6",
+    "sources": {
+      "youth-job-site": 210
+    },
+    "split": "train_only"
+  },
+  "law_rule_posting_hits": {
+    "AGE-001": 0,
+    "AGE-002": 160,
+    "AI-001": 0,
+    "ASSET-001": 0,
+    "BODY-001": 0,
+    "BODY-002": 0,
+    "COST-001": 0,
+    "DISABILITY-001": 0,
+    "FAMILY-001": 1,
+    "HEALTH-001": 0,
+    "IP-001": 0,
+    "LOOK-001": 0,
+    "ORIGIN-001": 0,
+    "PHOTO-001": 0,
+    "PREG-001": 0,
+    "RETURN-001": 0,
+    "SCHOOL-001": 0,
+    "SEX-001": 0,
+    "SEX-002": 0
+  },
+  "matching_version": "match-ca275dca7bba6d1a",
+  "question_posting_hits": {
+    "Q-DIST-001": 94,
+    "Q-DIST-002": 127,
+    "Q-DIST-003": 41,
+    "Q-DIST-004": 1,
+    "Q-DIST-005": 16,
+    "Q-DIST-006": 2,
+    "Q-DIST-007": 5,
+    "Q-DIST-008": 7,
+    "Q-DIST-009": 7,
+    "Q-DIST-010": 180,
+    "Q-DIST-011": 7,
+    "Q-INFO-001": 208,
+    "Q-INFO-002": 97,
+    "Q-INFO-003": 177,
+    "Q-INFO-004": 210,
+    "Q-INFO-005": 203,
+    "Q-INFO-006": 204,
+    "Q-INFO-007": 210,
+    "Q-INFO-008": 210,
+    "Q-INFO-009": 7,
+    "Q-INTER-001": 0,
+    "Q-INTER-002": 0,
+    "Q-INTER-003": 7,
+    "Q-INTER-004": 1,
+    "Q-PROC-001": 13,
+    "Q-PROC-002": 176,
+    "Q-PROC-003": 154,
+    "Q-PROC-004": 7,
+    "Q-PROC-005": 0,
+    "Q-PROC-006": 183,
+    "Q-PROC-007": 55,
+    "Q-PROC-008": 169,
+    "Q-PROC-009": 210,
+    "Q-PROC-010": 7
+  },
+  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
+  "slot_found_posting_hits": {
+    "ai_disclosure": 7,
+    "appeal_channel": 2,
+    "compensation": 6,
+    "contact_point": 33,
+    "document_return": 0,
+    "evaluation_criteria": 34,
+    "preference_items": 116,
+    "qualification_rationale": 83,
+    "result_notice": 113,
+    "schedule": 56,
+    "selection_stages": 197
+  }
+}

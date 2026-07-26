@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>FairPost MCP</title>
+  <style>
+    :root {
+      color: #17202a;
+      background: #f5f7f8;
+      font-family: Arial, "Noto Sans KR", sans-serif;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+    }
+    main {
+      width: min(680px, calc(100% - 40px));
+      padding: 40px 0;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 32px;
+      letter-spacing: 0;
+    }
+    p {
+      margin: 8px 0;
+      line-height: 1.65;
+      color: #46515c;
+    }
+    dl {
+      margin: 28px 0;
+      border-top: 1px solid #cfd6dc;
+    }
+    div {
+      display: grid;
+      grid-template-columns: 130px minmax(0, 1fr);
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid #cfd6dc;
+    }
+    dt {
+      font-weight: 700;
+    }
+    dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+    code {
+      font-family: Consolas, monospace;
+      font-size: 14px;
+    }
+    a {
+      color: #0b5cad;
+    }
+    .status {
+      color: #137333;
+      font-weight: 700;
+    }
+    @media (max-width: 520px) {
+      div {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>FairPost MCP</h1>
+    <p class="status">운영 중</p>
+    <p>채용공고문을 법령 근거와 공정성 검토 질문으로 점검하는 원격 MCP 서버입니다.</p>
+    <dl>
+      <div>
+        <dt>전체 도구 MCP</dt>
+        <dd><code>https://fairpost-mcp.vercel.app/api/mcp</code></dd>
+      </div>
+      <div>
+        <dt>Claude 읽기 전용 MCP</dt>
+        <dd><code>https://fairpost-mcp.vercel.app/api/claude-mcp</code></dd>
+      </div>
+      <div>
+        <dt>전송 방식</dt>
+        <dd>Stateless Streamable HTTP</dd>
+      </div>
+      <div>
+        <dt>인증</dt>
+        <dd>전체 도구는 Bearer 필수 · Claude 읽기 전용은 무인증</dd>
+      </div>
+      <div>
+        <dt>상태 확인</dt>
+        <dd><a href="/api/health">/api/health</a></dd>
+      </div>
+    </dl>
+    <p>공고문은 Vercel 함수에서 처리되며 FairPost가 원문을 영속 저장하지 않습니다.</p>
+  </main>
+</body>
+</html>

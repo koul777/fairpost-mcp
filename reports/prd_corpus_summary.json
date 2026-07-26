@@ -1,0 +1,41 @@
+{
+  "canonical_prd_corpus": true,
+  "derived_from_fixed_partitions": true,
+  "employment_types": {
+    "regular": 250,
+    "temporary": 350
+  },
+  "extended_corpus_preserved": true,
+  "holdout": 180,
+  "occupations": {
+    "field": 239,
+    "office": 306,
+    "research": 17,
+    "tech": 38
+  },
+  "private_selected": {
+    "holdout": 90,
+    "train": 210
+  },
+  "raw_postings_committed": false,
+  "sectors": {
+    "private": 300,
+    "public": 300
+  },
+  "selection_algorithm": "proportional occupation/employment strata with SHA-256(id) ordering",
+  "selection_fields": [
+    "id",
+    "occupation",
+    "employment_type"
+  ],
+  "selection_uses_posting_text": false,
+  "sources": {
+    "cleaneye": 100,
+    "gojobs": 100,
+    "jincheon-jobs": 300,
+    "job-alio": 100
+  },
+  "total": 600,
+  "train": 420,
+  "train_holdout_hash_overlap": 0
+}
