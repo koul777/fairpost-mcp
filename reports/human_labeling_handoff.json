@@ -1,8 +1,8 @@
 {
-  "prepared_at": "2026-07-26T17:54:38+09:00",
+  "prepared_at": "2026-07-28T05:45:56+09:00",
   "status": "awaiting_human_annotations",
-  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
-  "matching_version": "match-ca275dca7bba6d1a",
+  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-1ce12af92151",
+  "matching_version": "match-f2d0d37c3a16ecb0",
   "holdout_records": 180,
   "holdout_source": {
     "records_path": ".corpus-prd/holdout/records.jsonl",
@@ -15,7 +15,7 @@
   "labeler": {
     "path": ".corpus-prd/holdout/labeler.html",
     "bytes": 651491,
-    "sha256": "391b5b06bc3ea0d65444dc0fb1e4a85a5193f1d045520097ea0600bc297799ec",
+    "sha256": "74b3956cddb19f4ea48de4998f69f5efed86af5bc32add728f9115d96e2a33a5",
     "network_requests": "blocked"
   },
   "expected_annotation_path": ".corpus-prd/holdout/annotations.jsonl",

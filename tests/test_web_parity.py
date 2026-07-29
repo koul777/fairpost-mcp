@@ -56,6 +56,11 @@ def test_static_web_has_no_network_capability_and_shows_version() -> None:
     assert "브라우저 밖으로 전송되지 않습니다" in html
     assert "fetch(" not in app + engine
     assert "XMLHttpRequest" not in app + engine
+    assert 'id="common-checklist"' in app
+    assert "<details" in app
+    assert "공통 기본 체크리스트" in app
+    assert 'class="question-detail"' in app
+    assert "후속 질문 ${question.follow_up.length}개 보기" in app
 
 
 def test_web_bundle_version_matches_core() -> None:

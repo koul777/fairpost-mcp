@@ -26,6 +26,9 @@ PRD 항목별 현재 충족 상태와 남은 품질 증거는
 [docs/book-map.md](docs/book-map.md), 능력중심ㆍ공정채용 가이드의 적용은
 [docs/ability-based-hiring-guide-map.md](docs/ability-based-hiring-guide-map.md)에
 기록합니다.
+질문 관련성 표본 검토, 공통 체크리스트 분리와 오발동 감소 결과는
+[docs/question-relevance-audit.md](docs/question-relevance-audit.md)에
+기록합니다.
 
 ## 빠른 시작
 
@@ -234,10 +237,17 @@ python tools\build_human_labeling_handoff.py
 - `data/statutes/`: 6개 법령의 로컬 조문 스냅샷
 - `data/local_rules.example.yaml`: 기관 자체 규칙 템플릿
 
-현재 기본 사전은 법령 표현 규칙 19개와 검토 질문 34개입니다. 문의처와
+현재 기본 사전은 법령 표현 규칙 19개와 검토 질문 40개입니다. 질문 카드에는
+가능한 경우 발동 문맥ㆍ원문 offsetㆍ섹션을 함께 포함해 담당자가 왜 그 질문을
+확인해야 하는지 추적할 수 있습니다. 문의처와
 이의신청ㆍ인간 재검토 경로는 서로 다른 슬롯으로 확인하며, AI 채용의
 데이터ㆍ평가항목ㆍ결정 역할ㆍ인간 개입, 대리변수, 결과 피드백,
 지원자 부담 채용심사비용을 각각 별도로 다룹니다.
+
+질문의 `review_scope`는 해당 공고에서 바로 볼 `posting`과 채용 전반에서
+한 번 확인할 `common`을 구분합니다. 정적 웹은 공고별 질문을 먼저 보여
+주고 공통 기본 체크리스트와 후속 질문은 접어서 표시합니다. API의 기존
+`questions` 배열과 `counts.questions`는 그대로 유지합니다.
 
 기관 자체 규칙은 `basis.type: consensus`만 허용합니다. 이를 법령
 근거로 표시하면 로딩 단계에서 실패합니다.

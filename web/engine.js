@@ -327,6 +327,23 @@
     };
   }
 
+  function makeQuestionReference(rule) {
+    const basis = rule.basis || {};
+    const provenance = rule.provenance || {};
+    const sections = basis.sections ||
+      (provenance.source_section ? [String(provenance.source_section)] : null);
+    return {
+      type: basis.type,
+      title: basis.title || provenance.source_document || null,
+      publisher: basis.publisher || null,
+      year: Number.isInteger(basis.year) ? basis.year : null,
+      pages: Array.isArray(basis.pages) ? [...basis.pages] : null,
+      source_url: basis.source_url || null,
+      accessed_at: basis.accessed_at || null,
+      sections: Array.isArray(sections) ? [...sections] : null,
+    };
+  }
+
   function check(text, savedAnswers, providedData) {
     const data = providedData || global.FAIRPOST_DATA;
     if (!data) throw new Error("fairpost 사전 번들을 찾을 수 없습니다.");
@@ -381,7 +398,14 @@
           follow_up: [...(rule.follow_up || [])],
           basis_type: rule.basis.type,
           book_ref: rule.book_ref,
+          review_scope: rule.review_scope || "posting",
           saved_answer: answers[rule.id] ?? null,
+          matched_text: match ? match.text : null,
+          offset: match
+            ? [codePointOffset(source, match.start), codePointOffset(source, match.end)]
+            : null,
+          section: match ? sectionAt(sections, match.start) : null,
+          reference: makeQuestionReference(rule),
         });
       }
     });

@@ -6,7 +6,7 @@ from typing import Any
 from .extractor import extract_slots, section_at, split_sections
 from .loader import Ruleset, load_ruleset
 from .morph import find_matches, is_excluded, normalize
-from .schema import Basis, CheckResult, Finding, Question
+from .schema import Basis, CheckResult, Finding, Question, QuestionReference
 
 
 DISCLAIMER = (
@@ -38,6 +38,24 @@ class FairpostEngine:
             effective_date=article["effective_date"],
             title=article["title"],
             text=article["text"],
+        )
+
+    @staticmethod
+    def _question_reference(rule: dict[str, Any]) -> QuestionReference:
+        basis = rule["basis"]
+        provenance = rule.get("provenance", {})
+        sections = basis.get("sections")
+        if sections is None and provenance.get("source_section"):
+            sections = [str(provenance["source_section"])]
+        return QuestionReference(
+            type=str(basis["type"]),
+            title=basis.get("title") or provenance.get("source_document"),
+            publisher=basis.get("publisher"),
+            year=basis.get("year") if isinstance(basis.get("year"), int) else None,
+            pages=list(basis["pages"]) if isinstance(basis.get("pages"), list) else None,
+            source_url=basis.get("source_url"),
+            accessed_at=basis.get("accessed_at"),
+            sections=list(sections) if isinstance(sections, list) else None,
         )
 
     def check(
@@ -110,7 +128,12 @@ class FairpostEngine:
                         follow_up=list(rule.get("follow_up", [])),
                         basis_type=rule["basis"]["type"],
                         book_ref=rule["book_ref"],
+                        review_scope=str(rule.get("review_scope", "posting")),
                         saved_answer=answers.get(rule["id"]),
+                        matched_text=match.group(0) if match is not None else None,
+                        offset=(match.start(), match.end()) if match is not None else None,
+                        section=section_at(sections, match.start()) if match is not None else None,
+                        reference=self._question_reference(rule),
                     )
                 )
 

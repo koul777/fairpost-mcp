@@ -177,6 +177,16 @@ def test_streamable_http_is_default_and_calls_all_tools(tmp_path: Path) -> None:
                     assert "Finding" in check_tool.outputSchema["$defs"]
                     assert "SlotStatus" in check_tool.outputSchema["$defs"]
                     assert "Question" in check_tool.outputSchema["$defs"]
+                    question_properties = check_tool.outputSchema["$defs"][
+                        "Question"
+                    ]["properties"]
+                    assert {
+                        "review_scope",
+                        "matched_text",
+                        "offset",
+                        "section",
+                        "reference",
+                    } <= set(question_properties)
 
                     check = await session.call_tool(
                         "check_job_posting",
@@ -192,6 +202,21 @@ def test_streamable_http_is_default_and_calls_all_tools(tmp_path: Path) -> None:
                     )
                     basis = finding_check.structuredContent["findings"][0]["basis"]
                     assert basis["effective_date"] <= basis["snapshot_date"]
+
+                    question_check = await session.call_tool(
+                        "check_job_posting",
+                        {"text": "지원자격\n세례교인에 한함"},
+                    )
+                    question = next(
+                        item
+                        for item in question_check.structuredContent["questions"]
+                        if item["id"] == "Q-DIST-012"
+                    )
+                    assert question["matched_text"] == "세례"
+                    assert question["review_scope"] == "posting"
+                    assert question["reference"]["source_url"].startswith(
+                        "https://www.ncs.go.kr/"
+                    )
 
                     saved = await session.call_tool(
                         "save_answer",

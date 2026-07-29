@@ -740,6 +740,11 @@ def test_project_mcp_config_uses_authenticated_remote_and_local_alias() -> None:
 
 def test_distribution_audit_rejects_private_build_artifacts() -> None:
     module = load_tool("verify_distribution")
+    assert {
+        "docs/question-relevance-audit.md",
+        "reports/question_relevance_audit.json",
+        "reports/question_relevance_manual_review.json",
+    } <= module.SDIST_REQUIRED
     names = {
         "README.md",
         "reports/summary.json",

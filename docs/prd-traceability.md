@@ -14,7 +14,7 @@
 |---|---|---|
 | G1 법령 표현 정밀도 ≥ 0.90 | 미충족 | 평가기는 있으나 90개 공공 및 90개 민간 홀드아웃의 사람 라벨과 측정 보고서가 없음 |
 | G2 부재 탐지 재현율 ≥ 0.85 | 미충족 | 11개 슬롯과 평가기는 있으나 사람 라벨과 측정 보고서가 없음 |
-| G3 질문 카드 15개 이상 | 충족 | `data/rules/questions.yaml` 34개, `tools/validate_data.py` |
+| G3 질문 카드 15개 이상 | 충족 | `data/rules/questions.yaml` 40개, `tools/validate_data.py`, 공고별ㆍ공통 범위와 관련성 감사 |
 | G4 결정론 | 충족 | `test_deterministic_for_100_runs` |
 | G5 설치ㆍ키ㆍ비용 없는 웹 | 충족 | `web/index.html`, 네트워크 차단 및 CSP 테스트 |
 
@@ -45,7 +45,7 @@ PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 �
 | 요구사항 | 상태 | 현재 증거 |
 |---|---|---|
 | 법령 규칙 15개 이상 | 충족 | `data/rules/law.yaml` 19개 |
-| 질문 카드 15개 이상 | 충족 | `data/rules/questions.yaml` 34개 |
+| 질문 카드 15개 이상 | 충족 | `data/rules/questions.yaml` 40개 |
 | rejected/deferred 기록 | 충족 | `data/rules/rejected.yaml`, 데이터 검증기 |
 | 6개 대상 법령 스냅샷 | 충족 | `data/statutes/*.yaml` |
 | 원문ㆍ시행일ㆍ해시 검증 | 충족 | 공식 법령 API 대조 보고서, 스냅샷 테스트 |
@@ -64,12 +64,13 @@ PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 �
 | 수집 중 비식별화 | 충족 | 이메일ㆍ전화ㆍ담당자ㆍ조직명 비식별화 테스트 |
 | 원문 미배포 | 충족 | `.corpus*/` Git 제외, 익명 집계만 `reports/`에 존재 |
 | 후보 추출ㆍ정규화 도구 | 충족 | `mine_candidates.py`, `normalize_candidates.py` |
+| 질문 관련성 감사 | 충족 | train-only 420건 익명 집계, 공통 체크리스트 분리, 명백한 문맥 오발동 104개 감소. `docs/question-relevance-audit.md` |
 | 봉인 홀드아웃 평가 | 부분 충족 | 오염 차단, 정식 180건 로컬 라벨링 화면과 완전 라벨 강제는 구현. `reports/human_labeling_handoff.json` 생성, 사람 정답 데이터 없음 |
 
 ## 수용 기준
 
-AC-1~AC-16의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. 현재
-122개 테스트가 통과한다. 다만 수용 기준 통과가 G1ㆍG2 성능 목표를 대신
+AC-1~AC-18의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. 현재
+159개 테스트가 통과한다. 다만 수용 기준 통과가 G1ㆍG2 성능 목표를 대신
 증명하지는 않는다.
 
 ## 완료를 위해 남은 증거

@@ -109,6 +109,42 @@
       .join("");
   }
 
+  function questionCard(question) {
+    const followUp = question.follow_up.length
+      ? `<p class="follow-up">${question.follow_up
+          .map((item) => `· ${escapeHtml(item)}`)
+          .join("<br>")}</p>`
+      : "";
+    const evidence = question.matched_text
+      ? `<p class="match-row">발동 문맥 <mark class="matched-text">${escapeHtml(question.matched_text)}</mark> <span>${escapeHtml(question.section || "")} · ${question.offset ? `${question.offset[0]}–${question.offset[1]}` : ""}</span></p>`
+      : "";
+    const reference = question.reference && question.reference.title
+      ? `<p class="reference-row">근거 ${question.reference.source_url ? `<a href="${escapeHtml(question.reference.source_url)}" target="_blank" rel="noreferrer">${escapeHtml(question.reference.title)}</a>` : escapeHtml(question.reference.title)}${question.reference.pages ? ` · ${escapeHtml(question.reference.pages.join(", "))}쪽` : ""}${question.reference.sections ? ` · ${escapeHtml(question.reference.sections.join(", "))}` : ""}</p>`
+      : "";
+    const detail = followUp
+      ? `<details class="question-detail">
+          <summary>후속 질문 ${question.follow_up.length}개 보기</summary>
+          <div class="question-detail-content">${followUp}</div>
+        </details>`
+      : "";
+    const scopeLabel =
+      question.review_scope === "common" ? "공통 기본" : "공고별";
+    return `<article class="question-item">
+      <div class="item-main">
+        <div class="item-meta">
+          <span class="id-tag">${escapeHtml(question.id)}</span>
+          <span class="dimension-tag">${escapeHtml(question.dimension)}</span>
+          <span class="scope-tag">${scopeLabel}</span>
+          <span>${escapeHtml(question.book_ref)}</span>
+        </div>
+        <p class="item-title">${escapeHtml(question.question)}</p>
+        ${evidence}
+        ${reference}
+      </div>
+      ${detail}
+    </article>`;
+  }
+
   function renderQuestions(questions) {
     const container = document.getElementById("questions-list");
     if (!questions.length) {
@@ -116,33 +152,44 @@
         '<div class="none-item">현재 규칙에 연결된 추가 검토 질문이 확인되지 않았습니다.</div>';
       return;
     }
-    container.innerHTML = questions
-      .map((question) => {
-        const followUp = question.follow_up.length
-          ? `<p class="follow-up">${question.follow_up
-              .map((item) => `· ${escapeHtml(item)}`)
-              .join("<br>")}</p>`
-          : "";
-        return `<article class="question-item">
-          <div class="item-main">
-            <div class="item-meta">
-              <span class="id-tag">${escapeHtml(question.id)}</span>
-              <span class="dimension-tag">${escapeHtml(question.dimension)}</span>
-              <span>${escapeHtml(question.book_ref)}</span>
-            </div>
-            <p class="item-title">${escapeHtml(question.question)}</p>
-            ${followUp}
+
+    const postingQuestions = questions.filter(
+      (question) => question.review_scope !== "common"
+    );
+    const commonQuestions = questions.filter(
+      (question) => question.review_scope === "common"
+    );
+    const postingMarkup = postingQuestions.length
+      ? postingQuestions.map(questionCard).join("")
+      : '<div class="none-item">이 공고에서 먼저 확인할 추가 질문이 없습니다.</div>';
+    const commonMarkup = commonQuestions.length
+      ? `<details id="common-checklist" class="common-checklist">
+          <summary>
+            <span>공통 기본 체크리스트 <strong>${commonQuestions.length}개</strong></span>
+            <small>대부분의 공고에서 반복되는 기본 질문을 접어 두었습니다.</small>
+          </summary>
+          <div class="common-question-list">
+            ${commonQuestions.map(questionCard).join("")}
           </div>
-        </article>`;
-      })
-      .join("");
+        </details>`
+      : "";
+    container.innerHTML = `
+      <div class="question-group-heading">
+        <strong>이 공고에서 먼저 볼 질문 ${postingQuestions.length}개</strong>
+        <span>발견된 표현과 확인되지 않은 안내 항목에 연결됩니다.</span>
+      </div>
+      ${postingMarkup}
+      ${commonMarkup}
+    `;
   }
 
   function render(result) {
     latestResult = result;
     document.getElementById("finding-count").textContent = result.counts.findings;
     document.getElementById("missing-count").textContent = result.counts.not_found;
-    document.getElementById("question-count").textContent = result.counts.questions;
+    document.getElementById("question-count").textContent = result.questions.filter(
+      (question) => question.review_scope !== "common"
+    ).length;
     document.getElementById("disclaimer").textContent =
       `${result.statute_notice} ${result.disclaimer}`;
     renderFindings(result.findings);
@@ -182,11 +229,30 @@
       .forEach((slot) =>
         lines.push(`- ${slot.label}: 공고문에서 확인되지 않았습니다.`)
       );
-    lines.push("", `[함께 생각해 볼 질문 ${result.counts.questions}건]`);
-    result.questions.forEach((question) => {
+    const postingQuestions = result.questions.filter(
+      (question) => question.review_scope !== "common"
+    );
+    const commonQuestions = result.questions.filter(
+      (question) => question.review_scope === "common"
+    );
+    const appendQuestion = (question) => {
       lines.push(`- ${question.id} ${question.question}`);
+      if (question.matched_text) {
+        lines.push(
+          `  발동 문맥: "${question.matched_text}" (${question.section || ""}, ${question.offset ? `${question.offset[0]}–${question.offset[1]}` : ""})`
+        );
+      }
+      if (question.reference && question.reference.title) {
+        lines.push(
+          `  근거: ${question.reference.title}${question.reference.source_url ? ` (${question.reference.source_url})` : ""}${question.reference.pages ? ` · ${question.reference.pages.join(", ")}쪽` : ""}`
+        );
+      }
       question.follow_up.forEach((item) => lines.push(`  · ${item}`));
-    });
+    };
+    lines.push("", `[공고별 검토 질문 ${postingQuestions.length}건]`);
+    postingQuestions.forEach(appendQuestion);
+    lines.push("", `[공통 기본 체크리스트 ${commonQuestions.length}건]`);
+    commonQuestions.forEach(appendQuestion);
     lines.push("", result.disclaimer);
     return lines.join("\n");
   }

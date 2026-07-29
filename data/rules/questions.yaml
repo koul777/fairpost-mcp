@@ -116,6 +116,7 @@
 
 - id: Q-INFO-005
   layer: question
+  review_scope: common
   trigger: {type: absence, field: ai_disclosure}
   dimension: 정보
   question: 채용 과정에서 AI 또는 자동화 시스템을 사용합니까?
@@ -252,6 +253,11 @@
   trigger:
     type: presence
     patterns: [특정 학교, 출신학교, 4년제 대학, 대졸 이상, 학사 이상, 학력 제한]
+    exclude:
+      - {term: 학력 제한 없음, window: 12}
+      - {term: 출신학교 기재 금지, window: 16}
+      - {term: 출신학교 미기재, window: 16}
+      - {term: "re:출신학교[\\s\\S]{0,120}(?:기재\\s*금지|기재하지)", window: 140}
   dimension: 분배
   question: 학력 또는 학교 관련 요건은 해당 직무를 수행하는 데 직접 필요합니까?
   follow_up:
@@ -271,6 +277,9 @@
   trigger:
     type: presence
     patterns: [지역 거주자, 거주지 제한, 지역 제한, 주민등록상 주소, 해당 지역 거주]
+    exclude:
+      - {term: 지역 제한 없음, window: 12}
+      - {term: 거주지 제한 없음, window: 12}
   dimension: 분배
   question: 거주지 관련 제한은 직무 또는 적용되는 채용 정책상 반드시 필요합니까?
   follow_up:
@@ -345,6 +354,7 @@
 
 - id: Q-INFO-007
   layer: question
+  review_scope: common
   trigger:
     type: presence
     patterns: [채용, 모집, 구인, 지원자, 채용공고]
@@ -366,6 +376,7 @@
 
 - id: Q-INFO-008
   layer: question
+  review_scope: common
   trigger:
     type: presence
     patterns: [채용, 모집, 구인, 지원자, 채용공고]
@@ -392,6 +403,7 @@
 
 - id: Q-PROC-009
   layer: question
+  review_scope: common
   trigger:
     type: presence
     patterns: [채용, 모집, 구인, 지원자, 채용공고]
@@ -571,3 +583,142 @@
     source_document: 공정_4부_정보공정성(확인본)_2차.docx
     source_section: 4-3
   book_ref: 1부 1-4ㆍ4부 4-3
+
+- id: Q-DIST-012
+  layer: question
+  trigger:
+    type: presence
+    patterns: [종교, 신앙, 교인, 세례, 교회, 성당, 사찰, 종교관]
+    exclude:
+      - {term: 종교 무관, window: 12}
+      - {term: 종교 제한 없음, window: 12}
+      - {term: 종교와 관계없이, window: 15}
+      - {term: "re:종교[\\s\\S]{0,240}(?:미기재|기재\\s*금지|기재하지|포함되어\\s*있는\\s*경우\\s*부적격)", window: 260}
+      - {term: "re:사회복지\\s*[.·ㆍ/]\\s*종교", window: 15}
+  dimension: 분배
+  question: 종교ㆍ신앙에 관한 자격이나 질문이 이 직무의 본질적 수행요건과 직접 관련됩니까?
+  follow_up:
+    - 종교를 요구하거나 우대해야 하는 구체적인 직무상 이유와 적용 범위를 문서화했습니까?
+    - 같은 직무능력을 종교정보 없이 확인할 수 있는 더 직접적인 평가방법은 없습니까?
+    - 공고ㆍ지원서ㆍ면접에서 종교 유무나 종교관이 합격 판단에 섞이지 않도록 통제합니까?
+  basis:
+    type: research
+    title: NCS 공정채용 소개
+    publisher: 한국산업인력공단
+    source_url: https://www.ncs.go.kr/blind/bl01/RH-102-001-01.scdo
+    accessed_at: "2026-07-27"
+    sections: [채용단계별 주요 차별 요소 - 신앙]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-27"}
+  book_ref: NCS 공정채용 소개ㆍ채용단계별 주요 차별 요소
+
+- id: Q-DIST-013
+  layer: question
+  trigger:
+    type: presence
+    patterns: [범죄경력, 범죄 경력, "re:(?<![가-힣A-Za-z0-9])전과(?:자|기록|경력)?(?=$|[\\s,.;:()ㆍ·/]|은|는|이|가|을|를|의|도|만|로|와|과|에게)", 신원조회, 신원 조회, 비정규직 경력, 비정규직 출신, 계약직 출신, 정규직 경력만, 탈북자, 북한이탈주민, 사회적 신분]
+    exclude:
+      - {term: "re:(?:탈북자|북한이탈주민)(?:은|을|에게|대상자)?\\s*(?:우대|가점|가산점)", window: 30}
+      - {term: "re:(?:우대조건|우대사항|우대내용)(?:[ \\t]*\\r?\\n)?[^\\r\\n]{0,160}(?:탈북자|북한이탈주민)", window: 180}
+  dimension: 분배
+  question: 전과ㆍ신원조회 결과ㆍ고용형태 등 사회적 신분 관련 기준이 이 직무에 꼭 필요한지 개별적으로 검토했습니까?
+  follow_up:
+    - 일률적인 배제 대신 직무의 성격, 정보의 관련성, 경과 기간과 적용 범위를 함께 검토합니까?
+    - 해당 정보를 수집ㆍ조회할 권한과 필요성을 현행 법령 및 내부 기준에 따라 확인했습니까?
+    - 지원자에게 적용 기준, 확인 시점, 소명 또는 정정 절차를 안내합니까?
+  basis:
+    type: research
+    title: NCS 공정채용 소개
+    publisher: 한국산업인력공단
+    source_url: https://www.ncs.go.kr/blind/bl01/RH-102-001-01.scdo
+    accessed_at: "2026-07-27"
+    sections: [채용단계별 주요 차별 요소 - 사회적 신분]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-27"}
+  book_ref: NCS 공정채용 소개ㆍ채용단계별 주요 차별 요소
+
+- id: Q-INFO-010
+  layer: question
+  trigger:
+    type: presence
+    patterns: [입사지원서, 지원서 양식, 지원서 서식, 응시원서, 이력서 양식, 제출서류, 개인정보 수집]
+  dimension: 정보
+  question: 지원서가 직무능력 확인에 필요한 최소 정보만 받도록 설계되어 있습니까?
+  follow_up:
+    - 사진ㆍ생년월일ㆍ입학연도ㆍ출신지ㆍ가족관계ㆍ혼인정보 등 편견을 유발할 수 있는 항목을 목록으로 점검했습니까?
+    - 각 수집 항목의 평가 목적, 이용 단계, 접근 권한과 보관 기간을 설명할 수 있습니까?
+    - 직무와 무관한 항목을 제거하고 교육ㆍ훈련ㆍ자격ㆍ경험 중심으로 양식을 구성했습니까?
+  basis:
+    type: research
+    title: NCS 공정채용 소개
+    publisher: 한국산업인력공단
+    source_url: https://www.ncs.go.kr/blind/bl01/RH-102-001-01.scdo
+    accessed_at: "2026-07-27"
+    sections: [채용단계별 주요 차별 요소, 공정채용의 기업 실천과제 - 서류전형]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-27"}
+  book_ref: NCS 공정채용 소개ㆍ공감채용 가이드 PDF 14쪽
+
+- id: Q-PROC-011
+  layer: question
+  trigger:
+    type: presence
+    patterns: [면접, 면접전형, 면접 전형, 면접위원, 면접관, 인터뷰]
+    exclude:
+      - {term: "re:(?:급여|연봉|보수)[\\s\\S]{0,20}면접[\\s\\S]{0,12}(?:협의|합의|결정)", window: 35}
+      - {term: "re:면접[\\s\\S]{0,12}(?:후|시)[\\s\\S]{0,12}(?:급여|연봉|보수|협의|합의|결정)", window: 35}
+  dimension: 절차
+  question: 면접위원에게 직무평가에 불필요한 지원자 인적정보가 전달되지 않고, 블라인드 면접 교육이 사전에 이루어집니까?
+  follow_up:
+    - 면접위원에게 제공하는 자료의 필드 목록과 차단 항목을 전형 전에 확정했습니까?
+    - 금지 질문, 직무관련 질문, 평가척도와 이해충돌 회피 절차를 교육합니까?
+    - 자료 제공ㆍ교육 이수ㆍ평가표 회수 내역을 나중에 확인할 수 있게 기록합니까?
+  basis:
+    type: research
+    title: NCS 공정채용 소개
+    publisher: 한국산업인력공단
+    source_url: https://www.ncs.go.kr/blind/bl01/RH-102-001-01.scdo
+    accessed_at: "2026-07-27"
+    sections: [공정채용의 기업 실천과제 - 면접전형]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-27"}
+  book_ref: NCS 공정채용 소개ㆍ공감채용 가이드 PDF 14쪽
+
+- id: Q-PROC-012
+  layer: question
+  trigger:
+    type: presence
+    patterns: [필기시험, 필기 시험, 필기전형, 필기 전형, 인적성검사, 인적성 검사, 직무능력평가, NCS 시험]
+  dimension: 절차
+  question: 필기평가 과목과 방식이 사전에 공개되고, 각 과목이 직무수행에 필요한 역량과 연결되어 있습니까?
+  follow_up:
+    - 과목별로 측정할 지식ㆍ기술ㆍ능력과 직무기술서의 대응 관계가 있습니까?
+    - 시험 방식, 범위, 일정과 준비에 필요한 정보를 모든 지원자에게 같은 시점에 안내합니까?
+    - 직무와 무관한 상식ㆍ배경지식이나 과도한 준비비용을 유발하는 요소를 검토했습니까?
+  basis:
+    type: research
+    title: NCS 공정채용 소개
+    publisher: 한국산업인력공단
+    source_url: https://www.ncs.go.kr/blind/bl01/RH-102-001-01.scdo
+    accessed_at: "2026-07-27"
+    sections: [공정채용의 기업 실천과제 - 필기전형]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-27"}
+  book_ref: NCS 공정채용 소개ㆍ공감채용 가이드 PDF 21쪽
+
+- id: Q-PROC-013
+  layer: question
+  review_scope: common
+  trigger:
+    type: presence
+    patterns: [채용, 모집, 구인, 지원자, 채용공고]
+  dimension: 절차
+  question: 채용이 끝난 뒤 절차와 결과를 점검하고 다음 채용에 반영하는 책임자ㆍ지표ㆍ기록이 정해져 있습니까?
+  follow_up:
+    - 공고 대비 실제 운영, 평가자 간 편차, 이의ㆍ문의, 지원자 경험을 함께 검토합니까?
+    - 가능한 범위에서 전형 단계별 집단 간 통과율과 예외처리를 살펴 불리한 영향을 점검합니까?
+    - 발견한 문제의 개선조치, 책임자, 완료기한과 다음 채용 반영 여부를 기록합니까?
+  basis:
+    type: research
+    title: NCS 공정채용 프로세스
+    publisher: 한국산업인력공단
+    source_url: https://www.ncs.go.kr/blind/bl01/RH-102-002-01.scdo
+    accessed_at: "2026-07-27"
+    sections: [평가단계]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-27"}
+  book_ref: NCS 공정채용 프로세스ㆍ공감채용 가이드 PDF 21쪽

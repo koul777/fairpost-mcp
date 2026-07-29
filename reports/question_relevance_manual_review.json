@@ -1,0 +1,47 @@
+{
+  "audit_date": "2026-07-29",
+  "contains_organization_identifiers": false,
+  "contains_personal_identifiers": false,
+  "contains_posting_text": false,
+  "contains_record_ids": false,
+  "contains_source_ids": false,
+  "manual_sample": {
+    "classification_counts": {
+      "absence_driven": 144,
+      "common_or_organization_wide": 130,
+      "direct_posting_evidence": 78,
+      "false_trigger": 25,
+      "portal_or_non_posting_contamination": 17
+    },
+    "posting_scope_false_or_contaminated": {
+      "count": 42,
+      "rate": 0.159091,
+      "total": 264
+    },
+    "question_instances_reviewed": 394,
+    "records_reviewed": 28,
+    "sampling_strata": [
+      "public_high_activation",
+      "public_low_activation",
+      "private_high_activation",
+      "private_low_activation"
+    ]
+  },
+  "not_human_labels": true,
+  "not_performance_measurement": true,
+  "pre_change_train_snapshot": {
+    "mean_question_instances_per_record": 13.721429,
+    "question_activation_records": {
+      "Q-DIST-005": 10,
+      "Q-DIST-006": 68,
+      "Q-DIST-012": 14,
+      "Q-DIST-013": 45,
+      "Q-PROC-011": 191
+    },
+    "question_instances_total": 5763,
+    "record_count": 420,
+    "split": "train_only"
+  },
+  "review_process": "model_assisted_manual_classification_with_parent_cross_check",
+  "split": "train_only"
+}

@@ -203,8 +203,126 @@ def test_book_based_questions_cover_full_ai_hiring_review() -> None:
 
 def test_book_based_baseline_questions_apply_to_regular_posting() -> None:
     result = FairpostEngine().check("경력직 채용 공고")
-    question_ids = {question.id for question in result.questions}
-    assert {"Q-INFO-007", "Q-INFO-008", "Q-PROC-009"} <= question_ids
+    questions_by_id = {question.id: question for question in result.questions}
+    common_ids = {
+        question.id
+        for question in result.questions
+        if question.review_scope == "common"
+    }
+    assert {
+        "Q-INFO-005",
+        "Q-INFO-007",
+        "Q-INFO-008",
+        "Q-PROC-009",
+        "Q-PROC-013",
+    } == common_ids
+    assert questions_by_id["Q-PROC-002"].review_scope == "posting"
+    assert result.counts["questions"] == len(result.questions)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected_id"),
+    [
+        ("지원자격\n세례교인에 한함", "Q-DIST-012"),
+        ("자격요건\n범죄경력이 없는 사람", "Q-DIST-013"),
+        ("제출서류\n입사지원서 양식", "Q-INFO-010"),
+        ("전형절차\n면접위원이 면접전형을 진행합니다.", "Q-PROC-011"),
+        ("전형절차\n필기시험 후 면접", "Q-PROC-012"),
+        ("2026년 사무직 채용 공고", "Q-PROC-013"),
+    ],
+)
+def test_ncs_fair_hiring_gap_questions_are_retrievable(
+    text: str,
+    expected_id: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert expected_id in {question.id for question in result.questions}
+
+
+def test_social_status_question_does_not_treat_job_type_as_applicant_status() -> None:
+    result = FairpostEngine().check("고용형태\n비정규직(기간제) 채용")
+    assert "Q-DIST-013" not in {question.id for question in result.questions}
+
+
+@pytest.mark.parametrize(
+    ("text", "question_id"),
+    [
+        ("지원자격\n학력 제한 없음", "Q-DIST-005"),
+        ("블라인드 안내\n출신학교 기재 금지", "Q-DIST-005"),
+        (
+            "자기소개서에 출신학교, 가족관계 등 인적사항 관련 내용은 "
+            "일체 기재 금지",
+            "Q-DIST-005",
+        ),
+        ("지원자격\n지역제한 없음", "Q-DIST-006"),
+        ("지원서에 종교 미기재", "Q-DIST-012"),
+        (
+            "지원서에 종교, 추천인, 주민등록번호 등 인적사항을 "
+            "일체 기재하지 말아주세요",
+            "Q-DIST-012",
+        ),
+        ("직무분류\n사회복지.종교", "Q-DIST-012"),
+        ("기관은 지역사회 발전과 혁신을 추구합니다.", "Q-DIST-013"),
+        ("우대사항\n북한이탈주민 가점", "Q-DIST-013"),
+        (
+            "우대조건\n취업지원대상자, 장애인, 북한이탈주민, 다문화가족",
+            "Q-DIST-013",
+        ),
+        ("급여기준\n면접 후 결정", "Q-PROC-011"),
+        ("임금은 면접시 별도 협의합니다.", "Q-PROC-011"),
+        ("경력자 급여는 면접시 별도합의", "Q-PROC-011"),
+    ],
+)
+def test_protective_or_unrelated_context_does_not_retrieve_question(
+    text: str,
+    question_id: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert question_id not in {question.id for question in result.questions}
+
+
+@pytest.mark.parametrize(
+    ("text", "question_id"),
+    [
+        ("지원자격\n대졸 이상", "Q-DIST-005"),
+        ("지원자격\n해당 지역 거주자", "Q-DIST-006"),
+        ("지원자격\n세례교인에 한함", "Q-DIST-012"),
+        ("지원자격\n전과자는 지원할 수 없음", "Q-DIST-013"),
+        ("지원자격\n북한이탈주민 제외", "Q-DIST-013"),
+        ("지원자격\n북한이탈주민 제외\n우대사항\n장애인 우대", "Q-DIST-013"),
+        ("전형절차\n서류전형 후 면접을 실시합니다.", "Q-PROC-011"),
+    ],
+)
+def test_restrictive_or_relevant_context_still_retrieves_question(
+    text: str,
+    question_id: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert question_id in {question.id for question in result.questions}
+
+
+def test_religion_question_respects_explicit_no_restriction_phrase() -> None:
+    result = FairpostEngine().check("지원자격\n종교 무관")
+    assert "Q-DIST-012" not in {question.id for question in result.questions}
+
+
+def test_question_includes_trigger_evidence_and_original_offset() -> None:
+    text = "채용 공고\r\n지원자격\r\n세례교인에 한함"
+    result = FairpostEngine().check(text)
+    question = next(item for item in result.questions if item.id == "Q-DIST-012")
+    assert question.matched_text == "세례"
+    assert question.section == "자격요건"
+    assert question.offset is not None
+    start, end = question.offset
+    assert text[start:end] == question.matched_text
+    payload = result.to_dict()
+    payload_question = next(
+        item for item in payload["questions"] if item["id"] == "Q-DIST-012"
+    )
+    assert payload_question["offset"] is not None
+    assert payload_question["review_scope"] == "posting"
+    assert payload_question["reference"]["source_url"].startswith("https://www.ncs.go.kr/")
+    assert payload_question["reference"]["sections"] == ["채용단계별 주요 차별 요소 - 신앙"]
 
 
 def test_proxy_variable_expression_retrieves_review_question() -> None:
@@ -344,7 +462,36 @@ def test_dictionary_change_requires_no_code_change(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     result = FairpostEngine(copied).check("사전 교체 확인")
-    assert "Q-TEST-999" in {question.id for question in result.questions}
+    question = next(item for item in result.questions if item.id == "Q-TEST-999")
+    assert question.review_scope == "posting"
+
+
+def test_unknown_question_review_scope_is_rejected(tmp_path: Path) -> None:
+    copied = tmp_path / "data"
+    shutil.copytree(DATA, copied)
+    path = copied / "rules" / "questions.yaml"
+    rules = yaml.safe_load(path.read_text(encoding="utf-8"))
+    rules[0]["review_scope"] = "unknown"
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleLoadError, match="review_scope는 posting 또는 common"):
+        load_ruleset(copied)
+
+
+def test_law_rule_cannot_define_question_review_scope(tmp_path: Path) -> None:
+    copied = tmp_path / "data"
+    shutil.copytree(DATA, copied)
+    path = copied / "rules" / "law.yaml"
+    rules = yaml.safe_load(path.read_text(encoding="utf-8"))
+    rules[0]["review_scope"] = "posting"
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleLoadError, match="law 규칙에는 review_scope"):
+        load_ruleset(copied)
 
 
 def test_question_severity_fails_with_clear_error(tmp_path: Path) -> None:
@@ -375,6 +522,26 @@ def test_research_question_requires_traceable_source_metadata(tmp_path: Path) ->
         encoding="utf-8",
     )
     with pytest.raises(RuleLoadError, match=r"basis\.pages"):
+        load_ruleset(copied)
+
+
+def test_web_research_question_requires_access_date(tmp_path: Path) -> None:
+    copied = tmp_path / "data"
+    shutil.copytree(DATA, copied)
+    path = copied / "rules" / "questions.yaml"
+    rules = yaml.safe_load(path.read_text(encoding="utf-8"))
+    web_research_rule = next(
+        rule
+        for rule in rules
+        if rule["basis"]["type"] == "research"
+        and "source_url" in rule["basis"]
+    )
+    del web_research_rule["basis"]["accessed_at"]
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleLoadError, match=r"basis\.accessed_at"):
         load_ruleset(copied)
 
 
@@ -488,7 +655,8 @@ def test_local_rules_can_be_loaded_from_environment(
     )
     monkeypatch.setenv("FAIRPOST_LOCAL_RULES_PATH", str(path))
     result = FairpostEngine().check("환경 규칙 확인")
-    assert "Q-LOCAL-ENV" in {question.id for question in result.questions}
+    question = next(item for item in result.questions if item.id == "Q-LOCAL-ENV")
+    assert question.review_scope == "posting"
 
 
 def test_core_does_not_import_tools() -> None:

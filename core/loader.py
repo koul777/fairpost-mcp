@@ -46,6 +46,7 @@ REQUIRED_SLOT_IDS = {
     "qualification_rationale",
 }
 CONTACT_COMPONENT_IDS = {"department", "phone", "email", "hours"}
+QUESTION_REVIEW_SCOPES = {"posting", "common"}
 MATCH_ENGINE_VERSION = "engine-v1-first-match-exclude-section-slots"
 REQUIRED_STATUTE_ARTICLES = {
     "age-discrimination-act": {"제4조의4", "제4조의5"},
@@ -227,6 +228,10 @@ def _validate_rule(
             raise RuleLoadError(f"{rule_id}: exclude.window는 0 이상의 정수여야 합니다")
 
     if rule["layer"] == "law":
+        if "review_scope" in rule:
+            raise RuleLoadError(
+                f"{rule_id}: law 규칙에는 review_scope를 둘 수 없습니다"
+            )
         if basis_type != "statute":
             raise RuleLoadError(f"{rule_id}: law 규칙은 statute 근거만 허용합니다")
         if rule["trigger"]["type"] != "presence":
@@ -248,12 +253,17 @@ def _validate_rule(
         if rule["severity"] not in {"high", "medium", "low"}:
             raise RuleLoadError(f"{rule_id}: severity 오류")
     else:
+        review_scope = rule.get("review_scope", "posting")
+        if review_scope not in QUESTION_REVIEW_SCOPES:
+            raise RuleLoadError(
+                f"{rule_id}: review_scope는 posting 또는 common이어야 합니다"
+            )
         if "severity" in rule:
             raise RuleLoadError(f"{rule_id}: question 규칙에는 severity를 둘 수 없습니다")
         if basis_type not in {"research", "consensus"}:
             raise RuleLoadError(f"{rule_id}: question 근거는 research/consensus만 허용합니다")
         if basis_type == "research":
-            for field in ("title", "publisher", "year", "pages"):
+            for field in ("title", "publisher"):
                 if field not in rule["basis"]:
                     raise RuleLoadError(
                         f"{rule_id}: research 근거에는 basis.{field}가 필요합니다"
@@ -266,24 +276,55 @@ def _validate_rule(
                 "publisher"
             ].strip():
                 raise RuleLoadError(f"{rule_id}: basis.publisher가 비어 있습니다")
-            if (
-                not isinstance(rule["basis"]["year"], int)
-                or isinstance(rule["basis"]["year"], bool)
-                or rule["basis"]["year"] < 2000
-            ):
-                raise RuleLoadError(f"{rule_id}: basis.year 오류")
-            pages = rule["basis"]["pages"]
-            if (
-                not isinstance(pages, list)
-                or not pages
-                or any(
-                    not isinstance(page, int)
-                    or isinstance(page, bool)
-                    or page < 1
-                    for page in pages
+            if "source_url" in rule["basis"]:
+                source_url = rule["basis"]["source_url"]
+                if (
+                    not isinstance(source_url, str)
+                    or not source_url.startswith("https://")
+                ):
+                    raise RuleLoadError(f"{rule_id}: basis.source_url은 HTTPS URL이어야 합니다")
+                if "accessed_at" not in rule["basis"]:
+                    raise RuleLoadError(f"{rule_id}: 웹 research 근거에는 basis.accessed_at이 필요합니다")
+                _parse_date(
+                    rule["basis"]["accessed_at"],
+                    context=f"{rule_id}/basis.accessed_at",
                 )
-            ):
-                raise RuleLoadError(f"{rule_id}: basis.pages는 양의 정수 목록이어야 합니다")
+                sections = rule["basis"].get("sections")
+                if (
+                    not isinstance(sections, list)
+                    or not sections
+                    or any(
+                        not isinstance(section, str) or not section.strip()
+                        for section in sections
+                    )
+                ):
+                    raise RuleLoadError(
+                        f"{rule_id}: basis.sections는 비어 있지 않은 문자열 목록이어야 합니다"
+                    )
+            else:
+                for field in ("year", "pages"):
+                    if field not in rule["basis"]:
+                        raise RuleLoadError(
+                            f"{rule_id}: research 근거에는 basis.{field}가 필요합니다"
+                        )
+                if (
+                    not isinstance(rule["basis"]["year"], int)
+                    or isinstance(rule["basis"]["year"], bool)
+                    or rule["basis"]["year"] < 2000
+                ):
+                    raise RuleLoadError(f"{rule_id}: basis.year 오류")
+                pages = rule["basis"]["pages"]
+                if (
+                    not isinstance(pages, list)
+                    or not pages
+                    or any(
+                        not isinstance(page, int)
+                        or isinstance(page, bool)
+                        or page < 1
+                        for page in pages
+                    )
+                ):
+                    raise RuleLoadError(f"{rule_id}: basis.pages는 양의 정수 목록이어야 합니다")
         if not rule.get("question"):
             raise RuleLoadError(f"{rule_id}: question 문구가 필요합니다")
 

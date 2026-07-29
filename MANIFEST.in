@@ -15,7 +15,7 @@ recursive-include data *.yaml
 recursive-include web *.html *.css *.js
 recursive-include tools *.py *.cjs
 recursive-include tests *.py *.cjs
-recursive-include docs *.md
+recursive-include docs *.md *.json
 recursive-include reports *.json
 recursive-include .github *.yml *.yaml
 global-exclude *.py[cod]

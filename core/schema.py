@@ -43,6 +43,18 @@ class SlotStatus:
 
 
 @dataclass(frozen=True)
+class QuestionReference:
+    type: str
+    title: str | None = None
+    publisher: str | None = None
+    year: int | None = None
+    pages: list[int] | None = None
+    source_url: str | None = None
+    accessed_at: str | None = None
+    sections: list[str] | None = None
+
+
+@dataclass(frozen=True)
 class Question:
     id: str
     dimension: str
@@ -50,7 +62,12 @@ class Question:
     follow_up: list[str]
     basis_type: str
     book_ref: str
+    review_scope: str
     saved_answer: str | None
+    matched_text: str | None = None
+    offset: tuple[int, int] | None = None
+    section: str | None = None
+    reference: QuestionReference | None = None
 
 
 @dataclass(frozen=True)
@@ -69,4 +86,7 @@ class CheckResult:
         for finding in payload["findings"]:
             if finding["offset"] is not None:
                 finding["offset"] = list(finding["offset"])
+        for question in payload["questions"]:
+            if question["offset"] is not None:
+                question["offset"] = list(question["offset"])
         return payload
