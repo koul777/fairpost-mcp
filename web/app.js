@@ -149,8 +149,28 @@
     const evidence = question.matched_text
       ? `<p class="match-row">발동 문맥 <mark class="matched-text">${escapeHtml(question.matched_text)}</mark> <span>${escapeHtml(question.section || "")} · ${question.offset ? `${question.offset[0]}–${question.offset[1]}` : ""}</span></p>`
       : "";
+    const referenceMeta = question.reference
+      ? [
+          question.reference.publisher,
+          Number.isInteger(question.reference.year)
+            ? `${question.reference.year}년`
+            : null,
+          question.reference.pages
+            ? `${question.reference.pages.join(", ")}쪽`
+            : null,
+          question.reference.accessed_at
+            ? `확인 ${question.reference.accessed_at}`
+            : null,
+          question.reference.sections
+            ? question.reference.sections.join(", ")
+            : null,
+        ]
+          .filter(Boolean)
+          .map(escapeHtml)
+          .join(" · ")
+      : "";
     const reference = question.reference && question.reference.title
-      ? `<p class="reference-row">근거 ${question.reference.source_url ? `<a href="${escapeHtml(question.reference.source_url)}" target="_blank" rel="noreferrer">${escapeHtml(question.reference.title)}</a>` : escapeHtml(question.reference.title)}${question.reference.pages ? ` · ${escapeHtml(question.reference.pages.join(", "))}쪽` : ""}${question.reference.sections ? ` · ${escapeHtml(question.reference.sections.join(", "))}` : ""}</p>`
+      ? `<p class="reference-row">근거 ${question.reference.source_url ? `<a href="${escapeHtml(question.reference.source_url)}" target="_blank" rel="noreferrer">${escapeHtml(question.reference.title)}</a>` : escapeHtml(question.reference.title)}${referenceMeta ? ` · ${referenceMeta}` : ""}</p>`
       : "";
     const detail = followUp
       ? `<details class="question-detail">
@@ -280,8 +300,22 @@
         );
       }
       if (question.reference && question.reference.title) {
+        const referenceMeta = [
+          question.reference.publisher,
+          Number.isInteger(question.reference.year)
+            ? `${question.reference.year}년`
+            : null,
+          question.reference.pages
+            ? `${question.reference.pages.join(", ")}쪽`
+            : null,
+          question.reference.accessed_at
+            ? `확인 ${question.reference.accessed_at}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
         lines.push(
-          `  근거: ${question.reference.title}${question.reference.source_url ? ` (${question.reference.source_url})` : ""}${question.reference.pages ? ` · ${question.reference.pages.join(", ")}쪽` : ""}`
+          `  근거: ${question.reference.title}${question.reference.source_url ? ` (${question.reference.source_url})` : ""}${referenceMeta ? ` · ${referenceMeta}` : ""}`
         );
       }
       question.follow_up.forEach((item) => lines.push(`  · ${item}`));

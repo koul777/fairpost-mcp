@@ -197,10 +197,8 @@
   function isExcluded(text, match, excludes) {
     return excludes.some((exclusion) => {
       const window = Number(exclusion.window || 0);
-      const left = Math.max(0, match.start - window);
-      const right = Math.min(text.length, match.end + window);
       return Boolean(
-        findFirst(text.slice(left, right), [String(exclusion.term)])
+        findFirst(codePointWindow(text, match, window), [String(exclusion.term)])
       );
     });
   }
@@ -257,6 +255,18 @@
 
   function codePointOffset(text, codeUnitOffset) {
     return Array.from(text.slice(0, codeUnitOffset)).length;
+  }
+
+  function codePointWindow(text, match, window) {
+    const codePoints = Array.from(text);
+    const start = codePointOffset(text, match.start);
+    const end = codePointOffset(text, match.end);
+    return codePoints
+      .slice(
+        Math.max(0, start - window),
+        Math.min(codePoints.length, end + window)
+      )
+      .join("");
   }
 
   function evidenceLine(text, start, end) {
@@ -344,6 +354,15 @@
     };
   }
 
+  function matchesContextGroups(source, match, trigger) {
+    const contextGroups = trigger.context_groups;
+    if (!contextGroups) return true;
+    return Object.values(contextGroups).every((group) => {
+      const context = codePointWindow(source, match, group.window);
+      return Boolean(findFirst(context, group.patterns));
+    });
+  }
+
   function check(text, savedAnswers, providedData) {
     const data = providedData || global.FAIRPOST_DATA;
     if (!data) throw new Error("fairpost 사전 번들을 찾을 수 없습니다.");
@@ -367,7 +386,8 @@
             (candidate) =>
               !isExcluded(source, candidate, trigger.exclude || []) &&
               (!trigger.section_scope ||
-                sectionAt(sections, candidate.start) === trigger.section_scope)
+                sectionAt(sections, candidate.start) === trigger.section_scope) &&
+              matchesContextGroups(source, candidate, trigger)
           ) || null;
         matched = Boolean(match);
       }

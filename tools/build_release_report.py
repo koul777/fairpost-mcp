@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime
 import json
 from pathlib import Path
+import subprocess
 import sys
 from zoneinfo import ZoneInfo
 
@@ -13,6 +14,37 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import load_ruleset  # noqa: E402
+
+
+def _release_tag_evidence() -> tuple[str | None, str]:
+    try:
+        repository = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    except OSError:
+        return None, "Git 실행 파일을 사용할 수 없어 릴리스 태그를 확인하지 못했습니다."
+    if repository.returncode != 0 or repository.stdout.strip() != "true":
+        return None, "작업 디렉터리가 Git 저장소가 아니어서 릴리스 태그 증거가 없습니다."
+
+    tags = subprocess.run(
+        ["git", "tag", "--points-at", "HEAD"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    if tags.returncode != 0:
+        return None, "Git 저장소는 확인했지만 현재 HEAD의 태그 조회에 실패했습니다."
+    tag_names = sorted(tag for tag in tags.stdout.splitlines() if tag.strip())
+    if not tag_names:
+        return None, "Git 저장소는 확인했지만 현재 HEAD에 릴리스 태그가 없습니다."
+    return tag_names[0], f"현재 HEAD의 릴리스 태그를 확인했습니다: {tag_names[0]}"
 
 
 def build_report(tests_passed: int) -> dict[str, object]:
@@ -47,6 +79,7 @@ def build_report(tests_passed: int) -> dict[str, object]:
     question_count = sum(
         rule["layer"] == "question" for rule in ruleset.rules
     )
+    release_tag, release_tag_note = _release_tag_evidence()
     return {
         "built_at": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(
             timespec="seconds"
@@ -100,11 +133,8 @@ def build_report(tests_passed: int) -> dict[str, object]:
             ],
             "work24_live_recheck": work24["result"],
         },
-        "release_tag": None,
-        "release_tag_note": (
-            "The working directory is not a Git repository, so release-tag "
-            "evidence is not available."
-        ),
+        "release_tag": release_tag,
+        "release_tag_note": release_tag_note,
     }
 
 

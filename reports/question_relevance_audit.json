@@ -5,16 +5,16 @@
   "contains_record_ids": false,
   "contains_source_ids": false,
   "default_expanded_posting_question_reduction": {
-    "baseline_question_instances": 5668,
+    "baseline_question_instances": 5670,
     "collapsed_question_instances": 2095,
-    "default_expanded_question_instances": 3573,
-    "reduction_rate": 0.369619
+    "default_expanded_question_instances": 3575,
+    "reduction_rate": 0.369489
   },
   "default_expanded_primary_question_reduction": {
-    "baseline_question_instances": 5668,
+    "baseline_question_instances": 5670,
     "collapsed_question_instances": 3311,
-    "default_expanded_question_instances": 2357,
-    "reduction_rate": 0.584157
+    "default_expanded_question_instances": 2359,
+    "reduction_rate": 0.583951
   },
   "question_activation_rates": [
     {
@@ -162,6 +162,12 @@
       "review_scope": "posting"
     },
     {
+      "activated_records": 2,
+      "activation_rate": 0.004762,
+      "question_id": "Q-INFO-012",
+      "review_scope": "posting"
+    },
+    {
       "activated_records": 1,
       "activation_rate": 0.002381,
       "question_id": "Q-INTER-001",
@@ -264,17 +270,17 @@
       "review_scope": "common"
     }
   ],
-  "question_definition_count": 41,
+  "question_definition_count": 42,
   "question_instances_by_presentation_group": {
     "common": 2095,
-    "posting_primary": 2357,
+    "posting_primary": 2359,
     "posting_slot_detail": 1216
   },
   "question_instances_by_review_scope": {
     "common": 2095,
-    "posting": 3573
+    "posting": 3575
   },
-  "question_instances_total": 5668,
+  "question_instances_total": 5670,
   "record_count": 420,
   "repeated_questions_at_or_above_95_percent": {
     "by_review_scope": {

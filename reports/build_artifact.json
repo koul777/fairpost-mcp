@@ -1,23 +1,23 @@
 {
-  "built_at": "2026-07-29T12:31:28+09:00",
+  "built_at": "2026-07-29T13:08:41+09:00",
   "package": "fairpost",
   "version": "0.3.0",
   "wheel": {
     "path": "dist/fairpost-0.3.0-py3-none-any.whl",
-    "bytes": 86038,
-    "sha256": "55ab857155381d1a8550aaf6d72792c238cdf303dee1ee5d38d49caac5959e27"
+    "bytes": 88138,
+    "sha256": "6dc7c729c4f98bfab112af4a9bdf25e3189b0b1d0ed9aa06afab5c3add233efc"
   },
   "sdist": {
     "path": "dist/fairpost-0.3.0.tar.gz",
-    "bytes": 190465,
-    "sha256": "89e6130721b929b9848a53787d969d8a3b2677259f37efdea4be2c692dc0980b"
+    "bytes": 195700,
+    "sha256": "3be81fda5888b34839c1e70730c79d203d713ef00e74b31bf7bb57a8e1455e1e"
   },
-  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-d7b60a40bb40",
-  "matching_version": "match-c3cbf911f0930689",
+  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-f823852fa120",
+  "matching_version": "match-6502483937d04170",
   "verification": {
-    "tests_passed": 167,
-    "data_rules": 60,
-    "question_cards": 41,
+    "tests_passed": 185,
+    "data_rules": 61,
+    "question_cards": 42,
     "statute_snapshots": 6,
     "web_parity_training_records": 2310,
     "web_parity_mismatches": 0,
@@ -39,5 +39,5 @@
     "work24_live_recheck": "api_business_error"
   },
   "release_tag": null,
-  "release_tag_note": "The working directory is not a Git repository, so release-tag evidence is not available."
+  "release_tag_note": "Git 저장소는 확인했지만 현재 HEAD에 릴리스 태그가 없습니다."
 }

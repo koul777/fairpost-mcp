@@ -14,7 +14,7 @@
 |---|---|---|
 | G1 법령 표현 정밀도 ≥ 0.90 | 미충족 | 평가기는 있으나 90개 공공 및 90개 민간 홀드아웃의 사람 라벨과 측정 보고서가 없음 |
 | G2 부재 탐지 재현율 ≥ 0.85 | 미충족 | 11개 슬롯과 평가기는 있으나 사람 라벨과 측정 보고서가 없음 |
-| G3 질문 카드 15개 이상 | 충족 | `data/rules/questions.yaml` 41개, `tools/validate_data.py`, 공고별ㆍ공통 범위와 관련성 감사 |
+| G3 질문 카드 15개 이상 | 충족 | `data/rules/questions.yaml` 42개, `tools/validate_data.py`, 공고별ㆍ공통 범위와 관련성 감사 |
 | G4 결정론 | 충족 | `test_deterministic_for_100_runs` |
 | G5 설치ㆍ키ㆍ비용 없는 웹 | 충족 | `web/index.html`, 네트워크 차단 및 CSP 테스트 |
 
@@ -45,7 +45,7 @@ PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 �
 | 요구사항 | 상태 | 현재 증거 |
 |---|---|---|
 | 법령 규칙 15개 이상 | 충족 | `data/rules/law.yaml` 19개 |
-| 질문 카드 15개 이상 | 충족 | `data/rules/questions.yaml` 41개 |
+| 질문 카드 15개 이상 | 충족 | `data/rules/questions.yaml` 42개 |
 | rejected/deferred 기록 | 충족 | `data/rules/rejected.yaml`, 데이터 검증기 |
 | 6개 대상 법령 스냅샷 | 충족 | `data/statutes/*.yaml` |
 | 원문ㆍ시행일ㆍ해시 검증 | 충족 | 공식 법령 API 대조 보고서, 스냅샷 테스트 |

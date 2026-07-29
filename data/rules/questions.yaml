@@ -674,11 +674,57 @@
     type: research
     title: 2025년 공공기관 공정채용 모니터링 주요 위반 사례(일부 문구 수정)
     publisher: 한국산업인력공단
+    year: 2025
+    pages: [7]
     source_url: https://www.ncs.go.kr/blind/rh13/bbs_lib_view.do?libDstinCd=07&libSeq=20250424140840743
     accessed_at: "2026-07-29"
     sections: [입증자료 제출 안내 시 유의사항 (PDF 7쪽)]
   provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-29"}
   book_ref: 2025년 공공기관 공정채용 모니터링 주요 위반 사례 PDF 7쪽
+
+- id: Q-INFO-012
+  layer: question
+  trigger:
+    type: presence
+    patterns:
+      - "re:근무분야[ \\t]*\\r?\\n(?=[^\\r\\n]{0,160}(?:일반직|행정직|사무직|기술직|전산직))(?=[^\\r\\n]{0,160}(?:연구(?:조사|사업운영)?직))[^\\r\\n]{1,160}"
+    context_groups:
+      requested_information:
+        patterns:
+          - "re:학력\\s*정보\\s*\\r?\\n[^\\r\\n]{0,120}(?:고졸|대졸|전문대졸|석사|박사)"
+          - 학력사항
+          - 최종학력
+          - 최종 학력
+          - 전공명
+          - "re:전공\\s*[:：/]"
+          - "re:(?:관련\\s*)?학위[^\\r\\n]{0,24}(?:필수|이상|취득|소지|요건|증명)"
+          - 졸업증명서
+          - 성적증명서
+        window: 600
+      application_form:
+        patterns: [입사지원서, 응시원서, 지원서 양식, 지원서 서식, 온라인 지원서]
+        window: 5000
+    exclude:
+      - {term: "re:(?:직렬|채용분야|지원분야|모집분야)별(?:로)?[\\s\\S]{0,40}(?:별도|각각|구분)[\\s\\S]{0,30}(?:입사)?지원서", window: 5000}
+      - {term: "re:(?:입사)?지원서[\\s\\S]{0,30}(?:직렬|채용분야|지원분야|모집분야)별(?:로)?[\\s\\S]{0,40}(?:별도|각각|구분)", window: 5000}
+      - {term: "re:(?:학력|전공|학위|학교명)[^\\r\\n]{0,40}(?:해당\\s*(?:직렬|분야)\\s*지원자만|해당자만|연구직에\\s*한함)", window: 650}
+  dimension: 정보
+  question: 비연구직과 연구직 등 복수 직렬의 지원서 항목과 자격요건ㆍ제출서류가 각 직렬에 필요한 범위로 구분되어 있습니까?
+  follow_up:
+    - 공통 지원서나 온라인 지원을 사용한다면 학력ㆍ전공ㆍ학위 필드가 필요한 직렬에만 조건부로 표시되고 필수화됩니까?
+    - 일반경쟁ㆍ제한경쟁과 각 직렬의 지원자격, 제출서류, 증빙 제출 시점을 표와 양식에서 구분했습니까?
+    - 직렬별 지원 경로와 양식을 테스트해 불필요한 정보가 다른 직렬 지원자에게 노출되거나 필수화되지 않는지 확인했습니까?
+  basis:
+    type: research
+    title: 2025년 공공기관 공정채용 모니터링 주요 위반 사례(일부 문구 수정)
+    publisher: 한국산업인력공단
+    year: 2025
+    pages: [11]
+    source_url: https://www.ncs.go.kr/blind/rh13/bbs_lib_view.do?libDstinCd=07&libSeq=20250424140840743
+    accessed_at: "2026-07-29"
+    sections: [다수 직렬 채용 시 유의사항 (PDF 11쪽)]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-29"}
+  book_ref: 2025년 공공기관 공정채용 모니터링 주요 위반 사례 PDF 11쪽
 
 - id: Q-PROC-011
   layer: question

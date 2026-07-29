@@ -387,9 +387,76 @@ def test_proof_document_question_has_current_ncs_reference_and_offset() -> None:
         "?libDstinCd=07&libSeq=20250424140840743"
     )
     assert question.reference.accessed_at == "2026-07-29"
+    assert question.reference.publisher == "한국산업인력공단"
+    assert question.reference.year == 2025
+    assert question.reference.pages == [7]
     assert question.reference.sections == [
         "입증자료 제출 안내 시 유의사항 (PDF 7쪽)"
     ]
+
+
+def test_multi_track_application_question_is_bounded_and_traceable() -> None:
+    text = (
+        "📌 채용공고\r\n"
+        "근무분야\r\n"
+        "행정직, 연구직, 기술직\r\n"
+        "학력정보\r\n"
+        "학력무관, 대졸(4년), 석사\r\n"
+        + ("가" * 4000)
+        + "\r\n입사\u200b지원서"
+    )
+    result = FairpostEngine().check(text)
+    question = next(item for item in result.questions if item.id == "Q-INFO-012")
+
+    assert question.matched_text == "근무분야\r\n행정직, 연구직, 기술직"
+    assert question.offset is not None
+    start, end = question.offset
+    assert text[start:end] == question.matched_text
+    assert "Q-INFO-012" not in {item.id for item in result.findings}
+    assert question.reference.title == (
+        "2025년 공공기관 공정채용 모니터링 주요 위반 사례(일부 문구 수정)"
+    )
+    assert question.reference.publisher == "한국산업인력공단"
+    assert question.reference.year == 2025
+    assert question.reference.pages == [11]
+    assert question.reference.accessed_at == "2026-07-29"
+    assert question.reference.sections == [
+        "다수 직렬 채용 시 유의사항 (PDF 11쪽)"
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        (
+            "근무분야\n연구직\n학력정보\n석사\n"
+            "행정직 6급 채용 시에 한함\n입사지원서"
+        ),
+        "근무분야\n행정직, 연구직\n입사지원서",
+        (
+            "근무분야\n행정직, 연구직\n학력정보\n학력무관\n"
+            "입사지원서"
+        ),
+        (
+            "근무분야\n행정직, 연구직\n학력사항\n"
+            + ("가" * 5100)
+            + "\n입사지원서"
+        ),
+        (
+            "근무분야\n행정직, 연구직\n학력사항\n"
+            "직렬별로 각각 별도 입사지원서를 사용"
+        ),
+        (
+            "근무분야\n행정직, 연구직\n"
+            "학위 정보는 연구직에 한함\n입사지원서"
+        ),
+    ],
+)
+def test_multi_track_application_question_protects_missing_or_scoped_context(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert "Q-INFO-012" not in {item.id for item in result.questions}
 
 
 def test_proxy_variable_expression_retrieves_review_question() -> None:
@@ -626,6 +693,173 @@ def test_presence_patterns_must_be_nonempty_strings(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     with pytest.raises(RuleLoadError, match="문자열 patterns"):
+        load_ruleset(copied)
+
+
+def test_question_context_groups_are_candidate_relative(tmp_path: Path) -> None:
+    copied = tmp_path / "data"
+    shutil.copytree(DATA, copied)
+    path = copied / "rules" / "questions.yaml"
+    rules = yaml.safe_load(path.read_text(encoding="utf-8"))
+    rules.append(
+        {
+            "id": "Q-TEST-CONTEXT",
+            "layer": "question",
+            "trigger": {
+                "type": "presence",
+                "patterns": ["공통 지원서"],
+                "context_groups": {
+                    "multiple_tracks": {
+                        "patterns": ["복수 직렬"],
+                        "window": 40,
+                    },
+                    "requested_information": {
+                        "patterns": ["학력 기재"],
+                        "window": 40,
+                    },
+                },
+            },
+            "dimension": "정보",
+            "question": "직렬별로 필요한 정보만 받습니까?",
+            "follow_up": [],
+            "basis": {"type": "consensus"},
+            "provenance": {
+                "method": "manual",
+                "reviewed_by": "test",
+                "reviewed_at": "2026-07-29",
+            },
+            "book_ref": "테스트",
+        }
+    )
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    engine = FairpostEngine(copied)
+
+    positive = engine.check("복수 직렬 채용의 공통 지원서에서 학력 기재")
+    question = next(
+        item for item in positive.questions if item.id == "Q-TEST-CONTEXT"
+    )
+    assert question.matched_text == "공통 지원서"
+
+    missing_group = engine.check("복수 직렬 채용의 공통 지원서를 사용")
+    assert "Q-TEST-CONTEXT" not in {
+        item.id for item in missing_group.questions
+    }
+
+    second_candidate_text = (
+        "공통 지원서"
+        + ("가" * 100)
+        + "복수 직렬 채용의 공통 지원서에서 학력 기재"
+    )
+    first_candidate_is_too_far = engine.check(second_candidate_text)
+    question = next(
+        item
+        for item in first_candidate_is_too_far.questions
+        if item.id == "Q-TEST-CONTEXT"
+    )
+    assert question.offset is not None
+    assert question.offset[0] == second_candidate_text.rfind("공통 지원서")
+    assert second_candidate_text[question.offset[0] : question.offset[1]] == (
+        "공통 지원서"
+    )
+
+
+def test_context_groups_require_valid_named_pattern_lists(tmp_path: Path) -> None:
+    copied = tmp_path / "data"
+    shutil.copytree(DATA, copied)
+    path = copied / "rules" / "questions.yaml"
+    rules = yaml.safe_load(path.read_text(encoding="utf-8"))
+    presence_rule = next(
+        rule for rule in rules if rule["trigger"]["type"] == "presence"
+    )
+    presence_rule["trigger"]["context_groups"] = {
+        "tracks": {"patterns": [123], "window": 100}
+    }
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleLoadError, match="context_groups"):
+        load_ruleset(copied)
+
+
+def test_context_window_without_groups_is_rejected(tmp_path: Path) -> None:
+    copied = tmp_path / "data"
+    shutil.copytree(DATA, copied)
+    path = copied / "rules" / "questions.yaml"
+    rules = yaml.safe_load(path.read_text(encoding="utf-8"))
+    presence_rule = next(
+        rule for rule in rules if rule["trigger"]["type"] == "presence"
+    )
+    presence_rule["trigger"]["context_window"] = 100
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleLoadError, match="그룹별 window"):
+        load_ruleset(copied)
+
+
+@pytest.mark.parametrize("invalid_window", [True, 0, 6001])
+def test_context_window_must_be_bounded_positive_integer(
+    tmp_path: Path,
+    invalid_window: object,
+) -> None:
+    copied = tmp_path / "data"
+    shutil.copytree(DATA, copied)
+    path = copied / "rules" / "questions.yaml"
+    rules = yaml.safe_load(path.read_text(encoding="utf-8"))
+    presence_rule = next(
+        rule for rule in rules if rule["trigger"]["type"] == "presence"
+    )
+    presence_rule["trigger"]["context_groups"] = {
+        "tracks": {
+            "patterns": ["복수 직렬"],
+            "window": invalid_window,
+        }
+    }
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleLoadError, match="1~6000"):
+        load_ruleset(copied)
+
+
+def test_context_groups_are_rejected_for_law_rules(tmp_path: Path) -> None:
+    copied = tmp_path / "data"
+    shutil.copytree(DATA, copied)
+    path = copied / "rules" / "law.yaml"
+    rules = yaml.safe_load(path.read_text(encoding="utf-8"))
+    rules[0]["trigger"]["context_groups"] = {
+        "tracks": {"patterns": ["복수 직렬"], "window": 100}
+    }
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleLoadError, match="question presence"):
+        load_ruleset(copied)
+
+
+def test_context_groups_are_rejected_for_absence_rules(tmp_path: Path) -> None:
+    copied = tmp_path / "data"
+    shutil.copytree(DATA, copied)
+    path = copied / "rules" / "questions.yaml"
+    rules = yaml.safe_load(path.read_text(encoding="utf-8"))
+    absence_rule = next(
+        rule for rule in rules if rule["trigger"]["type"] == "absence"
+    )
+    absence_rule["trigger"]["context_groups"] = {
+        "tracks": {"patterns": ["복수 직렬"], "window": 100}
+    }
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleLoadError, match="question presence"):
         load_ruleset(copied)
 
 

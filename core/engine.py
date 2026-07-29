@@ -5,7 +5,7 @@ from typing import Any
 
 from .extractor import extract_slots, section_at, split_sections
 from .loader import Ruleset, load_ruleset
-from .morph import find_matches, is_excluded, normalize
+from .morph import find_first, find_matches, is_excluded, normalize
 from .schema import Basis, CheckResult, Finding, Question, QuestionReference
 
 
@@ -13,6 +13,24 @@ DISCLAIMER = (
     "이 결과는 점검 참고자료이며 공정성 여부에 대한 판정이나 법률 자문이 아닙니다. "
     "확인되지 않은 항목은 해당 절차가 없다는 뜻이 아니라 이 공고문에서 발견되지 않았다는 뜻입니다."
 )
+
+
+def _matches_context_groups(
+    source: str,
+    match: Any,
+    trigger: dict[str, Any],
+) -> bool:
+    context_groups = trigger.get("context_groups")
+    if not context_groups:
+        return True
+    for group in context_groups.values():
+        window = int(group["window"])
+        context = source[
+            max(0, match.start() - window) : min(len(source), match.end() + window)
+        ]
+        if find_first(context, group["patterns"]) is None:
+            return False
+    return True
 
 
 class FairpostEngine:
@@ -94,6 +112,7 @@ class FairpostEngine:
                             or section_at(sections, candidate.start())
                             == trigger["section_scope"]
                         )
+                        and _matches_context_groups(source, candidate, trigger)
                     ),
                     None,
                 )

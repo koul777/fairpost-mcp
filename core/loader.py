@@ -47,7 +47,7 @@ REQUIRED_SLOT_IDS = {
 }
 CONTACT_COMPONENT_IDS = {"department", "phone", "email", "hours"}
 QUESTION_REVIEW_SCOPES = {"posting", "common"}
-MATCH_ENGINE_VERSION = "engine-v1-first-match-exclude-section-slots"
+MATCH_ENGINE_VERSION = "engine-v2-context-groups-first-match-exclude-section-slots"
 REQUIRED_STATUTE_ARTICLES = {
     "age-discrimination-act": {"제4조의4", "제4조의5"},
     "disability-employment-act": {"제5조"},
@@ -180,6 +180,41 @@ def _validate_rule(
             )
     if rule["trigger"]["type"] == "absence" and not rule["trigger"].get("field"):
         raise RuleLoadError(f"{rule_id}: absence trigger에는 field가 필요합니다")
+    context_groups = rule["trigger"].get("context_groups")
+    context_window_present = "context_window" in rule["trigger"]
+    if context_groups is not None:
+        if rule["layer"] != "question" or rule["trigger"]["type"] != "presence":
+            raise RuleLoadError(
+                f"{rule_id}: context_groups는 question presence trigger에만 허용됩니다"
+            )
+        if (
+            not isinstance(context_groups, dict)
+            or not context_groups
+            or any(
+                not isinstance(group_name, str)
+                or not group_name.strip()
+                or not isinstance(group, dict)
+                or set(group) != {"patterns", "window"}
+                or not isinstance(group.get("patterns"), list)
+                or not group["patterns"]
+                or any(
+                    not isinstance(pattern, str) or not pattern
+                    for pattern in group["patterns"]
+                )
+                or not isinstance(group.get("window"), int)
+                or isinstance(group["window"], bool)
+                or group["window"] < 1
+                or group["window"] > 6000
+                for group_name, group in context_groups.items()
+            )
+        ):
+            raise RuleLoadError(
+                f"{rule_id}: context_groups는 이름별 문자열 patterns와 1~6000 window를 가져야 합니다"
+            )
+    if context_window_present:
+        raise RuleLoadError(
+            f"{rule_id}: context_window 대신 context_groups의 그룹별 window를 사용해야 합니다"
+        )
     section_scope = rule["trigger"].get("section_scope")
     if section_scope is not None and section_scope not in ALLOWED_SECTIONS:
         raise RuleLoadError(f"{rule_id}: 알 수 없는 section_scope '{section_scope}'")

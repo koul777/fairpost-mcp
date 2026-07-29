@@ -23,7 +23,7 @@
 | AC-17 질문 발동근거 | 통과 | 질문 카드의 문맥ㆍoffsetㆍ섹션과 Python/웹 패리티 테스트 |
 | AC-18 질문 관련성ㆍ점진적 공개 | 통과 | `review_scope` 검증, 공통ㆍ누락 슬롯 중복ㆍ후속 질문 기본 접힘, train-only 익명 집계와 보호 문맥 회귀 테스트 |
 
-자동 테스트는 162개입니다. 기본 MCP 전송 방식인 Streamable HTTP는 실제
+자동 테스트는 185개입니다. 기본 MCP 전송 방식인 Streamable HTTP는 실제
 로컬 포트에서 초기화, 도구 목록, 점검, 답변 저장ㆍ조회를 검증했습니다.
 Vercel 운영 주소에서도 Bearer 인증, 초기화, 3도구 목록,
 `check_job_posting`의 `SEX-001`ㆍ제7조 반환을 검증했습니다.
@@ -35,7 +35,7 @@ Vercel 운영 주소에서도 Bearer 인증, 초기화, 3도구 목록,
 서버 없이 `web/index.html`을 직접 연 `file://` 실행도 같은 보고서에
 기록했고, 전수 엔진 비교 결과는 `reports/web_engine_parity.json`에
 원문 없이 저장했습니다.
-배포본은 `tools/verify_distribution.py`로 `sdist` 126개 파일과 `wheel`
+배포본은 `tools/verify_distribution.py`로 `sdist` 127개 파일과 `wheel`
 35개 파일을 검사했습니다. 실행에 필요한 코드ㆍ규칙ㆍ법령ㆍ웹 파일과
 소스 재현 자료가 포함되고, 인증정보ㆍ사용자 답변ㆍ비공개 코퍼스 원문은
 포함되지 않음을 `reports/distribution_audit.json`에 기록했습니다.

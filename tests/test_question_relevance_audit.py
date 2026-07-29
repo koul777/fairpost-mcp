@@ -299,14 +299,25 @@ def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
         == ncs_split["net_question_instances"]
         == 9
     )
+    multi_track = manual["subsequent_train_only_changes"][
+        "ncs_monitoring_multi_track_review"
+    ]
+    assert (
+        multi_track["Q-INFO-012_after"]
+        == multi_track["net_question_instances"]
+        == 2
+    )
     assert (
         before["question_instances_total"] - current["question_instances_total"]
-        == 104 - ncs_split["net_question_instances"]
+        == 104
+        - ncs_split["net_question_instances"]
+        - multi_track["net_question_instances"]
     )
     current_by_id = {
         row["question_id"]: row["activated_records"]
         for row in current["question_activation_rates"]
     }
+    assert current_by_id["Q-INFO-012"] == multi_track["Q-INFO-012_after"]
     assert sum(
         before_count - current_by_id[question_id]
         for question_id, before_count in before[

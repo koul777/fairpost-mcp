@@ -31,6 +31,38 @@ ROOT = Path(__file__).resolve().parents[1]
             "AI 면접으로 최종 결정\n일정\n접수 기간 8월 1일까지\n"
             "문의처\n인사팀 02-1234-5678"
         ),
+        (
+            "📌 채용공고\r\n근무분야\r\n행정직, 연구직, 기술직\r\n"
+            "학력정보\r\n학력무관, 대졸(4년), 석사\r\n"
+            + ("가" * 4000)
+            + "\r\n입사\u200b지원서"
+        ),
+        (
+            "근무분야\n행정직, 연구직\n학력사항\n"
+            + ("가" * 5100)
+            + "\n입사지원서"
+        ),
+        (
+            "근무분야\n행정직, 연구직\n학력사항\n"
+            + ("😀" * 1000)
+            + ("가" * 3800)
+            + "\n직렬별로 각각 별도 입사지원서"
+        ),
+    ],
+    ids=[
+        "plain-age-term",
+        "normalized-age-term",
+        "gender-rule",
+        "normalized-age-rule",
+        "zero-width-gender-rule",
+        "normalized-ai-process",
+        "benign-personality",
+        "crlf-sections",
+        "emoji-prefix",
+        "multiple-sections",
+        "multitrack-long-context",
+        "multitrack-outside-context",
+        "multitrack-unicode-exclusion",
     ],
 )
 def test_web_engine_matches_python_core(text: str) -> None:
@@ -77,6 +109,9 @@ def test_static_web_has_no_network_capability_and_shows_version() -> None:
     assert 'appendQuestion(slotQuestion, "  확인 질문:")' in app
     assert 'class="question-detail"' in app
     assert "후속 질문 ${question.follow_up.length}개 보기" in app
+    assert "question.reference.publisher" in app
+    assert "question.reference.accessed_at" in app
+    assert "확인 ${question.reference.accessed_at}" in app
 
 
 def test_web_bundle_version_matches_core() -> None:
