@@ -19,8 +19,8 @@ jobs:
     env:
       LAW_OPEN_API_OC: ${{ secrets.LAW_OPEN_API_OC }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -37,7 +37,7 @@ jobs:
         run: python tools/export_web_bundle.py
       - name: Verify
         run: python -m pytest
-      - uses: peter-evans/create-pull-request@v7
+      - uses: peter-evans/create-pull-request@v8
         with:
           branch: automation/statute-snapshot-refresh
           delete-branch: true
