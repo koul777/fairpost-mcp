@@ -43,7 +43,7 @@
     "SEX-001": 0,
     "SEX-002": 0
   },
-  "matching_version": "match-f0d933d62a3b2258",
+  "matching_version": "match-c3cbf911f0930689",
   "question_posting_hits": {
     "Q-DIST-001": 67,
     "Q-DIST-002": 130,
@@ -67,7 +67,8 @@
     "Q-INFO-007": 209,
     "Q-INFO-008": 209,
     "Q-INFO-009": 1,
-    "Q-INFO-010": 160,
+    "Q-INFO-010": 120,
+    "Q-INFO-011": 42,
     "Q-INTER-001": 0,
     "Q-INTER-002": 0,
     "Q-INTER-003": 1,
@@ -86,7 +87,7 @@
     "Q-PROC-012": 12,
     "Q-PROC-013": 209
   },
-  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-6beb93626db1",
+  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-d7b60a40bb40",
   "slot_found_posting_hits": {
     "ai_disclosure": 1,
     "appeal_channel": 13,

@@ -23,6 +23,7 @@ playwright-report/
 test-results/
 screenshots/
 tmp/
+reports/overnight_sessions/
 *.log
 
 .vercel

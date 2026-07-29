@@ -269,6 +269,7 @@ def test_book_based_baseline_questions_apply_to_regular_posting() -> None:
         ("지원자격\n세례교인에 한함", "Q-DIST-012"),
         ("자격요건\n범죄경력이 없는 사람", "Q-DIST-013"),
         ("제출서류\n입사지원서 양식", "Q-INFO-010"),
+        ("제출서류\n졸업증명서와 경력증명서 제출", "Q-INFO-011"),
         ("전형절차\n면접위원이 면접전형을 진행합니다.", "Q-PROC-011"),
         ("전형절차\n필기시험 후 면접", "Q-PROC-012"),
         ("2026년 사무직 채용 공고", "Q-PROC-013"),
@@ -304,6 +305,9 @@ def test_social_status_question_does_not_treat_job_type_as_applicant_status() ->
             "일체 기재하지 말아주세요",
             "Q-DIST-012",
         ),
+        ("안내사항\n증빙서류 제출 불필요", "Q-INFO-011"),
+        ("안내사항\n졸업증명서는 제출하지 않습니다.", "Q-INFO-011"),
+        ("지원자격\n운전면허증 소지자", "Q-INFO-011"),
         ("직무분류\n사회복지.종교", "Q-DIST-012"),
         ("기관은 지역사회 발전과 혁신을 추구합니다.", "Q-DIST-013"),
         ("우대사항\n북한이탈주민 가점", "Q-DIST-013"),
@@ -366,6 +370,26 @@ def test_question_includes_trigger_evidence_and_original_offset() -> None:
     assert payload_question["review_scope"] == "posting"
     assert payload_question["reference"]["source_url"].startswith("https://www.ncs.go.kr/")
     assert payload_question["reference"]["sections"] == ["채용단계별 주요 차별 요소 - 신앙"]
+
+
+def test_proof_document_question_has_current_ncs_reference_and_offset() -> None:
+    text = "제출서류\r\n졸업증명서와 경력증명서를 제출합니다."
+    result = FairpostEngine().check(text)
+    question = next(item for item in result.questions if item.id == "Q-INFO-011")
+
+    assert question.matched_text == "졸업증명서"
+    assert question.section == "제출서류"
+    assert question.offset is not None
+    start, end = question.offset
+    assert text[start:end] == question.matched_text
+    assert question.reference.source_url == (
+        "https://www.ncs.go.kr/blind/rh13/bbs_lib_view.do"
+        "?libDstinCd=07&libSeq=20250424140840743"
+    )
+    assert question.reference.accessed_at == "2026-07-29"
+    assert question.reference.sections == [
+        "입증자료 제출 안내 시 유의사항 (PDF 7쪽)"
+    ]
 
 
 def test_proxy_variable_expression_retrieves_review_question() -> None:

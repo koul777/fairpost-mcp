@@ -1,23 +1,23 @@
 {
-  "built_at": "2026-07-26T17:55:51+09:00",
+  "built_at": "2026-07-29T12:31:28+09:00",
   "package": "fairpost",
   "version": "0.3.0",
   "wheel": {
     "path": "dist/fairpost-0.3.0-py3-none-any.whl",
-    "bytes": 77627,
-    "sha256": "e6eff670bbb22774d1c9dccad0f42542e83f281855731005de90ef29f6843397"
+    "bytes": 86038,
+    "sha256": "55ab857155381d1a8550aaf6d72792c238cdf303dee1ee5d38d49caac5959e27"
   },
   "sdist": {
     "path": "dist/fairpost-0.3.0.tar.gz",
-    "bytes": 160105,
-    "sha256": "4e4386fecf102b993c4b2b4be693c70c82d0b8122717a48c6af856788f156e3b"
+    "bytes": 190465,
+    "sha256": "89e6130721b929b9848a53787d969d8a3b2677259f37efdea4be2c692dc0980b"
   },
-  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
-  "matching_version": "match-ca275dca7bba6d1a",
+  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-d7b60a40bb40",
+  "matching_version": "match-c3cbf911f0930689",
   "verification": {
-    "tests_passed": 122,
-    "data_rules": 53,
-    "question_cards": 34,
+    "tests_passed": 167,
+    "data_rules": 60,
+    "question_cards": 41,
     "statute_snapshots": 6,
     "web_parity_training_records": 2310,
     "web_parity_mismatches": 0,
@@ -28,7 +28,7 @@
     "human_labeling_status": "awaiting_human_annotations",
     "human_labeling_holdout_records": 180,
     "distribution_audit_passed": true,
-    "sdist_members": 120,
+    "sdist_members": 127,
     "wheel_members": 35,
     "claude_project_http_registered": true,
     "official_mcp_inspector_call_passed": true,

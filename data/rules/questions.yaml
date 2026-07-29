@@ -639,7 +639,7 @@
   layer: question
   trigger:
     type: presence
-    patterns: [입사지원서, 지원서 양식, 지원서 서식, 응시원서, 이력서 양식, 제출서류, 개인정보 수집]
+    patterns: [입사지원서, 지원서 양식, 지원서 서식, 응시원서, 이력서 양식, 개인정보 수집]
   dimension: 정보
   question: 지원서가 직무능력 확인에 필요한 최소 정보만 받도록 설계되어 있습니까?
   follow_up:
@@ -655,6 +655,30 @@
     sections: [채용단계별 주요 차별 요소, 공정채용의 기업 실천과제 - 서류전형]
   provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-27"}
   book_ref: NCS 공정채용 소개ㆍ공감채용 가이드 PDF 14쪽
+
+- id: Q-INFO-011
+  layer: question
+  trigger:
+    type: presence
+    patterns: [증빙서류, 입증자료, 졸업증명서, 성적증명서, 경력증명서, 자격증명서, 자격증 사본, 면허증 사본, 면허 사본, 어학 성적표, 어학 성적증명서, 주민등록등본]
+    exclude:
+      - {term: "re:(?:증빙서류|입증자료|졸업증명서|성적증명서|경력증명서|자격증명서|자격증\\s*사본|면허증\\s*사본|면허\\s*사본|어학\\s*성적(?:표|증명서)|주민등록등본)[\\s\\S]{0,24}(?:제출\\s*(?:불필요|필요\\s*없|없음|금지|하지)|요구하지)", window: 40}
+      - {term: "re:(?:제출\\s*(?:불필요|필요\\s*없|없음|금지|하지)|요구하지)[\\s\\S]{0,24}(?:증빙서류|입증자료|졸업증명서|성적증명서|경력증명서|자격증명서|자격증\\s*사본|면허증\\s*사본|면허\\s*사본|어학\\s*성적(?:표|증명서)|주민등록등본)", window: 40}
+  dimension: 정보
+  question: 증빙서류는 합격 결정에 필요한 항목만 적절한 단계에 최소 제출하게 하고, 편견을 유발할 수 있는 정보가 평가위원에게 전달되지 않도록 안내했습니까?
+  follow_up:
+    - 서류전형 합격자 발표 후 자격 확인에 필요한 자료만 요구하도록 제출 시점과 대상을 구분했습니까?
+    - 생년월일ㆍ성별ㆍ학교명ㆍ사진 등 수집금지 또는 해당 직무와 무관한 항목은 가려서 제출하도록 안내했습니까?
+    - 원본 자료와 평가위원 제공본의 접근권한ㆍ마스킹ㆍ보관ㆍ폐기 책임을 구분했습니까?
+  basis:
+    type: research
+    title: 2025년 공공기관 공정채용 모니터링 주요 위반 사례(일부 문구 수정)
+    publisher: 한국산업인력공단
+    source_url: https://www.ncs.go.kr/blind/rh13/bbs_lib_view.do?libDstinCd=07&libSeq=20250424140840743
+    accessed_at: "2026-07-29"
+    sections: [입증자료 제출 안내 시 유의사항 (PDF 7쪽)]
+  provenance: {method: manual, reviewed_by: fairpost-maintainers, reviewed_at: "2026-07-29"}
+  book_ref: 2025년 공공기관 공정채용 모니터링 주요 위반 사례 PDF 7쪽
 
 - id: Q-PROC-011
   layer: question

@@ -289,9 +289,19 @@ def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
 
     before = manual["pre_change_train_snapshot"]
     assert before["record_count"] == current["record_count"]
+    ncs_split = manual["subsequent_train_only_changes"][
+        "ncs_monitoring_proof_document_split"
+    ]
+    assert (
+        ncs_split["Q-INFO-010_after"]
+        + ncs_split["Q-INFO-011_after"]
+        - ncs_split["Q-INFO-010_before"]
+        == ncs_split["net_question_instances"]
+        == 9
+    )
     assert (
         before["question_instances_total"] - current["question_instances_total"]
-        == 104
+        == 104 - ncs_split["net_question_instances"]
     )
     current_by_id = {
         row["question_id"]: row["activated_records"]
