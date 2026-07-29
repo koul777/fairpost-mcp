@@ -450,6 +450,15 @@ def test_multi_track_application_question_is_bounded_and_traceable() -> None:
             "근무분야\n행정직, 연구직\n"
             "학위 정보는 연구직에 한함\n입사지원서"
         ),
+        "근무분야\n행정직, 연구직\n학력사항: 무관\n입사지원서",
+        "근무분야\n행정직, 연구직\n최종 학력: 무관\n입사지원서",
+        "근무분야\n행정직, 연구직\n학력사항: 제한 없음\n입사지원서",
+        "근무분야\n행정직, 연구직\n졸업증명서: 해당 없음\n입사지원서",
+        "근무분야\n행정직, 연구직\n학력사항: 학력 무관.\n입사지원서",
+        "근무분야\n행정직, 연구직\n전공명: 전공무관\n입사지원서",
+        "근무분야\n행정직, 연구직\n학력사항\n무관\n입사지원서",
+        "근무분야\n행정직, 연구직\n최종 학력\n제한 없음\n입사지원서",
+        "근무분야\n행정직, 연구직\n졸업증명서\n해당 없음\n입사지원서",
     ],
 )
 def test_multi_track_application_question_protects_missing_or_scoped_context(

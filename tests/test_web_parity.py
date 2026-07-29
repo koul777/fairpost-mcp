@@ -46,8 +46,21 @@ ROOT = Path(__file__).resolve().parents[1]
             "근무분야\n행정직, 연구직\n학력사항\n"
             + ("😀" * 1000)
             + ("가" * 3800)
+            + "\n입사지원서"
+        ),
+        (
+            "근무분야\n행정직, 연구직\n학력사항\n입사지원서\n"
+            + ("😀" * 1000)
+            + ("가" * 3800)
             + "\n직렬별로 각각 별도 입사지원서"
         ),
+        (
+            "입사지원서\n"
+            + ("😀" * 1000)
+            + ("가" * 3800)
+            + "\n학력사항\n근무분야\n행정직, 연구직"
+        ),
+        "근무분야\n행정직, 연구직\n학력사항\n무관\n입사지원서",
     ],
     ids=[
         "plain-age-term",
@@ -62,7 +75,10 @@ ROOT = Path(__file__).resolve().parents[1]
         "multiple-sections",
         "multitrack-long-context",
         "multitrack-outside-context",
+        "multitrack-unicode-context",
         "multitrack-unicode-exclusion",
+        "multitrack-unicode-left-context",
+        "multitrack-null-cell",
     ],
 )
 def test_web_engine_matches_python_core(text: str) -> None:
@@ -112,6 +128,9 @@ def test_static_web_has_no_network_capability_and_shows_version() -> None:
     assert "question.reference.publisher" in app
     assert "question.reference.accessed_at" in app
     assert "확인 ${question.reference.accessed_at}" in app
+    assert "function moveCodePointsLeft" in engine
+    assert "function moveCodePointsRight" in engine
+    assert "const codePoints = Array.from(text)" not in engine
 
 
 def test_web_bundle_version_matches_core() -> None:

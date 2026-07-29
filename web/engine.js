@@ -257,16 +257,41 @@
     return Array.from(text.slice(0, codeUnitOffset)).length;
   }
 
+  function moveCodePointsLeft(text, offset, count) {
+    let cursor = offset;
+    for (let moved = 0; moved < count && cursor > 0; moved += 1) {
+      cursor -= 1;
+      const current = text.charCodeAt(cursor);
+      if (current >= 0xdc00 && current <= 0xdfff && cursor > 0) {
+        const previous = text.charCodeAt(cursor - 1);
+        if (previous >= 0xd800 && previous <= 0xdbff) cursor -= 1;
+      }
+    }
+    return cursor;
+  }
+
+  function moveCodePointsRight(text, offset, count) {
+    let cursor = offset;
+    for (let moved = 0; moved < count && cursor < text.length; moved += 1) {
+      const current = text.charCodeAt(cursor);
+      if (
+        current >= 0xd800 &&
+        current <= 0xdbff &&
+        cursor + 1 < text.length
+      ) {
+        const next = text.charCodeAt(cursor + 1);
+        cursor += next >= 0xdc00 && next <= 0xdfff ? 2 : 1;
+      } else {
+        cursor += 1;
+      }
+    }
+    return cursor;
+  }
+
   function codePointWindow(text, match, window) {
-    const codePoints = Array.from(text);
-    const start = codePointOffset(text, match.start);
-    const end = codePointOffset(text, match.end);
-    return codePoints
-      .slice(
-        Math.max(0, start - window),
-        Math.min(codePoints.length, end + window)
-      )
-      .join("");
+    const left = moveCodePointsLeft(text, match.start, window);
+    const right = moveCodePointsRight(text, match.end, window);
+    return text.slice(left, right);
   }
 
   function evidenceLine(text, start, end) {

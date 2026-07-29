@@ -3,21 +3,21 @@
   "contains_posting_text": false,
   "passed": true,
   "sdist": {
-    "bytes": 195700,
+    "bytes": 196388,
     "forbidden_members": [],
     "members": 127,
     "missing_required": [],
     "passed": true,
     "path": "C:/workspace/fairmcp/dist/fairpost-0.3.0.tar.gz",
-    "sha256": "3be81fda5888b34839c1e70730c79d203d713ef00e74b31bf7bb57a8e1455e1e"
+    "sha256": "32ac7f8e6be3105c7ff24be63243ff2bf561ca1ef0b754cb6a2c3d9d8f717c9b"
   },
   "wheel": {
-    "bytes": 88138,
+    "bytes": 88481,
     "forbidden_members": [],
     "members": 35,
     "missing_required": [],
     "passed": true,
     "path": "C:/workspace/fairmcp/dist/fairpost-0.3.0-py3-none-any.whl",
-    "sha256": "6dc7c729c4f98bfab112af4a9bdf25e3189b0b1d0ed9aa06afab5c3add233efc"
+    "sha256": "f4a0aad8ccbaa51f70e2a50e961a9a08a20f8e83bd603b70583505ad47b4b237"
   }
 }
