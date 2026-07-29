@@ -19,6 +19,12 @@ DEFAULT_INPUT = Path(".corpus-prd/train/records.jsonl")
 DEFAULT_OUTPUT = Path("reports/question_relevance_audit.json")
 REPEATED_QUESTION_THRESHOLD = 0.95
 DEFAULT_REVIEW_SCOPE = "posting"
+SLOT_DETAIL_QUESTION_SLOTS = {
+    "Q-INFO-001": "appeal_channel",
+    "Q-INFO-004": "document_return",
+    "Q-PROC-002": "evaluation_criteria",
+}
+SLOT_DETAIL_QUESTION_IDS = frozenset(SLOT_DETAIL_QUESTION_SLOTS)
 
 
 def _reject_holdout_path(path: Path) -> None:
@@ -104,6 +110,9 @@ def build_report(
     question_scopes = _question_catalog(checker)
     activated_records: Counter[str] = Counter()
     instances_by_scope: Counter[str] = Counter()
+    slot_detail_checked_records: Counter[str] = Counter()
+    slot_detail_missing_records: Counter[str] = Counter()
+    slot_detail_mismatched_records: Counter[str] = Counter()
     question_instances_total = 0
 
     for text in texts:
@@ -122,6 +131,23 @@ def build_report(
             question_instances_total += 1
             seen_in_record.add(question_id)
         activated_records.update(seen_in_record)
+        slots = getattr(result, "slots", None)
+        if slots is not None:
+            slots_by_id = {
+                getattr(slot, "slot", None): slot
+                for slot in slots
+                if isinstance(getattr(slot, "slot", None), str)
+            }
+            for question_id, slot_id in SLOT_DETAIL_QUESTION_SLOTS.items():
+                slot = slots_by_id.get(slot_id)
+                if slot is None:
+                    continue
+                slot_detail_checked_records[question_id] += 1
+                slot_missing = not bool(getattr(slot, "found", False))
+                if slot_missing:
+                    slot_detail_missing_records[question_id] += 1
+                if slot_missing != (question_id in seen_in_record):
+                    slot_detail_mismatched_records[question_id] += 1
 
     instances_by_scope.setdefault(DEFAULT_REVIEW_SCOPE, 0)
     for scope in question_scopes.values():
@@ -154,6 +180,16 @@ def build_report(
 
     posting_instances = instances_by_scope[DEFAULT_REVIEW_SCOPE]
     collapsed_instances = question_instances_total - posting_instances
+    slot_detail_instances = sum(
+        activated_records[question_id]
+        for question_id in SLOT_DETAIL_QUESTION_IDS
+        if question_scopes.get(question_id, DEFAULT_REVIEW_SCOPE)
+        == DEFAULT_REVIEW_SCOPE
+    )
+    primary_posting_instances = posting_instances - slot_detail_instances
+    default_collapsed_instances = (
+        question_instances_total - primary_posting_instances
+    )
     report: dict[str, object] = {
         "split": "train_only",
         "record_count": record_count,
@@ -175,6 +211,49 @@ def build_report(
             "collapsed_question_instances": collapsed_instances,
             "reduction_rate": _rate(
                 collapsed_instances,
+                question_instances_total,
+            ),
+        },
+        "slot_detail_questions": {
+            "question_ids": sorted(SLOT_DETAIL_QUESTION_IDS),
+            "question_instances": slot_detail_instances,
+        },
+        "slot_detail_pair_invariants": {
+            "checked_pairs": sum(slot_detail_checked_records.values()),
+            "mismatched_pairs": sum(
+                slot_detail_mismatched_records.values()
+            ),
+            "pairs": [
+                {
+                    "question_id": question_id,
+                    "slot_id": SLOT_DETAIL_QUESTION_SLOTS[question_id],
+                    "checked_records": slot_detail_checked_records[
+                        question_id
+                    ],
+                    "slot_missing_records": slot_detail_missing_records[
+                        question_id
+                    ],
+                    "question_activated_records": activated_records[
+                        question_id
+                    ],
+                    "mismatched_records": slot_detail_mismatched_records[
+                        question_id
+                    ],
+                }
+                for question_id in sorted(SLOT_DETAIL_QUESTION_IDS)
+            ],
+        },
+        "question_instances_by_presentation_group": {
+            "common": collapsed_instances,
+            "posting_primary": primary_posting_instances,
+            "posting_slot_detail": slot_detail_instances,
+        },
+        "default_expanded_primary_question_reduction": {
+            "baseline_question_instances": question_instances_total,
+            "default_expanded_question_instances": primary_posting_instances,
+            "collapsed_question_instances": default_collapsed_instances,
+            "reduction_rate": _rate(
+                default_collapsed_instances,
                 question_instances_total,
             ),
         },

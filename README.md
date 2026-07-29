@@ -246,8 +246,10 @@ python tools\build_human_labeling_handoff.py
 
 질문의 `review_scope`는 해당 공고에서 바로 볼 `posting`과 채용 전반에서
 한 번 확인할 `common`을 구분합니다. 정적 웹은 공고별 질문을 먼저 보여
-주고 공통 기본 체크리스트와 후속 질문은 접어서 표시합니다. API의 기존
-`questions` 배열과 `counts.questions`는 그대로 유지합니다.
+주고 공통 기본 체크리스트와 후속 질문은 접어서 표시합니다. 이의제기
+경로ㆍ채용서류 반환ㆍ평가 기준처럼 누락 슬롯과 의미가 겹치며 자주
+반복되는 질문은 해당 `확인되지 않은 항목` 카드 안에서 펼쳐봅니다. API의
+기존 `questions` 배열과 `counts.questions`는 그대로 유지합니다.
 
 기관 자체 규칙은 `basis.type: consensus`만 허용합니다. 이를 법령
 근거로 표시하면 로딩 단계에서 실패합니다.

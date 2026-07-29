@@ -64,13 +64,13 @@ PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 �
 | 수집 중 비식별화 | 충족 | 이메일ㆍ전화ㆍ담당자ㆍ조직명 비식별화 테스트 |
 | 원문 미배포 | 충족 | `.corpus*/` Git 제외, 익명 집계만 `reports/`에 존재 |
 | 후보 추출ㆍ정규화 도구 | 충족 | `mine_candidates.py`, `normalize_candidates.py` |
-| 질문 관련성 감사 | 충족 | train-only 420건 익명 집계, 공통 체크리스트 분리, 명백한 문맥 오발동 104개 감소. `docs/question-relevance-audit.md` |
+| 질문 관련성 감사 | 충족 | train-only 420건 익명 집계, 공통 체크리스트와 누락 슬롯 중복 분리, 명백한 문맥 오발동 104개 감소. `docs/question-relevance-audit.md` |
 | 봉인 홀드아웃 평가 | 부분 충족 | 오염 차단, 정식 180건 로컬 라벨링 화면과 완전 라벨 강제는 구현. `reports/human_labeling_handoff.json` 생성, 사람 정답 데이터 없음 |
 
 ## 수용 기준
 
 AC-1~AC-18의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. 현재
-159개 테스트가 통과한다. 다만 수용 기준 통과가 G1ㆍG2 성능 목표를 대신
+162개 테스트가 통과한다. 다만 수용 기준 통과가 G1ㆍG2 성능 목표를 대신
 증명하지는 않는다.
 
 ## 완료를 위해 남은 증거

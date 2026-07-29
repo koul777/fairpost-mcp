@@ -121,6 +121,27 @@ def test_report_counts_scopes_rates_repetition_and_default_reduction() -> None:
         "collapsed_question_instances": 20,
         "reduction_rate": 0.487805,
     }
+    assert report["slot_detail_questions"] == {
+        "question_ids": [
+            "Q-INFO-001",
+            "Q-INFO-004",
+            "Q-PROC-002",
+        ],
+        "question_instances": 0,
+    }
+    assert report["slot_detail_pair_invariants"]["checked_pairs"] == 0
+    assert report["slot_detail_pair_invariants"]["mismatched_pairs"] == 0
+    assert report["question_instances_by_presentation_group"] == {
+        "common": 20,
+        "posting_primary": 21,
+        "posting_slot_detail": 0,
+    }
+    assert report["default_expanded_primary_question_reduction"] == {
+        "baseline_question_instances": 41,
+        "default_expanded_question_instances": 21,
+        "collapsed_question_instances": 20,
+        "reduction_rate": 0.487805,
+    }
     assert "private posting text" not in json.dumps(report)
 
 
@@ -149,6 +170,9 @@ def test_empty_training_set_has_defined_zero_rates() -> None:
     ] == [0.0, 0.0]
     assert report["repeated_questions_at_or_above_95_percent"]["questions"] == []
     assert report["default_expanded_posting_question_reduction"][
+        "reduction_rate"
+    ] == 0.0
+    assert report["default_expanded_primary_question_reduction"][
         "reduction_rate"
     ] == 0.0
 
@@ -279,3 +303,23 @@ def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
             "question_activation_records"
         ].items()
     ) == 104
+    groups = current["question_instances_by_presentation_group"]
+    assert sum(groups.values()) == current["question_instances_total"]
+    assert current["slot_detail_questions"]["question_ids"] == [
+        "Q-INFO-001",
+        "Q-INFO-004",
+        "Q-PROC-002",
+    ]
+    assert (
+        current["slot_detail_questions"]["question_instances"]
+        == groups["posting_slot_detail"]
+    )
+    pair_invariants = current["slot_detail_pair_invariants"]
+    assert pair_invariants["checked_pairs"] == current["record_count"] * 3
+    assert pair_invariants["mismatched_pairs"] == 0
+    for pair in pair_invariants["pairs"]:
+        assert pair["checked_records"] == current["record_count"]
+        assert pair["slot_missing_records"] == pair[
+            "question_activated_records"
+        ]
+        assert pair["mismatched_records"] == 0

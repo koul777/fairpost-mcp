@@ -21,9 +21,9 @@
 | AC-15 로컬 statute 금지 | 통과 | 로더 실패 테스트 |
 | AC-16 시행일·해시 | 통과 | 6개 법령 스냅샷 검사 |
 | AC-17 질문 발동근거 | 통과 | 질문 카드의 문맥ㆍoffsetㆍ섹션과 Python/웹 패리티 테스트 |
-| AC-18 질문 관련성ㆍ점진적 공개 | 통과 | `review_scope` 검증, 공통 체크리스트ㆍ후속 질문 기본 접힘, train-only 익명 집계와 보호 문맥 회귀 테스트 |
+| AC-18 질문 관련성ㆍ점진적 공개 | 통과 | `review_scope` 검증, 공통ㆍ누락 슬롯 중복ㆍ후속 질문 기본 접힘, train-only 익명 집계와 보호 문맥 회귀 테스트 |
 
-자동 테스트는 159개입니다. 기본 MCP 전송 방식인 Streamable HTTP는 실제
+자동 테스트는 162개입니다. 기본 MCP 전송 방식인 Streamable HTTP는 실제
 로컬 포트에서 초기화, 도구 목록, 점검, 답변 저장ㆍ조회를 검증했습니다.
 Vercel 운영 주소에서도 Bearer 인증, 초기화, 3도구 목록,
 `check_job_posting`의 `SEX-001`ㆍ제7조 반환을 검증했습니다.
@@ -42,6 +42,9 @@ Vercel 운영 주소에서도 Bearer 인증, 초기화, 3도구 목록,
 질문 관련성 감사의 익명 집계와 재현 명령은
 `docs/question-relevance-audit.md`와
 `reports/question_relevance_audit.json`에 기록했습니다.
+누락 슬롯 안에 접은 세 질문은 train 420건에서 총 1,260개
+slot-question 관계를 비교해 불일치 0건을 확인했습니다. 최신 중첩 배치의
+새 시각 캡처는 앱 내 브라우저 연결을 사용할 수 없어 보류했습니다.
 
 ## 미완료 품질 게이트
 

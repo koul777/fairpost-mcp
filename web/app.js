@@ -10,6 +10,26 @@
   const emptyState = document.getElementById("empty-state");
   const resultContent = document.getElementById("result-content");
   const toast = document.getElementById("toast");
+  const SLOT_EMBEDDED_QUESTION_ALLOWLIST = new Set(
+    ["Q-INFO-001", "Q-INFO-004", "Q-PROC-002"]
+  );
+  const SLOT_QUESTION_IDS = Object.freeze(
+    Object.fromEntries(
+      window.FAIRPOST_DATA.rules
+        .filter(
+          (rule) =>
+            SLOT_EMBEDDED_QUESTION_ALLOWLIST.has(rule.id) &&
+            rule.layer === "question" &&
+            rule.trigger &&
+            rule.trigger.type === "absence" &&
+            typeof rule.trigger.field === "string"
+        )
+        .map((rule) => [rule.trigger.field, rule.id])
+    )
+  );
+  const SLOT_EMBEDDED_QUESTION_IDS = new Set(
+    Object.values(SLOT_QUESTION_IDS)
+  );
   let latestResult = null;
   let toastTimer = null;
 
@@ -91,7 +111,7 @@
       .join("");
   }
 
-  function renderSlots(slots) {
+  function renderSlots(slots, questions) {
     const missing = slots.filter((slot) => !slot.found);
     const container = document.getElementById("slots-list");
     if (!missing.length) {
@@ -99,13 +119,24 @@
         '<div class="none-item">11개 안내 항목이 공고문에서 모두 확인되었습니다.</div>';
       return;
     }
+    const questionsById = new Map(
+      questions.map((question) => [question.id, question])
+    );
     container.innerHTML = missing
-      .map(
-        (slot) => `<div class="slot-item">
+      .map((slot) => {
+        const question = questionsById.get(SLOT_QUESTION_IDS[slot.slot]);
+        const questionDetail = question
+          ? `<details class="slot-question-detail">
+              <summary aria-label="${escapeHtml(slot.label)} 관련 확인 질문 보기">확인 질문 보기</summary>
+              <div class="slot-question-content">${questionCard(question)}</div>
+            </details>`
+          : "";
+        return `<div class="slot-item">
           <strong>${escapeHtml(slot.label)}</strong>
           <span>공고문에서 확인되지 않았습니다</span>
-        </div>`
-      )
+          ${questionDetail}
+        </div>`;
+      })
       .join("");
   }
 
@@ -159,8 +190,11 @@
     const commonQuestions = questions.filter(
       (question) => question.review_scope === "common"
     );
-    const postingMarkup = postingQuestions.length
-      ? postingQuestions.map(questionCard).join("")
+    const visiblePostingQuestions = postingQuestions.filter(
+      (question) => !SLOT_EMBEDDED_QUESTION_IDS.has(question.id)
+    );
+    const postingMarkup = visiblePostingQuestions.length
+      ? visiblePostingQuestions.map(questionCard).join("")
       : '<div class="none-item">이 공고에서 먼저 확인할 추가 질문이 없습니다.</div>';
     const commonMarkup = commonQuestions.length
       ? `<details id="common-checklist" class="common-checklist">
@@ -175,8 +209,8 @@
       : "";
     container.innerHTML = `
       <div class="question-group-heading">
-        <strong>이 공고에서 먼저 볼 질문 ${postingQuestions.length}개</strong>
-        <span>발견된 표현과 확인되지 않은 안내 항목에 연결됩니다.</span>
+        <strong>이 공고에서 먼저 볼 질문 ${visiblePostingQuestions.length}개</strong>
+        <span>누락 확인 질문은 관련 항목 카드 안에 접어 두었습니다.</span>
       </div>
       ${postingMarkup}
       ${commonMarkup}
@@ -187,13 +221,16 @@
     latestResult = result;
     document.getElementById("finding-count").textContent = result.counts.findings;
     document.getElementById("missing-count").textContent = result.counts.not_found;
-    document.getElementById("question-count").textContent = result.questions.filter(
-      (question) => question.review_scope !== "common"
-    ).length;
+    document.getElementById("question-count").textContent =
+      result.questions.filter(
+        (question) =>
+          question.review_scope !== "common" &&
+          !SLOT_EMBEDDED_QUESTION_IDS.has(question.id)
+      ).length;
     document.getElementById("disclaimer").textContent =
       `${result.statute_notice} ${result.disclaimer}`;
     renderFindings(result.findings);
-    renderSlots(result.slots);
+    renderSlots(result.slots, result.questions);
     renderQuestions(result.questions);
     emptyState.hidden = true;
     resultContent.hidden = false;
@@ -223,20 +260,20 @@
         lines.push(`  대안: ${alternative}`)
       );
     });
-    lines.push("", `[확인되지 않은 항목 ${result.counts.not_found}건]`);
-    result.slots
-      .filter((slot) => !slot.found)
-      .forEach((slot) =>
-        lines.push(`- ${slot.label}: 공고문에서 확인되지 않았습니다.`)
-      );
+    const questionsById = new Map(
+      result.questions.map((question) => [question.id, question])
+    );
     const postingQuestions = result.questions.filter(
       (question) => question.review_scope !== "common"
+    );
+    const visiblePostingQuestions = postingQuestions.filter(
+      (question) => !SLOT_EMBEDDED_QUESTION_IDS.has(question.id)
     );
     const commonQuestions = result.questions.filter(
       (question) => question.review_scope === "common"
     );
-    const appendQuestion = (question) => {
-      lines.push(`- ${question.id} ${question.question}`);
+    const appendQuestion = (question, prefix = "-") => {
+      lines.push(`${prefix} ${question.id} ${question.question}`);
       if (question.matched_text) {
         lines.push(
           `  발동 문맥: "${question.matched_text}" (${question.section || ""}, ${question.offset ? `${question.offset[0]}–${question.offset[1]}` : ""})`
@@ -249,8 +286,18 @@
       }
       question.follow_up.forEach((item) => lines.push(`  · ${item}`));
     };
-    lines.push("", `[공고별 검토 질문 ${postingQuestions.length}건]`);
-    postingQuestions.forEach(appendQuestion);
+    lines.push("", `[확인되지 않은 항목 ${result.counts.not_found}건]`);
+    result.slots
+      .filter((slot) => !slot.found)
+      .forEach((slot) => {
+        lines.push(`- ${slot.label}: 공고문에서 확인되지 않았습니다.`)
+        const slotQuestion = questionsById.get(SLOT_QUESTION_IDS[slot.slot]);
+        if (slotQuestion) {
+          appendQuestion(slotQuestion, "  확인 질문:");
+        }
+      });
+    lines.push("", `[공고별 추가 검토 질문 ${visiblePostingQuestions.length}건]`);
+    visiblePostingQuestions.forEach(appendQuestion);
     lines.push("", `[공통 기본 체크리스트 ${commonQuestions.length}건]`);
     commonQuestions.forEach(appendQuestion);
     lines.push("", result.disclaimer);

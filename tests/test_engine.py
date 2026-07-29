@@ -161,6 +161,49 @@ def test_named_appeal_channel_and_deadline_satisfy_appeal_slot() -> None:
     assert "Q-INFO-001" not in {question.id for question in result.questions}
 
 
+@pytest.mark.parametrize(
+    ("slot_id", "question_id", "present_text"),
+    [
+        (
+            "appeal_channel",
+            "Q-INFO-001",
+            "유의사항\n결과 통보 후 인사팀으로 이의신청할 수 있습니다.",
+        ),
+        (
+            "document_return",
+            "Q-INFO-004",
+            "제출서류\n채용서류 반환 청구 기간과 파기 시점을 안내합니다.",
+        ),
+        (
+            "evaluation_criteria",
+            "Q-PROC-002",
+            "전형절차\n평가 기준과 평가 항목별 배점을 안내합니다.",
+        ),
+    ],
+)
+def test_slot_detail_question_exactly_tracks_slot_absence(
+    slot_id: str,
+    question_id: str,
+    present_text: str,
+) -> None:
+    engine = FairpostEngine()
+    missing = engine.check("2026년 사무직 채용 공고")
+    missing_slot = next(slot for slot in missing.slots if slot.slot == slot_id)
+    missing_question = next(
+        question for question in missing.questions if question.id == question_id
+    )
+
+    assert missing_slot.found is False
+    assert missing_question.matched_text is None
+    assert missing_question.offset is None
+    assert missing_question.section is None
+
+    present = engine.check(present_text)
+    present_slot = next(slot for slot in present.slots if slot.slot == slot_id)
+    assert present_slot.found is True
+    assert question_id not in {question.id for question in present.questions}
+
+
 def test_contact_point_and_appeal_process_are_independent() -> None:
     engine = FairpostEngine()
     contact_only = engine.check(

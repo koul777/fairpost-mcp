@@ -10,6 +10,12 @@
     "default_expanded_question_instances": 3564,
     "reduction_rate": 0.370207
   },
+  "default_expanded_primary_question_reduction": {
+    "baseline_question_instances": 5659,
+    "collapsed_question_instances": 3311,
+    "default_expanded_question_instances": 2348,
+    "reduction_rate": 0.585086
+  },
   "question_activation_rates": [
     {
       "activated_records": 145,
@@ -253,6 +259,11 @@
     }
   ],
   "question_definition_count": 40,
+  "question_instances_by_presentation_group": {
+    "common": 2095,
+    "posting_primary": 2348,
+    "posting_slot_detail": 1216
+  },
   "question_instances_by_review_scope": {
     "common": 2095,
     "posting": 3564
@@ -316,6 +327,44 @@
       }
     ],
     "threshold": 0.95
+  },
+  "slot_detail_pair_invariants": {
+    "checked_pairs": 1260,
+    "mismatched_pairs": 0,
+    "pairs": [
+      {
+        "checked_records": 420,
+        "mismatched_records": 0,
+        "question_activated_records": 407,
+        "question_id": "Q-INFO-001",
+        "slot_id": "appeal_channel",
+        "slot_missing_records": 407
+      },
+      {
+        "checked_records": 420,
+        "mismatched_records": 0,
+        "question_activated_records": 405,
+        "question_id": "Q-INFO-004",
+        "slot_id": "document_return",
+        "slot_missing_records": 405
+      },
+      {
+        "checked_records": 420,
+        "mismatched_records": 0,
+        "question_activated_records": 404,
+        "question_id": "Q-PROC-002",
+        "slot_id": "evaluation_criteria",
+        "slot_missing_records": 404
+      }
+    ]
+  },
+  "slot_detail_questions": {
+    "question_ids": [
+      "Q-INFO-001",
+      "Q-INFO-004",
+      "Q-PROC-002"
+    ],
+    "question_instances": 1216
   },
   "split": "train_only"
 }

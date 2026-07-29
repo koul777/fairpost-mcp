@@ -59,6 +59,22 @@ def test_static_web_has_no_network_capability_and_shows_version() -> None:
     assert 'id="common-checklist"' in app
     assert "<details" in app
     assert "공통 기본 체크리스트" in app
+    assert '["Q-INFO-001", "Q-INFO-004", "Q-PROC-002"]' in app
+    assert "SLOT_EMBEDDED_QUESTION_ALLOWLIST.has(rule.id)" in app
+    assert "Object.values(SLOT_QUESTION_IDS)" in app
+    assert "rule.trigger.field" in app
+    assert 'class="slot-question-detail"' in app
+    assert ">확인 질문 보기</summary>" in app
+    assert '<details class="slot-question-detail" open' not in app
+    assert "!SLOT_EMBEDDED_QUESTION_IDS.has(question.id)" in app
+    assert "Boolean(question.matched_text)" not in app
+    assert "renderSlots(result.slots, result.questions)" in app
+    assert (
+        "question.review_scope !== \"common\" &&\n"
+        "          !SLOT_EMBEDDED_QUESTION_IDS.has(question.id)"
+    ) in app
+    assert "visiblePostingQuestions.forEach(appendQuestion)" in app
+    assert 'appendQuestion(slotQuestion, "  확인 질문:")' in app
     assert 'class="question-detail"' in app
     assert "후속 질문 ${question.follow_up.length}개 보기" in app
 

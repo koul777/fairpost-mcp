@@ -529,18 +529,35 @@ summary:focus-visible {
   background: #fffaf0;
 }
 
-.slot-item strong {
+.slot-item > strong {
   display: block;
   font-size: 12px;
   line-height: 1.4;
 }
 
-.slot-item span {
+.slot-item > span {
   display: block;
   margin-top: 4px;
   color: #76694d;
   font-size: 10px;
   line-height: 1.5;
+}
+
+.slot-question-detail {
+  margin-top: 9px;
+  border-top: 1px solid #dfd3b4;
+}
+
+.slot-question-detail > summary {
+  padding-top: 9px;
+  cursor: pointer;
+  color: #675728;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.slot-question-content {
+  padding-top: 9px;
 }
 
 .none-item {
