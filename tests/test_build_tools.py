@@ -559,6 +559,17 @@ def test_current_client_evidence_requires_claude_receipt() -> None:
     )
 
 
+def test_windows_ci_forces_utf8_python_output() -> None:
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    )
+    windows_env = workflow["jobs"]["test-windows"]["env"]
+    assert windows_env == {
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+    }
+
+
 def test_release_report_rejects_hidden_testcase_failure(tmp_path: Path) -> None:
     module = load_tool("build_release_report")
     junitxml = tmp_path / "pytest.xml"

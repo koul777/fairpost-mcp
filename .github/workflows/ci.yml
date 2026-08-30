@@ -12,6 +12,9 @@ jobs:
   # Korean console output, package member paths, and installed-wheel lookup work.
   test-windows:
     runs-on: windows-latest
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
