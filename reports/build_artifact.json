@@ -1,26 +1,26 @@
 {
   "schema_version": "fairpost-build-artifact-v2",
-  "built_at": "2026-08-31T03:15:09+09:00",
+  "built_at": "2026-08-31T03:36:40+09:00",
   "package": "fairpost",
   "version": "0.3.0",
   "wheel": {
     "path": "dist/fairpost-0.3.0-py3-none-any.whl",
-    "bytes": 116636,
-    "sha256": "fc2566fe78bd1074bab92284bbbee8c3007fc7cb88ab79048625e61de0ff0dcf"
+    "bytes": 117478,
+    "sha256": "b10d33a4c7b055912eb34fe8946e9c27bbed083cab27c66bae05b9ae45bf5bc0"
   },
   "sdist": {
     "path": "dist/fairpost-0.3.0.tar.gz",
-    "bytes": 436054,
-    "sha256": "e1ca9fe9423a33c4ceaf159b07396ed58283e0c0c323e147301dbb7a82aca613"
+    "bytes": 438304,
+    "sha256": "16ea20a2fbc7d7a173087091748570b83ad1530af5e174aebcc70b1eeb8008a7"
   },
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
   "matching_version": "match-fa5e6d7a5c7d2904",
   "verification": {
-    "tests_passed": 885,
-    "test_evidence_bytes": 167757,
-    "test_evidence_sha256": "113c88c1c70bc29634e8bf72ea49104e3762ffe068f69263a2b11427a1db2ece",
+    "tests_passed": 893,
+    "test_evidence_bytes": 168690,
+    "test_evidence_sha256": "ffb26a2d6644e7c5e85c568258e9488735761c8d3119d192d634560b25d3ee37",
     "test_evidence_fresh_for_current_inputs": true,
-    "test_validation_source_fingerprint": "validation-b2e1bb9db5f3646d6a6639a7ae8e00d44bb0b6d4f0300b469d01b3d23fa6cb7c",
+    "test_validation_source_fingerprint": "validation-555b7ee8526cf6edc175a4781921df97645265f69c9f6ecd191b8e3793f27912",
     "test_validation_inputs_checked": 97,
     "data_rules": 71,
     "question_cards": 52,
@@ -62,11 +62,11 @@
     "vercel_deployed_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
     "vercel_deployed_matching_version": "match-fa5e6d7a5c7d2904",
     "vercel_deployment_matches_current_ruleset": true,
-    "vercel_runtime_source_fingerprint": "runtime-67b3995896eec555f97fee888b95d9178ffd3b519902bb62d1a28756f3ee83cf",
+    "vercel_runtime_source_fingerprint": "runtime-e31bb133414b6a3769ff7475a23cfa02ada690a8bc30be7cdf614faeb3a44689",
     "vercel_runtime_source_fingerprint_matches_local": true,
     "vercel_verification_context_complete": true,
     "vercel_verification_context": {
-      "source_commit": "e584ed28610f09af507c75b11e91cf95c77d07f0",
+      "source_commit": "fc4d731e5a3fb331928835c0b7051a8d0baf6249",
       "verified_by": "codex-agent",
       "approval_ref": "user-approved-poc-2026-08-31"
     },

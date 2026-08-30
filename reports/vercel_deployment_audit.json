@@ -1,11 +1,11 @@
 {
   "schema_version": "fairpost-vercel-deployment-audit-v3",
-  "verified_at": "2026-08-31T02:32:07+09:00",
+  "verified_at": "2026-08-31T03:34:07+09:00",
   "production_url": "https://fairmcp.vercel.app",
   "mcp_endpoint": "https://fairmcp.vercel.app/api/mcp",
   "claude_mcp_endpoint": "https://fairmcp.vercel.app/api/claude-mcp",
   "health_endpoint": "https://fairmcp.vercel.app/api/health",
-  "deployment_id": "dpl_Hqxh9tR2W2uAjKjyCEqeGcNpvuhr",
+  "deployment_id": "dpl_3BxzdYUYzsqShgdX5HW4zVudgWQX",
   "deployment_target": "production",
   "health": {
     "status": "ok",
@@ -17,7 +17,7 @@
     "remote_tool_profile": "read_only",
     "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
     "matching_version": "match-fa5e6d7a5c7d2904",
-    "runtime_source_fingerprint": "runtime-67b3995896eec555f97fee888b95d9178ffd3b519902bb62d1a28756f3ee83cf",
+    "runtime_source_fingerprint": "runtime-e31bb133414b6a3769ff7475a23cfa02ada690a8bc30be7cdf614faeb3a44689",
     "runtime_source_manifest": {
       "api/index.py": "sha256:3c89c8718fead938351646e2b7409b6a8869a4e50ea0b0b8958dfe245c2f76d3",
       "core/__init__.py": "sha256:bd57542473fdd75f54db753fa8e74416028689c8be103bbb2deb9a4172951a92",
@@ -32,9 +32,9 @@
       "mcp_server/build_identity.py": "sha256:db53345595c57d41e1601ce6508fc7d777d0783b89b668924c8be3215015e985",
       "mcp_server/remote.py": "sha256:6f3012955074325adef18e184ff5867c3737462bbb4350ed743839bbaf889126",
       "mcp_server/server.py": "sha256:db16f6476e7f62f4d0eeacda0c10a7a2c385b3cde25fd9990cdd29a75aec184a",
-      "mcp_server/storage.py": "sha256:fd063bcde555e90055e5e4b6c80d0e185402fda3820e7669d7e60cd85f6d468b",
+      "mcp_server/storage.py": "sha256:e03d4d1cfc2b02da42a0b9788a9c406f18023f3031587b53d689c1d436d4e13d",
       "pyproject.toml": "sha256:da841f74331b82c9a27b960d5cfa52837aecf557432854e57bc022bb7bfb4b0e",
-      "web/app.js": "sha256:e321e2d6fe8cf2e408014189a42adf89a301d3c33b07bce45a0d4686d60a0352",
+      "web/app.js": "sha256:d2024d86139a9d9fb4ff4dd5f74bee835e4a6136cba896be7d3ca0c2f8898fb9",
       "web/data.js": "sha256:86a90e5f7ba23efc4c377aa0235152d51cce51a875751fefa36c7d34214066a6",
       "web/engine.js": "sha256:b4a0f656b42390b4a0e656eff629e81e0c30b2172352a7f47b6f75b85a105956",
       "web/index.html": "sha256:c087477e8fce0a9c7d4efaaebd996faf4ab761ef31aac9217ca5794fd9c96791",
@@ -68,7 +68,7 @@
     "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
     "matching_version": "match-fa5e6d7a5c7d2904",
     "rule_count": 71,
-    "runtime_source_fingerprint": "runtime-67b3995896eec555f97fee888b95d9178ffd3b519902bb62d1a28756f3ee83cf"
+    "runtime_source_fingerprint": "runtime-e31bb133414b6a3769ff7475a23cfa02ada690a8bc30be7cdf614faeb3a44689"
   },
   "security_headers": {
     "cache_control": "no-store",
@@ -115,7 +115,7 @@
   "passed": true,
   "secret_recorded": false,
   "verification_context": {
-    "source_commit": "e584ed28610f09af507c75b11e91cf95c77d07f0",
+    "source_commit": "fc4d731e5a3fb331928835c0b7051a8d0baf6249",
     "verified_by": "codex-agent",
     "approval_ref": "user-approved-poc-2026-08-31"
   }

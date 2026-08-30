@@ -90,12 +90,12 @@ Claude는 로컬 `fairpost`의 `check_job_posting`,
 - 첫 재검증에서 비ASCII 민감 토큰이 설정되면 문자열 상수시간 비교가 `500`을
   일으키는 서버리스 경계 결함을 함수 로그로 발견했다. 인증 헤더 원시 바이트와
   UTF-8 기대값을 비교하도록 수정하고 비ASCII 토큰 회귀를 추가했다.
-- 최종 프로덕션 `dpl_Hqxh9tR2W2uAjKjyCEqeGcNpvuhr`는 소스 커밋
+- 첫 구조화 프로덕션 `dpl_Hqxh9tR2W2uAjKjyCEqeGcNpvuhr`는 소스 커밋
   `e584ed28610f09af507c75b11e91cf95c77d07f0`에서 배포했다. 배포 검증기 v3가
   일반 원격 3도구와 Claude 호환 평문 1도구를 각각 인증 후 실제 호출하고,
   구조화 v1 스키마ㆍ원문 offsetㆍ법령 연결ㆍ도구 집합ㆍ배포 소스 파일별 해시를
   로컬 소스와 대조했다.
-- 공식 MCP Inspector 2.4.0으로 최종 프로덕션의 도구 목록,
+- 공식 MCP Inspector 2.4.0으로 이 프로덕션의 도구 목록,
   `check_job_posting`, `check_job_posting_structured`를 다시 호출했다. 공개 3도구의
   비판정ㆍ비영속 설명과 읽기 전용 주석, 평문 면책문 선행, 구조화
   `fairpost-structured-check-v1`, `SEX-001`의 `[0, 3]` 원문 offset과 법령 조문
@@ -121,6 +121,10 @@ Claude는 로컬 `fairpost`의 `check_job_posting`,
   내용 노출 없이 삭제하고, 마지막 답변 삭제 시 파일도 제거하도록 했다. 웹에서는
   지우기 버튼뿐 아니라 사용자가 원문을 직접 모두 지운 경우에도 결과와 메모리 답변을
   즉시 초기화하도록 계약과 구현을 맞췄다.
+- 이 보완을 포함한 커밋 `fc4d731e5a3fb331928835c0b7051a8d0baf6249`를
+  최종 프로덕션 `dpl_3BxzdYUYzsqShgdX5HW4zVudgWQX`로 다시 배포했다. 배포 검증기
+  v3와 공식 Inspector가 일반 3도구ㆍClaude 1도구, 익명 401, 비영속 경계,
+  `runtime-e31bb…4689` 지문과 파일별 소스 해시를 다시 확인했다.
 
 ## 유지한 안전 경계
 
