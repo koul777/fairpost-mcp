@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from mcp_server.build_identity import (
+    DEPLOYMENT_EXCLUSION_POLICY,
     RUNTIME_SOURCE_FILES,
     _canonical_python_source,
     runtime_source_fingerprint,
@@ -21,7 +22,6 @@ def test_runtime_source_manifest_covers_engine_dependencies() -> None:
 
 def test_runtime_source_manifest_covers_deployed_web() -> None:
     assert {
-        ".vercelignore",
         "index.html",
         "pyproject.toml",
         "vercel.json",
@@ -33,27 +33,17 @@ def test_runtime_source_manifest_covers_deployed_web() -> None:
     } <= set(RUNTIME_SOURCE_FILES)
 
 
-def test_runtime_source_fingerprint_binds_deployment_exclusions(
-    tmp_path: Path,
-) -> None:
-    exclusions = tmp_path / ".vercelignore"
-    exclusions.write_text(".env\n.corpus*\n", encoding="utf-8")
-    first = runtime_source_fingerprint(
-        ruleset_version="rules",
-        matching_version="matching",
-        root=tmp_path,
-        source_files=(".vercelignore",),
+def test_deployment_exclusion_policy_matches_vercelignore() -> None:
+    exclusions = (Path(__file__).resolve().parents[1] / ".vercelignore").read_text(
+        encoding="utf-8"
     )
+    configured = {
+        line.strip()
+        for line in exclusions.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
 
-    exclusions.write_text(".env\n", encoding="utf-8")
-    changed = runtime_source_fingerprint(
-        ruleset_version="rules",
-        matching_version="matching",
-        root=tmp_path,
-        source_files=(".vercelignore",),
-    )
-
-    assert changed != first
+    assert set(DEPLOYMENT_EXCLUSION_POLICY) <= configured
 
 
 def test_runtime_source_fingerprint_binds_code_and_rule_versions(

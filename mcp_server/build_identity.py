@@ -8,8 +8,24 @@ from typing import Iterable
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DEPLOYMENT_EXCLUSION_POLICY = (
+    ".env",
+    ".agents/",
+    ".claude/",
+    ".corpus*",
+    ".git/",
+    ".mcp.json",
+    ".mypy_cache/",
+    ".private-review/",
+    ".ruff_cache/",
+    ".vercel/",
+    ".coverage",
+    "*.log",
+    "answers.json",
+    "data/local_rules.yaml",
+)
+
 RUNTIME_SOURCE_FILES = (
-    ".vercelignore",
     "index.html",
     "pyproject.toml",
     "vercel.json",
