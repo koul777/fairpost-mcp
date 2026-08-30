@@ -123,3 +123,31 @@ def runtime_source_fingerprint(
     digest.update(b"\0")
     digest.update(matching_version.encode("utf-8"))
     return f"runtime-{digest.hexdigest()}"
+
+
+def runtime_source_manifest(
+    *,
+    root: Path | None = None,
+    source_files: Iterable[str] = RUNTIME_SOURCE_FILES,
+) -> dict[str, str]:
+    """Return canonical per-file hashes for deploy-boundary diagnostics."""
+
+    active_root = ROOT if root is None else root
+    discover_ancestors = root is None
+    manifest: dict[str, str] = {}
+    for relative in sorted(source_files):
+        path = _resolve_source_path(
+            active_root,
+            relative,
+            discover_ancestors=discover_ancestors,
+        )
+        if not path.is_file():
+            manifest[relative] = "missing"
+            continue
+        payload = (
+            _canonical_python_source(path)
+            if path.suffix == ".py"
+            else _canonical_text_source(path)
+        )
+        manifest[relative] = f"sha256:{hashlib.sha256(payload).hexdigest()}"
+    return manifest

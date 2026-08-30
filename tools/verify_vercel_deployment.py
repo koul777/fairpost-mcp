@@ -19,7 +19,10 @@ if str(ROOT) not in sys.path:
 
 from core.engine import DISCLAIMER  # noqa: E402
 from core.loader import load_ruleset  # noqa: E402
-from mcp_server.build_identity import runtime_source_fingerprint  # noqa: E402
+from mcp_server.build_identity import (  # noqa: E402
+    runtime_source_fingerprint,
+    runtime_source_manifest,
+)
 
 
 EXPECTED_PUBLIC_TOOLS = {
@@ -171,6 +174,7 @@ async def verify(
         ruleset_version=local_ruleset.version,
         matching_version=local_ruleset.matching_version,
     )
+    local_runtime_manifest = runtime_source_manifest()
     next_question_content = next_question.structuredContent or {}
     structured_content = checked_structured.structuredContent or {}
     claude_tool_names = (
@@ -273,6 +277,10 @@ async def verify(
             "runtime_source_fingerprint"
         )
         == local_runtime_fingerprint,
+        "runtime_source_manifest_matches_local": health.get(
+            "runtime_source_manifest"
+        )
+        == local_runtime_manifest,
         "security_headers_present": cache_control_values == {"no-store"}
         and security_headers["content_type_options"] == "nosniff"
         and security_headers["frame_options"] == "DENY"
@@ -319,6 +327,7 @@ async def verify(
                 "ruleset_version",
                 "matching_version",
                 "runtime_source_fingerprint",
+                "runtime_source_manifest",
                 "anonymous_access_controls",
             )
         },

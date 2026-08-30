@@ -14,7 +14,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .build_identity import runtime_source_fingerprint
+from .build_identity import runtime_source_fingerprint, runtime_source_manifest
 from .server import (
     CLAUDE_MCP_PATH,
     MCP_PATH,
@@ -148,6 +148,7 @@ async def health(_request: Any) -> JSONResponse:
             "ruleset_version": engine.ruleset.version,
             "matching_version": engine.ruleset.matching_version,
             "runtime_source_fingerprint": source_fingerprint,
+            "runtime_source_manifest": runtime_source_manifest(),
             "processing_notice": (
                 "공고문은 이 Vercel 배포의 서버 함수에서 처리되며 "
                 "FairPost는 공고문 원문을 영속 저장하지 않습니다."
@@ -397,7 +398,7 @@ class RemoteSecurityMiddleware:
 # A shared Bearer token is authentication, not tenant authorization. Remote
 # deployments therefore expose only the stateless analysis profile regardless
 # of whether access is public or token-protected. The four-tool MCP, including
-# answer persistence, remains available only through the local server entrypoint.
+# answer persistence, remains available only through the local five-tool entrypoint.
 _mcp_app = public_mcp.streamable_http_app()
 _claude_mcp_app = claude_mcp.streamable_http_app()
 _routes = [

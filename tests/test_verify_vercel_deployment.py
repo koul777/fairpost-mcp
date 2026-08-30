@@ -70,6 +70,7 @@ def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
                     "ruleset_version": "rules-v1",
                     "matching_version": "match-v1",
                     "runtime_source_fingerprint": "runtime-test",
+                    "runtime_source_manifest": {"source.py": "sha256:test"},
                     "anonymous_access_controls": {
                         "enabled": True,
                         "strategy": "per_instance_client_fixed_window",
@@ -199,6 +200,11 @@ def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
         verify_mod,
         "runtime_source_fingerprint",
         lambda **_kwargs: "runtime-test",
+    )
+    monkeypatch.setattr(
+        verify_mod,
+        "runtime_source_manifest",
+        lambda: {"source.py": "sha256:test"},
     )
 
     report = anyio.run(

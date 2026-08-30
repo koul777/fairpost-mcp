@@ -7,6 +7,7 @@ from mcp_server.build_identity import (
     RUNTIME_SOURCE_FILES,
     _canonical_python_source,
     runtime_source_fingerprint,
+    runtime_source_manifest,
 )
 
 
@@ -151,3 +152,25 @@ def test_runtime_source_fingerprint_normalizes_web_line_endings(
         source_files=("web/app.js",),
     )
     assert changed != first
+
+
+def test_runtime_source_manifest_uses_canonical_hashes_and_missing_markers(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "web" / "app.js"
+    source.parent.mkdir()
+    source.write_bytes(b"const value = 1;\r\n")
+    first = runtime_source_manifest(
+        root=tmp_path,
+        source_files=("web/app.js", "web/missing.js"),
+    )
+
+    source.write_bytes(b"const value = 1;\n")
+    repeated = runtime_source_manifest(
+        root=tmp_path,
+        source_files=("web/app.js", "web/missing.js"),
+    )
+
+    assert repeated == first
+    assert first["web/app.js"].startswith("sha256:")
+    assert first["web/missing.js"] == "missing"

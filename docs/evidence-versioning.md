@@ -48,6 +48,8 @@ python tools\check_evidence_versions.py --scope all
 파일 내용이 일치하는지 회귀 테스트로 강제한다. 텍스트 파일의
 LFㆍCRLF 차이는 정규화하므로 같은 Git 내용은 Windows와 Vercel Linux에서 같은
 지문을 만들고, 사용자에게 보이는 문구나 웹 동작이 달라지면 지문도 달라진다.
+운영 health에는 원문 없이 파일별 정규화 SHA-256 manifest도 제공해 패키징 경계가
+달라질 때 어느 공개 소스 파일이 누락ㆍ변경됐는지 추적할 수 있다.
 
 ## 후보 릴리스 재생성 순서
 
