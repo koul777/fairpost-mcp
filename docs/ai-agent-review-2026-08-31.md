@@ -109,6 +109,12 @@ Claude는 로컬 `fairpost`의 `check_job_posting`,
 - Python 3.13부터 `ast.dump()`가 빈 필드를 숨기는 경계를 발견해 런타임 소스
   지문 정규화 조건을 교정했다. Python 3.11ㆍ3.12ㆍ3.13ㆍ3.14에서 같은 소스가
   동일한 `runtime-67b399…83cf` 지문을 만드는 것을 직접 대조했다.
+- 첫 최종 main CI에서 Windows Server 2025의 Python stdout이 `cp1252`로 잡혀
+  정상 한국어 성공 메시지 출력이 `UnicodeEncodeError`로 끝나는 문제를 발견했다.
+  Windows job에 `PYTHONUTF8=1`, `PYTHONIOENCODING=utf-8`을 고정하고 workflow
+  회귀 테스트를 추가했다. Linux 3.11ㆍPython 3.14 job은 같은 실행에서 전체
+  파이프라인을 통과했다. 수정 커밋의 재실행에서는 Windows 패키지 job까지
+  포함한 세 job이 모두 성공했다(`33327154141`).
 
 ## 유지한 안전 경계
 
