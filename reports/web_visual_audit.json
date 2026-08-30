@@ -3,8 +3,8 @@
   "evidence_status": "historical",
   "historical_reason": "캡처 이후 질문 표시 계층과 현재 규칙셋이 변경되었으며 2026-08-30 앱 내 브라우저 연결을 사용할 수 없어 현재 시각 증거로 재검증하지 못했습니다.",
   "source_ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
-  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
-  "current_matching_version": "match-1e34d81e35e57b3f",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+  "current_matching_version": "match-fa5e6d7a5c7d2904",
   "browser": {
     "name": "Google Chrome",
     "version": "150.0.7871.184",

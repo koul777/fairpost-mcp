@@ -119,11 +119,11 @@ python tools/verify_vercel_deployment.py --allow-write-check
 - 릴리스 증거를 만들 때는 `--source-commit`, `--verified-by`, `--approval-ref`를 함께 지정한다. 이 값은 배포와 승인 흐름을 추적하는 운영 메타데이터이며 전자서명이나 신원 증명은 아니다.
 - 상태 응답에는 공고문 원문이나 비밀값을 넣지 않는다.
 
-2026-08-30 운영 배포 `dpl_cUcfq9BHLii585uadhh3i32swww3`은 일반ㆍClaude
-경로의 익명 요청 401, Bearer 읽기 전용 2도구, 규칙ㆍ매칭 버전, 배포 소스
-지문과 보안 헤더 검증을 통과했다. 검증기는
-저장 쓰기를 수행하지 않았으며 결과는 `reports/vercel_deployment_audit.json`에
-원문ㆍ비밀값 없이 기록한다.
+2026-08-31 운영 배포 `dpl_Hqxh9tR2W2uAjKjyCEqeGcNpvuhr`는 일반ㆍClaude
+경로의 익명 요청 401, Bearer 인증 후 일반 읽기 전용 3도구와 Claude 호환 평문
+1도구의 실제 호출, 규칙ㆍ매칭 버전, 런타임 지문과 파일별 소스 해시, 보안 헤더
+검증을 통과했다. 검증기는 저장 쓰기를 수행하지 않았으며 결과는
+`reports/vercel_deployment_audit.json`에 원문ㆍ비밀값 없이 기록한다.
 
 ## 개인정보 처리 경계
 

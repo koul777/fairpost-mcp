@@ -1,4 +1,4 @@
-# FairPost Overnight Execution Report
+# FairPost Overnight Execution Report (historical snapshot)
 
 Date: 2026-08-30
 Session start: 2026-08-30 14:36:36 KST
@@ -6,6 +6,13 @@ Session target end: 2026-08-30 22:36:36 KST
 Workspace: `C:\workspace\fairmcp`
 Branch: `agent/question-relevance-audit`
 Status: eight-hour execution and validation complete; commit and push authorized by duration gate
+
+Evidence status: historical. This report preserves the exact state of the 2026-08-30
+eight-hour session and is not the current release record. The 2026-08-31 six-hour
+Claude MCP × Codex re-audit added a fifth local tool, a third general remote tool, and
+new deployment evidence. Use `reports/build_artifact.json`,
+`reports/mcp_client_audit.json`, `reports/vercel_deployment_audit.json`, and
+`docs/ai-agent-review-2026-08-31.md` for the current state.
 
 ## Objective
 

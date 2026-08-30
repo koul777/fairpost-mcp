@@ -1,11 +1,11 @@
 {
-  "schema_version": "fairpost-vercel-deployment-audit-v2",
-  "verified_at": "2026-08-30T21:43:46+09:00",
+  "schema_version": "fairpost-vercel-deployment-audit-v3",
+  "verified_at": "2026-08-31T02:32:07+09:00",
   "production_url": "https://fairmcp.vercel.app",
   "mcp_endpoint": "https://fairmcp.vercel.app/api/mcp",
   "claude_mcp_endpoint": "https://fairmcp.vercel.app/api/claude-mcp",
   "health_endpoint": "https://fairmcp.vercel.app/api/health",
-  "deployment_id": "dpl_cUcfq9BHLii585uadhh3i32swww3",
+  "deployment_id": "dpl_Hqxh9tR2W2uAjKjyCEqeGcNpvuhr",
   "deployment_target": "production",
   "health": {
     "status": "ok",
@@ -15,9 +15,31 @@
     "claude_readonly_authentication": "bearer",
     "answer_store": "disabled_on_remote_endpoint",
     "remote_tool_profile": "read_only",
-    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
-    "matching_version": "match-1e34d81e35e57b3f",
-    "runtime_source_fingerprint": "runtime-80e0b75fc38d7997605a3846116e24934227610f4e5e4fa9d1239ad9807fb594",
+    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+    "matching_version": "match-fa5e6d7a5c7d2904",
+    "runtime_source_fingerprint": "runtime-67b3995896eec555f97fee888b95d9178ffd3b519902bb62d1a28756f3ee83cf",
+    "runtime_source_manifest": {
+      "api/index.py": "sha256:3c89c8718fead938351646e2b7409b6a8869a4e50ea0b0b8958dfe245c2f76d3",
+      "core/__init__.py": "sha256:bd57542473fdd75f54db753fa8e74416028689c8be103bbb2deb9a4172951a92",
+      "core/engine.py": "sha256:2ca8aeca7e5ba29bd75e97ae2bb638af10ea2cd74d460ce3e531bfed11173628",
+      "core/extractor.py": "sha256:95b1a20f199cd35ed1e2e18daf32a580e59d96f8594d2c9d27fc9ebaa7782c63",
+      "core/loader.py": "sha256:7ac30c2052f7a0e745be5d0c074d065692b8c512a0f8d7bb14de64b4c48e7414",
+      "core/morph.py": "sha256:d5f2d0b4ceed22577fed66b5467460673429c1e124398937715a4d75b8c8ecb1",
+      "core/schema.py": "sha256:e067dea55113337d0f174c33586a0c8d139aacc573ca6123e462cd8e295f3c64",
+      "favicon.svg": "sha256:2cba31b6193973e4e35c633f68d7b5107ce88728bbec304aa2b545c4b54e4a5e",
+      "index.html": "sha256:c465fac5b8cfea05d9d0cabbd2a64c202c591e4bfd33e080f69d2508e95796bc",
+      "mcp_server/__init__.py": "sha256:e6ecd0183af6363053f9570c25ee7cd555bce2deb3b5215a5791cde77633545d",
+      "mcp_server/build_identity.py": "sha256:db53345595c57d41e1601ce6508fc7d777d0783b89b668924c8be3215015e985",
+      "mcp_server/remote.py": "sha256:6f3012955074325adef18e184ff5867c3737462bbb4350ed743839bbaf889126",
+      "mcp_server/server.py": "sha256:db16f6476e7f62f4d0eeacda0c10a7a2c385b3cde25fd9990cdd29a75aec184a",
+      "mcp_server/storage.py": "sha256:fd063bcde555e90055e5e4b6c80d0e185402fda3820e7669d7e60cd85f6d468b",
+      "pyproject.toml": "sha256:da841f74331b82c9a27b960d5cfa52837aecf557432854e57bc022bb7bfb4b0e",
+      "web/app.js": "sha256:e321e2d6fe8cf2e408014189a42adf89a301d3c33b07bce45a0d4686d60a0352",
+      "web/data.js": "sha256:86a90e5f7ba23efc4c377aa0235152d51cce51a875751fefa36c7d34214066a6",
+      "web/engine.js": "sha256:b4a0f656b42390b4a0e656eff629e81e0c30b2172352a7f47b6f75b85a105956",
+      "web/index.html": "sha256:c087477e8fce0a9c7d4efaaebd996faf4ab761ef31aac9217ca5794fd9c96791",
+      "web/styles.css": "sha256:608a59e69d88414b34ceaac75d142f90f0828fd26d01bdc40056d29a9d0fef47"
+    },
     "anonymous_access_controls": {
       "enabled": false,
       "strategy": "per_instance_client_fixed_window",
@@ -32,16 +54,21 @@
   "anonymous_initialize_status": 401,
   "anonymous_claude_initialize_status": 401,
   "server_name": "fairpost",
+  "claude_server_name": "fairpost-readonly",
   "tools": [
     "check_job_posting",
+    "check_job_posting_structured",
     "next_review_question"
+  ],
+  "claude_tools": [
+    "check_job_posting"
   ],
   "allow_write_check": false,
   "local_ruleset": {
-    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
-    "matching_version": "match-1e34d81e35e57b3f",
+    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+    "matching_version": "match-fa5e6d7a5c7d2904",
     "rule_count": 71,
-    "runtime_source_fingerprint": "runtime-80e0b75fc38d7997605a3846116e24934227610f4e5e4fa9d1239ad9807fb594"
+    "runtime_source_fingerprint": "runtime-67b3995896eec555f97fee888b95d9178ffd3b519902bb62d1a28756f3ee83cf"
   },
   "security_headers": {
     "cache_control": "no-store",
@@ -66,9 +93,12 @@
     "authentication_behavior_matches": true,
     "claude_authentication_mode_matches": true,
     "claude_authentication_behavior_matches": true,
+    "claude_readonly_profile_verified": true,
     "expected_tools": true,
     "tool_call_succeeded": true,
     "check_job_posting_returns_plain_text": true,
+    "structured_tool_call_succeeded": true,
+    "structured_contract_is_traceable": true,
     "next_question_succeeded": true,
     "sex_rule_detected": true,
     "article_7_returned": true,
@@ -77,9 +107,16 @@
     "ruleset_version_matches_local": true,
     "matching_version_matches_local": true,
     "runtime_source_fingerprint_matches_local": true,
+    "runtime_source_manifest_matches_local": true,
     "security_headers_present": true,
-    "anonymous_access_controls_present": true
+    "anonymous_access_controls_present": true,
+    "verification_context_complete": true
   },
   "passed": true,
-  "secret_recorded": false
+  "secret_recorded": false,
+  "verification_context": {
+    "source_commit": "e584ed28610f09af507c75b11e91cf95c77d07f0",
+    "verified_by": "codex-agent",
+    "approval_ref": "user-approved-poc-2026-08-31"
+  }
 }

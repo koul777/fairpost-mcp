@@ -10,7 +10,7 @@
   "mismatch_ids": [],
   "mismatched_records": 0,
   "passed": true,
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
   "schema_version": "fairpost-web-engine-parity-v1",
-  "web_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1"
+  "web_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528"
 }

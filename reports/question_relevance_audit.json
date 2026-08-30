@@ -21,7 +21,7 @@
     "sha256": "1567553db7eeea46525b31585db26c4270aa696e5bbc19d121cae41b53c1a6ca",
     "split": "train_only"
   },
-  "matching_version": "match-1e34d81e35e57b3f",
+  "matching_version": "match-fa5e6d7a5c7d2904",
   "question_activation_rates": [
     {
       "activated_records": 145,
@@ -418,7 +418,7 @@
     ],
     "threshold": 0.95
   },
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
   "slot_detail_pair_invariants": {
     "checked_pairs": 1260,
     "mismatched_pairs": 0,

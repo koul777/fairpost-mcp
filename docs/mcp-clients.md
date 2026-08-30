@@ -94,8 +94,11 @@ Code를 새로 시작하면 `.mcp.json`의 `${FAIRPOST_MCP_TOKEN}` 참조가
 Bearer 토큰을 URL 쿼리에 넣지 않는다.
 
 원격 엔드포인트는 인증 여부와 관계없이 `save_answer`와
-`get_saved_answers`를 노출하지 않는다. 두 도구와 조직별 답변은 루프백 로컬
-MCP에서만 사용한다. 상세 절차는 [vercel-deployment.md](vercel-deployment.md)에 있다.
+`get_saved_answers`를 노출하지 않는다. 이 두 쓰기ㆍ조회 도구와 조직별 답변은
+루프백 로컬 MCP에서만 사용한다. 상세 절차는
+[vercel-deployment.md](vercel-deployment.md)에 있다.
+로컬 `save_answer`는 같은 조직ㆍ질문에 저장된 기존 답변을 새 답변으로 교체할 수
+있으므로 MCP 도구 주석도 파괴 가능 쓰기로 표시한다.
 
 참고:
 
@@ -107,7 +110,7 @@ MCP에서만 사용한다. 상세 절차는 [vercel-deployment.md](vercel-deploy
 ## 독립 클라이언트 검증
 
 공식 MCP Inspector 2.4.0으로 현재 Bearer 운영 배포의 도구 목록과
-`check_job_posting`을 호출했다.
+`check_job_posting`, `check_job_posting_structured`를 호출했다.
 
 ```powershell
 npx -y @modelcontextprotocol/inspector --cli `
@@ -115,16 +118,24 @@ npx -y @modelcontextprotocol/inspector --cli `
   --header "Authorization: Bearer $token" `
   --method tools/call --tool-name check_job_posting `
   --tool-arg "text=여성만 지원 가능"
+
+npx -y @modelcontextprotocol/inspector --cli `
+  https://fairmcp.vercel.app/api/mcp --transport http `
+  --header "Authorization: Bearer $token" `
+  --method tools/call --tool-name check_job_posting_structured `
+  --tool-arg "text=여성만 지원 가능"
 ```
 
 호출은 종료 코드 0으로 끝났고 `SEX-001`, 남녀고용평등과 일ㆍ가정 양립
-지원에 관한 법률 제7조, `isError: false`를 반환했다. Inspector 목록은 공개
+지원에 관한 법률 제7조, 구조화 v1과 `[0, 3]` 원문 offset,
+`isError: false`를 반환했다. Inspector 목록은 공개
 3도구가 모두 읽기 전용임을 확인했고, SDK 프로토콜 테스트는 일반 원격 3도구와
 Claude 호환 평문 1도구, 루프백 로컬 5도구를 각각 검증한다.
 감사 결과는 `reports/mcp_client_audit.json`에 원문 없이 저장하고 현재 배포 ID,
 규칙ㆍ매칭ㆍ런타임 지문과 Vercel 감사 SHA-256에 결합한다. Claude Code의 프로젝트
 MCP 승인은 2026-08-31 완료했고, `fairpost` 루프백 서버에서
-`check_job_posting`과 `next_review_question` 실제 호출을 확인했다. 호출 관찰과
+`check_job_posting`, `check_job_posting_structured`, `next_review_question`의
+실제 호출을 확인했다. 호출 관찰과
 독립 감리 결정은 [Claude MCP × Codex 재감리 기록](ai-agent-review-2026-08-31.md)에
 정리했다.
 Vercel 운영 호출 감사 결과는 `reports/vercel_deployment_audit.json`에

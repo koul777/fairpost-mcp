@@ -50,11 +50,11 @@
 | 범위 | 상태 | 현재 증거 또는 차이 |
 |---|---|---|
 | 로컬 Streamable HTTP MCP | 충족 | `http://127.0.0.1:8000/mcp` 실제 호출 성공 |
-| 외부 MCP 클라이언트 연동 | 충족 | `.mcp.json`의 `fairpost`를 루프백 기본, `fairpost-remote`를 명시 선택으로 검사한다. 운영 배포는 공식 MCP Inspector 2.4.0ㆍSDK로 검증했고, Claude Code 프로젝트 승인 후 로컬 `check_job_posting`ㆍ`next_review_question` 실제 호출도 확인했다. |
-| Vercel 운영 MCP | 충족 | `https://fairmcp.vercel.app/api/mcp` 배포 `dpl_cUcfq9BHLii585uadhh3i32swww3`에서 현재 규칙ㆍ매칭ㆍ런타임 지문, 보안 헤더, 일반ㆍClaude 경로의 익명 401과 Bearer 읽기 전용 2도구를 자동 검증했다. 저장 쓰기는 수행하지 않았다. |
+| 외부 MCP 클라이언트 연동 | 충족 | `.mcp.json`과 Codex CLI의 `fairpost`를 루프백 기본, `fairpost-remote`를 명시 선택으로 검사한다. 운영 배포는 공식 MCP Inspector 2.4.0ㆍSDK로 검증했고, Claude Code 프로젝트 승인 후 로컬 분석 3도구의 실제 호출과 출력 SHA-256 영수증도 확인했다. |
+| Vercel 운영 MCP | 충족 | `https://fairmcp.vercel.app/api/mcp` 배포 `dpl_Hqxh9tR2W2uAjKjyCEqeGcNpvuhr`에서 현재 규칙ㆍ매칭ㆍ런타임 지문과 파일별 소스 해시, 보안 헤더, 일반ㆍClaude 경로의 익명 401을 대조했다. 인증 후 일반 원격 읽기 전용 3도구와 Claude 호환 평문 1도구를 모두 실제 호출했다. 저장 쓰기는 수행하지 않았다. |
 | Vercel 답변 저장 | 비목표 | 공유 토큰과 임의 `org_id`로 조직 경계를 만들지 않도록 일반 원격은 인증 여부와 관계없이 읽기 전용 3도구로 고정했다. 답변 저장은 루프백 로컬 MCP에서만 제공한다. |
-| 법령 개정 감사 자동화 | 부분 충족 | 공식 API 비교 워크플로와 영향 규칙 보고는 구현됐지만 GitHub 저장소ㆍActions 실행 증거 없음 |
-| 정적 웹 단독 실행 | 충족 | 서버 없는 `file://` 실행 및 데스크톱ㆍ모바일 화면 검증 |
+| 법령 개정 감사 자동화 | 부분 충족 | 공개 GitHub 저장소와 일일 비교 워크플로, 영향 규칙 보고는 구현됐다. 다만 `LAW_OPEN_API_OC` 저장소 비밀값이 없고 법령 감사 워크플로의 성공 실행 증거도 없다. |
+| 정적 웹 단독 실행 | 충족 | 서버 없는 `file://` 실행과 데스크톱ㆍ모바일 화면 검증, HTML 표준 검사 0건, 운영 루트ㆍ`/web/` axe 위반 0건, 최종 `/web/` Lighthouse 접근성ㆍBest Practices 1.0 |
 | 배포 패키지 소스 동등성ㆍ정보 경계 | 충족 | 2026-08-30 sdistㆍwheel 재빌드ㆍ재감사를 통과했다. 합성 사용 예시는 `synthetic_examples_only`로 표시하고, 비공개 실제 코퍼스 원문ㆍ인증정보ㆍ민간 레코드 ID가 배포본에 포함되지 않음을 `reports/distribution_audit.json`으로 재확인했다. 고정 `SOURCE_DATE_EPOCH` 이중 빌드에서 wheel은 바이트 동일했고, sdist는 파일 내용이 같지만 생성 시각 메타데이터 때문에 archive 해시가 달라 현재 산출물의 정확한 해시와 source equivalence를 보증 범위로 둔다. |
 | 라이선스ㆍ매핑 문서 | 충족 | MIT, CC BY 4.0, 책ㆍ법령ㆍ가이드 매핑 |
 | 릴리스 태그 동결 | 미충족 | Git 저장소와 원격 추적 브랜치는 확인했지만 현재 HEAD에 v1.0 릴리스 태그가 없음 |
@@ -63,7 +63,7 @@
 
 1. 고용24에서 채용정보 API를 사용할 수 있는 기업회원 권한 또는 PRD의 민간 출처 변경 승인
 2. 봉인 홀드아웃 전체의 사람 라벨과 `tools/evaluate.py --enforce-targets` 통과 보고서
-3. Git 저장소ㆍ법령 API 시크릿ㆍ정기 감사 워크플로의 실제 성공 실행
+3. 법령 API 시크릿 구성과 정기 감사 워크플로의 실제 성공 실행
 4. v1.0 릴리스 태그
 
 자동 수용 기준 통과는 위 성능ㆍ출처ㆍ운영 증거를 대신하지 않는다.

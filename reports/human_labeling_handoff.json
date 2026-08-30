@@ -1,13 +1,13 @@
 {
   "schema_version": "fairpost-human-labeling-handoff-v1",
-  "prepared_at": "2026-08-30T18:21:29+09:00",
+  "prepared_at": "2026-08-31T00:15:34+09:00",
   "status": "awaiting_human_annotations",
   "evaluation_phase": "sealed_holdout_final",
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
-  "matching_version": "match-1e34d81e35e57b3f",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+  "matching_version": "match-fa5e6d7a5c7d2904",
   "labeler_binding": {
-    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
-    "matching_version": "match-1e34d81e35e57b3f",
+    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+    "matching_version": "match-fa5e6d7a5c7d2904",
     "status": "current"
   },
   "holdout_records": 180,
@@ -22,7 +22,7 @@
   "labeler": {
     "path": ".corpus-prd/holdout/labeler.html",
     "bytes": 651767,
-    "sha256": "0fce007b5506730132c481d84470c79b8e1b41dec4cef2ff9866de01a34423f5",
+    "sha256": "c3545ff6512d712b1a06c089ef5fbbbaac1de7107c63452ab84d15b18d85dacc",
     "network_requests": "blocked"
   },
   "expected_annotation_path": ".corpus-prd/holdout/annotations.jsonl",
@@ -37,8 +37,8 @@
     "annotations_sha256": "sha256_of_completed_annotations_jsonl",
     "holdout_manifest_sha256": "81b9451c09db8398eedb809fb96e517db080ee2bc1af16ad89e94fe4d85d029a",
     "holdout_records_sha256": "2bdf495875f726b85af75f72be2b8483242f938be71fb28e03aded822d9b537a",
-    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
-    "matching_version": "match-1e34d81e35e57b3f",
+    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+    "matching_version": "match-fa5e6d7a5c7d2904",
     "attested_at": "ISO-8601 timestamp"
   },
   "evaluation_gate": {

@@ -1,27 +1,27 @@
 {
   "schema_version": "fairpost-build-artifact-v2",
-  "built_at": "2026-08-30T22:49:47+09:00",
+  "built_at": "2026-08-31T02:58:50+09:00",
   "package": "fairpost",
   "version": "0.3.0",
   "wheel": {
     "path": "dist/fairpost-0.3.0-py3-none-any.whl",
-    "bytes": 117226,
-    "sha256": "20960a5efd83a654fc8e040ef03e4d6a05ce2d19d36459e0d687a35cf7119d7c"
+    "bytes": 116636,
+    "sha256": "fec3ae9b07aa8936507cb481329ddbc7e58850f865f59783333bb650211f9fbb"
   },
   "sdist": {
     "path": "dist/fairpost-0.3.0.tar.gz",
-    "bytes": 422261,
-    "sha256": "d6137fc11ac7acdf096e7880a27f43936c142299d1e6154e892ae1956e4047a0"
+    "bytes": 435642,
+    "sha256": "e2ce26a5dc13f83e4234cfd9a33f962c331c8b3ee0aa09c4d6bb7223b8b14eeb"
   },
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
-  "matching_version": "match-1e34d81e35e57b3f",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+  "matching_version": "match-fa5e6d7a5c7d2904",
   "verification": {
-    "tests_passed": 863,
-    "test_evidence_bytes": 164614,
-    "test_evidence_sha256": "7203e2f65534075a1448688dd72086f98d61de97c757c71ecbcaa1f82b520b2e",
+    "tests_passed": 884,
+    "test_evidence_bytes": 167648,
+    "test_evidence_sha256": "5e85350ab11f8a23364eec14569c3115457c5f93652cf63dbafd97c1bbf412cf",
     "test_evidence_fresh_for_current_inputs": true,
-    "test_validation_source_fingerprint": "validation-421d3c41fa28428c80e150fefd21a36376cccb9e0481bdca42f4eba4b3a33514",
-    "test_validation_inputs_checked": 96,
+    "test_validation_source_fingerprint": "validation-a4f9ed4c5acd5076540790c2b10203cede4f9ace383871315f05ebd6d784d7d4",
+    "test_validation_inputs_checked": 97,
     "data_rules": 71,
     "question_cards": 52,
     "statute_snapshots": 6,
@@ -42,11 +42,14 @@
     "distribution_audit_passed": true,
     "distribution_matches_current_runtime": true,
     "distribution_matches_current_source": true,
-    "sdist_members": 195,
+    "sdist_members": 200,
     "wheel_members": 36,
     "claude_project_http_registered": true,
     "mcp_project_config": {
       "valid": true,
+      "default_server": "fairpost",
+      "remote_server": "fairpost-remote",
+      "local_first": true,
       "remote_url": "https://fairmcp.vercel.app/api/mcp",
       "local_url": "http://127.0.0.1:8000/mcp",
       "authorization_uses_environment_reference": true
@@ -56,11 +59,18 @@
     "vercel_asgi_protocol_test_passed": true,
     "vercel_production_deployed": true,
     "vercel_production_url": "https://fairmcp.vercel.app",
-    "vercel_deployed_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
-    "vercel_deployed_matching_version": "match-1e34d81e35e57b3f",
+    "vercel_deployed_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+    "vercel_deployed_matching_version": "match-fa5e6d7a5c7d2904",
     "vercel_deployment_matches_current_ruleset": true,
-    "vercel_runtime_source_fingerprint": "runtime-80e0b75fc38d7997605a3846116e24934227610f4e5e4fa9d1239ad9807fb594",
+    "vercel_runtime_source_fingerprint": "runtime-67b3995896eec555f97fee888b95d9178ffd3b519902bb62d1a28756f3ee83cf",
     "vercel_runtime_source_fingerprint_matches_local": true,
+    "vercel_verification_context_complete": true,
+    "vercel_verification_context": {
+      "source_commit": "e584ed28610f09af507c75b11e91cf95c77d07f0",
+      "verified_by": "codex-agent",
+      "approval_ref": "user-approved-poc-2026-08-31"
+    },
+    "vercel_contract_checks_passed": true,
     "vercel_remote_tool_call_passed": true,
     "work24_live_recheck": "api_business_error"
   },

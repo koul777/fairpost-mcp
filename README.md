@@ -100,7 +100,7 @@ claude mcp add --transport http --scope project fairpost http://127.0.0.1:8000/m
 - `check_job_posting`: 전체 표현·누락·질문 검토
 - `check_job_posting_structured`: finding→질문→근거ㆍ원문 위치를 버전 있는 기계 판독 구조로 반환
 - `next_review_question`: 아직 답하지 않은 질문 한 개와 진행률 반환
-- `save_answer`: 유효한 질문 ID에 대한 조직별 답변 저장
+- `save_answer`: 유효한 질문 ID에 대한 조직별 답변 저장(같은 조직ㆍ질문의 기존 답변은 교체)
 - `get_saved_answers`: 저장된 답변 조회
 
 답변은 사용자 컴퓨터의 `~/.fairpost/answers.json`에만 저장됩니다.
@@ -142,7 +142,7 @@ Bearer 인증이 필요하며, 원격 환경에는 `org_id`와 로컬 답변 저
 
 | 항목 | 현재 증거 |
 |---|---:|
-| 자동화 테스트 | 883 passed |
+| 자동화 테스트 | 884 passed |
 | 전체 데이터 규칙 | 71 |
 | 질문 카드 | 52 |
 | 배포 형태 | 정적 웹 + Vercel 읽기 전용 MCP |
