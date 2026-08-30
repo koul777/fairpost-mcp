@@ -24,7 +24,7 @@
 | AC-18 질문 관련성ㆍ점진적 공개 | 통과 | `review_scope` 검증, 공통ㆍ누락 슬롯 중복ㆍ후속 질문 기본 접힘, train-only 익명 집계와 보호 문맥 회귀 테스트 |
 | AC-19 민간 반복감사 자동화 | 통과 | train-only 경로 사전검사, snapshot→audit→drift→로컬 review queue 단일 사이클, 복구 가능한 다중 파일 게시ㆍ일반 오류 rollback, 익명 출력과 경보 종료 코드 회귀 테스트 |
 
-자동 테스트 862개가 통과했으며 전수 JUnit SHA-256은
+자동 테스트 863개가 통과했으며 전수 JUnit SHA-256은
 `reports/build_artifact.json`에 기록합니다. 기본 MCP 전송 방식인
 Streamable HTTP는 실제
 로컬 포트에서 초기화, 도구 목록, 점검, 답변 저장ㆍ조회를 검증했습니다.

@@ -127,6 +127,22 @@ def test_pilot_input_rejects_stale_version() -> None:
         )
 
 
+def test_pilot_example_matches_current_versions() -> None:
+    module = load_tool()
+    rows = module._load_rows(ROOT / "examples" / "pilot_feedback.example.jsonl")
+
+    report = module.summarize(
+        rows,
+        min_cases=1,
+        min_teams=1,
+        max_median_minutes=10,
+        min_actionable_case_rate=0.7,
+        max_irrelevant_question_rate=0.2,
+    )
+
+    assert report["status"] == "pass"
+
+
 def test_edit_without_question_does_not_inflate_actionable_rate() -> None:
     module = load_tool()
     row = valid_row(module)

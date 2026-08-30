@@ -64,9 +64,9 @@ independent objections, consensus, and scope decisions are in
 
 ## Final Validation Evidence
 
-- Full repository suite: 862 passed; current JUnit fingerprint is recorded in
+- Full repository suite: 863 passed; current JUnit fingerprint is recorded in
   `reports/build_artifact.json`.
-- Extracted final sdist suite: 862 passed independently on Python 3.11 and Python 3.14.
+- Extracted final sdist suite: 863 passed independently on Python 3.11 and Python 3.14.
 - Installed wheel smoke: Python 3.13 import, CLI `check -`, rule match, and dependency
   consistency passed.
 - Static web parity: 2,310 train records, 0 mismatches.
@@ -100,7 +100,7 @@ Current fingerprints:
 - ruleset: `2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1`
 - matching: `match-1e34d81e35e57b3f`
 - runtime: `runtime-80e0b75fc38d7997605a3846116e24934227610f4e5e4fa9d1239ad9807fb594`
-- distribution source: `distribution-85c2355d18cba75762f2d95d9c86f2491159f8371517b5b3ba89e41b89ee1b6d`
+- distribution source: `distribution-c00dceeda2e8999ae9b88eea51011fdc153fca1641b02e8c9dfb72b01803005c`
 
 ## Findings Resolved During Execution
 
@@ -133,6 +133,9 @@ Current fingerprints:
     distribution evidence interpreter-dependent. Distribution evidence now hashes
     normalized source text, while runtime identity normalizes supported AST versions to
     one shape. All three Python versions produce identical current fingerprints.
+11. The first pushed CI run caught a stale ruleset and matching version in the pilot
+    feedback example. The example now carries the current versions, the exact CI command
+    passes locally, and package/distribution evidence is rebound to the corrected source.
 
 ## Release Posture
 
