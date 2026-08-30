@@ -18,6 +18,12 @@ PRD 항목별 현재 충족 상태와 남은 품질 증거는
 [docs/prd-traceability.md](docs/prd-traceability.md)에 기록합니다.
 요구사항별 최종 증거와 아직 충족되지 않은 외부 조건은
 [docs/completion-audit.md](docs/completion-audit.md)에 구분해 기록합니다.
+v1.0 진입 조건과 30ㆍ60ㆍ90일 실행 순서는
+[docs/roadmap.md](docs/roadmap.md)에 기록합니다.
+Claude와 Codex의 독립 반론ㆍ합의ㆍ오늘 커밋 범위는
+[docs/ai-agent-review-2026-08-30.md](docs/ai-agent-review-2026-08-30.md)에 기록합니다.
+현재 자동 생성 증거는 후보(candidate) 보고서이며, v1 릴리스 가능 여부는
+`reports/build_artifact.json`의 `release_readiness`와 차단 사유로 판단합니다.
 법령 개정 감시와 사람 검수 절차는
 [docs/statute-maintenance.md](docs/statute-maintenance.md)에 있습니다.
 대상 조문과 규칙ㆍ질문 연결 현황은
@@ -42,6 +48,7 @@ fairpost check .\posting.txt
 표준 입력도 사용할 수 있습니다.
 
 ```powershell
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 Get-Content .\posting.txt -Raw | fairpost check -
 ```
 
@@ -78,27 +85,41 @@ Cursor 등 HTTP MCP를 지원하는 클라이언트 설정 예시는 다음과 �
 }
 ```
 
-제공 도구는 `check_job_posting`, `save_answer`, `get_saved_answers`입니다.
+제공 도구는 `check_job_posting`, `next_review_question`, `save_answer`,
+`get_saved_answers`입니다. `check_job_posting`은 모든 findingㆍslotㆍ질문을
+누락하지 않은 사람이 읽기 쉬운 일반 텍스트를 반환합니다.
+`next_review_question`은 아직 답변이 저장되지 않은 질문 하나와
+진행 상황만 돌려주어 한 번에 한 질문씩 진행할 때 사용합니다. 두 도구 모두
+질문 문구를 사전에서 그대로 가져오며 코드에 문구를 만들어 넣지 않습니다.
 조직별 답변은 사용자 로컬의 `~/.fairpost/answers.json`에만 기록됩니다.
 `FAIRPOST_ANSWERS_PATH`로 다른 로컬 경로를 지정할 수 있습니다.
 `save_answer`는 현재 사전에 존재하는 질문 ID만 허용해 오타가 저장되는 것을
 막습니다.
-호스트와 포트는 `FAIRPOST_MCP_HOST`, `FAIRPOST_MCP_PORT`로 변경할 수
+로컬 호스트는 `FAIRPOST_MCP_HOST`로 세 가지 루프백 별칭(`127.0.0.1`,
+`::1`, `localhost`) 중 하나를, 포트는 `FAIRPOST_MCP_PORT`로 변경할 수
 있습니다. 이전 클라이언트와의 호환성 확인이 필요한 경우에만
 `fairpost-mcp-stdio`를 사용합니다.
 Claude 계열 클라이언트와 공식 MCP Inspector의 확인 절차와 현재 검증
 기록은 [docs/mcp-clients.md](docs/mcp-clients.md)에 있습니다.
 
 Vercel 원격 MCP 엔트리포인트는 `/api/mcp`입니다. 기본적으로 Bearer
-인증이 없으면 요청을 거부하고, `save_answer`를 사용하려면 Upstash Redis를
-연결해야 합니다. 배포와 연결 절차는
+인증이 없으면 요청을 거부합니다. 운영자가 공개 모드를 명시하면 이 주소도
+열 수 있습니다. 인증 여부와 관계없이 원격 주소는 `org_id`를 받지 않는 분석용
+2도구만 제공하며, 저장 2도구는 루프백 로컬 MCP에만 노출됩니다. 배포와 연결 절차는
 [docs/vercel-deployment.md](docs/vercel-deployment.md)에 있습니다.
-Claude Desktop 원격 커넥터에는 무인증 읽기 전용 엔드포인트
-`https://fairpost-mcp.vercel.app/api/claude-mcp`를 사용합니다. 이
-엔드포인트는 `readOnlyHint: true`인 `check_job_posting`만 제공하며
-저장ㆍ수정 도구를 노출하지 않습니다.
-루프백이 아닌 자체 호스트 바인딩은 여전히 기본적으로 거부하며, 이 운영
-정책을 명시적으로 변경한 경우에만 `FAIRPOST_ALLOW_REMOTE=1`로 허용합니다.
+Claude Desktop 원격 커넥터용
+`https://fairmcp.vercel.app/api/claude-mcp`도 기본적으로 비활성화됩니다.
+Bearer 토큰을 설정하면 같은 인증을 적용하고, 토큰을 넣을 수 없는 커넥터를 위해
+운영자가 `FAIRPOST_ALLOW_PUBLIC_CLAUDE_REMOTE=1`을 별도로 설정한 경우에만
+무인증으로 엽니다. 이 엔드포인트는 `readOnlyHint: true`인
+`check_job_posting`만 제공하며 저장ㆍ수정 도구를 노출하지 않습니다.
+익명 모드는 클라이언트 주소를 인스턴스별 임시 HMAC 키로 익명화해 최대 1분만
+보유하고 요청 원문을 기록하지 않는 분당 60회 고정 창 제한을 적용합니다.
+이는 기본적인 방어층이며 분산 전역 제한은
+아니므로 일반 공개 전에는 외부 게이트웨이의 전역 제한ㆍ남용 감시도 필요합니다.
+답변 저장 기능이 있는 전체 MCP는 루프백이 아닌 호스트에 바인딩할 수 없습니다.
+자체 호스팅 네트워크 경로도 `mcp_server.remote:app`의 읽기 전용 프로필을
+사용해야 합니다.
 
 ## 고용24 API
 
@@ -213,6 +234,81 @@ python tools\collect_corpus.py `
 python tools\analyze_corpus.py
 ```
 
+민간 train 스냅샷은 원문ㆍIDㆍ조직ㆍ개인정보를 보고서에 남기지 않고
+발동률과 이전 기준선 대비 변화만 반복 감사할 수 있습니다. 기준선이 준비된 뒤에는
+스냅샷, 익명 감사, 드리프트 게이트, 선택 규칙의 로컬 검토 큐를 한 명령으로 만듭니다.
+
+```powershell
+python tools\run_private_fairness_cycle.py `
+  --input incoming\private-postings.jsonl `
+  --output-dir .corpus-private-monitoring `
+  --snapshot-summary reports\private_monitoring_snapshot.json `
+  --audit-output reports\private_fairness_audit_new.json `
+  --baseline-audit reports\private_fairness_audit.json `
+  --drift-output reports\private_fairness_drift.json `
+  --review-queue-output .private-review\queue.jsonl `
+  --sampling-audit-output reports\private_review_sampling_audit.json `
+  --exclude-manifest .corpus-private-open\train\manifest.json `
+  --rule-id SEX-001 `
+  --rule-id AGE-002 `
+  --rule-id PHOTO-001 `
+  --rule-id RETURN-001 `
+  --rule-id Q-DIST-012 `
+  --rule-id Q-DIST-015 `
+  --rule-id Q-DIST-016 `
+  --rule-id Q-DIST-017 `
+  --rule-id Q-INFO-014 `
+  --per-rule 20 `
+  --require-version-match
+```
+
+드리프트 경보가 있으면 산출물을 보존하고 종료 코드 `2`를 반환합니다. 검토 큐는 Git에서
+제외됩니다. 큐를 네트워크가 차단된 단일 HTML 검토 화면으로 만든 뒤 브라우저에서 라벨을
+입력하고, 내려받은 JSONL을 별도 집계 게이트로 확인합니다.
+
+```powershell
+python tools\build_private_review_ui.py `
+  --input .private-review\queue.jsonl `
+  --output .private-review\review.html
+```
+
+`review.html`을 로컬 브라우저로 열어 판정한 뒤 내려받은
+`private-review-labeled.jsonl`을 `.private-review/`에 보관하고 다음 명령의 입력으로 사용합니다.
+각 단계를 따로 실행하는 명령과 개인정보 경계는 상세 문서에 있습니다.
+
+```powershell
+python tools\summarize_private_review.py `
+  --input .private-review\private-review-labeled.jsonl `
+  --output .private-review\summary.json `
+  --manifest .private-review\queue.jsonl.manifest.json `
+  --source-input .corpus-private-monitoring\train\records.jsonl `
+  --min-reviewed-per-rule 10 `
+  --min-precision 0.80 `
+  --expect-rule-id SEX-001 `
+  --expect-rule-id AGE-002 `
+  --expect-rule-id PHOTO-001 `
+  --expect-rule-id RETURN-001 `
+  --expect-rule-id Q-DIST-012 `
+  --expect-rule-id Q-DIST-015 `
+  --expect-rule-id Q-DIST-016 `
+  --expect-rule-id Q-DIST-017 `
+  --expect-rule-id Q-INFO-014
+```
+
+`--manifest`가 큐 생성 당시 선택한 규칙과 라벨 외 필드의 무결성을 검증하고,
+`--source-input`이 원본 train snapshot의 바이트 해시를 대조합니다. 양수 품질 임계값을
+통과하려면 `--expect-rule-id`도 호출자가 명시해야 하며 manifest 선택 규칙과 정확히
+같아야 합니다. 이 train 표본 임계값은 운영 검토 게이트이며 PRD 홀드아웃
+정밀도ㆍ재현율 목표의 달성 증거가 아닙니다.
+
+입력 JSONL 계약은
+`examples/private_monitoring_input.example.jsonl`에서 확인할 수 있습니다.
+이 파일의 기관명ㆍURLㆍ공고 문장은 모두 문서화 목적의 합성 예시이며 실제
+채용공고가 아닙니다. 배포 감사는 이 합성 원문과 비공개 실제 원문을 구분해
+기록합니다.
+입력ㆍ개인정보 경계와 기준선 비교 방법은
+[docs/private-fairness-monitoring.md](docs/private-fairness-monitoring.md)에 있습니다.
+
 PRD의 정식 성능 평가 모집단은 공공 300건과 민간 300건, 총 600건입니다.
 확장 코퍼스의 기존 학습ㆍ홀드아웃 배정을 보존하면서 정식
 420/180 세트를 만들고 오프라인 라벨러를 생성합니다.
@@ -228,6 +324,49 @@ python tools\build_human_labeling_handoff.py
 `reports/human_labeling_handoff.json`에 있습니다. 민간 3,000건을 모두
 포함한 `.corpus-final` 3,300건은 추가 스트레스 분석용으로 유지합니다.
 
+사람 라벨을 만들기 전에는 [평가 무결성 프로토콜](docs/evaluation-protocol.md)에
+따라 train calibration과 봉인 holdout final을 분리합니다. AI가 만든 라벨을
+사람 정답으로 사용하지 않으며, 최종 평가는 현재 입력ㆍ규칙ㆍ매칭 버전에
+결합된 사람 확인서와 최초 공개 영수증을 요구합니다. 같은 홀드아웃 결과를
+본 뒤 규칙을 수정해 다시 출시 성능으로 주장하지 않습니다.
+
+## 출시 증거와 제품 파일럿
+
+규칙 변경 뒤 보고서의 과거 `passed` 값을 현재 증거로 오인하지 않도록 로컬
+산출물 버전을 한 번에 검사합니다.
+
+```powershell
+python tools\check_evidence_versions.py --scope local
+```
+
+운영 배포와 빌드 증거까지 확인할 때는 `--scope all`을 사용합니다. stale
+보고서의 버전 문자열만 바꾸지 않고 원 입력과 생성 도구로 재생성하며,
+재생성할 수 없는 과거 연구는 `evidence_status: historical`로 명시합니다.
+상세 절차는 [릴리스 증거 버전 관리](docs/evidence-versioning.md)에 있습니다.
+
+질문 카드의 유용성은 G1ㆍG2 정확도가 아니라 실제 채용담당자 파일럿에서
+별도로 측정합니다. 원문ㆍ조직명ㆍ자유서술을 수집하지 않는 입력 계약과
+집계 명령은 [파일럿 프로토콜](docs/pilot-protocol.md)에 있습니다. 민간
+코퍼스의 단일 출처ㆍ현장직 편중은 다음 익명 게이트로 추적합니다.
+
+```powershell
+python tools\audit_corpus_diversity.py
+```
+
+현재 다양성 상태는 의도적으로 `alert`이며, 허가된 독립 출처가 실제로
+추가되기 전에는 경보를 해제하지 않습니다. 기준은
+[민간 코퍼스 다양성 게이트](docs/corpus-diversity-gate.md)에 있습니다.
+
+결정론 엔진의 개발 장비 기준 성능은 holdout을 열지 않고 train 입력만으로
+재현합니다. 보고서에는 원문ㆍ레코드 IDㆍ기관명ㆍ개별 타이밍을 남기지 않습니다.
+
+```powershell
+python tools\benchmark_engine.py
+```
+
+측정 방법과 해석 한계는 [엔진 성능 벤치마크](docs/performance.md)에 있으며,
+이 수치는 네트워크ㆍMCP 전송ㆍ동시 요청을 포함한 운영 SLA가 아닙니다.
+
 ## 규칙과 스냅샷
 
 - `data/rules/law.yaml`: 법령 관련 표현 규칙
@@ -237,7 +376,9 @@ python tools\build_human_labeling_handoff.py
 - `data/statutes/`: 6개 법령의 로컬 조문 스냅샷
 - `data/local_rules.example.yaml`: 기관 자체 규칙 템플릿
 
-현재 기본 사전은 법령 표현 규칙 19개와 검토 질문 42개입니다. 질문 카드에는
+현재 기본 사전은 법령 표현 규칙 19개와 검토 질문 52개입니다. 네 공정성
+차원(분배ㆍ절차ㆍ대인ㆍ정보)은 각각 최소 한 개 이상의 질문이 일반 공고에서도
+발동하도록 유지하며, 이 속성은 회귀 테스트로 고정합니다. 질문 카드에는
 가능한 경우 발동 문맥ㆍ원문 offsetㆍ섹션을 함께 포함해 담당자가 왜 그 질문을
 확인해야 하는지 추적할 수 있습니다. 문의처와
 이의신청ㆍ인간 재검토 경로는 서로 다른 슬롯으로 확인하며, AI 채용의
@@ -251,8 +392,22 @@ python tools\build_human_labeling_handoff.py
 반복되는 질문은 해당 `확인되지 않은 항목` 카드 안에서 펼쳐봅니다. API의
 기존 `questions` 배열과 `counts.questions`는 그대로 유지합니다.
 
+법령 규칙의 `related_questions`는 그 표현이 발견됐을 때 함께 확인할 질문을
+사전에 기록합니다. 로더는 존재하지 않는 질문 ID를 거부하므로 연결이 코드나
+문서에서만 유지되다 어긋나는 일이 없습니다. 연결된 질문은 자체 트리거가
+발동하지 않아도 결과에 포함되며 `trigger_reason: finding`으로 표시합니다.
+다만 그 질문 자신의 보호 문맥 예외가 표현을 이미 걸러냈다면 연결은 그
+판단을 덮어쓰지 않습니다.
+
+각 질문의 `priority`는 표시 순서를 정합니다. 1은 발동한 법령 표현과 연결된
+질문, 2는 공고 문구에서 직접 발동한 질문, 3은 누락 슬롯에서 나온 질문,
+4는 공통 체크리스트입니다. 결과는 `(priority, id)` 순으로 정렬되어 같은
+입력에 항상 같은 순서를 냅니다. `linked_findings`에는 그 질문을 불러온
+법령 규칙 ID가 들어갑니다.
+
 기관 자체 규칙은 `basis.type: consensus`만 허용합니다. 이를 법령
-근거로 표시하면 로딩 단계에서 실패합니다.
+근거로 표시하면 로딩 단계에서 실패합니다. `related_questions`는 법령
+규칙에만 둘 수 있습니다.
 
 CLI의 `--local-rules` 또는 MCP 실행 환경의
 `FAIRPOST_LOCAL_RULES_PATH`로 사용자 로컬 질문 사전을 연결할 수

@@ -1,0 +1,159 @@
+{
+  "schema_version": "private-gender-context-audit-v1",
+  "created_at": "2026-08-03T23:40:00+09:00",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "status": "model_assisted_aggregate_only",
+  "not_human_labels": true,
+  "not_performance_measurement": true,
+  "scope": {
+    "records": 2100,
+    "sector": "private",
+    "split": "train_only",
+    "source_category_count": 1,
+    "law_rule_id": "SEX-001",
+    "review_question_id": "Q-DIST-015"
+  },
+  "privacy_boundary": {
+    "contains_context": false,
+    "contains_matched_text": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false
+  },
+  "structured_gender_field_analysis": {
+    "SEX-001_records": 629,
+    "gender_neutral_records": 1475,
+    "conflicting_restriction_and_neutral_records": 4,
+    "union_records": 2100,
+    "SEX-001_surface_clusters": [
+      {
+        "cluster": "structured_female",
+        "records": 395
+      },
+      {
+        "cluster": "structured_male",
+        "records": 231
+      },
+      {
+        "cluster": "structured_woman_variant",
+        "records": 2
+      },
+      {
+        "cluster": "explicit_women_only",
+        "records": 1
+      }
+    ]
+  },
+  "review_question_expansion": {
+    "pre_change_records": 8,
+    "post_change_records": 50,
+    "record_delta": 42,
+    "new_candidate_clusters": [
+      {
+        "cluster": "explicit_recruitment",
+        "records": 19
+      },
+      {
+        "cluster": "gender_age_condition",
+        "records": 15
+      },
+      {
+        "cluster": "gendered_headcount",
+        "records": 6
+      },
+      {
+        "cluster": "structured_preference",
+        "records": 1
+      },
+      {
+        "cluster": "gendered_role_split",
+        "records": 1
+      }
+    ],
+    "protected_client_or_facility_headcount_records": 4,
+    "public_corpus_records": 0,
+    "web_parity_records": 2310,
+    "web_parity_mismatches": 0
+  },
+  "current_review_context_audit": {
+    "exclusive_clusters": {
+      "gender_targeted_recruitment_wording": 19,
+      "gender_preference_or_priority": 9,
+      "gender_specific_headcount_allocation": 6,
+      "gender_and_age_combined_condition": 15,
+      "gender_specific_role_or_task_split": 1
+    },
+    "overlapping_features": {
+      "inclusive_or_no_gender_limit_wording": 22,
+      "preference_or_priority_cue": 37,
+      "service_recipient_or_client_context": 6,
+      "intimacy_privacy_or_safety_duty_cue": 10,
+      "recipient_and_intimacy_conjunction": 1,
+      "documented_occupational_necessity_rationale": 0
+    },
+    "inclusive_overlap_by_cluster": {
+      "gender_targeted_recruitment_wording": {
+        "overlap": 9,
+        "total": 19
+      },
+      "gender_preference_or_priority": {
+        "overlap": 4,
+        "total": 9
+      },
+      "gender_specific_headcount_allocation": {
+        "overlap": 5,
+        "total": 6
+      },
+      "gender_and_age_combined_condition": {
+        "overlap": 3,
+        "total": 15
+      },
+      "gender_specific_role_or_task_split": {
+        "overlap": 1,
+        "total": 1
+      }
+    },
+    "review_priority": {
+      "high": 41,
+      "normal": 9,
+      "downgrade": 0,
+      "safe_auto_exclusion": 0
+    },
+    "explicit_one_gender_only_phrasing": 0,
+    "statutory_or_affirmative_action_preference": 0,
+    "pure_inclusive_or_protective_false_positive": 0,
+    "decision": "hold_rule_change_pending_human_labels",
+    "reason": "포용 문구 22건은 다른 성별 조건과 혼재해 모순 검토 대상이며 수급자 성별ㆍ돌봄 문맥만으로 자동 제외할 근거가 없음"
+  },
+  "actions": [
+    {
+      "decision": "retain_law_finding",
+      "risk": "medium",
+      "change": "Keep explicit structured applicant-gender restrictions in SEX-001; do not suppress the four records whose structured restriction conflicts with a separate gender-neutral field."
+    },
+    {
+      "decision": "implemented_as_review_question",
+      "risk": "medium",
+      "change": "Route explicit gendered recruitment, headcount, age, role allocation, and structured preference variants to Q-DIST-015 while protecting headcounts that describe clients or facility residents."
+    },
+    {
+      "decision": "hold_further_exclusion",
+      "risk": "medium",
+      "change": "Keep mixed inclusive wording and care or privacy contexts in human review unless a bounded recipient link and explicit occupational-necessity rationale are both present."
+    }
+  ],
+  "limitations": [
+    "The clusters are deterministic heuristics over de-identified train context, not human ground truth.",
+    "The single-source corpus cannot estimate private-market precision, recall, or prevalence.",
+    "A Q-DIST-015 activation requests human review and does not establish discrimination or unlawfulness.",
+    "A structured source field can conflict with free text; the four conflicting records require source-level human review rather than automatic exclusion."
+  ]
+}

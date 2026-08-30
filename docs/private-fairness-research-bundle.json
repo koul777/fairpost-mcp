@@ -1,0 +1,525 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-03T23:58:00+09:00",
+  "updated_at": "2026-08-04T05:06:00+09:00",
+  "accessed_at": "2026-08-04",
+  "research_question": "공개 민간 채용공고에서 반복되는 공정성 검토 표현 중 fairpost가 새로 탐지하거나 보호 문맥으로 구분해야 할 것은 무엇인가?",
+  "sanitized_scope": "공식 기관 자료와 공개 채용공고만 사용했다. 조직명, 담당자, 연락처와 지원자 정보는 분석 산출물에서 제거했고, 원문은 배포 보고서에 저장하지 않았다.",
+  "privacy_boundary": {
+    "contains_posting_text": false,
+    "contains_corpus_record_ids": false,
+    "contains_corpus_source_ids": false,
+    "contains_organization_names": false,
+    "contains_contact_details": false,
+    "contains_public_evidence_urls": true,
+    "note": "공개 근거의 URL과 익명 research source key는 추적 가능성을 위해 보존하며, 로컬 코퍼스의 record/source ID와 구분한다."
+  },
+  "jurisdiction": "대한민국",
+  "sources": [
+    {
+      "source_id": "src_001",
+      "title": "2023년 하반기 불공정채용 지도ㆍ점검 결과",
+      "url": "https://www.moel.go.kr/news/enews/report/enewsView.do?news_seq=16275",
+      "publisher": "고용노동부",
+      "published_or_updated_at": "2024-03-06",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_002",
+      "title": "2025년 채용절차의 공정화에 관한 법률 업무 매뉴얼",
+      "url": "https://www.moel.go.kr/local/seoulgangnam/info/policydata/view.do?bbs_seq=20250500932",
+      "publisher": "고용노동부",
+      "published_or_updated_at": "2025-05-19",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_003",
+      "title": "직원채용에서의 성별 구분 모집 권고 결정",
+      "url": "https://www.humanrights.go.kr/base/board/read?boardManagementNo=7071&boardNo=407966&menuLevel=3&menuNo=77&page=5&searchCategory=60&searchType=&searchWord=",
+      "publisher": "국가인권위원회",
+      "published_or_updated_at": "2007-03-28",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_004",
+      "title": "비서 채용 면접 시 성별 기준 질문에 관한 권고",
+      "url": "https://www.humanrights.go.kr/base/board/read?boardManagementNo=24&boardNo=7609618&menuLevel=3&menuNo=91",
+      "publisher": "국가인권위원회",
+      "published_or_updated_at": "2023-11-13",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_005",
+      "title": "채용절차의 공정화에 관한 법률 제3조ㆍ제10조ㆍ제11조 스냅샷",
+      "url": "https://www.law.go.kr/법령/채용절차의공정화에관한법률",
+      "publisher": "국가법령정보센터",
+      "published_or_updated_at": "2026-07-26",
+      "source_tier": "primary",
+      "local_reference": "data/statutes/recruitment-procedure-act.yaml"
+    },
+    {
+      "source_id": "src_006",
+      "title": "신체조건을 이유로 한 차별",
+      "url": "https://www.humanrights.go.kr/base/board/read?boardManagementNo=7071&boardNo=407985&displayType=&menuLevel=3&menuNo=77&month=&page=46&searchCategory=&searchType=&searchWord=&year=",
+      "publisher": "국가인권위원회",
+      "published_or_updated_at": "2008-03-03",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_007",
+      "title": "채용공고문 예시",
+      "url": "https://www.law.go.kr/LSW/flDownload.do?bylClsCd=200203&flNm=%5B%EB%B3%84%EC%A7%80+2%5D+%EC%B1%84%EC%9A%A9+%EA%B3%B5%EA%B3%A0%EB%AC%B8%28%EC%98%88%EC%8B%9C%29&flSeq=154576557",
+      "publisher": "국가법령정보센터",
+      "published_or_updated_at": "2026-08-03 확인",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_008",
+      "title": "NCS 공정채용 컨설팅 지원범위",
+      "url": "https://ncs.go.kr/blind/bl17/consInfo.do",
+      "publisher": "한국산업인력공단",
+      "published_or_updated_at": "2026-08-03 확인",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_009",
+      "title": "채용절차의 공정화에 관한 법률 제2조ㆍ제3조ㆍ제4조의3",
+      "url": "https://www.law.go.kr/LSW/lsInfoP.do?ancYnChk=0&lsId=011990",
+      "publisher": "국가법령정보센터",
+      "published_or_updated_at": "2026-08-03 확인",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_010",
+      "title": "고용상 연령차별금지 및 고령자고용촉진에 관한 법률 제4조의4ㆍ제4조의5",
+      "url": "https://www.law.go.kr/법령/고용상연령차별금지및고령자고용촉진에관한법률",
+      "publisher": "국가법령정보센터",
+      "published_or_updated_at": "2026-07-26",
+      "source_tier": "primary",
+      "local_reference": "data/statutes/age-discrimination-act.yaml"
+    },
+    {
+      "source_id": "src_011",
+      "title": "2026년 제10차 기간제계약직 공개채용 공고",
+      "url": "https://www.ijongno.co.kr/File/Download/f7b27d1bc206684f7a063d1a6a3215bb",
+      "publisher": "종로구시설관리공단",
+      "published_or_updated_at": "2026-06-04",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_012",
+      "title": "채용 시 외국인 배제한 주식회사, 차별 시정 권고 불수용",
+      "url": "https://www.humanrights.go.kr/base/board/read?boardManagementNo=24&boardNo=7611710&menuLevel=3&menuNo=91",
+      "publisher": "국가인권위원회",
+      "published_or_updated_at": "2025-12-26",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_013",
+      "title": "형의 효력이 실효된 범죄경력을 이유로 한 채용 불합격 통보는 차별",
+      "url": "https://www.humanrights.go.kr/base/board/read?boardManagementNo=24&boardNo=7611552&menuLevel=3&menuNo=91",
+      "publisher": "국가인권위원회",
+      "published_or_updated_at": "2025-10-17",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_014",
+      "title": "채용 시 장애인의 업무 수행 능력 예단은 차별",
+      "url": "https://www.humanrights.go.kr/base/board/read?boardManagementNo=24&boardNo=7612027&menuLevel=3&menuNo=91",
+      "publisher": "국가인권위원회",
+      "published_or_updated_at": "2026-04-30",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_015",
+      "title": "부교수 이상 승진ㆍ임용 시 모든 가족에게 특정종교의 신앙생활 요구는 차별",
+      "url": "https://www.humanrights.go.kr/base/board/read?boardManagementNo=24&boardNo=7605067&menuLevel=3&menuNo=91",
+      "publisher": "국가인권위원회",
+      "published_or_updated_at": "2020-02-27",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_016",
+      "title": "임신을 이유로 한 고용차별 권고 결정",
+      "url": "https://www.humanrights.go.kr/base/board/read?boardManagementNo=7071&boardNo=407989&menuLevel=3&menuNo=77&page=44",
+      "publisher": "국가인권위원회",
+      "published_or_updated_at": "2007-03-09",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_017",
+      "title": "B형간염 양성반응을 이유로 한 채용거부는 차별",
+      "url": "https://www.humanrights.go.kr/base/board/read?boardManagementNo=24&boardNo=600283&displayType=&menuLevel=3&menuNo=91&month=&page=20&searchCategory=&searchType=total&searchWord=%EA%B3%A0%EC%9A%A9&year=",
+      "publisher": "국가인권위원회",
+      "published_or_updated_at": "2010-12-31",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_018",
+      "title": "B형간염을 이유로 한 채용 거부 시정 권고 수용",
+      "url": "https://humanrights.go.kr/base/board/read?boardManagementNo=24&boardNo=7608420&displayType=&menuLevel=3&menuNo=91&month=&page=102&searchCategory=&searchType=&searchWord=&year=",
+      "publisher": "국가인권위원회",
+      "published_or_updated_at": "2022-10-19",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_019",
+      "title": "2022년 상반기 채용절차법 지도ㆍ점검 결과",
+      "url": "https://www.moel.go.kr/news/enews/report/enewsView.do?news_seq=13927",
+      "publisher": "고용노동부",
+      "published_or_updated_at": "2022-09-06",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_020",
+      "title": "2024년 상반기 채용절차법 지도ㆍ점검 결과",
+      "url": "https://www.moel.go.kr/news/enews/report/enewsView.do?news_seq=16845",
+      "publisher": "고용노동부",
+      "published_or_updated_at": "2024-07-22",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_021",
+      "title": "개인정보 보호법 제37조의2 자동화된 결정에 대한 정보주체의 권리",
+      "url": "https://www.law.go.kr/LSW/lsLinkCommonInfo.do?chrClsCd=010202&lsJoLnkSeq=1029334889",
+      "publisher": "국가법령정보센터",
+      "published_or_updated_at": "2025-10-02 시행",
+      "source_tier": "primary",
+      "local_reference": "data/statutes/personal-information-act.yaml"
+    },
+    {
+      "source_id": "src_022",
+      "title": "인공지능 발전과 신뢰 기반 조성 등에 관한 기본법 제31조ㆍ제34조",
+      "url": "https://www.law.go.kr/법령/인공지능발전과신뢰기반조성등에관한기본법",
+      "publisher": "국가법령정보센터",
+      "published_or_updated_at": "2026-07-21 시행",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_023",
+      "title": "인공지능 개발과 활용에 관한 인권 가이드라인",
+      "url": "https://www.humanrights.go.kr/base/board/read?boardManagementNo=24&boardNo=7607961&menuLevel=3&menuNo=91",
+      "publisher": "국가인권위원회",
+      "published_or_updated_at": "2022-05-17",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_101",
+      "title": "공개 민간 채용공고 사례 A",
+      "url": "https://www.stump.or.kr/news/detail.do?seq=304",
+      "publisher": "채용기관 자체 홈페이지",
+      "published_or_updated_at": "2025-11-10",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_102",
+      "title": "공개 민간 채용공고 사례 B",
+      "url": "https://www.work24.go.kr/wk/a/b/1500/empDetailAuthView.do?infoTypeCd=VALIDATION&infoTypeGroup=tb_workinfoworknet&wantedAuthNo=KF11022607230002",
+      "publisher": "고용24 공개 구인정보",
+      "published_or_updated_at": "2026-07-23",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_103",
+      "title": "공개 민간 채용공고 사례 C",
+      "url": "https://www.work24.go.kr/wk/a/b/1500/empDetailAuthView.do?infoTypeCd=VALIDATION&infoTypeGroup=tb_workinfoworknet&wantedAuthNo=K120122607220009",
+      "publisher": "고용24 공개 구인정보",
+      "published_or_updated_at": "2026-07-22",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_104",
+      "title": "공개 민간 채용공고 사례 D",
+      "url": "https://m.work24.go.kr/wk/a/b/1500/empDetailAuthView.do?infoTypeCd=VALIDATION&infoTypeGroup=tb_workinfoworknet&wantedAuthNo=K180512605120033",
+      "publisher": "고용24 공개 구인정보",
+      "published_or_updated_at": "2026-05-12",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_105",
+      "title": "공개 민간 채용공고 사례 E",
+      "url": "https://m.work24.go.kr/wk/a/b/1500/empDetailAuthView.do?infoTypeCd=VALIDATION&infoTypeGroup=tb_workinfoworknet&wantedAuthNo=K180422604290003",
+      "publisher": "고용24 공개 구인정보",
+      "published_or_updated_at": "2026-04-29",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_106",
+      "title": "공개 민간 채용공고 사례 F",
+      "url": "https://www.skcareers.com/Recruit/Detail/R260790",
+      "publisher": "기업 자체 채용 홈페이지",
+      "published_or_updated_at": "2026-04-13",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_107",
+      "title": "공개 민간 채용공고 사례 G",
+      "url": "https://www.work24.go.kr/wk/a/b/1500/empDetailAuthView.do?infoTypeCd=VALIDATION&infoTypeGroup=tb_workinfoworknet&wantedAuthNo=K172112607200054",
+      "publisher": "고용24 공개 구인정보",
+      "published_or_updated_at": "2026-07-20",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_108",
+      "title": "공개 민간 채용공고 사례 H",
+      "url": "https://m.work24.go.kr/wk/a/b/1500/empDetailAuthView.do?infoTypeCd=VALIDATION&infoTypeGroup=tb_workinfoworknet&wantedAuthNo=K180512603090010",
+      "publisher": "고용24 공개 구인정보",
+      "published_or_updated_at": "2026-03-09",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_109",
+      "title": "공개 민간 채용공고 사례 I",
+      "url": "https://m.work24.go.kr/wk/a/b/1500/empDetailAuthView.do?infoTypeCd=VALIDATION&infoTypeGroup=tb_workinfoworknet&wantedAuthNo=K170082607030018",
+      "publisher": "고용24 공개 구인정보",
+      "published_or_updated_at": "2026-07-03",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_110",
+      "title": "공개 민간 채용공고 사례 J",
+      "url": "https://www.work24.go.kr/wk/a/b/1500/empDetailAuthView.do?infoTypeCd=OEW&infoTypeGroup=tb_workinfoopen&wantedAuthNo=134508",
+      "publisher": "고용24 공개 구인정보",
+      "published_or_updated_at": "2025-09-04",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_111",
+      "title": "공개 민간 채용공고 사례 K",
+      "url": "https://www.kofia.or.kr/brd/m_96/view.do?company_cd=&company_nm=&itm_seq_1=0&itm_seq_2=0&multi_itm_seq=0&seq=40128",
+      "publisher": "금융투자협회 회원사 채용안내",
+      "published_or_updated_at": "2026-05-29",
+      "source_tier": "primary"
+    },
+    {
+      "source_id": "src_local_001",
+      "title": "민간 공개 train 2,100건 익명 감사",
+      "publisher": "fairpost 로컬 분석",
+      "published_or_updated_at": "2026-08-03",
+      "source_tier": "primary",
+      "local_reference": "reports/private_fairness_audit.json"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "private_claim_001",
+      "statement": "공식 지도점검에서 채용서류 미반환ㆍ미파기, 가족정보 요구, 심사비용 전가와 공고 후 근로조건 변경이 실제 반복 점검 항목으로 확인되었다.",
+      "relation": "supports",
+      "source_ids": ["src_001", "src_002"],
+      "confidence": "high",
+      "analysis_note": "고용노동부가 점검 건수와 주요 사례를 직접 발표했고 최신 업무 매뉴얼을 별도로 게시했다."
+    },
+    {
+      "claim_id": "private_claim_002",
+      "statement": "제출서류 반환 거부 문구는 전자 제출ㆍ자발 제출 예외와 종이 서류 반환 절차를 구분해 검토해야 한다.",
+      "relation": "supports",
+      "source_ids": ["src_001", "src_005", "src_102", "src_103"],
+      "confidence": "high",
+      "analysis_note": "공식 점검은 일률적 반환 거부를 문제 사례로 제시하지만 제11조는 홈페이지ㆍ전자우편 제출과 자발 제출을 반환 예외로 둔다. 실제 공고에는 전자접수와 반환 거부가 함께 나타나므로 법 finding과 범위 검토 질문을 분리했다."
+    },
+    {
+      "claim_id": "private_claim_003",
+      "statement": "특정 성별 우대ㆍ선호 표현은 직접 배제와 동일시하지 말고 직무의 본질적 요건 또는 적극적 개선조치의 근거를 확인하는 질문으로 다뤄야 한다.",
+      "relation": "supports",
+      "source_ids": ["src_003", "src_004"],
+      "confidence": "high",
+      "analysis_note": "국가인권위원회 결정은 성별 배제의 예외를 본질적 직무자격과 연결하고 성별 고정관념에 기반한 면접 질문도 별도로 다룬다. 우대ㆍ선호만으로 위반을 단정할 근거는 부족해 review question으로 구현했다."
+    },
+    {
+      "claim_id": "private_claim_004",
+      "statement": "민간 공고에는 사진 필수뿐 아니라 사진 부착ㆍ첨부처럼 같은 요구를 나타내는 변형이 존재한다.",
+      "relation": "supports",
+      "source_ids": ["src_104", "src_107"],
+      "confidence": "medium",
+      "analysis_note": "공개 구인정보에서 사진 부착과 서류 반환 거부가 함께 관찰됐다. 사진 불필요ㆍ부착 금지 같은 보호 문맥은 제외하도록 규칙을 제한했다."
+    },
+    {
+      "claim_id": "private_claim_005",
+      "statement": "병역 조건은 성별 제한, 입사시기 조정, 해외업무 등 주변 문맥에 따라 제한 또는 보호조치의 의미가 달라질 수 있다.",
+      "relation": "context_only",
+      "source_ids": ["src_101", "src_102"],
+      "confidence": "medium",
+      "analysis_note": "실제 공고에서 병역필ㆍ면제 조건과 남성 한정 문구가 함께 나타나지만 공고만으로 정당성이나 차별을 확정할 수 없다. 기존 Q-DIST-010의 사람 검토 범위로 유지한다."
+    },
+    {
+      "claim_id": "private_claim_006",
+      "statement": "공고 본문과 플랫폼 표준 안내가 서로 다른 반환 절차를 제시할 수 있어 동일 문서 안의 상충 검토가 필요하다.",
+      "relation": "supports",
+      "source_ids": ["src_103"],
+      "confidence": "medium",
+      "analysis_note": "공개 사례에서 본문의 일률적 미반환 문구와 플랫폼의 반환 청구 안내가 함께 관찰됐다. Q-INFO-013 후속 질문에 상충 확인을 포함했다."
+    },
+    {
+      "claim_id": "private_claim_007",
+      "statement": "현재 민간 정량 감사 결과는 단일 지역 공개 구인 출처 2,100건에 기반하므로 전체 민간 채용시장 성능으로 일반화할 수 없다.",
+      "relation": "supports",
+      "source_ids": ["src_local_001"],
+      "confidence": "high",
+      "analysis_note": "익명 감사의 source category가 jincheon-jobs 하나뿐이다. 이 보고서는 발동률 진단용이며 정밀도ㆍ재현율 근거가 아니다."
+    },
+    {
+      "claim_id": "private_claim_008",
+      "statement": "상시 30명 이상 사업장에 채용절차법이 적용되면 채용대상자 확정 후 구직자에게 채용 여부를 알려야 하므로, 합격자만 개별 통보하거나 불합격자를 별도 통지하지 않는 문구는 적용범위와 별도 통지ㆍ조회 경로를 확인할 검토 대상으로 다뤄야 한다.",
+      "relation": "supports",
+      "source_ids": ["src_005", "src_007", "src_008", "src_105", "src_107", "src_local_001"],
+      "confidence": "high",
+      "analysis_note": "채용절차법 제3조는 상시 30명 이상 사업ㆍ사업장에 적용하고 제10조는 채용대상자 확정 후 구직자에게 채용 여부를 지체 없이 알리도록 한다. 다만 공고만으로 상시 근로자 수, 실제 전원 통지, 별도 결과 조회 경로를 확정할 수 없다. 따라서 민간 공고의 합격자 한정 통보 표현은 자동 위반 finding이 아니라 법 적용범위와 실제 고지 절차를 확인하는 Q-INFO-014 사람 검토 질문으로 구현했다."
+    },
+    {
+      "claim_id": "private_claim_009",
+      "statement": "추상적 신체조건 대신 직무에 직접 연결된 과학적ㆍ객관적 수행 기준을 사용하고 보호장구 요구의 필요성과 대체수단을 검토해야 한다.",
+      "relation": "supports",
+      "source_ids": ["src_006", "src_106", "src_108"],
+      "confidence": "high",
+      "analysis_note": "국가인권위원회 공개 사례는 키ㆍ몸무게의 일괄 제한보다 업무 특성에 맞는 과학적ㆍ객관적 평가가 필요하다고 설명한다. 보호장구 착용 표현은 곧바로 위반으로 보지 않고 Q-DIST-007에서 직무 필수성과 합리적 편의를 묻는다."
+    },
+    {
+      "claim_id": "private_claim_010",
+      "statement": "보호장구 표현은 지원자격으로 제시되기도 하고 실제 작업환경 설명이나 지급 안내로 제시되기도 하므로 단어 존재만으로 지원 제한을 판정할 수 없다.",
+      "relation": "supports",
+      "source_ids": ["src_106", "src_108"],
+      "confidence": "high",
+      "analysis_note": "기업 자체 채용 페이지는 방진복 착용 가능을 지원자격으로 제시하지만 다른 공개 공고는 방진복 착용 업무와 지급 사실을 작업환경으로 설명한다. 전자는 Q-DIST-007 사람 검토 대상으로, 후자는 비발동 보호 문맥으로 회귀 테스트한다."
+    },
+    {
+      "claim_id": "private_claim_011",
+      "statement": "가족관계증명서라는 문서명 자체를 채용절차법 제4조의3의 가족 학력ㆍ직업ㆍ재산 요구와 동일시할 수 없고 지원 단계, 우대자격 입증, 최종합격 후 입사서류를 구분해야 한다.",
+      "relation": "supports",
+      "source_ids": ["src_009", "src_109"],
+      "confidence": "high",
+      "analysis_note": "채용절차법은 기초심사자료와 입증자료를 정의하고 직무와 무관한 직계 존비속ㆍ형제자매의 학력ㆍ직업ㆍ재산 수집을 금지한다. 2026년 민간 공개 공고에는 가족관계증명서가 최종합격자 입사서류로 명시돼 있다. 따라서 증명서 문서명은 FAMILY-001에서 제거하고 Q-INFO-011에서 제출 시점ㆍ목적ㆍ접근 범위만 질문한다."
+    },
+    {
+      "claim_id": "private_claim_012",
+      "statement": "나이 제한 없음과 최종합격 후 고령자 고용촉진 지원서류 문맥은 일반 연령 제한과 구분해야 한다.",
+      "relation": "supports",
+      "source_ids": ["src_010", "src_011", "src_110"],
+      "confidence": "high",
+      "analysis_note": "민간 공개 공고에는 나이 제한 없음이 명시돼 있고, 별도 공개 공고에는 만 60세 이상 최종합격자의 시니어인턴십 참여서류가 채용 후 지원조치로 제시된다. 연령차별금지법 제4조의5는 특정 연령집단의 고용 촉진 지원조치를 예외로 둔다. 따라서 AGE-002는 나이ㆍ연령 제한 없음과 시니어인턴십 인접 문맥을 보호한다."
+    },
+    {
+      "claim_id": "private_claim_013",
+      "statement": "`반환하지 않으며` 변형은 이메일 단독 제출과 이메일ㆍ방문 혼합 접수에서 모두 나타나므로, 전자는 전자제출 예외로 보호하고 후자는 종이 채용서류 포함 가능성을 검토해야 한다.",
+      "relation": "supports",
+      "source_ids": ["src_005", "src_111", "src_local_001"],
+      "confidence": "high",
+      "analysis_note": "민간 train에서 이 변형 69건 중 68건은 이메일ㆍ방문 혼합 접수, 1건은 이메일 단독 접수였다. 공개 금융 직군 사례도 이메일 단독 접수와 미반환 문구를 함께 제시한다. 채용절차법 제11조의 홈페이지ㆍ전자우편 제출 예외를 반영해 이메일 단독 1건은 RETURN-001에서 제외하되, Q-INFO-013은 69건 모두에서 제출 방식ㆍ반환ㆍ파기 범위를 질문한다."
+    },
+    {
+      "claim_id": "private_claim_014",
+      "statement": "외국인이라는 이유의 일률적 지원 배제는 국내 취업이 가능한 체류자격과 실제 직무요건을 구분해 검토해야 한다.",
+      "relation": "supports",
+      "source_ids": ["src_012", "src_local_001"],
+      "confidence": "high",
+      "analysis_note": "국가인권위원회는 취업 제한이 없는 영주권자까지 외국인이라는 이유로 배송직 채용에서 배제한 민간기업 사례를 차별로 판단했다. 민간 train에서는 직접 국적 배제 표현 1건, 외국인 지원 가능ㆍ우대 표현 11건과 체류ㆍ취업자격 문맥 30건이 구분됐다. Q-DIST-016은 직접 배제만 사람 검토로 올리고 포용 또는 근로자격 확인 문맥은 보호한다."
+    },
+    {
+      "claim_id": "private_claim_015",
+      "statement": "범죄경력ㆍ신원조회 결과는 직무 관련성, 형의 효력 실효, 경과 기간과 소명 기회를 고려하지 않은 일률 배제 기준으로 사용해서는 안 된다.",
+      "relation": "supports",
+      "source_ids": ["src_013", "src_local_001"],
+      "confidence": "high",
+      "analysis_note": "국가인권위원회는 실효된 범죄경력을 이유로 한 민간기업과 공공 채용 불합격을 불합리한 차별로 판단했다. 민간 train에서는 범죄경력ㆍ전과ㆍ신원조회 표현 16건이 관찰됐고 Q-DIST-013은 보호 문맥 제외 후 15건에서 발동한다. 자동 위반 판정 대신 직무 관련성, 조회 권한, 적용 시점과 소명 절차를 질문한다."
+    },
+    {
+      "claim_id": "private_claim_016",
+      "statement": "장애가 있다는 사실만으로 공고상 자격요건을 충족한 지원자의 접수를 제한하거나 업무 수행 능력을 예단해서는 안 된다.",
+      "relation": "supports",
+      "source_ids": ["src_014", "src_local_001"],
+      "confidence": "high",
+      "analysis_note": "국가인권위원회는 파견사업체가 자격요건을 충족한 장애인 지원자의 서류 접수를 막은 행위를 차별로 판단했다. 민간 train 2,100건에서는 장애인 표현 195건과 장애ㆍ보훈 우대 문맥 75건이 관찰됐지만 직접 지원 배제 변형은 0건이었다. DISABILITY-001에는 직접 배제 표현만 추가하고, 건강ㆍ보호장구 조건은 Q-DIST-007에서 직무 필수성과 합리적 편의를 사람이 검토한다."
+    },
+    {
+      "claim_id": "private_claim_017",
+      "statement": "종교 신앙 요건은 기관명이나 근무 장소만으로 추정하지 않고 실제 지원자격ㆍ우대ㆍ질문과 직무상 불가피성을 함께 검토해야 한다.",
+      "relation": "supports",
+      "source_ids": ["src_015", "src_local_001"],
+      "confidence": "high",
+      "analysis_note": "국가인권위원회는 가족 모두의 특정 종교 신앙생활을 승진ㆍ임용 요건으로 삼은 것은 차별이라고 보면서도, 특정 과목이나 종교 직무의 성질상 신앙이 불가피한 제한 가능성을 구분했다. 민간 train에서 종교 관련 단어는 148건이지만 보호 문맥 제외 뒤 Q-DIST-012 발동 9건도 대부분 기관ㆍ근무지 문맥으로 분류됐다. 따라서 단독 키워드는 버리고 명시적 신앙 자격ㆍ우대ㆍ질문 표현만 검토한다."
+    },
+    {
+      "claim_id": "private_claim_018",
+      "statement": "혼인 여부, 결혼 예정, 임신ㆍ출산 계획과 자녀 정보는 직무능력 대신 채용 불이익에 사용될 위험이 있어 지원서ㆍ면접 평가와 분리해야 한다.",
+      "relation": "supports",
+      "source_ids": ["src_016", "src_local_001"],
+      "confidence": "high",
+      "analysis_note": "국가인권위원회는 임신과 출산 예정이 면접 채용 결정에 불리하게 작용한 사건을 고용상 차별로 판단했다. 민간 train에서 혼인 여부 표현 53건 중 51건은 기재 금지 보호 문맥이고 2건은 지원서ㆍ자격 문맥에 남았다. Q-DIST-017은 보호 안내를 제외하고 명시적 혼인ㆍ임신ㆍ출산ㆍ자녀 질문만 사람 검토 대상으로 올린다."
+    },
+    {
+      "claim_id": "private_claim_019",
+      "statement": "건강검진 결과나 특정 질환 보유 사실만으로 채용을 일률적으로 거부하지 말고 실제 직무 수행 가능성과 합리적ㆍ개별적 판단 근거를 검토해야 한다.",
+      "relation": "context_only",
+      "source_ids": ["src_017", "src_018"],
+      "confidence": "high",
+      "analysis_note": "국가인권위원회는 B형간염 양성 또는 보균 사실만으로 지원자를 배제한 별도 채용 사건들에서 개선을 권고했다. 두 사건은 건강정보가 채용결정에 사용된 사례이지만 공고 단계의 병력 기재 요구 자체가 곧 위법이라는 근거는 아니다. 따라서 HEALTH-001의 탐지 범위를 넓히지 않고, Q-DIST-007 사람이 직무 관련성ㆍ개별 수행능력ㆍ대체수단을 검토할 때 쓰는 맥락 근거로만 연결한다."
+    },
+    {
+      "claim_id": "private_claim_020",
+      "statement": "민간 중심 공식 지도ㆍ점검에서 가족의 학력ㆍ직업과 부모의 재산을 입사지원서에 요구한 사례가 여러 연도에 반복 확인되었다.",
+      "relation": "supports",
+      "source_ids": ["src_001", "src_019", "src_020"],
+      "confidence": "high",
+      "analysis_note": "고용노동부의 2022년ㆍ2023년ㆍ2024년 점검 결과는 직무와 무관한 가족 학력ㆍ직업 또는 부모 재산 요구를 주요 사례로 직접 제시한다. 각 발표의 전체 조치 건수는 가족정보 위반만의 건수가 아니므로 FAMILY-001의 현실 근거로만 사용하고 발생률로 해석하지 않는다. 가족관계증명서 문서명은 최종합격 후 인사서류일 수 있어 Q-INFO-011의 단계ㆍ목적 확인 대상으로 유지한다."
+    },
+    {
+      "claim_id": "private_claim_021",
+      "statement": "개인정보를 이용한 완전 자동화 채용결정과 고영향 AI 채용평가는 설명ㆍ인적 개입ㆍ위험관리ㆍ사람 감독의 적용 범위를 검토해야 한다.",
+      "relation": "supports",
+      "source_ids": ["src_021", "src_022", "src_023"],
+      "confidence": "high",
+      "analysis_note": "개인정보 보호법은 완전히 자동화된 결정에 대한 설명 요구와 조건부 거부ㆍ인적 재처리 절차를 규정하고, 인공지능기본법은 중대한 채용 판단ㆍ평가에 쓰이는 고영향 AI의 위험관리ㆍ설명 방안ㆍ사람 감독을 다룬다. 인권위 가이드라인은 차별적 영향 방지와 위험 수준에 맞는 인적 개입을 권고한다. 공고에 AI 표현이 있거나 고지가 보이지 않는다는 사실만으로 실제 완전 자동화ㆍ법 적용 주체ㆍ위반을 확정하지 않고 AI-001과 질문 카드의 사람 검토 경계로 사용한다."
+    }
+  ],
+  "contrary_evidence": [
+    {
+      "statement": "전자우편ㆍ홈페이지로 제출된 서류와 구인자 요구 없이 자발 제출한 서류는 반환 의무의 예외다.",
+      "source_ids": ["src_005", "src_111"],
+      "impact": "전자접수만이 제출 방식으로 명확한 미반환 문구는 RETURN-001에서 제외하고 Q-INFO-013으로 제시한다. 방문ㆍ우편 제출이 함께 있는 혼합 접수는 종이 채용서류가 포함될 수 있어 finding 후보와 질문을 모두 유지한다."
+    },
+    {
+      "statement": "성별이 본질적 직무자격인 제한적 경우나 적극적 고용개선 목적이 있을 수 있다.",
+      "source_ids": ["src_003"],
+      "impact": "성별 우대ㆍ선호는 SEX-001 법 finding으로 올리지 않고 근거와 범위를 확인하는 Q-DIST-015로 처리한다."
+    },
+    {
+      "statement": "사진이라는 단어가 있어도 부착 불필요ㆍ제출 금지처럼 보호적 안내일 수 있다.",
+      "source_ids": ["src_104"],
+      "impact": "PHOTO-001 변형 규칙은 명시적 부착ㆍ첨부 요구만 대상으로 하고 비요구 문맥을 제외한다."
+    },
+    {
+      "statement": "방진복ㆍ안전화ㆍ마스크가 언급돼도 장비 지급이나 작업환경 설명일 뿐 지원자에게 신체조건을 요구하지 않을 수 있다.",
+      "source_ids": ["src_108"],
+      "impact": "보호장구 지급ㆍ단순 착용 업무 문맥은 Q-DIST-007을 발동시키지 않고, 착용 가능ㆍ필수처럼 지원자격화된 표현만 직무 필수성과 대체수단을 질문한다."
+    },
+    {
+      "statement": "가족관계증명서가 최종합격자의 입사ㆍ인사서류로만 요구될 수 있다.",
+      "source_ids": ["src_109"],
+      "impact": "가족관계증명서 문서명은 지원 단계라도 FAMILY-001로 자동 확정하지 않고 Q-INFO-011로 단계와 목적을 확인한다. 가족의 학력ㆍ직업ㆍ재산 요구만 FAMILY-001 finding 후보로 유지한다."
+    },
+    {
+      "statement": "나이 제한 없음은 제한이 아니며, 만 60세 이상 최종합격자의 시니어인턴십 참여서류는 고령자 고용촉진 지원조치일 수 있다.",
+      "source_ids": ["src_010", "src_011", "src_110"],
+      "impact": "AGE-002에서 나이ㆍ연령 제한 없음과 시니어인턴십ㆍ노인일자리 지원사업 인접 문맥을 제외하고, 일반 연령 상ㆍ하한은 계속 finding 후보로 유지한다."
+    }
+  ],
+  "limitations": [
+    "검색 사례는 목적표본이며 민간 채용시장 전체의 발생률을 추정하지 않는다.",
+    "공개 페이지가 삭제ㆍ수정될 수 있어 URL, 게시일과 접근일을 함께 보존했다.",
+    "조직명ㆍ담당자ㆍ연락처를 제거했으므로 개별 조직에 대한 집행ㆍ평판 판단에는 사용할 수 없다.",
+    "고용24 Open API는 현재 로컬 키가 개인회원으로 식별되어 자동수집이 거부됐고, 공개 웹 사례 조사와 기존 공개 코퍼스로 대체했다.",
+    "사람 라벨이 없는 train 집계는 규칙 발동률과 사각지대 탐색용이며 G1 정밀도ㆍG2 재현율을 입증하지 않는다."
+  ],
+  "human_review_questions": [
+    "특정 성별 우대ㆍ선호가 직무의 본질적 요건 또는 적극적 개선조치라면 근거ㆍ대상ㆍ기간이 문서화되어 있는가?",
+    "반환하지 않는 서류가 전자 또는 자발 제출 예외인지, 구인자가 요구한 종이 원본과 구분되어 있는가?",
+    "공고 본문과 채용 플랫폼의 반환ㆍ파기 안내가 서로 모순되지 않는가?",
+    "사진 부착ㆍ첨부가 직무 수행이나 합격 후 인사기록에 필요한 시점으로 최소화되어 있는가?",
+    "병역ㆍ거주ㆍ자차ㆍ신체검사 조건을 실제 직무와 연결하고 대체수단ㆍ합리적 편의를 검토했는가?",
+    "합격자만 통보하거나 별도 통지 없이 불합격 처리할 때 지원자가 단계별 처리상태와 문의 경로를 확인할 수 있는가?",
+    "보호장구 착용 조건이 실제 작업위험과 연결되고 대체 장비ㆍ작업조정 등 합리적 편의를 검토했는가?",
+    "병력ㆍ검진 결과가 특정 질환 보유 사실만으로 일률적 배제에 쓰이지 않고 실제 직무 수행 가능성을 개별적으로 검토하는가?",
+    "연령 표현이 일반 지원 제한인지 정년ㆍ고령자 고용촉진 지원조치ㆍ제한 없음의 보호 문맥인지 구분했는가?",
+    "새 출처를 추가할 때 기존 2,100건과 다른 직군ㆍ기업규모ㆍ고용형태를 충분히 포함하는가?"
+  ],
+  "suggested_reference_text": "고용노동부의 불공정채용 점검 결과와 국가인권위원회 결정, 2025년 채용절차법 업무 매뉴얼, 2025~2026 공개 민간 채용공고를 함께 검토했다. 민간 공고의 서류 반환 거부는 전자제출 예외와 종이서류 절차를 구분해야 하고, 성별 우대ㆍ선호는 직접 위반으로 단정하지 않고 직무 본질성 또는 적극적 개선조치 근거를 확인해야 한다. 사진 부착ㆍ첨부 변형은 보호적 비요구 문맥을 제외해 탐지한다. 합격자 한정 통보와 보호장구 착용 조건은 법 위반 finding이 아니라 결과 안내 범위ㆍ직무 필수성ㆍ합리적 편의를 확인하는 질문으로 다룬다. 연령은 일반 제한, 제한 없음, 정년과 고령자 고용촉진 지원조치를 분리한다."
+}

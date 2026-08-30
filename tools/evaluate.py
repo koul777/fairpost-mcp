@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import ast
 from collections import Counter
+from datetime import datetime, timezone
 import hashlib
+from importlib.metadata import PackageNotFoundError, version as package_version
 import json
+import os
 from pathlib import Path
 import re
 import sys
+import tempfile
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -22,14 +28,72 @@ TARGETS = {
     "absence_precision": 0.80,
 }
 MIN_HOLDOUT_BY_SECTOR = {"public": 90, "private": 90}
+FINAL_RECEIPT_NAME = "final-evaluation-receipt.json"
+ATTESTATION_SCHEMA_VERSION = 2
+EVALUATION_SCHEMA_VERSION = 3
+EVALUATOR_SOURCE_FILES = (
+    "tools/evaluate.py",
+    "core/__init__.py",
+    "core/engine.py",
+    "core/extractor.py",
+    "core/loader.py",
+    "core/morph.py",
+    "core/schema.py",
+)
 
 
-def load_jsonl(path: Path) -> list[dict]:
+def evaluator_fingerprint() -> str:
+    primary = Path(__file__).resolve()
+    canonical_primary = (ROOT / "tools" / "evaluate.py").resolve()
+    paths = (
+        [(relative, ROOT / relative) for relative in EVALUATOR_SOURCE_FILES]
+        if primary == canonical_primary
+        else [(primary.name, primary)]
+    )
+    digest = hashlib.sha256(b"fairpost-evaluator-v2\0")
+    for relative, path in paths:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=path.name)
+        canonical = ast.dump(
+            tree,
+            annotate_fields=True,
+            include_attributes=False,
+        ).encode("utf-8")
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(len(canonical).to_bytes(8, byteorder="big", signed=False))
+        digest.update(canonical)
+        digest.update(b"\0")
+    try:
+        pyyaml_version = package_version("PyYAML")
+    except PackageNotFoundError:
+        pyyaml_version = "missing"
+    environment = json.dumps(
+        {
+            "python_cache_tag": sys.implementation.cache_tag,
+            "python_version": list(sys.version_info[:3]),
+            "pyyaml_version": pyyaml_version,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    digest.update(environment)
+    return f"evaluator-{digest.hexdigest()}"
+
+
+def _decode_utf8(path: Path, payload: bytes) -> str:
+    try:
+        return payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"{path}: UTF-8 파일이어야 합니다") from exc
+
+
+def load_jsonl(path: Path, payload: bytes | None = None) -> list[dict]:
     records = []
     seen_ids: set[str] = set()
     seen_hashes: set[str] = set()
     for line_number, line in enumerate(
-        path.read_text(encoding="utf-8").splitlines(), start=1
+        _decode_utf8(path, path.read_bytes() if payload is None else payload).splitlines(),
+        start=1,
     ):
         if not line.strip():
             continue
@@ -99,9 +163,11 @@ def load_jsonl(path: Path) -> list[dict]:
     return records
 
 
-def load_hashes(path: Path) -> set[str]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    values = payload.get("content_hashes")
+def load_hashes(path: Path, payload: bytes | None = None) -> set[str]:
+    value = json.loads(
+        _decode_utf8(path, path.read_bytes() if payload is None else payload)
+    )
+    values = value.get("content_hashes")
     if not isinstance(values, list) or not all(
         isinstance(value, str) and HASH_RE.fullmatch(value) for value in values
     ):
@@ -111,14 +177,255 @@ def load_hashes(path: Path) -> set[str]:
     return set(values)
 
 
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _paths_alias(left: Path, right: Path) -> bool:
+    try:
+        if left.resolve(strict=False) == right.resolve(strict=False):
+            return True
+    except OSError:
+        pass
+    try:
+        return left.exists() and right.exists() and os.path.samefile(left, right)
+    except OSError:
+        return False
+
+
+def validate_output_paths(
+    *,
+    output: Path,
+    receipt: Path | None,
+    inputs: dict[str, Path | None],
+) -> None:
+    for name, path in inputs.items():
+        if path is not None and _paths_alias(output, path):
+            raise ValueError(f"--output은 {name}과 다른 파일이어야 합니다")
+        if receipt is not None and path is not None and _paths_alias(receipt, path):
+            raise ValueError(f"--evaluation-receipt는 {name}과 다른 파일이어야 합니다")
+    if receipt is not None and _paths_alias(output, receipt):
+        raise ValueError("--evaluation-receipt와 --output은 다른 파일이어야 합니다")
+    for name, path in (("--output", output), ("--evaluation-receipt", receipt)):
+        if path is not None and path.exists() and path.is_dir():
+            raise ValueError(f"{name}은 파일 경로여야 합니다")
+
+
+def _atomic_write_text(path: Path, payload: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, staged_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    staged = Path(staged_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(staged, path)
+    except BaseException:
+        staged.unlink(missing_ok=True)
+        raise
+
+
+def _dataset_fingerprint(manifest_payload: bytes, records_payload: bytes) -> str:
+    digest = hashlib.sha256()
+    for label, payload in (
+        (b"manifest\0", manifest_payload),
+        (b"records\0", records_payload),
+    ):
+        digest.update(label)
+        digest.update(payload)
+    return digest.hexdigest()
+
+
+def load_human_attestation(
+    path: Path,
+    *,
+    annotations_sha256: str,
+    holdout_manifest_sha256: str,
+    holdout_records_sha256: str,
+    ruleset_version: str,
+    matching_version: str,
+    payload: bytes | None = None,
+) -> dict[str, Any]:
+    try:
+        value = json.loads(
+            _decode_utf8(path, path.read_bytes() if payload is None else payload)
+        )
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("사람 라벨 확인서가 유효한 UTF-8 JSON이 아닙니다") from exc
+    if not isinstance(value, dict):
+        raise ValueError("사람 라벨 확인서는 JSON 객체여야 합니다")
+    required = {
+        "schema_version": ATTESTATION_SCHEMA_VERSION,
+        "attestation": "human_gold",
+        "prediction_blinded": True,
+        "ai_generated_labels": False,
+        "annotations_sha256": annotations_sha256,
+        "holdout_manifest_sha256": holdout_manifest_sha256,
+        "holdout_records_sha256": holdout_records_sha256,
+        "ruleset_version": ruleset_version,
+        "matching_version": matching_version,
+    }
+    mismatched = [key for key, expected in required.items() if value.get(key) != expected]
+    if mismatched:
+        raise ValueError(
+            "사람 라벨 확인서가 현재 봉인 입력과 일치하지 않습니다: "
+            + ", ".join(mismatched)
+        )
+    reviewer_ids = value.get("reviewer_ids")
+    if (
+        not isinstance(reviewer_ids, list)
+        or not reviewer_ids
+        or any(not isinstance(item, str) or not item.strip() for item in reviewer_ids)
+    ):
+        raise ValueError("사람 라벨 확인서에는 비어 있지 않은 reviewer_ids가 필요합니다")
+    if not isinstance(value.get("attested_at"), str) or not value["attested_at"].strip():
+        raise ValueError("사람 라벨 확인서에는 attested_at이 필요합니다")
+    return value
+
+
+def _receipt_binding(
+    *,
+    dataset_fingerprint: str,
+    annotations_sha256: str,
+    attestation_sha256: str | None,
+    ruleset_version: str,
+    matching_version: str,
+    evaluator_source_fingerprint: str,
+    complete_holdout: bool,
+) -> dict[str, Any]:
+    return {
+        "schema_version": EVALUATION_SCHEMA_VERSION,
+        "evaluation_phase": "sealed_holdout_final",
+        "dataset_fingerprint": dataset_fingerprint,
+        "annotations_sha256": annotations_sha256,
+        "human_attestation_sha256": attestation_sha256,
+        "ruleset_version": ruleset_version,
+        "matching_version": matching_version,
+        "evaluator_source_fingerprint": evaluator_source_fingerprint,
+        "complete_holdout": complete_holdout,
+        "release_claim_eligible": complete_holdout and attestation_sha256 is not None,
+    }
+
+
+def _load_receipt(receipt_path: Path) -> dict[str, Any]:
+    try:
+        existing = json.loads(receipt_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(
+            "최종 평가 영수증이 손상되었습니다. 새 독립 홀드아웃이 필요합니다"
+        ) from exc
+    if not isinstance(existing, dict):
+        raise ValueError(
+            "최종 평가 영수증이 손상되었습니다. 새 독립 홀드아웃이 필요합니다"
+        )
+    return existing
+
+
+def _verify_receipt_binding(
+    existing: dict[str, Any], binding: dict[str, Any]
+) -> None:
+    if any(existing.get(key) != value for key, value in binding.items()):
+        raise ValueError(
+            "이 봉인 홀드아웃은 다른 라벨·규칙·매칭 버전으로 이미 결과가 "
+            "공개되었습니다. 같은 세트로 재튜닝 성능을 주장할 수 없으므로 "
+            "새 독립 홀드아웃을 사용하세요"
+        )
+
+
+def prepare_final_evaluation(
+    receipt_path: Path,
+    binding: dict[str, Any],
+) -> str:
+    """Reserve the first result reveal before scoring without claiming completion."""
+    if receipt_path.exists():
+        existing = _load_receipt(receipt_path)
+        _verify_receipt_binding(existing, binding)
+        return "reproduced" if existing.get("state", "finalized") == "finalized" else "pending_recovery"
+
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    receipt = {
+        **binding,
+        "state": "pending",
+        "prepared_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "note": (
+            "평가가 시작되었지만 보고서와 완료 영수증은 아직 원자적으로 "
+            "확정되지 않았습니다. 같은 결합 입력으로만 복구할 수 있습니다."
+        ),
+    }
+    encoded = json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    try:
+        with receipt_path.open("x", encoding="utf-8", newline="") as stream:
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+    except FileExistsError:
+        return prepare_final_evaluation(receipt_path, binding)
+    return "prepared"
+
+
+def finalize_final_evaluation(
+    receipt_path: Path,
+    binding: dict[str, Any],
+    *,
+    report_sha256: str,
+) -> str:
+    existing = _load_receipt(receipt_path)
+    _verify_receipt_binding(existing, binding)
+    if existing.get("state", "finalized") == "finalized":
+        existing_hash = existing.get("report_sha256")
+        if existing_hash is not None and existing_hash != report_sha256:
+            raise ValueError("재현 평가 보고서 해시가 최초 완료 영수증과 다릅니다")
+        return "reproduced"
+    receipt = {
+        **binding,
+        "state": "finalized",
+        "prepared_at": existing.get("prepared_at"),
+        "registered_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "report_sha256": report_sha256,
+        "note": (
+            "결과 공개 후에는 동일 입력·라벨·규칙 버전의 재현 실행만 허용됩니다. "
+            "튜닝 후 성능 주장은 새 독립 홀드아웃이 필요합니다."
+        ),
+    }
+    _atomic_write_text(
+        receipt_path,
+        json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+    )
+    return "registered"
+
+
+def register_final_evaluation(
+    receipt_path: Path,
+    binding: dict[str, Any],
+) -> str:
+    """Compatibility helper for direct registration tests and older callers."""
+    status = prepare_final_evaluation(receipt_path, binding)
+    if status == "reproduced":
+        return status
+    return finalize_final_evaluation(
+        receipt_path,
+        binding,
+        report_sha256="compatibility-registration",
+    )
+
+
 def load_holdout_records(
     path: Path,
     expected_hashes: set[str],
+    payload: bytes | None = None,
 ) -> dict[str, dict[str, str]]:
     records: dict[str, dict[str, str]] = {}
     seen_ids: set[str] = set()
     for line_number, line in enumerate(
-        path.read_text(encoding="utf-8").splitlines(), start=1
+        _decode_utf8(path, path.read_bytes() if payload is None else payload).splitlines(),
+        start=1,
     ):
         if not line.strip():
             continue
@@ -216,9 +523,18 @@ def _target_gate(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="사람이 라벨링한 봉인 홀드아웃에서 표현·부재 탐지 성능을 측정합니다."
+        description=(
+            "train calibration 또는 사람이 라벨링한 sealed holdout final 평가를 "
+            "명시적으로 실행합니다."
+        )
     )
     parser.add_argument("annotations", type=Path)
+    parser.add_argument(
+        "--phase",
+        choices=("calibration", "final"),
+        default="final",
+        help="기본값 final은 기존 CLI와 호환되며 최초 결과 공개 영수증을 남깁니다.",
+    )
     parser.add_argument(
         "--train-manifest",
         type=Path,
@@ -234,39 +550,109 @@ def main() -> int:
         type=Path,
         help="생략하면 --holdout-manifest와 같은 폴더의 records.jsonl을 사용합니다.",
     )
+    parser.add_argument(
+        "--calibration-records",
+        type=Path,
+        help="calibration 단계의 train records. 생략하면 train manifest 옆 파일입니다.",
+    )
+    parser.add_argument(
+        "--human-attestation",
+        type=Path,
+        help="final gold가 사람의 독립 라벨임을 입력 해시에 결합한 JSON 확인서입니다.",
+    )
+    parser.add_argument(
+        "--evaluation-receipt",
+        type=Path,
+        help=(
+            "최초 final 결과 공개 영수증. 생략하면 holdout manifest 옆 "
+            f"{FINAL_RECEIPT_NAME}을 사용합니다."
+        ),
+    )
     parser.add_argument("--output", type=Path, default=Path("reports/evaluation.json"))
     parser.add_argument("--enforce-targets", action="store_true")
     parser.add_argument(
         "--allow-partial",
         action="store_true",
-        help="개발 중 일부 홀드아웃만 측정합니다. 목표 통과 판정에는 사용할 수 없습니다.",
+        help=(
+            "일부 데이터만 측정합니다. final에서 사용하면 홀드아웃이 공개된 것으로 "
+            "등록되어 이후 성능 주장에 사용할 수 없습니다."
+        ),
     )
     args = parser.parse_args()
-    holdout_records_path = (
+    if args.enforce_targets and args.phase != "final":
+        raise SystemExit("--enforce-targets는 --phase final에서만 사용할 수 있습니다")
+    if args.enforce_targets and args.allow_partial:
+        raise SystemExit("--enforce-targets와 --allow-partial은 함께 사용할 수 없습니다")
+    if args.phase == "calibration" and args.human_attestation is not None:
+        raise SystemExit("--human-attestation은 --phase final에서만 사용합니다")
+
+    final_records_path = (
         args.holdout_records or args.holdout_manifest.with_name("records.jsonl")
     )
+    calibration_records_path = (
+        args.calibration_records or args.train_manifest.with_name("records.jsonl")
+    )
+    evaluation_records_path = (
+        calibration_records_path if args.phase == "calibration" else final_records_path
+    )
+    receipt_path = (
+        args.evaluation_receipt
+        or args.holdout_manifest.with_name(FINAL_RECEIPT_NAME)
+        if args.phase == "final"
+        else None
+    )
+    evaluator_source_fingerprint = evaluator_fingerprint()
 
     try:
-        train_hashes = load_hashes(args.train_manifest)
-        holdout_hashes = load_hashes(args.holdout_manifest)
+        validate_output_paths(
+            output=args.output,
+            receipt=receipt_path,
+            inputs={
+                "annotations": args.annotations,
+                "--train-manifest": args.train_manifest,
+                "--holdout-manifest": args.holdout_manifest,
+                "--holdout-records": final_records_path,
+                "--calibration-records": calibration_records_path,
+                "--human-attestation": args.human_attestation,
+            },
+        )
+        # Capture every evaluated input once. Parsing, hashing, attestation checks,
+        # and receipt binding all reuse these exact bytes so a concurrent file
+        # replacement cannot bind the report to data that was not evaluated.
+        train_manifest_payload = args.train_manifest.read_bytes()
+        holdout_manifest_payload = args.holdout_manifest.read_bytes()
+        evaluation_records_payload = evaluation_records_path.read_bytes()
+        annotations_payload = args.annotations.read_bytes()
+        attestation_payload = (
+            args.human_attestation.read_bytes()
+            if args.human_attestation is not None
+            else None
+        )
+        train_hashes = load_hashes(args.train_manifest, train_manifest_payload)
+        holdout_hashes = load_hashes(args.holdout_manifest, holdout_manifest_payload)
         overlap = train_hashes & holdout_hashes
         if overlap:
             raise ValueError(f"훈련/홀드아웃 해시가 {len(overlap)}개 겹칩니다")
-        holdout_records = load_holdout_records(
-            holdout_records_path,
-            holdout_hashes,
+        evaluation_hashes = (
+            train_hashes if args.phase == "calibration" else holdout_hashes
         )
-        records = load_jsonl(args.annotations)
+        evaluation_records = load_holdout_records(
+            evaluation_records_path,
+            evaluation_hashes,
+            evaluation_records_payload,
+        )
+        records = load_jsonl(args.annotations, annotations_payload)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         raise SystemExit(str(exc)) from exc
 
     annotation_hashes = {str(record["content_hash"]) for record in records}
-    if not annotation_hashes <= holdout_hashes:
-        raise SystemExit("라벨 데이터에 홀드아웃 manifest 밖의 content_hash가 있습니다")
-    if args.enforce_targets and args.allow_partial:
-        raise SystemExit("--enforce-targets와 --allow-partial은 함께 사용할 수 없습니다")
-    missing_annotations = holdout_hashes - annotation_hashes
-    if missing_annotations and not args.allow_partial:
+    if not annotation_hashes <= evaluation_hashes:
+        raise SystemExit(
+            f"라벨 데이터에 {args.phase} manifest 밖의 content_hash가 있습니다"
+        )
+    missing_annotations = evaluation_hashes - annotation_hashes
+    partial_allowed = args.allow_partial or args.phase == "calibration"
+    if missing_annotations and not partial_allowed:
         raise SystemExit(
             "홀드아웃 전체 라벨이 필요합니다: "
             f"{len(missing_annotations)}건의 content_hash가 누락되었습니다"
@@ -278,10 +664,10 @@ def main() -> int:
     }
     all_slot_ids = set(engine.ruleset.slots)
     for record in records:
-        metadata = holdout_records[str(record["content_hash"])]
+        metadata = evaluation_records[str(record["content_hash"])]
         if record["id"] != metadata["id"]:
             raise SystemExit(
-                f"{record['id']}: content_hash에 연결된 홀드아웃 id "
+                f"{record['id']}: content_hash에 연결된 {args.phase} id "
                 f"'{metadata['id']}'와 일치하지 않습니다"
             )
         unknown_findings = set(map(str, record["expected_findings"])) - all_finding_rules
@@ -302,6 +688,61 @@ def main() -> int:
                 raise SystemExit(
                     f"{record['id']}: 알 수 없는 expected_expressions.rule_id '{rule_id}'"
                 )
+
+    annotations_sha256 = hashlib.sha256(annotations_payload).hexdigest()
+    manifest_payload = (
+        train_manifest_payload
+        if args.phase == "calibration"
+        else holdout_manifest_payload
+    )
+    manifest_sha256 = hashlib.sha256(manifest_payload).hexdigest()
+    records_sha256 = hashlib.sha256(evaluation_records_payload).hexdigest()
+    attestation_sha256: str | None = None
+    attestation_verified = False
+    if args.human_attestation is not None:
+        try:
+            load_human_attestation(
+                args.human_attestation,
+                annotations_sha256=annotations_sha256,
+                holdout_manifest_sha256=manifest_sha256,
+                holdout_records_sha256=records_sha256,
+                ruleset_version=engine.ruleset.version,
+                matching_version=engine.ruleset.matching_version,
+                payload=attestation_payload,
+            )
+            assert attestation_payload is not None
+            attestation_sha256 = hashlib.sha256(attestation_payload).hexdigest()
+            attestation_verified = True
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+    if args.enforce_targets and not attestation_verified:
+        raise SystemExit(
+            "최종 G1/G2 성능 주장에는 --human-attestation으로 검증된 사람 gold "
+            "확인서가 필요합니다"
+        )
+
+    receipt_preparation_status: str | None = None
+    release_claim_eligible = False
+    receipt_binding: dict[str, Any] | None = None
+    if args.phase == "final":
+        assert receipt_path is not None
+        receipt_binding = _receipt_binding(
+            dataset_fingerprint=_dataset_fingerprint(
+                holdout_manifest_payload, evaluation_records_payload
+            ),
+            annotations_sha256=annotations_sha256,
+            attestation_sha256=attestation_sha256,
+            ruleset_version=engine.ruleset.version,
+            matching_version=engine.ruleset.matching_version,
+            evaluator_source_fingerprint=evaluator_source_fingerprint,
+            complete_holdout=annotation_hashes == holdout_hashes,
+        )
+        try:
+            prepared = prepare_final_evaluation(receipt_path, receipt_binding)
+        except (OSError, ValueError) as exc:
+            raise SystemExit(str(exc)) from exc
+        receipt_preparation_status = prepared
+        release_claim_eligible = bool(receipt_binding["release_claim_eligible"])
 
     finding_tp = finding_fp = finding_fn = 0
     absence_tp = absence_fp = absence_fn = 0
@@ -337,7 +778,7 @@ def main() -> int:
         absence_tp += len(predicted_absence & expected_absence)
         absence_fp += len(predicted_absence - expected_absence)
         absence_fn += len(expected_absence - predicted_absence)
-        sector = holdout_records[str(record["content_hash"])]["sector"]
+        sector = evaluation_records[str(record["content_hash"])]["sector"]
         counters = sector_counters[sector]
         counters["finding_tp"] += len(predicted_findings & expected_findings)
         counters["finding_fp"] += len(predicted_findings - expected_findings)
@@ -355,26 +796,56 @@ def main() -> int:
             }
         )
 
-    holdout_sector_counts = Counter(
-        metadata["sector"] for metadata in holdout_records.values()
+    evaluation_sector_counts = Counter(
+        metadata["sector"] for metadata in evaluation_records.values()
     )
     annotation_sector_counts = Counter(
-        holdout_records[str(record["content_hash"])]["sector"] for record in records
+        evaluation_records[str(record["content_hash"])]["sector"]
+        for record in records
     )
     report = {
+        "schema_version": EVALUATION_SCHEMA_VERSION,
+        "evaluator_source_fingerprint": evaluator_source_fingerprint,
+        "evaluation_phase": (
+            "train_calibration"
+            if args.phase == "calibration"
+            else "sealed_holdout_final"
+        ),
         "records": len(records),
+        "dataset_records": len(evaluation_hashes),
         "holdout_records": len(holdout_hashes),
         "annotation_coverage": round(
-            len(annotation_hashes) / len(holdout_hashes), 6
+            len(annotation_hashes) / len(evaluation_hashes), 6
         )
-        if holdout_hashes
+        if evaluation_hashes
         else 1.0,
-        "complete_holdout": annotation_hashes == holdout_hashes,
+        "complete_dataset": annotation_hashes == evaluation_hashes,
+        "complete_holdout": (
+            args.phase == "final" and annotation_hashes == holdout_hashes
+        ),
         "holdout_hash_overlap": 0,
+        "release_claim_eligible": release_claim_eligible,
+        "human_attestation": {
+            "verified": attestation_verified,
+            "sha256": attestation_sha256,
+        },
+        "final_evaluation_receipt": (
+            {
+                "file": receipt_path.name if receipt_path else None,
+                "status": "bound",
+            }
+            if args.phase == "final"
+            else None
+        ),
         "measurement_units": {
             "expression_detection": "posting_rule_pair",
             "absence_detection": "posting_slot_pair",
             "dictionary_coverage": "human_labeled_expression_occurrence",
+        },
+        "question_card_metrics": {
+            "included_in_g1_g2": False,
+            "evaluation": "separate_user_pilot",
+            "dimensions": ["relevance", "comprehension", "actionability"],
         },
         "expression_detection": metrics(finding_tp, finding_fp, finding_fn),
         "absence_detection": metrics(absence_tp, absence_fp, absence_fn),
@@ -384,12 +855,12 @@ def main() -> int:
         if expression_total
         else None,
         "dictionary_coverage_expressions": expression_total,
-        "holdout_by_sector": dict(sorted(holdout_sector_counts.items())),
+        "holdout_by_sector": dict(sorted(evaluation_sector_counts.items())),
         "annotations_by_sector": dict(sorted(annotation_sector_counts.items())),
         "holdout_by_source": dict(
             sorted(
                 Counter(
-                    metadata["source"] for metadata in holdout_records.values()
+                    metadata["source"] for metadata in evaluation_records.values()
                 ).items()
             )
         ),
@@ -413,12 +884,52 @@ def main() -> int:
         "ruleset_version": engine.ruleset.version,
         "matching_version": engine.ruleset.matching_version,
     }
-    report["target_gate"] = _target_gate(report, holdout_sector_counts)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
-        encoding="utf-8",
+    if args.phase == "final":
+        report["target_gate"] = _target_gate(report, evaluation_sector_counts)
+        report["target_gate"]["human_attestation_verified"] = attestation_verified
+        report["target_gate"]["release_claim_eligible"] = release_claim_eligible
+        report["target_gate"]["passed"] = bool(
+            report["target_gate"]["passed"] and release_claim_eligible
+        )
+    else:
+        report["target_gate"] = {
+            "passed": False,
+            "applicable": False,
+            "reason": "train calibration 결과는 G1/G2 최종 성능 주장이 아닙니다",
+        }
+    if evaluator_fingerprint() != evaluator_source_fingerprint:
+        raise SystemExit(
+            "평가 실행 중 평가기 또는 엔진 소스가 변경되었습니다. 다시 실행하세요"
+        )
+    encoded_report = (
+        json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
     )
+    report_sha256 = hashlib.sha256(encoded_report.encode("utf-8")).hexdigest()
+    try:
+        if (
+            receipt_path is not None
+            and receipt_binding is not None
+            and receipt_preparation_status == "reproduced"
+        ):
+            # Verify an already-finalized receipt before replacing any report.
+            finalize_final_evaluation(
+                receipt_path,
+                receipt_binding,
+                report_sha256=report_sha256,
+            )
+        _atomic_write_text(args.output, encoded_report)
+        if (
+            receipt_path is not None
+            and receipt_binding is not None
+            and receipt_preparation_status != "reproduced"
+        ):
+            finalize_final_evaluation(
+                receipt_path,
+                receipt_binding,
+                report_sha256=report_sha256,
+            )
+    except (OSError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
     print(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2))
 
     if args.enforce_targets:

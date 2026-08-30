@@ -81,6 +81,7 @@ def audit(input_path: Path, *, node: str = "node") -> dict[str, Any]:
             mismatches.append(record["id"])
 
     return {
+        "schema_version": "fairpost-web-engine-parity-v1",
         "input": {
             "path": str(input_path).replace("\\", "/"),
             "records": len(records),

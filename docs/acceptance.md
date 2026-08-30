@@ -1,6 +1,6 @@
 # 수용 기준 검증
 
-검증일: 2026-07-29
+검증일: 2026-08-30
 
 | 기준 | 상태 | 근거 |
 |---|---|---|
@@ -22,29 +22,46 @@
 | AC-16 시행일·해시 | 통과 | 6개 법령 스냅샷 검사 |
 | AC-17 질문 발동근거 | 통과 | 질문 카드의 문맥ㆍoffsetㆍ섹션과 Python/웹 패리티 테스트 |
 | AC-18 질문 관련성ㆍ점진적 공개 | 통과 | `review_scope` 검증, 공통ㆍ누락 슬롯 중복ㆍ후속 질문 기본 접힘, train-only 익명 집계와 보호 문맥 회귀 테스트 |
+| AC-19 민간 반복감사 자동화 | 통과 | train-only 경로 사전검사, snapshot→audit→drift→로컬 review queue 단일 사이클, 복구 가능한 다중 파일 게시ㆍ일반 오류 rollback, 익명 출력과 경보 종료 코드 회귀 테스트 |
 
-자동 테스트는 197개입니다. 기본 MCP 전송 방식인 Streamable HTTP는 실제
+자동 테스트 862개가 통과했으며 전수 JUnit SHA-256은
+`reports/build_artifact.json`에 기록합니다. 기본 MCP 전송 방식인
+Streamable HTTP는 실제
 로컬 포트에서 초기화, 도구 목록, 점검, 답변 저장ㆍ조회를 검증했습니다.
-Vercel 운영 주소에서도 Bearer 인증, 초기화, 3도구 목록,
-`check_job_posting`의 `SEX-001`ㆍ제7조 반환을 검증했습니다.
-정적 웹은 Chrome CDP로 예시 공고를 입력하고 점검한 뒤 1440×1000과
-390×844 뷰포트에서 검증했습니다. 두 화면 모두 문서 너비가 뷰포트와
+Vercel 운영 주소는 Bearer 인증 뒤에 원문을 저장하지 않는 읽기 전용 2도구만
+허용합니다. 명시적 익명 모드도 같은 2도구와 요청 제한을 적용하지만 현재 운영에서는
+비활성화했으며, 저장 도구를 포함한 4도구는 루프백 로컬에서만
+허용하도록 검증합니다. 운영 규칙셋과 현재 로컬 규칙셋의 일치 여부는
+`reports/vercel_deployment_audit.json`에 별도로 기록합니다.
+정적 웹의 2026-07-26 기준선은 Chrome CDP로 예시 공고를 입력하고 점검한 뒤
+1440×1000과 390×844 뷰포트에서 검증했습니다. 당시 두 화면 모두 문서 너비가 뷰포트와
 일치했고, 입력ㆍ복사 버튼이 화면 안에 있으며, 결과 표시 후 빈 상태가
 숨겨짐을 확인했습니다. 수치와 캡처 경로는
-`reports/web_visual_audit.json`에 기록했습니다.
+`reports/web_visual_audit.json`에 `historical`로 기록했습니다.
 서버 없이 `web/index.html`을 직접 연 `file://` 실행도 같은 보고서에
 기록했고, 전수 엔진 비교 결과는 `reports/web_engine_parity.json`에
 원문 없이 저장했습니다.
-배포본은 `tools/verify_distribution.py`로 `sdist` 127개 파일과 `wheel`
-35개 파일을 검사했습니다. 실행에 필요한 코드ㆍ규칙ㆍ법령ㆍ웹 파일과
+2026-08-30 배포 후보는 `tools/verify_distribution.py`로 sdist와 wheel을
+검사합니다. 실행에 필요한 코드ㆍ규칙ㆍ법령ㆍ웹 파일과
 소스 재현 자료가 포함되고, 인증정보ㆍ사용자 답변ㆍ비공개 코퍼스 원문은
 포함되지 않음을 `reports/distribution_audit.json`에 기록했습니다.
+패키지에는 사용법을 보여 주는 합성 공고 예시가 있으므로 감사의
+`contains_posting_text`는 `true`, 범위는 `synthetic_examples_only`로 정직하게
+구분하고 실제 공고 원문은 `contains_real_posting_text: false`로 검사합니다.
+격리된 임시 실행환경에서 wheel을 직접 설치해 소스 트리 밖에서도 규칙ㆍ조문 데이터 탐색,
+CLI 시작과 AIㆍ건강 양방향 혼합 경계가 동작하는지 추가 확인했습니다.
 질문 관련성 감사의 익명 집계와 재현 명령은
 `docs/question-relevance-audit.md`와
 `reports/question_relevance_audit.json`에 기록했습니다.
 누락 슬롯 안에 접은 세 질문은 train 420건에서 총 1,260개
 slot-question 관계를 비교해 불일치 0건을 확인했습니다. 최신 중첩 배치의
 새 시각 캡처는 앱 내 브라우저 연결을 사용할 수 없어 보류했습니다.
+
+현재 기본 사전은 법령 규칙 19개와 질문 카드 52개이며, 로컬 증거 14개는
+현재 규칙셋ㆍ매칭 버전과 일치합니다. 재생성 입력이 없는 모델ㆍ맥락ㆍ사례
+보고서 16개는 원래 정보를 보존한 `historical` 증거로 분리했으며 현재 성능 주장에
+사용하지 않습니다. 민간 코퍼스 다양성 감사는 단일 출처와 직군 편중으로
+`alert` 상태이고, v0.3에서는 정보성 게이트로 유지합니다.
 
 ## 미완료 품질 게이트
 

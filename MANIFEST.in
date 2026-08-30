@@ -7,6 +7,8 @@ include .mcp.json
 include .vercelignore
 include vercel.json
 include index.html
+include examples/private_monitoring_input.example.jsonl
+include examples/pilot_feedback.example.jsonl
 recursive-include api *.py
 recursive-include core *.py
 recursive-include cli *.py
@@ -15,6 +17,7 @@ recursive-include data *.yaml
 recursive-include web *.html *.css *.js
 recursive-include tools *.py *.cjs
 recursive-include tests *.py *.cjs
+recursive-include tests/fixtures *.json
 recursive-include docs *.md *.json
 recursive-include reports *.json
 recursive-include .github *.yml *.yaml
@@ -30,6 +33,7 @@ global-exclude build_artifact.json
 global-exclude distribution_audit.json
 prune .corpus
 prune .corpus-*
+prune .private-review
 prune tmp
 prune build
 prune dist

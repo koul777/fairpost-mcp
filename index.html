@@ -56,6 +56,31 @@
     a {
       color: #0b5cad;
     }
+    .actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin: 24px 0 8px;
+    }
+    .deploy {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 6px;
+      background: #17202a;
+      color: #fff;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .deploy:hover {
+      background: #303b46;
+    }
+    .hint {
+      max-width: 460px;
+      font-size: 13px;
+    }
     .status {
       color: #137333;
       font-weight: 700;
@@ -73,14 +98,23 @@
     <h1>FairPost MCP</h1>
     <p class="status">운영 중</p>
     <p>채용공고문을 법령 근거와 공정성 검토 질문으로 점검하는 원격 MCP 서버입니다.</p>
+    <div class="actions">
+      <a
+        class="deploy"
+        href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkoul777%2Ffairpost-mcp&amp;project-name=fairpost-mcp&amp;repository-name=fairpost-mcp"
+        target="_blank"
+        rel="noopener noreferrer"
+      >내 Vercel에 이 MCP 배포 ↗</a>
+      <p class="hint">Vercel이 저장소를 복제하고 프로젝트 생성 화면을 엽니다. 현재 비공개 저장소에 접근 가능한 계정에서 배포 직후 읽기 전용 MCP를 사용할 수 있습니다.</p>
+    </div>
     <dl>
       <div>
         <dt>전체 도구 MCP</dt>
-        <dd><code>https://fairpost-mcp.vercel.app/api/mcp</code></dd>
+        <dd><code>https://fairmcp.vercel.app/api/mcp</code></dd>
       </div>
       <div>
         <dt>Claude 읽기 전용 MCP</dt>
-        <dd><code>https://fairpost-mcp.vercel.app/api/claude-mcp</code></dd>
+        <dd><code>https://fairmcp.vercel.app/api/claude-mcp</code></dd>
       </div>
       <div>
         <dt>전송 방식</dt>
@@ -96,6 +130,8 @@
       </div>
     </dl>
     <p>공고문은 Vercel 함수에서 처리되며 FairPost가 원문을 영속 저장하지 않습니다.</p>
+    <p>전체 도구 MCP를 쓰려면 배포 후 <code>FAIRPOST_MCP_TOKEN</code>을 설정하세요. 읽기 전용 점검에는 토큰이 필요하지 않습니다.</p>
+    <p>누구나 쓰는 공개 원클릭 템플릿으로 제공하려면 원본 저장소 또는 별도 배포 템플릿 저장소를 공개해야 합니다.</p>
   </main>
 </body>
 </html>

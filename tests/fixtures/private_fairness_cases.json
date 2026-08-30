@@ -1,0 +1,346 @@
+[
+  {
+    "id": "sex-direct-restriction",
+    "text": "지원자격\n남성만 지원 가능",
+    "finding_contains": ["SEX-001"],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "sex-preference-review",
+    "text": "우대사항\n여성 우대",
+    "finding_contains": [],
+    "question_contains": ["Q-DIST-015"],
+    "finding_excludes": ["SEX-001"],
+    "question_excludes": []
+  },
+  {
+    "id": "female-participant-preference-review",
+    "text": "우대사항\n여성 참여자 우대",
+    "finding_contains": [],
+    "question_contains": ["Q-DIST-015"],
+    "finding_excludes": ["SEX-001"],
+    "question_excludes": []
+  },
+  {
+    "id": "gender-inclusive-no-preference",
+    "text": "지원자격\n남녀 모두 지원 가능하며 여성도 지원 가능합니다.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": ["SEX-001"],
+    "question_excludes": ["Q-DIST-015"]
+  },
+  {
+    "id": "career-break-women-preference-review",
+    "text": "우대사항\n경력단절 여성 우대",
+    "finding_contains": [],
+    "question_contains": ["Q-DIST-015"],
+    "finding_excludes": ["SEX-001"],
+    "question_excludes": []
+  },
+  {
+    "id": "photo-attachment-required",
+    "text": "제출서류\n이력서 사진 첨부 필수",
+    "finding_contains": ["PHOTO-001"],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "photo-not-required",
+    "text": "제출서류\n사진 부착 불필요",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": ["PHOTO-001"],
+    "question_excludes": []
+  },
+  {
+    "id": "paper-documents-blanket-no-return",
+    "text": "제출된 채용서류는 일체 반환하지 않습니다.",
+    "finding_contains": ["RETURN-001"],
+    "question_contains": ["Q-INFO-013"],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "email-documents-no-return-review",
+    "text": "지원서는 이메일로 제출하며 제출된 서류는 반환하지 않습니다.",
+    "finding_contains": [],
+    "question_contains": ["Q-INFO-013"],
+    "finding_excludes": ["RETURN-001"],
+    "question_excludes": []
+  },
+  {
+    "id": "positive-paper-return-process",
+    "text": "종이 채용서류는 요청 시 반환하며 보관기간 종료 후 파기합니다.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": ["RETURN-001"],
+    "question_excludes": ["Q-INFO-013"]
+  },
+  {
+    "id": "generic-age-cap",
+    "text": "지원자격\n35세 이하만 지원 가능",
+    "finding_contains": ["AGE-002"],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "retirement-age-context",
+    "text": "근무조건\n정년 60세",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": ["AGE-002"],
+    "question_excludes": []
+  },
+  {
+    "id": "no-age-limit-protective-context",
+    "text": "지원자격\n나이 제한 없습니다.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": ["AGE-002"],
+    "question_excludes": []
+  },
+  {
+    "id": "military-service-proxy-review",
+    "text": "지원자격\n병역필 또는 면제자(남자에 한함)",
+    "finding_contains": [],
+    "question_contains": ["Q-DIST-010"],
+    "finding_excludes": ["SEX-001"],
+    "question_excludes": []
+  },
+  {
+    "id": "residence-restriction-review",
+    "text": "지원자격\n해당 지역 거주자",
+    "finding_contains": [],
+    "question_contains": ["Q-DIST-006"],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "private-car-review",
+    "text": "지원자격\n자차 보유자",
+    "finding_contains": [],
+    "question_contains": ["Q-DIST-004"],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "abstract-health-review",
+    "text": "지원자격\n신체 건강한 자",
+    "finding_contains": [],
+    "question_contains": ["Q-DIST-007"],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "language-score-review",
+    "text": "지원자격\n토익 800점 이상",
+    "finding_contains": [],
+    "question_contains": ["Q-DIST-014"],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "evidence-documents-review",
+    "text": "제출서류\n졸업증명서와 경력증명서 제출",
+    "finding_contains": [],
+    "question_contains": ["Q-INFO-011"],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "resident-abstract-review",
+    "text": "제출서류\n주민등록초본 제출",
+    "finding_contains": [],
+    "question_contains": ["Q-INFO-011"],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "basic-certificate-protective-notice",
+    "text": "안내사항\n기본증명서는 제출하지 않습니다.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": ["Q-INFO-011"]
+  },
+  {
+    "id": "family-certificate-application-stage",
+    "text": "입사 지원 시 지원 서류로 가족관계증명서를 제출해야 합니다.",
+    "finding_contains": [],
+    "question_contains": ["Q-INFO-011"],
+    "finding_excludes": ["FAMILY-001"],
+    "question_excludes": []
+  },
+  {
+    "id": "family-certificate-final-hire-stage",
+    "text": "최종 합격자 제출서류: 가족관계증명서 1부",
+    "finding_contains": [],
+    "question_contains": ["Q-INFO-011"],
+    "finding_excludes": ["FAMILY-001"],
+    "question_excludes": []
+  },
+  {
+    "id": "sibling-education-request",
+    "text": "입사지원서에 형제자매의 학력을 기재해 주세요.",
+    "finding_contains": ["SCHOOL-001"],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "sibling-education-protective-notice",
+    "text": "형제자매의 학력, 직업, 재산내용을 일체 기재하지 말아주세요.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": ["SCHOOL-001"],
+    "question_excludes": []
+  },
+  {
+    "id": "gendered-recruitment-review",
+    "text": "채용제목\n생산직 남성분1명 여성분2명 모집",
+    "finding_contains": [],
+    "question_contains": ["Q-DIST-015"],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "client-gender-not-applicant-gender",
+    "text": "여성 지적장애인 시설입니다.(여성30명) 생활지도원을 모집합니다.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": ["Q-DIST-015"]
+  },
+  {
+    "id": "inclusive-gender-work-description",
+    "text": "여성도 쉽게 할 수 있는 포장 업무입니다.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": ["Q-DIST-015"]
+  },
+  {
+    "id": "fully-automated-final-decision",
+    "text": "전형절차\nAI가 최종 결정",
+    "finding_contains": ["AI-001"],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "nonpass-no-separate-notice-review",
+    "text": "전형결과\n불합격자는 별도 통보하지 않습니다.",
+    "finding_contains": [],
+    "question_contains": ["Q-INFO-014"],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "online-interview-is-not-ai",
+    "text": "전형절차\n화상 면접을 진행하며 결과는 지원자 전원에게 이메일로 통보합니다.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": ["AI-001"],
+    "question_excludes": ["Q-INFO-014", "Q-PROC-004"]
+  },
+  {
+    "id": "ppe-job-necessity-review",
+    "text": "지원자격\n4조 3교대 근무 및 방진복 착용 가능한 자",
+    "finding_contains": [],
+    "question_contains": ["Q-DIST-007"],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "ppe-provision-job-description",
+    "text": "작업환경\n방진복 착용 업무이며 회사에서 방진복을 지급합니다.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": ["Q-DIST-007"]
+  },
+  {
+    "id": "blind-no-photo-positive-process",
+    "text": "블라인드 채용으로 사진 부착과 출신지역 기재를 금지합니다.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": ["PHOTO-001", "HOMETOWN-001"],
+    "question_excludes": []
+  },
+  {
+    "id": "senior-program-after-final-selection",
+    "text": "최종합격자 중 만 60세 이상인 자는 시니어인턴십 참여신청서를 제출합니다.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": ["AGE-002"],
+    "question_excludes": []
+  },
+  {
+    "id": "age-no-limit-inflection",
+    "text": "응시자격\n나이 제한 없이 지원 가능합니다.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": ["AGE-002"],
+    "question_excludes": []
+  },
+  {
+    "id": "age-limit-double-negative",
+    "text": "응시자격\n나이 제한 없지 않습니다.",
+    "finding_contains": ["AGE-002"],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "disability-direct-application-exclusion",
+    "text": "지원자격\n장애인 지원 불가",
+    "finding_contains": ["DISABILITY-001"],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "disability-inclusive-application",
+    "text": "장애가 없는 사람과 장애인 모두 지원할 수 있습니다.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": ["DISABILITY-001"],
+    "question_excludes": []
+  },
+  {
+    "id": "religion-explicit-qualification-review",
+    "text": "지원자격\n세례교인에 한함",
+    "finding_contains": [],
+    "question_contains": ["Q-DIST-012"],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "religious-workplace-not-qualification",
+    "text": "근무지\n지역 교회 부설 복지센터",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": ["Q-DIST-012"]
+  },
+  {
+    "id": "marital-status-screening-review",
+    "text": "입사지원서 항목\n혼인 여부",
+    "finding_contains": [],
+    "question_contains": ["Q-DIST-017"],
+    "finding_excludes": [],
+    "question_excludes": []
+  },
+  {
+    "id": "pregnancy-blind-guidance",
+    "text": "블라인드 안내\n임신 여부는 지원서에 기재하지 마세요.",
+    "finding_contains": [],
+    "question_contains": [],
+    "finding_excludes": [],
+    "question_excludes": ["Q-DIST-017"]
+  }
+]

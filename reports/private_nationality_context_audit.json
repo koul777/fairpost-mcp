@@ -1,0 +1,56 @@
+{
+  "schema_version": "private-nationality-context-audit-v1",
+  "created_at": "2026-08-03T17:25:00Z",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "status": "model_assisted_aggregate_only",
+  "not_human_labels": true,
+  "not_performance_measurement": true,
+  "scope": {
+    "records": 2100,
+    "sector": "private",
+    "split": "train_only",
+    "source_category_count": 1,
+    "rule_id": "Q-DIST-016"
+  },
+  "phrase_analysis": {
+    "method": "overlapping de-identified phrase-family counts",
+    "foreigner_term_records": 34,
+    "nationality_term_records": 1,
+    "direct_exclusion_candidate_records": 1,
+    "inclusive_or_preference_records": 11,
+    "work_authorization_context_records": 30
+  },
+  "post_change_verification": {
+    "Q-DIST-016": 1,
+    "inclusive_context_regressions": 0,
+    "work_authorization_context_regressions": 0,
+    "public_train_activations": 0,
+    "youth_train_activations": 0
+  },
+  "decision": {
+    "action": "add_review_question_not_law_finding",
+    "reason": "Nationality-based exclusion can be broader than a lawful work-authorization or direct job requirement, but the posting alone may not establish the applicable legal or program basis.",
+    "risk": "medium"
+  },
+  "privacy_boundary": {
+    "contains_context": false,
+    "contains_matched_text": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false
+  },
+  "limitations": [
+    "Phrase-family counts overlap and must not be summed as mutually exclusive categories.",
+    "The review question does not establish discriminatory treatment or a legal violation.",
+    "The single-source corpus cannot estimate private-market precision, recall, or prevalence.",
+    "Human review must verify work authorization, program eligibility, and job-specific requirements."
+  ]
+}

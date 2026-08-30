@@ -1,0 +1,153 @@
+{
+  "schema_version": "private-residence-vehicle-context-audit-v1",
+  "created_at": "2026-08-04T04:10:48+09:00",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "scope": {
+    "sector": "private",
+    "split": "train_only",
+    "total_records": 2100,
+    "rules": {
+      "Q-DIST-004": 255,
+      "Q-DIST-006": 10
+    }
+  },
+  "trigger_composition": {
+    "Q-DIST-004": {
+      "driving_available": 109,
+      "own_car": 93,
+      "vehicle_possession": 53
+    },
+    "Q-DIST-006": {
+      "local_resident": 8,
+      "registered_address": 2
+    }
+  },
+  "exclusive_primary_context": {
+    "Q-DIST-004": {
+      "actual_driving_or_mobile_duties": 26,
+      "night_shift_transport_access": 48,
+      "remote_housing_or_lodging_support": 8,
+      "commuting_preference_or_proximity": 76,
+      "blanket_or_unsupported_eligibility": 95,
+      "unclear": 2
+    },
+    "Q-DIST-006": {
+      "actual_driving_or_mobile_duties": 2,
+      "night_shift_transport_access": 2,
+      "remote_housing_or_lodging_support": 1,
+      "commuting_preference_or_proximity": 3,
+      "address_based_blanket_or_policy_eligibility": 2,
+      "unclear": 0
+    }
+  },
+  "overlapping_context": {
+    "Q-DIST-004": {
+      "commuting_or_proximity": 111,
+      "explicit_driving_or_mobile_duties": 26,
+      "night_or_shift": 60,
+      "housing_or_lodging_support": 24,
+      "preference_marker": 243,
+      "requirement_or_eligibility_marker": 59,
+      "license_corroboration": 48,
+      "employer_vehicle_or_cost_support": 13,
+      "administrative_or_program_marker": 42,
+      "explicit_nonlocal_or_inclusive_marker": 0
+    },
+    "Q-DIST-006": {
+      "commuting_or_proximity": 7,
+      "explicit_driving_or_mobile_duties": 2,
+      "night_or_shift": 2,
+      "housing_or_lodging_support": 2,
+      "preference_marker": 8,
+      "requirement_or_eligibility_marker": 2,
+      "license_corroboration": 1,
+      "employer_vehicle_or_cost_support": 0,
+      "administrative_or_program_marker": 3,
+      "explicit_nonlocal_or_inclusive_marker": 1
+    }
+  },
+  "review_priority": {
+    "Q-DIST-004": {
+      "high": 219,
+      "medium": 29,
+      "low": 7
+    },
+    "Q-DIST-006": {
+      "high": 7,
+      "medium": 2,
+      "low": 1
+    }
+  },
+  "conservative_refinements": {
+    "Q-DIST-004": {
+      "downgrade_requires_all": [
+        "vehicle_or_driving_trigger",
+        "explicit_driving_or_mobile_task",
+        "license_or_employer_vehicle_cost_support"
+      ],
+      "current_downgrade_candidates": 7,
+      "automatic_exclusion_requires_explicit_negation_or_inclusion": true,
+      "current_automatic_exclusion_candidates": 0,
+      "commuting_or_night_shift_alone_is_protective": false,
+      "housing_alone_is_protective": false
+    },
+    "Q-DIST-006": {
+      "protective_exclusion_requires_all": [
+        "explicit_nonlocal_resident_phrase",
+        "housing_or_lodging_term",
+        "provision_support_or_acceptance_language"
+      ],
+      "current_protective_exclusion_candidates": 1,
+      "administrative_address_basis_is_downgrade_only": true,
+      "current_administrative_downgrade_candidates": 2
+    }
+  },
+  "method": {
+    "context_window_characters_each_side": 350,
+    "classification": "정규화한 규칙 매치 주변 문맥을 신호 정규식으로 중복 집계한 뒤 규칙별 고정 우선순위로 배타 분류",
+    "exclusive_priority": {
+      "Q-DIST-004": [
+        "actual_driving_or_mobile_duties",
+        "night_shift_transport_access",
+        "remote_housing_or_lodging_support",
+        "commuting_preference_or_proximity",
+        "blanket_or_unsupported_eligibility",
+        "unclear"
+      ],
+      "Q-DIST-006": [
+        "actual_driving_or_mobile_duties",
+        "night_shift_transport_access",
+        "remote_housing_or_lodging_support",
+        "commuting_preference_or_proximity",
+        "address_based_blanket_or_policy_eligibility",
+        "unclear"
+      ]
+    },
+    "reproduction_boundary": "원문과 식별자를 저장하지 않은 익명 집계이며 현재 private train 스냅샷에서만 재계산"
+  },
+  "privacy_boundary": {
+    "contains_posting_text": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false,
+    "contains_urls": false,
+    "contains_hashes": false,
+    "contains_addresses": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false
+  },
+  "limitations": {
+    "heuristic_not_human_label": true,
+    "not_performance_measurement": true,
+    "not_legal_determination": true,
+    "exclusive_cluster_sums_checked": true,
+    "overlapping_context_counts_do_not_sum": true,
+    "single_source_category": true
+  }
+}

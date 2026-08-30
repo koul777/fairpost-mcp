@@ -1,8 +1,15 @@
 {
-  "prepared_at": "2026-07-28T05:45:56+09:00",
+  "schema_version": "fairpost-human-labeling-handoff-v1",
+  "prepared_at": "2026-08-30T18:21:29+09:00",
   "status": "awaiting_human_annotations",
-  "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-1ce12af92151",
-  "matching_version": "match-f2d0d37c3a16ecb0",
+  "evaluation_phase": "sealed_holdout_final",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "matching_version": "match-1e34d81e35e57b3f",
+  "labeler_binding": {
+    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+    "matching_version": "match-1e34d81e35e57b3f",
+    "status": "current"
+  },
   "holdout_records": 180,
   "holdout_source": {
     "records_path": ".corpus-prd/holdout/records.jsonl",
@@ -14,12 +21,26 @@
   },
   "labeler": {
     "path": ".corpus-prd/holdout/labeler.html",
-    "bytes": 651491,
-    "sha256": "74b3956cddb19f4ea48de4998f69f5efed86af5bc32add728f9115d96e2a33a5",
+    "bytes": 651767,
+    "sha256": "0fce007b5506730132c481d84470c79b8e1b41dec4cef2ff9866de01a34423f5",
     "network_requests": "blocked"
   },
   "expected_annotation_path": ".corpus-prd/holdout/annotations.jsonl",
-  "evaluation_command": "python tools/evaluate.py .corpus-prd/holdout/annotations.jsonl --train-manifest .corpus-prd/train/manifest.json --holdout-manifest .corpus-prd/holdout/manifest.json --holdout-records .corpus-prd/holdout/records.jsonl --enforce-targets --output reports/evaluation.json",
+  "expected_human_attestation_path": ".corpus-prd/holdout/human-attestation.json",
+  "evaluation_command": "python tools/evaluate.py .corpus-prd/holdout/annotations.jsonl --train-manifest .corpus-prd/train/manifest.json --holdout-manifest .corpus-prd/holdout/manifest.json --holdout-records .corpus-prd/holdout/records.jsonl --phase final --human-attestation .corpus-prd/holdout/human-attestation.json --enforce-targets --output reports/evaluation.json",
+  "human_attestation_requirements": {
+    "schema_version": 2,
+    "attestation": "human_gold",
+    "prediction_blinded": true,
+    "ai_generated_labels": false,
+    "reviewer_ids": "one_or_more_pseudonymous_human_reviewer_ids",
+    "annotations_sha256": "sha256_of_completed_annotations_jsonl",
+    "holdout_manifest_sha256": "81b9451c09db8398eedb809fb96e517db080ee2bc1af16ad89e94fe4d85d029a",
+    "holdout_records_sha256": "2bdf495875f726b85af75f72be2b8483242f938be71fb28e03aded822d9b537a",
+    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+    "matching_version": "match-1e34d81e35e57b3f",
+    "attested_at": "ISO-8601 timestamp"
+  },
   "evaluation_gate": {
     "minimum_holdout_by_sector": {
       "public": 90,
@@ -35,5 +56,6 @@
       "dictionary_coverage": "human_labeled_expression_occurrence"
     }
   },
-  "release_claim": "G1/G2 성능 목표는 사람이 180건 전체를 라벨링하고 평가 명령이 통과하기 전까지 미측정입니다."
+  "release_claim": "G1/G2 성능 목표는 사람이 180건 전체를 라벨링하고 평가 명령이 통과하기 전까지 미충족입니다.",
+  "question_card_metrics": "질문 카드는 G1/G2 대상이 아니며 사용자 파일럿에서 관련성·이해도·실행 가능성을 별도로 측정합니다."
 }

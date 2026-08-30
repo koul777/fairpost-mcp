@@ -1,0 +1,48 @@
+{
+  "schema_version": "private-marital-context-audit-v1",
+  "created_at": "2026-08-04T02:56:00+09:00",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "not_human_labels": true,
+  "not_performance_measurement": true,
+  "scope": {
+    "records": 2100,
+    "sector": "private",
+    "split": "train_only",
+    "source_category_count": 1,
+    "rule_id": "Q-DIST-017"
+  },
+  "privacy_boundary": {
+    "contains_posting_text": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false
+  },
+  "phrase_analysis": {
+    "marital_status_records": 53,
+    "protective_noncollection_records": 51,
+    "review_candidate_records": 2,
+    "pregnancy_or_birth_plan_records": 0,
+    "child_presence_or_count_records": 0
+  },
+  "post_change_verification": {
+    "Q-DIST-017": 2
+  },
+  "decision": {
+    "action": "add_review_question_with_blind_notice_protection",
+    "rationale": "혼인ㆍ임신ㆍ출산ㆍ자녀 질문은 채용 판단과 분리되는지 확인하되 미기재ㆍ수집 금지 안내는 검토 큐에서 제외한다.",
+    "official_source_id": "src_016"
+  },
+  "limitations": [
+    "단일 공개 구인 출처의 익명 집계이며 시장 발생률이나 규칙 성능을 나타내지 않는다.",
+    "공고문만으로 실제 지원서 항목과 면접 사용 여부를 확정할 수 없다.",
+    "질문 발동은 사람 검토 대상이며 차별 또는 법 위반 판정이 아니다."
+  ]
+}

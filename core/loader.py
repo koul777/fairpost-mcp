@@ -47,7 +47,10 @@ REQUIRED_SLOT_IDS = {
 }
 CONTACT_COMPONENT_IDS = {"department", "phone", "email", "hours"}
 QUESTION_REVIEW_SCOPES = {"posting", "common"}
-MATCH_ENGINE_VERSION = "engine-v2-context-groups-first-match-exclude-section-slots"
+MATCH_ENGINE_VERSION = (
+    "engine-v5-normalized-regex-context-groups-first-match-overlap-candidate-"
+    "exclude-section-slots"
+)
 REQUIRED_STATUTE_ARTICLES = {
     "age-discrimination-act": {"제4조의4", "제4조의5"},
     "disability-employment-act": {"제5조"},
@@ -74,6 +77,18 @@ class Ruleset:
     matching_version: str
 
 
+def _find_ancestor_data_dir(module_file: Path) -> Path | None:
+    for parent in module_file.resolve().parents:
+        candidate = parent / "share" / "fairpost" / "data"
+        if (
+            (candidate / "slots.yaml").is_file()
+            and (candidate / "rules").is_dir()
+            and (candidate / "statutes").is_dir()
+        ):
+            return candidate
+    return None
+
+
 def _default_data_dir() -> Path:
     configured = os.environ.get("FAIRPOST_DATA_DIR")
     if configured:
@@ -83,7 +98,12 @@ def _default_data_dir() -> Path:
     if source_data.exists():
         return source_data
 
-    return Path(sys.prefix) / "share" / "fairpost" / "data"
+    ancestor_data = _find_ancestor_data_dir(Path(__file__))
+    if ancestor_data is not None:
+        return ancestor_data
+
+    prefix_data = Path(sys.prefix) / "share" / "fairpost" / "data"
+    return prefix_data
 
 
 DEFAULT_DATA_DIR = _default_data_dir()
@@ -258,6 +278,20 @@ def _validate_rule(
             or not exclusion["term"]
         ):
             raise RuleLoadError(f"{rule_id}: exclude.term이 필요합니다")
+        candidate = exclusion.get("candidate")
+        if candidate is not None and (
+            not isinstance(candidate, str) or not candidate
+        ):
+            raise RuleLoadError(
+                f"{rule_id}: exclude.candidate는 비어 있지 않은 문자열이어야 합니다"
+            )
+        overlap_candidate = exclusion.get("overlap_candidate")
+        if overlap_candidate is not None and not isinstance(
+            overlap_candidate, bool
+        ):
+            raise RuleLoadError(
+                f"{rule_id}: exclude.overlap_candidate는 불리언이어야 합니다"
+            )
         window = exclusion.get("window", 0)
         if not isinstance(window, int) or isinstance(window, bool) or window < 0:
             raise RuleLoadError(f"{rule_id}: exclude.window는 0 이상의 정수여야 합니다")
@@ -287,7 +321,21 @@ def _validate_rule(
             raise RuleLoadError(f"{rule_id}: law 규칙에는 severity와 message가 필요합니다")
         if rule["severity"] not in {"high", "medium", "low"}:
             raise RuleLoadError(f"{rule_id}: severity 오류")
+        related = rule.get("related_questions", [])
+        if not isinstance(related, list) or any(
+            not isinstance(question_id, str) or not question_id
+            for question_id in related
+        ):
+            raise RuleLoadError(
+                f"{rule_id}: related_questions는 비어 있지 않은 문자열 목록이어야 합니다"
+            )
+        if len(set(related)) != len(related):
+            raise RuleLoadError(f"{rule_id}: related_questions에 중복 id가 있습니다")
     else:
+        if "related_questions" in rule:
+            raise RuleLoadError(
+                f"{rule_id}: related_questions는 law 규칙에만 허용됩니다"
+            )
         review_scope = rule.get("review_scope", "posting")
         if review_scope not in QUESTION_REVIEW_SCOPES:
             raise RuleLoadError(
@@ -468,6 +516,14 @@ def load_ruleset(
     for rule in rules:
         if rule["trigger"]["type"] == "absence" and rule["trigger"]["field"] not in slots:
             raise RuleLoadError(f"{rule['id']}: 존재하지 않는 슬롯 '{rule['trigger']['field']}'")
+
+    question_ids = {rule["id"] for rule in rules if rule["layer"] == "question"}
+    for rule in rules:
+        for question_id in rule.get("related_questions", []):
+            if question_id not in question_ids:
+                raise RuleLoadError(
+                    f"{rule['id']}: 존재하지 않는 related_questions '{question_id}'"
+                )
 
     canonical = json.dumps(
         {"rules": rules, "slots": slots, "statutes": statutes, "morph": MORPH_VERSION},

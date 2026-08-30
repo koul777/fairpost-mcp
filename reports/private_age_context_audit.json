@@ -1,0 +1,122 @@
+{
+  "actions": [
+    {
+      "change": "Protect no-limit Korean inflections at the stem while retaining common double-negative restrictions.",
+      "decision": "implemented",
+      "risk": "low"
+    },
+    {
+      "change": "Protect nearby senior-internship and statutory older-worker employment-support program context.",
+      "decision": "implemented",
+      "risk": "low"
+    },
+    {
+      "change": "Review every soft-preference, older-worker, program, and other ambiguous cluster before considering broader exclusions.",
+      "decision": "human_review_backlog",
+      "risk": "medium"
+    }
+  ],
+  "created_at": "2026-08-03T16:20:00Z",
+  "evidence_refs": [
+    "data/statutes/age-discrimination-act.yaml#제4조의5",
+    "docs/private-fairness-research-bundle.json#private_claim_012"
+  ],
+  "limitations": [
+    "Cluster assignments are model-assisted heuristics over de-identified train context, not human ground truth.",
+    "The single-source corpus cannot estimate private-market precision, recall, or prevalence.",
+    "A rule activation is a review candidate and does not establish unlawful age discrimination.",
+    "The remaining ambiguous clusters require human review; no precision claim is made."
+  ],
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "not_human_labels": true,
+  "not_performance_measurement": true,
+  "post_fix_verification": {
+    "activated_records": 192,
+    "newly_excluded_records": 1,
+    "private_corpus_hits": 192,
+    "public_corpus_hits": 32,
+    "record_delta": -1,
+    "web_parity_mismatches": 0,
+    "web_parity_records": 2310
+  },
+  "pre_fix_analysis": {
+    "activated_records": 193,
+    "classification_method": "mutually exclusive de-identified proximity heuristics; program 30 chars, older-worker context 80 chars, preference 20 chars",
+    "clusters": [
+      {
+        "cluster": "explicit_numeric_bound",
+        "records": 118,
+        "share": 0.611
+      },
+      {
+        "cluster": "soft_preference",
+        "records": 65,
+        "share": 0.337
+      },
+      {
+        "cluster": "older_worker_context",
+        "records": 5,
+        "share": 0.026
+      },
+      {
+        "cluster": "program_participation",
+        "records": 1,
+        "share": 0.005
+      },
+      {
+        "cluster": "no_age_limit",
+        "records": 1,
+        "share": 0.005
+      },
+      {
+        "cluster": "other_non_numeric",
+        "records": 3,
+        "share": 0.016
+      }
+    ],
+    "excluded_candidates": 8,
+    "excluded_records": 5,
+    "explicit_numeric_subtypes": {
+      "at_least": 47,
+      "at_most": 14,
+      "below": 57
+    },
+    "raw_candidate_records": 198,
+    "raw_candidates": 260
+  },
+  "pre_fix_review_sample": {
+    "clusters": {
+      "explicit_numeric_bound": 11,
+      "no_age_limit": 1,
+      "older_worker_context": 1,
+      "other_non_numeric": 1,
+      "soft_preference": 6
+    },
+    "labels": "unreviewed",
+    "rows": 20
+  },
+  "privacy_boundary": {
+    "contains_context": false,
+    "contains_matched_text": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false
+  },
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "schema_version": "private-age-context-audit-v1",
+  "scope": {
+    "records": 2100,
+    "rule_id": "AGE-002",
+    "sector": "private",
+    "source_category_count": 1,
+    "split": "train_only"
+  },
+  "status": "model_assisted_aggregate_only"
+}

@@ -10,6 +10,8 @@ import pytest
 import yaml
 
 from core import FairpostEngine, RuleLoadError, load_ruleset
+import core.loader as loader_module
+from core.loader import _find_ancestor_data_dir
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -82,11 +84,48 @@ def test_normalized_youth_intern_exclusion_is_not_flagged() -> None:
 
 @pytest.mark.parametrize(
     "phrase",
-    ["연령 제한없음", "연령 제한 없습니다", "연령 제한이 없다"],
+    [
+        "연령 제한없음",
+        "연령 제한 없습니다",
+        "연령 제한이 없다",
+        "나이 제한없음",
+        "나이 제한 없습니다",
+        "나이 제한이 없다",
+        "나이 제한 없이 지원 가능합니다",
+        "나이 제한 없슴",
+    ],
 )
 def test_no_age_limit_phrase_is_not_flagged(phrase: str) -> None:
     result = FairpostEngine().check(f"응시자격\n{phrase}")
     assert "AGE-002" not in {finding.id for finding in result.findings}
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    ["나이 제한 없지 않습니다", "연령 제한 없는 것은 아닙니다"],
+)
+def test_double_negative_age_limit_is_not_hidden(phrase: str) -> None:
+    result = FairpostEngine().check(f"응시자격\n{phrase}")
+    assert "AGE-002" in {finding.id for finding in result.findings}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "최종합격자 중 만 60세 이상인 자는 시니어인턴십 참여신청서를 제출합니다.",
+        "노인일자리 및 사회활동지원사업 참여와 관련하여 최종합격자 중 60세 이상은 별도 동의서를 제출합니다.",
+    ],
+)
+def test_senior_employment_support_after_final_selection_is_not_age_restriction(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert "AGE-002" not in {finding.id for finding in result.findings}
+
+
+def test_plain_age_minimum_without_support_program_still_triggers() -> None:
+    result = FairpostEngine().check("지원자격\n만 60세 이상인 자만 지원할 수 있습니다.")
+    assert "AGE-002" in {finding.id for finding in result.findings}
 
 
 def test_korean_ending_normalization_preserves_original_offsets() -> None:
@@ -236,12 +275,39 @@ def test_book_based_questions_cover_full_ai_hiring_review() -> None:
         "Q-PROC-004",
         "Q-INFO-009",
         "Q-PROC-010",
+        "Q-PROC-014",
         "Q-INTER-003",
         "Q-INTER-004",
         "Q-DIST-008",
         "Q-DIST-009",
         "Q-DIST-011",
     } <= question_ids
+
+
+def test_ai_hiring_questions_preserve_both_report_sources() -> None:
+    rules = {
+        rule["id"]: rule
+        for rule in load_ruleset().rules
+        if rule["layer"] == "question"
+    }
+    report_titles = {
+        rules[rule_id]["basis"]["title"]
+        for rule_id in {
+            "Q-PROC-004",
+            "Q-INFO-009",
+            "Q-PROC-010",
+            "Q-PROC-014",
+            "Q-INTER-003",
+            "Q-INTER-004",
+            "Q-DIST-008",
+            "Q-DIST-009",
+            "Q-DIST-011",
+        }
+    }
+    assert report_titles == {
+        "인공지능 채용 가이드라인(안) 개발",
+        "채용분야 인공지능(AI) 활용실태 및 공정성 확보방안 연구",
+    }
 
 
 def test_book_based_baseline_questions_apply_to_regular_posting() -> None:
@@ -256,6 +322,8 @@ def test_book_based_baseline_questions_apply_to_regular_posting() -> None:
         "Q-INFO-005",
         "Q-INFO-007",
         "Q-INFO-008",
+        "Q-INTER-005",
+        "Q-INTER-006",
         "Q-PROC-009",
         "Q-PROC-013",
     } == common_ids
@@ -270,6 +338,8 @@ def test_book_based_baseline_questions_apply_to_regular_posting() -> None:
         ("자격요건\n범죄경력이 없는 사람", "Q-DIST-013"),
         ("제출서류\n입사지원서 양식", "Q-INFO-010"),
         ("제출서류\n졸업증명서와 경력증명서 제출", "Q-INFO-011"),
+        ("제출서류\n주민등록초본 제출", "Q-INFO-011"),
+        ("최종 합격자 제출서류\n기본증명서 1부", "Q-INFO-011"),
         ("전형절차\n면접위원이 면접전형을 진행합니다.", "Q-PROC-011"),
         ("전형절차\n필기시험 후 면접", "Q-PROC-012"),
         ("2026년 사무직 채용 공고", "Q-PROC-013"),
@@ -307,9 +377,16 @@ def test_social_status_question_does_not_treat_job_type_as_applicant_status() ->
         ),
         ("안내사항\n증빙서류 제출 불필요", "Q-INFO-011"),
         ("안내사항\n졸업증명서는 제출하지 않습니다.", "Q-INFO-011"),
+        ("안내사항\n주민등록초본은 제출하지 않습니다.", "Q-INFO-011"),
+        ("안내사항\n기본증명서 제출 불필요", "Q-INFO-011"),
         ("지원자격\n운전면허증 소지자", "Q-INFO-011"),
         ("직무분류\n사회복지.종교", "Q-DIST-012"),
+        ("우대사항\n종교 관련 학과 졸업자 우대", "Q-DIST-012"),
+        ("우대사항\n종교학 전공자 우대", "Q-DIST-012"),
         ("기관은 지역사회 발전과 혁신을 추구합니다.", "Q-DIST-013"),
+        ("지원자격\n북한이탈주민 지원 가능", "Q-DIST-013"),
+        ("지원자격\n북한이탈주민도 지원할 수 있습니다", "Q-DIST-013"),
+        ("지원자격\n탈북자 지원 환영", "Q-DIST-013"),
         ("우대사항\n북한이탈주민 가점", "Q-DIST-013"),
         (
             "우대조건\n취업지원대상자, 장애인, 북한이탈주민, 다문화가족",
@@ -357,7 +434,7 @@ def test_question_includes_trigger_evidence_and_original_offset() -> None:
     text = "채용 공고\r\n지원자격\r\n세례교인에 한함"
     result = FairpostEngine().check(text)
     question = next(item for item in result.questions if item.id == "Q-DIST-012")
-    assert question.matched_text == "세례"
+    assert "세례교인" in question.matched_text
     assert question.section == "자격요건"
     assert question.offset is not None
     start, end = question.offset
@@ -368,8 +445,25 @@ def test_question_includes_trigger_evidence_and_original_offset() -> None:
     )
     assert payload_question["offset"] is not None
     assert payload_question["review_scope"] == "posting"
-    assert payload_question["reference"]["source_url"].startswith("https://www.ncs.go.kr/")
-    assert payload_question["reference"]["sections"] == ["채용단계별 주요 차별 요소 - 신앙"]
+    assert "세례교인" in question.matched_text
+    assert payload_question["reference"]["publisher"] == "국가인권위원회"
+    assert payload_question["reference"]["year"] == 2020
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "근무지: 지역 교회 부설 복지센터",
+        "담당업무: 성당 시설 관리",
+        "서비스 대상: 사찰 방문객 안내",
+    ],
+)
+def test_religious_workplace_or_beneficiary_does_not_trigger_religion_review(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+
+    assert "Q-DIST-012" not in {question.id for question in result.questions}
 
 
 def test_proof_document_question_has_current_ncs_reference_and_offset() -> None:
@@ -425,6 +519,537 @@ def test_multi_track_application_question_is_bounded_and_traceable() -> None:
     ]
 
 
+def test_language_score_requirement_question_is_bounded_and_traceable() -> None:
+    text = "지원자격\n다음 요건을 모두 충족한 자\nTOEIC 750점 이상"
+    result = FairpostEngine().check(text)
+    question = next(item for item in result.questions if item.id == "Q-DIST-014")
+
+    assert question.matched_text == "TOEIC 750점 이상"
+    assert question.offset is not None
+    start, end = question.offset
+    assert text[start:end] == question.matched_text
+    assert "Q-DIST-014" not in {item.id for item in result.findings}
+    assert question.reference.publisher == "한국산업인력공단"
+    assert question.reference.year == 2025
+    assert question.reference.pages == [12]
+    assert question.reference.accessed_at == "2026-07-29"
+    assert question.reference.sections == ["지원자격 예외사례 (PDF 12쪽)"]
+
+
+def test_gender_preference_question_is_review_only_and_traceable() -> None:
+    text = "우대사항\n여성 우대"
+    result = FairpostEngine().check(text)
+    question = next(item for item in result.questions if item.id == "Q-DIST-015")
+
+    assert question.matched_text == "여성 우대"
+    assert question.offset is not None
+    start, end = question.offset
+    assert text[start:end] == question.matched_text
+    assert "Q-DIST-015" not in {item.id for item in result.findings}
+    assert question.reference.publisher == "국가인권위원회"
+    assert question.reference.year == 2007
+    assert question.reference.accessed_at == "2026-08-03"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "지원자격\n성별 무관, 여성도 지원 가능",
+        "협력대상\n여성기업 우선구매",
+    ],
+)
+def test_gender_preference_question_protects_inclusive_or_policy_context(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert "Q-DIST-015" not in {item.id for item in result.questions}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "모집대상\n여성 참여자 우대",
+        "우대사항\n여성 지원자 우대",
+        "채용조건\n남성 인력 선호",
+        "우대사항\n경력단절 여성 우대",
+        "지원자격\n성별 무관이나 여성 우대",
+    ],
+)
+def test_gender_preference_question_covers_observed_private_variants(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert "Q-DIST-015" in {item.id for item in result.questions}
+
+
+def test_return_rule_covers_observed_private_posting_wording() -> None:
+    text = "유의사항\n제출된 서류는 일체 반환하지 않습니다."
+    result = FairpostEngine().check(text)
+    finding = next(item for item in result.findings if item.id == "RETURN-001")
+
+    assert finding.matched_text == "제출된 서류는 일체 반환하지 않습니다"
+    assert finding.offset is not None
+    start, end = finding.offset
+    assert text[start:end] == finding.matched_text
+
+
+def test_return_rule_does_not_treat_return_process_as_blanket_refusal() -> None:
+    result = FairpostEngine().check(
+        "유의사항\n전자우편으로 제출한 서류는 반환 대상이 아닙니다. "
+        "종이 채용서류는 반환 청구할 수 있습니다."
+    )
+    assert "RETURN-001" not in {item.id for item in result.findings}
+
+
+def test_electronic_return_exception_uses_review_question_not_law_finding() -> None:
+    result = FairpostEngine().check(
+        "접수방법\n이메일 제출\n유의사항\n"
+        "제출된 서류는 반환하지 않습니다. 종이 채용서류는 반환 청구 가능합니다."
+    )
+    assert "RETURN-001" not in {item.id for item in result.findings}
+    assert "Q-INFO-013" in {item.id for item in result.questions}
+
+
+def test_unrelated_email_channel_does_not_hide_blanket_return_refusal() -> None:
+    result = FairpostEngine().check(
+        "문의방법\n이메일로 문의 가능\n유의사항\n"
+        "제출된 서류는 일체 반환하지 않습니다."
+    )
+    assert "RETURN-001" in {item.id for item in result.findings}
+    assert "Q-INFO-013" in {item.id for item in result.questions}
+
+
+def test_formal_blanket_return_refusal_variant_is_law_and_review() -> None:
+    result = FairpostEngine().check("제출된 채용서류는 반환하지 아니합니다.")
+    assert "RETURN-001" in {item.id for item in result.findings}
+    assert "Q-INFO-013" in {item.id for item in result.questions}
+
+
+def test_electronic_application_return_unavailable_is_review_only() -> None:
+    result = FairpostEngine().check(
+        "전자적으로 제출된 입사지원서는 반환이 불가합니다."
+    )
+    assert "RETURN-001" not in {item.id for item in result.findings}
+    assert "Q-INFO-013" in {item.id for item in result.questions}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "이메일로 접수합니다. 제출된 서류는 반환하지 않으며 개인정보를 보호합니다.",
+        "온라인으로 제출한 지원서류는 반환하지 아니하며 별도 파기합니다.",
+    ],
+)
+def test_nonreturn_conjunctive_variant_with_electronic_submission_is_review_only(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+
+    assert "RETURN-001" not in {item.id for item in result.findings}
+    assert "Q-INFO-013" in {item.id for item in result.questions}
+
+
+def test_nonreturn_conjunctive_variant_for_required_original_stays_finding() -> None:
+    result = FairpostEngine().check(
+        "온라인 지원 후 졸업증명서 원본을 방문 제출합니다. "
+        "제출된 서류는 반환하지 않으며 별도 파기합니다."
+    )
+
+    assert "RETURN-001" in {item.id for item in result.findings}
+    assert "Q-INFO-013" in {item.id for item in result.questions}
+
+
+def test_structured_email_only_submission_with_distant_nonreturn_is_review_only() -> None:
+    result = FairpostEngine().check(
+        "지원 방법\n이메일 접수\n접수 기간은 채용 시까지입니다.\n"
+        "전형 절차\n서류전형, 면접, 최종 합격\n"
+        "기타\n제출된 서류는 반환하지 않으며 개인정보를 보호합니다."
+    )
+
+    assert "RETURN-001" not in {item.id for item in result.findings}
+    assert "Q-INFO-013" in {item.id for item in result.questions}
+
+
+def test_mixed_email_and_visit_submission_does_not_use_email_only_exclusion() -> None:
+    result = FairpostEngine().check(
+        "접수 방법\n이메일 또는 방문 접수\n"
+        "제출된 서류는 반환하지 않으며 채용 종료 후 파기합니다."
+    )
+
+    assert "RETURN-001" in {item.id for item in result.findings}
+    assert "Q-INFO-013" in {item.id for item in result.questions}
+
+
+def test_photo_attachment_variant_and_protective_context() -> None:
+    positive = FairpostEngine().check("제출서류\n이력서 사진 첨부")
+    negative = FairpostEngine().check("블라인드 지원서에는 사진 부착이 불필요합니다")
+
+    assert "PHOTO-001" in {item.id for item in positive.findings}
+    assert "PHOTO-001" not in {item.id for item in negative.findings}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "전형결과\n불합격자는 별도 통보하지 않습니다.",
+        "안내사항\n미합격자에게는 개별 안내가 없습니다.",
+        "합격자에 한해 개별 통보합니다.",
+        "서류 미비 시 별도 통지 없이 불합격 처리할 수 있습니다.",
+    ],
+)
+def test_nonpass_notice_gap_uses_review_question(text: str) -> None:
+    result = FairpostEngine().check(text)
+    assert "Q-INFO-014" in {item.id for item in result.questions}
+    assert "Q-INFO-014" not in {item.id for item in result.findings}
+
+
+def test_nonpass_notice_question_cites_statutory_scope_and_notification_duty() -> None:
+    result = FairpostEngine().check("합격자에 한해 개별 통보합니다.")
+    question = next(item for item in result.questions if item.id == "Q-INFO-014")
+
+    assert question.basis_type == "research"
+    assert question.reference is not None
+    assert question.reference.publisher == "국가법령정보센터"
+    assert question.reference.sections == ["제3조 적용범위", "제10조 채용 여부의 고지"]
+    assert "상시 30명 이상" in question.question
+    assert any("별도 통지" in item for item in question.follow_up)
+
+
+def test_all_applicants_result_notice_does_not_trigger_nonpass_gap() -> None:
+    result = FairpostEngine().check(
+        "전형결과\n합격자와 불합격자 모두에게 이메일로 개별 통보합니다."
+    )
+    assert "Q-INFO-014" not in {item.id for item in result.questions}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "지원자격\n외국인 지원 불가",
+        "모집대상\n대한민국 국적자만 지원할 수 있습니다.",
+        "지원 제한\n대한민국 국적이 아닌 자",
+    ],
+)
+def test_nationality_or_foreigner_exclusion_uses_review_question(text: str) -> None:
+    result = FairpostEngine().check(text)
+
+    assert "Q-DIST-016" in {item.id for item in result.questions}
+    assert "Q-DIST-016" not in {item.id for item in result.findings}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "지원자격\n외국인 지원 가능",
+        "지원자격\n국적 무관, 취업 가능한 체류자격 또는 비자 소지자",
+        "담당업무\n외국인 고객 상담 및 통번역",
+    ],
+)
+def test_inclusive_or_work_authorization_context_does_not_trigger_nationality_review(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+
+    assert "Q-DIST-016" not in {item.id for item in result.questions}
+
+
+def test_criminal_record_review_question_cites_current_human_rights_decision() -> None:
+    result = FairpostEngine().check("지원자격\n신원조회 결과 범죄경력이 없는 자")
+    question = next(item for item in result.questions if item.id == "Q-DIST-013")
+
+    assert question.reference is not None
+    assert question.reference.publisher == "국가인권위원회"
+    assert "실효된 범죄경력" in str(question.reference.title)
+    assert question.reference.year == 2025
+    assert "Q-DIST-013" not in {item.id for item in result.findings}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "지원자격: 장애인 지원 불가",
+        "지원 제한: 장애인 지원이 어렵습니다.",
+        "장애인은 지원할 수 없습니다.",
+    ],
+)
+def test_direct_disability_application_exclusion_is_flagged(text: str) -> None:
+    result = FairpostEngine().check(text)
+
+    assert "DISABILITY-001" in {item.id for item in result.findings}
+
+
+def test_disability_inclusive_context_is_not_flagged() -> None:
+    for text in (
+        "장애인 지원이 어렵지 않으며 필요한 합리적 편의를 제공합니다.",
+        "장애가 없는 사람도 지원 가능합니다.",
+        "장애가 없는 사람과 장애인 모두 지원할 수 있습니다.",
+        "장애가 없어야 한다는 제한은 없습니다.",
+    ):
+        result = FairpostEngine().check(text)
+        assert "DISABILITY-001" not in {item.id for item in result.findings}
+
+
+def test_health_requirement_question_cites_current_disability_hiring_decision() -> None:
+    result = FairpostEngine().check("지원자격: 신체 건강한 자")
+    question = next(item for item in result.questions if item.id == "Q-DIST-007")
+
+    assert question.reference is not None
+    assert question.reference.publisher == "국가인권위원회"
+    assert "업무 수행 능력 예단" in str(question.reference.title)
+    assert question.reference.year == 2026
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "입사지원서에 병력 기재를 요구합니다.",
+        "지원자는 과거 병력을 제출해야 합니다.",
+        "지원서 항목: 질병 이력",
+        "지원서 항목: 치료 이력",
+    ],
+)
+def test_health_history_collection_remains_a_finding_candidate(text: str) -> None:
+    result = FairpostEngine().check(text)
+    assert "HEALTH-001" in {finding.id for finding in result.findings}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "지원 단계에서는 건강정보를 제출받지 않습니다.",
+        "최종 합격 후 배치 전 건강검진을 실시합니다.",
+        "작업에 필요한 보호구를 지급하고 합리적 편의를 제공합니다.",
+        "블라인드 채용을 위해 과거 병력은 기재하지 마세요.",
+        "질병 이력 및 치료 이력은 수집 금지입니다.",
+        "과거\u200b 병력은\u200b 기재하지\u200b 마세요.",
+        "질병\u200b 이력\u200b 및\u200b 치료\u200b 이력은\u200b 작성하지\u200b 마세요.",
+    ],
+)
+def test_health_protective_or_post_selection_context_is_not_flagged(text: str) -> None:
+    result = FairpostEngine().check(text)
+    assert "HEALTH-001" not in {finding.id for finding in result.findings}
+
+
+def test_health_protection_does_not_hide_later_collection_candidate() -> None:
+    result = FairpostEngine().check(
+        "과거 병력은 기재하지 마세요. 다만 치료 이력은 지원서에 제출해야 합니다."
+    )
+    assert "HEALTH-001" in {finding.id for finding in result.findings}
+
+
+def test_later_health_protection_does_not_hide_earlier_collection_candidate() -> None:
+    result = FairpostEngine().check(
+        "지원서에 치료 이력을 제출해야 합니다. 단, 과거 병력은 기재하지 마세요."
+    )
+    assert "HEALTH-001" in {finding.id for finding in result.findings}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "AI가 최종 결정하지 않으며 채용담당자가 최종 판단합니다.",
+        "인공지능이 최종 결정을 내리지 않고 사람 검토를 거칩니다.",
+        "AI 자동 탈락은 없습니다.",
+        "자동 평가로 결정하지 않고 참고자료로만 활용합니다.",
+        "ＡＩ가 최종 결정하지 않으며 사람이 판단합니다.",
+        "AI\u200b 자동\u200b 탈락은\u200b 없습니다.",
+    ],
+)
+def test_ai_protective_human_decision_context_is_not_flagged(text: str) -> None:
+    result = FairpostEngine().check(text)
+    assert "AI-001" not in {finding.id for finding in result.findings}
+
+
+def test_ai_protection_does_not_hide_later_automated_decision_candidate() -> None:
+    result = FairpostEngine().check(
+        "AI가 최종 결정하지 않고 사람이 판단합니다. "
+        "다만 1차 전형은 AI 자동 탈락을 적용합니다."
+    )
+    assert "AI-001" in {finding.id for finding in result.findings}
+
+
+def test_later_ai_protection_does_not_hide_earlier_automated_candidate() -> None:
+    result = FairpostEngine().check(
+        "1차는 AI 자동 탈락을 적용합니다. 단, AI가 최종 결정하지 않고 "
+        "최종은 사람이 판단합니다."
+    )
+    assert "AI-001" in {finding.id for finding in result.findings}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "입사지원서 항목: 혼인 여부",
+        "면접 질문: 결혼 예정 시기",
+        "지원서에 임신 여부와 출산 계획을 작성해 주세요.",
+        "기타사항: 자녀 유무",
+    ],
+)
+def test_marital_pregnancy_or_child_screening_uses_review_question(text: str) -> None:
+    result = FairpostEngine().check(text)
+
+    assert "Q-DIST-017" in {item.id for item in result.questions}
+    assert "Q-DIST-017" not in {item.id for item in result.findings}
+
+
+def test_marital_information_prohibition_is_protected() -> None:
+    for text in (
+        "블라인드 안내: 혼인 여부, 가족관계, 재산은 지원서에 기재하지 마세요.",
+        "블라인드 안내: 자녀 유무는 지원서에 기재하지 마세요.",
+        "블라인드 안내: 임신 여부는 기재하지 마세요.",
+        "출산 계획은 지원서에 작성하지 않습니다.",
+    ):
+        result = FairpostEngine().check(text)
+        assert "Q-DIST-017" not in {item.id for item in result.questions}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "지원자격\n안전보호구 착용 가능자",
+        "작업조건\n방진마스크 착용 필수인 분",
+        "지원자격\n4조 3교대 근무 및 방진복 착용 가능한 자",
+        "지원자격\n방진모 착용 가능자",
+    ],
+)
+def test_ppe_requirement_uses_job_necessity_review_question(text: str) -> None:
+    result = FairpostEngine().check(text)
+    assert "Q-DIST-007" in {item.id for item in result.questions}
+
+
+def test_ppe_provision_is_not_a_health_requirement() -> None:
+    for text in (
+        "복리후생\n안전모와 안전화를 지급합니다.",
+        "작업환경\n방진복 착용 업무이며 회사에서 방진복을 지급합니다.",
+    ):
+        result = FairpostEngine().check(text)
+        assert "Q-DIST-007" not in {item.id for item in result.questions}
+
+
+def test_family_certificate_in_application_documents_is_review_only() -> None:
+    result = FairpostEngine().check(
+        "입사 지원 시 지원 서류로 가족관계증명서를 제출해야 합니다."
+    )
+    assert "FAMILY-001" not in {item.id for item in result.findings}
+    assert "Q-INFO-011" in {item.id for item in result.questions}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "최종 합격자 제출서류: 가족관계증명서 1부",
+        "임용일 제출서류로 가족관계증명서를 준비합니다.",
+        "다문화가족 가점 증빙은 가족관계증명서로 확인합니다.",
+    ],
+)
+def test_family_certificate_outside_initial_screening_is_not_auto_finding(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert "FAMILY-001" not in {item.id for item in result.findings}
+    assert "Q-INFO-011" in {item.id for item in result.questions}
+
+
+def test_family_job_information_remains_a_law_finding_candidate() -> None:
+    result = FairpostEngine().check("입사지원서에 부모의 직업을 기재해 주세요.")
+    assert "FAMILY-001" in {item.id for item in result.findings}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "입사지원서에 형제자매의 학력을 기재해 주세요.",
+        "형제자매의 학력을 기재하지 않는 것은 허용되지 않습니다.",
+    ],
+)
+def test_sibling_education_request_remains_a_law_finding_candidate(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert "SCHOOL-001" in {item.id for item in result.findings}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "형제자매의 학력, 직업, 재산내용을 일체 기재하지 말아주세요.",
+        "개인정보 보호를 위해 형제자매의 학력은 기재받지 않습니다.",
+        "지원서에는 형제자매의 학력 기재 금지",
+    ],
+)
+def test_sibling_education_protective_notice_is_not_a_law_finding(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert "SCHOOL-001" not in {item.id for item in result.findings}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "채용제목\n여성직원 구인합니다.",
+        "채용제목\n생산직 남성분1명 여성분2명 모집",
+        "우대조건\n여성, 차량소지자",
+        "우대조건\n남성 50대 미만",
+        "직무내용\n여성: 검사업무 및 세정업무 남성: 폐수처리업무",
+    ],
+)
+def test_gender_recruitment_variants_route_to_human_review(text: str) -> None:
+    result = FairpostEngine().check(text)
+    assert "Q-DIST-015" in {item.id for item in result.questions}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "여성 지적장애인 시설입니다.(여성30명) 생활지도원을 모집합니다.",
+        "3등급 여자 어르신 방문요양보호사 구인",
+        "여성도 쉽게 할 수 있는 포장 업무입니다.",
+    ],
+)
+def test_client_gender_or_inclusive_context_is_not_gender_recruitment_review(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert "Q-DIST-015" not in {item.id for item in result.questions}
+
+
+@pytest.mark.parametrize(
+    "requirement",
+    [
+        "New TEPS 268점 이상",
+        "TOEFL(iBT) 85점 이상",
+        "HSK 5급 이상",
+    ],
+)
+def test_language_score_requirement_question_covers_common_score_formats(
+    requirement: str,
+) -> None:
+    result = FairpostEngine().check(f"응시자격\n{requirement}")
+    assert "Q-DIST-014" in {item.id for item in result.questions}
+
+
+def test_language_score_requirement_still_checks_proportionality_for_language_work() -> None:
+    result = FairpostEngine().check(
+        "채용분야\n일반사무, 해외영업\n지원자격\nTOEIC 750점 이상"
+    )
+    assert "Q-DIST-014" in {item.id for item in result.questions}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "복리후생\nTOEIC 750점 이상 어학수당 지급",
+        "우대사항\nTOEIC 750점 이상 어학수당\n제출서류 제출 필수",
+    ],
+)
+def test_language_score_requirement_question_protects_nonqualification_or_job_context(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert "Q-DIST-014" not in {item.id for item in result.questions}
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -471,6 +1096,83 @@ def test_multi_track_application_question_protects_missing_or_scoped_context(
 def test_proxy_variable_expression_retrieves_review_question() -> None:
     result = FairpostEngine().check("지원서에 졸업 연도와 군 복무 여부를 기재")
     assert "Q-DIST-010" in {question.id for question in result.questions}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "지원서에 이전 직장의 재직 기간을 기재해 주세요.",
+        "근속 기간을 입사지원서에 작성해 주세요.",
+    ],
+)
+def test_proxy_employment_duration_collection_retrieves_review_question(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert "Q-DIST-010" in {question.id for question in result.questions}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "복리후생: 장기 재직 기간에 따라 포상금을 지급합니다.",
+        "복리후생: 근속 기간별 장기근속자 포상을 지원합니다.",
+    ],
+)
+def test_employee_benefit_duration_does_not_retrieve_proxy_question(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert "Q-DIST-010" not in {question.id for question in result.questions}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "자격요건: 이전 직장 재직 기간 3년 이상",
+        "복리 후생\r\n재직 기간별 장기 근속 포상",
+        "복리후생 제도를 안내합니다. 재직 기간 3년 이상 경력자를 모집합니다.",
+    ],
+)
+def test_proxy_duration_exclusion_is_narrow_and_whitespace_safe(text: str) -> None:
+    result = FairpostEngine().check(text)
+    question_ids = {question.id for question in result.questions}
+    if "장기 근속 포상" in text:
+        assert "Q-DIST-010" not in question_ids
+    else:
+        assert "Q-DIST-010" in question_ids
+
+
+def test_excluded_benefit_duration_does_not_hide_later_valid_proxy() -> None:
+    result = FairpostEngine().check(
+        "복리후생: 재직 기간별 장기근속 포상\n지원자격: 군필 또는 면제자"
+    )
+    assert "Q-DIST-010" in {question.id for question in result.questions}
+
+
+def test_exclude_candidate_must_be_a_nonempty_string(tmp_path: Path) -> None:
+    copied = tmp_path / "data"
+    shutil.copytree(DATA, copied)
+    path = copied / "rules" / "questions.yaml"
+    rules = yaml.safe_load(path.read_text(encoding="utf-8"))
+    proxy_rule = next(rule for rule in rules if rule["id"] == "Q-DIST-010")
+    proxy_rule["trigger"]["exclude"][0]["candidate"] = 123
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleLoadError, match=r"exclude\.candidate"):
+        load_ruleset(copied)
+
+    rules = yaml.safe_load((DATA / "rules" / "questions.yaml").read_text(encoding="utf-8"))
+    proxy_rule = next(rule for rule in rules if rule["id"] == "Q-DIST-010")
+    proxy_rule["trigger"]["exclude"][0]["overlap_candidate"] = "yes"
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleLoadError, match=r"exclude\.overlap_candidate"):
+        load_ruleset(copied)
 
 
 def test_finding_offsets_reference_original_crlf_and_section() -> None:
@@ -942,6 +1644,76 @@ def test_local_statute_basis_is_rejected(tmp_path: Path) -> None:
         load_ruleset(local_rules_path=path)
 
 
+def test_ancestor_data_discovery_supports_isolated_wheel_layout(
+    tmp_path: Path,
+) -> None:
+    module_file = tmp_path / "archive" / "Lib" / "site-packages" / "core" / "loader.py"
+    module_file.parent.mkdir(parents=True)
+    module_file.write_text("", encoding="utf-8")
+    data_dir = tmp_path / "archive" / "share" / "fairpost" / "data"
+    (data_dir / "rules").mkdir(parents=True)
+    (data_dir / "statutes").mkdir()
+    (data_dir / "slots.yaml").write_text("slots: []\n", encoding="utf-8")
+
+    assert _find_ancestor_data_dir(module_file) == data_dir
+
+
+def test_default_data_dir_prefers_data_bundled_with_target_install(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "target"
+    module_file = target / "core" / "loader.py"
+    module_file.parent.mkdir(parents=True)
+    module_file.write_text("", encoding="utf-8")
+    bundled_data = target / "share" / "fairpost" / "data"
+    (bundled_data / "rules").mkdir(parents=True)
+    (bundled_data / "statutes").mkdir()
+    (bundled_data / "slots.yaml").write_text("{}\n", encoding="utf-8")
+
+    prefix = tmp_path / "prefix"
+    prefix_data = prefix / "share" / "fairpost" / "data"
+    prefix_data.mkdir(parents=True)
+
+    monkeypatch.delenv("FAIRPOST_DATA_DIR", raising=False)
+    monkeypatch.setattr(loader_module, "__file__", str(module_file))
+    monkeypatch.setattr(loader_module.sys, "prefix", str(prefix))
+
+    assert loader_module._default_data_dir() == bundled_data
+
+
+def test_default_data_dir_preserves_explicit_environment_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    configured = tmp_path / "configured-data"
+    monkeypatch.setenv("FAIRPOST_DATA_DIR", str(configured))
+
+    assert loader_module._default_data_dir() == configured
+
+
+def test_default_data_dir_prefers_source_checkout_data(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = tmp_path / "checkout"
+    module_file = checkout / "core" / "loader.py"
+    module_file.parent.mkdir(parents=True)
+    module_file.write_text("", encoding="utf-8")
+    source_data = checkout / "data"
+    source_data.mkdir()
+
+    bundled_data = checkout / "share" / "fairpost" / "data"
+    (bundled_data / "rules").mkdir(parents=True)
+    (bundled_data / "statutes").mkdir()
+    (bundled_data / "slots.yaml").write_text("{}\n", encoding="utf-8")
+    prefix = tmp_path / "prefix"
+    (prefix / "share" / "fairpost" / "data").mkdir(parents=True)
+
+    monkeypatch.delenv("FAIRPOST_DATA_DIR", raising=False)
+    monkeypatch.setattr(loader_module, "__file__", str(module_file))
+    monkeypatch.setattr(loader_module.sys, "prefix", str(prefix))
+
+    assert loader_module._default_data_dir() == source_data
+
+
 def test_local_rules_can_be_loaded_from_environment(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -974,3 +1746,113 @@ def test_core_does_not_import_tools() -> None:
         source = path.read_text(encoding="utf-8")
         assert "import tools" not in source
         assert "from tools" not in source
+
+
+ORDINARY_POSTING = """2026년 사무직 채용
+
+채용개요
+사무행정 2명
+
+자격요건
+관련 업무 경력 2년 이상
+
+전형절차
+서류전형 후 면접전형
+
+일정
+접수 기간: 2026. 9. 1. ~ 9. 12.
+
+근무조건
+연봉 3,600만원
+
+문의처
+인사팀 02-1234-5678
+"""
+
+
+def test_all_four_fairness_dimensions_fire_on_ordinary_posting() -> None:
+    result = FairpostEngine().check(ORDINARY_POSTING)
+    dimensions = {question.dimension for question in result.questions}
+    assert dimensions == {"분배", "절차", "대인", "정보"}
+
+
+def test_finding_link_emits_related_question_without_its_own_trigger() -> None:
+    result = FairpostEngine().check("용모 단정한 지원자를 찾습니다.")
+    assert any(finding.id == "LOOK-001" for finding in result.findings)
+    linked = next(item for item in result.questions if item.id == "Q-INTER-001")
+    assert linked.trigger_reason == "finding"
+    assert linked.linked_findings == ["LOOK-001"]
+    assert linked.priority == 1
+    assert linked.matched_text is None
+
+
+def test_question_that_fires_on_its_own_trigger_keeps_that_reason() -> None:
+    result = FairpostEngine().check("밝은 성격의 지원자를 찾습니다.")
+    question = next(item for item in result.questions if item.id == "Q-INTER-001")
+    assert question.trigger_reason == "presence"
+    assert question.linked_findings == []
+    assert question.matched_text == "밝은 성격"
+
+
+def test_questions_are_ordered_by_priority_then_id() -> None:
+    result = FairpostEngine().check(FULL_POSTING)
+    ordering = [(item.priority, item.id) for item in result.questions]
+    assert ordering == sorted(ordering)
+    assert all(
+        item.priority == 1 for item in result.questions if item.linked_findings
+    )
+
+
+def test_every_law_rule_declares_related_questions() -> None:
+    rules = yaml.safe_load((DATA / "rules" / "law.yaml").read_text(encoding="utf-8"))
+    missing = [rule["id"] for rule in rules if not rule.get("related_questions")]
+    assert missing == []
+
+
+def test_related_questions_must_reference_an_existing_question(tmp_path: Path) -> None:
+    copied = tmp_path / "data"
+    shutil.copytree(DATA, copied)
+    path = copied / "rules" / "law.yaml"
+    rules = yaml.safe_load(path.read_text(encoding="utf-8"))
+    rules[0]["related_questions"] = ["Q-DOES-NOT-EXIST"]
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleLoadError, match="related_questions"):
+        load_ruleset(copied)
+
+
+def test_question_rules_may_not_declare_related_questions(tmp_path: Path) -> None:
+    copied = tmp_path / "data"
+    shutil.copytree(DATA, copied)
+    path = copied / "rules" / "questions.yaml"
+    rules = yaml.safe_load(path.read_text(encoding="utf-8"))
+    rules[0]["related_questions"] = ["Q-INTER-001"]
+    path.write_text(
+        yaml.safe_dump(rules, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleLoadError, match="law 규칙에만"):
+        load_ruleset(copied)
+
+
+def test_finding_link_respects_the_questions_own_protective_exclusion() -> None:
+    result = FairpostEngine().check("블라인드 안내: 임신 여부는 기재하지 마세요.")
+    assert any(finding.id == "PREG-001" for finding in result.findings)
+    assert "Q-DIST-017" not in {item.id for item in result.questions}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "2차 AI 역량검사 - AI가 최종 결정하며 사람의 재검토는 제공하지 않음",
+        "AI가 최종 결정하며 재검토는 없음",
+        "AI 자동 탈락을 적용하며 이의신청은 받지 않음",
+    ],
+)
+def test_negated_human_review_does_not_protect_the_automated_decision(
+    text: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    assert "AI-001" in {finding.id for finding in result.findings}

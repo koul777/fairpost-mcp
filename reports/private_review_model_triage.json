@@ -1,0 +1,145 @@
+{
+  "actions": [
+    {
+      "change": "연령 제한 없음과 나이 제한 없음 표현을 모두 보호 문맥으로 처리한다.",
+      "decision": "implemented",
+      "risk": "low",
+      "rule_id": "AGE-002"
+    },
+    {
+      "change": "취업지원 프로그램 대상 연령과 완곡한 연령 선호는 broad hard exclusion 대신 사람 검토로 분리한다.",
+      "decision": "human_review_backlog",
+      "risk": "medium",
+      "rule_id": "AGE-002"
+    }
+  ],
+  "aggregate": {
+    "false_positive": 2,
+    "reviewed": 148,
+    "true_positive": 145,
+    "uncertain": 1
+  },
+  "created_at": "2026-08-03T23:12:00+09:00",
+  "limitations": [
+    "The classifications were produced by a model from de-identified snippets and are not human ground truth.",
+    "The sample is drawn from one public local-job source and cannot estimate private-market precision or prevalence.",
+    "A law-rule true-positive means the snippet matches the rule message, not that an employer violated a law.",
+    "The expanded Q-DIST-015 rows were checked only for alignment with the review question, including potentially protective measures; they are not discrimination labels.",
+    "The expanded RETURN-001 and Q-INFO-013 rows were checked for alignment with their respective rule message and review question, not for a final legal conclusion.",
+    "The Q-DIST-017 rows were checked only for relevance to the marital or pregnancy screening question, not as discrimination findings.",
+    "The Q-DIST-012 row was checked only for relevance to the religious qualification question, not as a discrimination finding.",
+    "Human review remains required before changing performance claims or promoting a new baseline."
+  ],
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "not_human_labels": true,
+  "not_performance_measurement": true,
+  "privacy_boundary": {
+    "contains_context": false,
+    "contains_matched_text": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false,
+    "contains_review_ids": false,
+    "contains_source_ids": false
+  },
+  "rules": [
+    {
+      "false_positive": 2,
+      "reviewed": 20,
+      "rule_id": "AGE-002",
+      "true_positive": 17,
+      "uncertain": 1
+    },
+    {
+      "false_positive": 0,
+      "reviewed": 4,
+      "rule_id": "PHOTO-001",
+      "true_positive": 4,
+      "uncertain": 0
+    },
+    {
+      "false_positive": 0,
+      "reviewed": 17,
+      "rule_id": "Q-DIST-007",
+      "true_positive": 17,
+      "uncertain": 0
+    },
+    {
+      "false_positive": 0,
+      "reviewed": 1,
+      "rule_id": "Q-DIST-012",
+      "true_positive": 1,
+      "uncertain": 0
+    },
+    {
+      "false_positive": 0,
+      "reviewed": 20,
+      "rule_id": "Q-DIST-015",
+      "true_positive": 20,
+      "uncertain": 0
+    },
+    {
+      "false_positive": 0,
+      "reviewed": 1,
+      "rule_id": "Q-DIST-016",
+      "true_positive": 1,
+      "uncertain": 0
+    },
+    {
+      "false_positive": 0,
+      "reviewed": 2,
+      "rule_id": "Q-DIST-017",
+      "true_positive": 2,
+      "uncertain": 0
+    },
+    {
+      "false_positive": 0,
+      "reviewed": 12,
+      "rule_id": "Q-INFO-013",
+      "true_positive": 12,
+      "uncertain": 0
+    },
+    {
+      "false_positive": 0,
+      "reviewed": 20,
+      "rule_id": "Q-INFO-011",
+      "true_positive": 20,
+      "uncertain": 0
+    },
+    {
+      "false_positive": 0,
+      "reviewed": 20,
+      "rule_id": "Q-INFO-014",
+      "true_positive": 20,
+      "uncertain": 0
+    },
+    {
+      "false_positive": 0,
+      "reviewed": 11,
+      "rule_id": "RETURN-001",
+      "true_positive": 11,
+      "uncertain": 0
+    },
+    {
+      "false_positive": 0,
+      "reviewed": 20,
+      "rule_id": "SEX-001",
+      "true_positive": 20,
+      "uncertain": 0
+    }
+  ],
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "schema_version": "private-review-model-triage-v1",
+  "scope": {
+    "records": 148,
+    "sector": "private",
+    "selection": "deterministic per-rule sample from a de-identified local review queue",
+    "split": "train_only"
+  },
+  "status": "model_assisted_triage_only"
+}

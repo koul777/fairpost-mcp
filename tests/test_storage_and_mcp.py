@@ -31,10 +31,44 @@ def test_mcp_check_injects_saved_answer(
     store.save("org-a", "Q-INFO-001", "온라인 이의신청 창구를 마련합니다.")
     monkeypatch.setattr(server, "answer_store", store)
     result = server.check_job_posting("간단한 채용 공고", "org-a")
-    question = next(
-        item for item in result.questions if item.id == "Q-INFO-001"
-    )
-    assert question.saved_answer == "온라인 이의신청 창구를 마련합니다."
+    assert "[Q-INFO-001]" in result
+    assert "저장된 답변: 온라인 이의신청 창구를 마련합니다." in result
+
+
+def test_public_analysis_tools_never_read_organization_answers(
+    monkeypatch,
+) -> None:
+    class FailOnReadStore:
+        def get(self, _org_id: str):
+            raise AssertionError("public tools must not read organization answers")
+
+    monkeypatch.setattr(server, "answer_store", FailOnReadStore())
+
+    checked = server.check_job_posting_public("간단한 채용 공고")
+    next_question = server.next_review_question_public("간단한 채용 공고")
+
+    assert "저장된 답변:" not in checked
+    assert isinstance(next_question["progress"], dict)
+
+
+def test_check_output_describes_candidates_without_declaring_illegality() -> None:
+    checked = server.check_job_posting_public("여성만 지원 가능")
+
+    assert "관련 법령 표현 검토 후보" in checked
+    assert "법령 위반 사항" not in checked
+
+
+def test_vercel_transport_security_allows_current_production_hostname(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.delenv("FAIRPOST_MCP_ALLOWED_HOSTS", raising=False)
+    monkeypatch.delenv("FAIRPOST_MCP_ALLOWED_ORIGINS", raising=False)
+
+    settings = server._transport_security_from_environment()
+
+    assert "fairmcp.vercel.app" in settings.allowed_hosts
+    assert "https://fairmcp.vercel.app" in settings.allowed_origins
 
 
 def test_mcp_save_and_get_tools(tmp_path: Path, monkeypatch) -> None:
@@ -69,8 +103,26 @@ def test_vercel_without_durable_credentials_disables_answer_storage(
         monkeypatch.delenv(name, raising=False)
     store = storage.build_answer_store()
     assert isinstance(store, UnavailableRemoteAnswerStore)
-    with pytest.raises(ValueError, match="UPSTASH_REDIS_REST_URL"):
+    with pytest.raises(ValueError, match="루프백 로컬 MCP"):
         store.save("org-a", "Q-INFO-001", "답변")
+
+
+def test_local_store_does_not_auto_select_cloud_from_environment(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    answers_path = tmp_path / "answers.json"
+    monkeypatch.delenv("VERCEL", raising=False)
+    monkeypatch.setenv("FAIRPOST_ANSWERS_PATH", str(answers_path))
+    monkeypatch.setenv("UPSTASH_REDIS_REST_URL", "https://redis.example")
+    monkeypatch.setenv("UPSTASH_REDIS_REST_TOKEN", "secret")
+
+    store = storage.build_answer_store()
+
+    assert isinstance(store, LocalAnswerStore)
+    store.save("org-a", "Q-INFO-001", "로컬 답변")
+    assert store.get("org-a") == {"Q-INFO-001": "로컬 답변"}
+    assert answers_path.is_file()
 
 
 def test_upstash_store_hashes_org_id_and_uses_request_body(
@@ -91,10 +143,10 @@ def test_upstash_store_hashes_org_id_and_uses_request_body(
         def __exit__(self, *_args):
             return None
 
-        def read(self) -> bytes:
+        def read(self, _limit: int = -1) -> bytes:
             return json.dumps(next(responses), ensure_ascii=False).encode("utf-8")
 
-    def fake_urlopen(request, timeout):
+    def fake_urlopen(request, *, timeout):
         calls.append(
             {
                 "url": request.full_url,
@@ -105,7 +157,7 @@ def test_upstash_store_hashes_org_id_and_uses_request_body(
         )
         return Response()
 
-    monkeypatch.setattr(storage, "urlopen", fake_urlopen)
+    monkeypatch.setattr(storage, "_open_upstash", fake_urlopen)
     store = UpstashAnswerStore("https://redis.example", "secret")
     store.save("실제 기관명", "Q-INFO-001", "인사팀에서 검토")
     assert store.get("실제 기관명") == {"Q-INFO-001": "인사팀에서 검토"}
@@ -115,3 +167,47 @@ def test_upstash_store_hashes_org_id_and_uses_request_body(
     assert calls[0]["body"][0] == "HSET"
     assert calls[1]["body"][0] == "HGETALL"
     assert calls[0]["authorization"] == "Bearer secret"
+
+
+def test_upstash_store_requires_safe_https_endpoint() -> None:
+    with pytest.raises(ValueError, match="HTTPS URL"):
+        UpstashAnswerStore("http://redis.example", "secret")
+    with pytest.raises(ValueError, match="HTTPS URL"):
+        UpstashAnswerStore("https://user:pass@redis.example", "secret")
+    with pytest.raises(ValueError, match="HTTPS URL"):
+        UpstashAnswerStore("https://redis.example?token=leak", "secret")
+
+
+def test_upstash_store_rejects_oversized_response(monkeypatch) -> None:
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self, _limit: int = -1) -> bytes:
+            return b"x" * (storage.MAX_UPSTASH_RESPONSE_BYTES + 1)
+
+    monkeypatch.setattr(
+        storage,
+        "_open_upstash",
+        lambda _request, *, timeout: Response(),
+    )
+    store = UpstashAnswerStore("https://redis.example", "secret")
+
+    with pytest.raises(ValueError, match="응답이 너무 큽니다"):
+        store.get("org-a")
+
+
+def test_upstash_redirect_handler_refuses_redirects() -> None:
+    handler = storage._RejectRedirects()
+    assert handler.redirect_request(None, None, 307, "redirect", {}, None) is None
+
+
+def test_answer_store_rejects_unbounded_values(tmp_path: Path) -> None:
+    store = LocalAnswerStore(tmp_path / "answers.json")
+    with pytest.raises(ValueError, match="org_id는 256자"):
+        store.get("o" * 257)
+    with pytest.raises(ValueError, match="answer는 10000자"):
+        store.save("org", "Q-INFO-001", "a" * 10_001)

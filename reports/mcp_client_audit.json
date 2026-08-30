@@ -1,7 +1,16 @@
 {
-  "audited_at": "2026-07-26T17:55:00+09:00",
+  "schema_version": "fairpost-mcp-client-audit-v2",
+  "audited_at": "2026-08-30T21:44:31+09:00",
+  "evidence_status": "current",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "matching_version": "match-1e34d81e35e57b3f",
+  "runtime_source_fingerprint": "runtime-80e0b75fc38d7997605a3846116e24934227610f4e5e4fa9d1239ad9807fb594",
+  "deployment_id": "dpl_cUcfq9BHLii585uadhh3i32swww3",
+  "vercel_deployment_audit_sha256": "afaa8db491f81d9d1ecfffe3401b7523d7ef6f5aa37dd50f2910601bf299a71e",
   "contains_posting_text": false,
-  "endpoint": "https://fairpost-mcp.vercel.app/api/mcp",
+  "synthetic_input_only": true,
+  "endpoint": "https://fairmcp.vercel.app/api/mcp",
+  "authentication": "bearer",
   "local_endpoint": "http://127.0.0.1:8000/mcp",
   "project_config": {
     "path": ".mcp.json",
@@ -17,40 +26,47 @@
     "invocation_passed": false,
     "project_registration_passed": true,
     "status": "servers-discovered-pending-user-approval",
-    "version": "2.1.219"
+    "version": "2.1.251"
   },
   "codex": {
     "global_registration_passed": true,
     "name": "fairpost",
     "transport": "streamable_http",
-    "endpoint": "https://fairpost-mcp.vercel.app/api/mcp",
+    "endpoint": "https://fairmcp.vercel.app/api/mcp",
     "bearer_token_env_var": "FAIRPOST_MCP_TOKEN",
     "enabled": true,
     "remote_protocol_verification_passed": true,
-    "tools_verified": 3,
+    "tools_verified": 2,
     "reload_required_for_current_session": true
   },
   "official_inspector": {
-    "endpoint": "http://127.0.0.1:8000/mcp",
+    "endpoint": "https://fairmcp.vercel.app/api/mcp",
     "finding": {
       "article": "제7조",
       "id": "SEX-001",
       "law": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률"
     },
     "is_error": false,
+    "tools_list_exit_code": 0,
     "tool_call_exit_code": 0,
-    "tool_called": "check_job_posting",
-    "transport": "http",
-    "version": "1.0.0"
-  },
-  "sdk_protocol": {
-    "local_protocol_passed": true,
-    "vercel_protocol_audit": "reports/vercel_deployment_audit.json",
-    "all_tools_called": true,
+    "tool_count": 2,
     "tools": [
       "check_job_posting",
-      "get_saved_answers",
-      "save_answer"
+      "next_review_question"
+    ],
+    "all_tools_read_only": true,
+    "tool_called": "check_job_posting",
+    "transport": "http",
+    "version": "2.4.0",
+    "raw_posting_recorded": false,
+    "secret_recorded": false
+  },
+  "sdk_protocol": {
+    "vercel_protocol_audit": "reports/vercel_deployment_audit.json",
+    "all_public_tools_called": true,
+    "tools": [
+      "check_job_posting",
+      "next_review_question"
     ]
   },
   "passed": true,

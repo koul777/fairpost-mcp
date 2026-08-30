@@ -1,0 +1,47 @@
+{
+  "configuration": {
+    "engine_initialization_timed": false,
+    "max_records": null,
+    "measured_postings": 1260,
+    "percentile_method": "nearest_rank",
+    "repeats": 3,
+    "timing_source": "time.perf_counter (monotonic)",
+    "warmup_passes": 1
+  },
+  "generated_at": "2026-08-30T09:20:56.951016+00:00",
+  "input": {
+    "records": 420,
+    "sha256": "8dd411d311d757a77ac09f178785ca9b6f81bae7b540f4d6f55344b1239fb7dd",
+    "split": "train_only"
+  },
+  "matching_version": "match-1e34d81e35e57b3f",
+  "metrics": {
+    "elapsed_seconds": 19.675188,
+    "latency_ms": {
+      "max": 64.0758,
+      "mean": 15.615229,
+      "min": 2.6969,
+      "p50": 10.7092,
+      "p95": 36.5169,
+      "p99": 44.1121,
+      "samples": 1260
+    },
+    "postings_per_second": 64.04
+  },
+  "privacy": {
+    "contains_organization_data": false,
+    "contains_per_record_timings": false,
+    "contains_posting_text": false,
+    "contains_record_ids": false
+  },
+  "production_sla_claim": false,
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "runtime": {
+    "machine": "AMD64",
+    "operating_system": "Windows",
+    "python_implementation": "CPython",
+    "python_version": "3.12.7"
+  },
+  "schema_version": 1,
+  "scope": "development_train_benchmark"
+}

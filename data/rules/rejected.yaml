@@ -23,3 +23,47 @@
   converted_to: Q-INTER-002
   reviewed_by: fairpost-maintainers
   reviewed_at: "2026-07-26"
+
+- candidate: 여성 우대ㆍ남성 우대ㆍ성별 선호
+  corpus_hits: 50
+  corpus_split: private
+  decision: deferred
+  reason: 직접 지원 제한과 동일시할 수 없고 직무 본질성 또는 적극적 고용개선 목적의 근거와 적용 범위를 사람 검토해야 함
+  converted_to: Q-DIST-015
+  reviewed_by: fairpost-maintainers
+  reviewed_at: "2026-08-03"
+
+- candidate: 전자접수 서류 반환하지 않음
+  corpus_hits: 69
+  corpus_split: private
+  decision: deferred
+  reason: 이메일 단독 제출은 반환 의무의 예외일 수 있지만 이메일ㆍ방문 혼합 접수의 일률적 미반환은 종이 채용서류가 포함될 수 있어, 제출 방식과 반환ㆍ보관ㆍ파기 대상을 구분하는 질문이 적합
+  converted_to: Q-INFO-013
+  reviewed_by: fairpost-maintainers
+  reviewed_at: "2026-08-03"
+
+- candidate: 불합격자 별도 통보 없음ㆍ합격자만 개별 통보
+  corpus_hits: 161
+  corpus_split: private
+  decision: deferred
+  reason: 채용절차법 제3조의 상시 30명 이상 적용 여부와 공고 밖 별도 통지ㆍ결과조회 경로를 공고문만으로 확정할 수 없어, 제10조 채용 여부 고지 의무의 적용범위ㆍ대상ㆍ시점ㆍ채널을 사람 검토해야 함
+  converted_to: Q-INFO-014
+  reviewed_by: fairpost-maintainers
+  reviewed_at: "2026-08-04"
+
+- candidate: 외국인 지원 불가ㆍ내국인만ㆍ대한민국 국적자만
+  corpus_hits: 1
+  corpus_split: private
+  decision: deferred
+  reason: 국적에 따른 일률적 배제와 국내 취업이 가능한 체류자격ㆍ직무상 언어 또는 보안요건 확인을 구분해 사람 검토해야 함
+  converted_to: Q-DIST-016
+  reviewed_by: fairpost-maintainers
+  reviewed_at: "2026-08-04"
+
+- candidate: 종교ㆍ교회ㆍ성당ㆍ사찰 단독 키워드
+  corpus_hits: 148
+  corpus_split: private
+  decision: rejected
+  reason: 기관명ㆍ근무지ㆍ서비스 대상 또는 블라인드 기재금지 안내가 대부분이라 단독 키워드로 검토 질문을 발동하면 무관 문맥이 과다 포함됨
+  reviewed_by: fairpost-maintainers
+  reviewed_at: "2026-08-04"

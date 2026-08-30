@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
-import locale
 from pathlib import Path
 import subprocess
 import sys
@@ -33,6 +33,72 @@ def load_analyze_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_external_xml_entities_are_rejected() -> None:
+    module = load_collect_module()
+    payload = (
+        '<!DOCTYPE root [<!ENTITY injected SYSTEM "file:///etc/passwd">]>'
+        "<root>&injected;</root>"
+    )
+
+    with pytest.raises(RuntimeError, match="안전하지 않거나 잘못된 XML"):
+        module._parse_xml(payload, context="test")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://example.test/postings.xml",
+        "file:///etc/passwd",
+        "https://user:secret@example.test/postings.xml",
+        "https://example.test/postings.xml#fragment",
+    ],
+)
+def test_collection_urls_must_be_safe_https(url: str) -> None:
+    module = load_collect_module()
+
+    with pytest.raises(ValueError, match="HTTPS URL"):
+        module._validate_https_url(url)
+
+
+class _BoundedResponse(io.BytesIO):
+    def __init__(self, payload: bytes, content_length: str | None = None) -> None:
+        super().__init__(payload)
+        self.headers = {}
+        if content_length is not None:
+            self.headers["Content-Length"] = content_length
+
+
+def test_collection_response_rejects_oversized_declared_length(monkeypatch) -> None:
+    module = load_collect_module()
+    monkeypatch.setenv("FAIRPOST_MAX_DOWNLOAD_BYTES", "4")
+    response = _BoundedResponse(b"data", content_length="5")
+
+    with pytest.raises(module.CollectionResponseTooLarge, match="exceeds 4 bytes"):
+        module._read_bounded_response(response)
+
+
+def test_collection_response_rejects_oversized_stream(monkeypatch) -> None:
+    module = load_collect_module()
+    monkeypatch.setenv("FAIRPOST_MAX_DOWNLOAD_BYTES", "4")
+    response = _BoundedResponse(b"12345")
+
+    with pytest.raises(module.CollectionResponseTooLarge, match="exceeds 4 bytes"):
+        module._read_bounded_response(response)
+    assert response.tell() == 5
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "not-a-number"])
+def test_collection_response_rejects_invalid_size_limit(
+    monkeypatch,
+    value: str,
+) -> None:
+    module = load_collect_module()
+    monkeypatch.setenv("FAIRPOST_MAX_DOWNLOAD_BYTES", value)
+
+    with pytest.raises(ValueError, match="positive integer"):
+        module._read_bounded_response(_BoundedResponse(b"data"))
 
 
 def test_deidentification_and_split_hash_isolation() -> None:
@@ -275,7 +341,7 @@ def test_candidate_miner_rejects_holdout_path(tmp_path: Path) -> None:
         cwd=ROOT,
         capture_output=True,
         text=True,
-        encoding=locale.getpreferredencoding(False),
+        encoding="utf-8",
         errors="replace",
     )
     assert completed.returncode != 0

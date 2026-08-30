@@ -1,5 +1,6 @@
 {
-  "checked_at": "2026-07-26T16:47:58+09:00",
+  "schema_version": "fairpost-work24-access-audit-v1",
+  "checked_at": "2026-08-04T04:50:00+09:00",
   "endpoint": "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do",
   "request": {
     "callTp": "L",
@@ -18,6 +19,7 @@
   "response_root": "GO24",
   "result": "api_business_error",
   "error": "개인회원은 사용할 수 없는 OPEN-API입니다.",
+  "recheck": "display=1 최소 목록 호출에서 동일 오류 재현; 파일 생성 없음",
   "interpretation": "요청 형식과 XML 파싱 문제가 아니라 고용24가 현재 키를 개인회원 권한으로 식별한 결과입니다.",
   "prd_impact": "PRD 7.1의 민간 Work24 300건 코퍼스는 이 계정 권한이 변경되기 전까지 공식 API에서 재수집할 수 없습니다."
 }

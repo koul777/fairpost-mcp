@@ -1,0 +1,191 @@
+{
+  "created_at": "2026-08-30T15:38:28+09:00",
+  "input": {
+    "records": 2100,
+    "sector": "private",
+    "source_categories": 1,
+    "split": "train_only"
+  },
+  "limitations": [
+    "고정 해시 순서와 고유 문맥 축약을 사용한 목적표본이며 무작위 게시물 표본이 아니다.",
+    "동일 공고가 여러 규칙에 걸리면 규칙별 후보와 선택 행에 중복 가중될 수 있다.",
+    "선택 행 수와 aggregate precision은 시장 발생률이나 게시물 수준 성능을 뜻하지 않는다.",
+    "현재 입력은 단일 출처 범주이므로 민간 채용시장 전체로 일반화하지 않는다."
+  ],
+  "matching_version": "match-1e34d81e35e57b3f",
+  "privacy_boundary": {
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false,
+    "contains_posting_text": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false
+  },
+  "rule_sampling": {
+    "AGE-002": {
+      "candidate_matches": 192,
+      "collapsed_duplicate_contexts": 58,
+      "selected_rows": 20,
+      "truncated_unique_contexts": 114,
+      "unique_contexts": 134
+    },
+    "AI-001": {
+      "candidate_matches": 0,
+      "collapsed_duplicate_contexts": 0,
+      "selected_rows": 0,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 0
+    },
+    "DISABILITY-001": {
+      "candidate_matches": 0,
+      "collapsed_duplicate_contexts": 0,
+      "selected_rows": 0,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 0
+    },
+    "FAMILY-001": {
+      "candidate_matches": 0,
+      "collapsed_duplicate_contexts": 0,
+      "selected_rows": 0,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 0
+    },
+    "HEALTH-001": {
+      "candidate_matches": 0,
+      "collapsed_duplicate_contexts": 0,
+      "selected_rows": 0,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 0
+    },
+    "PHOTO-001": {
+      "candidate_matches": 4,
+      "collapsed_duplicate_contexts": 0,
+      "selected_rows": 4,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 4
+    },
+    "Q-DIST-004": {
+      "candidate_matches": 255,
+      "collapsed_duplicate_contexts": 14,
+      "selected_rows": 20,
+      "truncated_unique_contexts": 221,
+      "unique_contexts": 241
+    },
+    "Q-DIST-006": {
+      "candidate_matches": 10,
+      "collapsed_duplicate_contexts": 0,
+      "selected_rows": 10,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 10
+    },
+    "Q-DIST-007": {
+      "candidate_matches": 28,
+      "collapsed_duplicate_contexts": 11,
+      "selected_rows": 17,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 17
+    },
+    "Q-DIST-010": {
+      "candidate_matches": 27,
+      "collapsed_duplicate_contexts": 1,
+      "selected_rows": 20,
+      "truncated_unique_contexts": 6,
+      "unique_contexts": 26
+    },
+    "Q-DIST-012": {
+      "candidate_matches": 1,
+      "collapsed_duplicate_contexts": 0,
+      "selected_rows": 1,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 1
+    },
+    "Q-DIST-013": {
+      "candidate_matches": 15,
+      "collapsed_duplicate_contexts": 1,
+      "selected_rows": 14,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 14
+    },
+    "Q-DIST-014": {
+      "candidate_matches": 0,
+      "collapsed_duplicate_contexts": 0,
+      "selected_rows": 0,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 0
+    },
+    "Q-DIST-015": {
+      "candidate_matches": 50,
+      "collapsed_duplicate_contexts": 0,
+      "selected_rows": 20,
+      "truncated_unique_contexts": 30,
+      "unique_contexts": 50
+    },
+    "Q-DIST-016": {
+      "candidate_matches": 1,
+      "collapsed_duplicate_contexts": 0,
+      "selected_rows": 1,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 1
+    },
+    "Q-DIST-017": {
+      "candidate_matches": 2,
+      "collapsed_duplicate_contexts": 0,
+      "selected_rows": 2,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 2
+    },
+    "Q-INFO-011": {
+      "candidate_matches": 162,
+      "collapsed_duplicate_contexts": 33,
+      "selected_rows": 20,
+      "truncated_unique_contexts": 109,
+      "unique_contexts": 129
+    },
+    "Q-INFO-013": {
+      "candidate_matches": 69,
+      "collapsed_duplicate_contexts": 57,
+      "selected_rows": 12,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 12
+    },
+    "Q-INFO-014": {
+      "candidate_matches": 161,
+      "collapsed_duplicate_contexts": 82,
+      "selected_rows": 20,
+      "truncated_unique_contexts": 59,
+      "unique_contexts": 79
+    },
+    "Q-PROC-006": {
+      "candidate_matches": 1365,
+      "collapsed_duplicate_contexts": 70,
+      "selected_rows": 20,
+      "truncated_unique_contexts": 1275,
+      "unique_contexts": 1295
+    },
+    "RETURN-001": {
+      "candidate_matches": 68,
+      "collapsed_duplicate_contexts": 57,
+      "selected_rows": 11,
+      "truncated_unique_contexts": 0,
+      "unique_contexts": 11
+    },
+    "SEX-001": {
+      "candidate_matches": 629,
+      "collapsed_duplicate_contexts": 29,
+      "selected_rows": 20,
+      "truncated_unique_contexts": 580,
+      "unique_contexts": 600
+    }
+  },
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "schema_version": "private-review-sampling-audit-v1",
+  "selection": {
+    "candidate_matches": 3039,
+    "collapsed_duplicate_contexts": 413,
+    "context_chars": 120,
+    "per_rule": 20,
+    "selected_rows": 232,
+    "selected_rule_count": 22,
+    "truncated_unique_contexts": 2394,
+    "unique_contexts": 2626
+  }
+}

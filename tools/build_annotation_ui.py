@@ -4,8 +4,10 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
+import tempfile
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +19,43 @@ from core import load_ruleset  # noqa: E402
 
 def _is_holdout_path(path: Path) -> bool:
     return "holdout" in {part.casefold() for part in path.parts}
+
+
+def _paths_alias(left: Path, right: Path) -> bool:
+    try:
+        if left.resolve(strict=False) == right.resolve(strict=False):
+            return True
+    except OSError:
+        pass
+    try:
+        return left.exists() and right.exists() and os.path.samefile(left, right)
+    except OSError:
+        return False
+
+
+def validate_paths(input_path: Path, manifest_path: Path, output_path: Path) -> None:
+    for name, source in (("--input", input_path), ("--manifest", manifest_path)):
+        if _paths_alias(source, output_path):
+            raise ValueError(f"--output은 {name}과 다른 파일이어야 합니다")
+    if output_path.exists() and output_path.is_dir():
+        raise ValueError("--output은 파일 경로여야 합니다")
+
+
+def _atomic_write_text(path: Path, payload: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, staged_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    staged = Path(staged_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(staged, path)
+    except BaseException:
+        staged.unlink(missing_ok=True)
+        raise
 
 
 def load_records(input_path: Path, manifest_path: Path) -> list[dict[str, Any]]:
@@ -96,6 +135,12 @@ def build_payload(records: list[dict[str, Any]]) -> dict[str, Any]:
         "law_rules": law_rules,
         "slots": slots,
         "ruleset_version": ruleset.version,
+        "matching_version": ruleset.matching_version,
+        "evaluation_phase": "sealed_holdout_final",
+        "metric_scope": {
+            "g1_g2": ["law_expression_detection", "required_slot_absence"],
+            "question_cards": "pilot_only_not_g1_g2",
+        },
     }
 
 
@@ -131,13 +176,13 @@ def main() -> int:
     if not _is_holdout_path(args.output):
         raise SystemExit("라벨링 HTML은 holdout 경로에만 생성할 수 있습니다")
     try:
+        validate_paths(args.input, args.manifest, args.output)
         records = load_records(args.input, args.manifest)
         html = build_html(build_payload(records))
+        _atomic_write_text(args.output, html)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         raise SystemExit(str(exc)) from exc
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(html, encoding="utf-8", newline="\n")
     print(f"{len(records)}건 라벨링 화면 생성: {args.output}")
     return 0
 

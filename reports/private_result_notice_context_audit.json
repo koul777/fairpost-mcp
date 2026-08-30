@@ -1,0 +1,115 @@
+{
+  "classification": {
+    "clusters": [
+      {
+        "cluster": "successful_applicants_only_individual_notice",
+        "records": 157,
+        "share": 0.975
+      },
+      {
+        "cluster": "missing_documents_no_notice",
+        "records": 1,
+        "share": 0.006
+      },
+      {
+        "cluster": "other_selective_notice",
+        "records": 3,
+        "share": 0.019
+      },
+      {
+        "cluster": "unsuccessful_applicants_no_notice",
+        "records": 0,
+        "share": 0.0
+      },
+      {
+        "cluster": "result_lookup_available",
+        "records": 0,
+        "share": 0.0
+      },
+      {
+        "cluster": "all_applicants_notified",
+        "records": 0,
+        "share": 0.0
+      }
+    ],
+    "individual_notice_phrase_records": 158,
+    "method": "mutually exclusive de-identified phrase-cluster review",
+    "protective_exclusion_candidates": 0,
+    "selective_notice_records": 161
+  },
+  "current_context_audit": {
+    "direct_trigger_composition": {
+      "successful_applicants_only": 161,
+      "unsuccessful_applicants_no_notice_overlap": 1,
+      "other_no_notice_variant_overlap": 0
+    },
+    "exclusive_primary_context": {
+      "explicit_unsuccessful_no_notice": 1,
+      "simple_result_announcement": 70,
+      "scheduled_or_planned_announcement": 71,
+      "selective_individual_notice_without_schedule": 19,
+      "protective_result_lookup": 0,
+      "other": 0
+    },
+    "overlapping_signals": {
+      "successful_applicants_only": 161,
+      "individual_notice": 158,
+      "schedule_or_plan": 142,
+      "simple_result_announcement": 71,
+      "unsuccessful_applicant_reference": 67,
+      "missing_document_reference": 66,
+      "notice_channel": 139,
+      "direct_no_notice": 1,
+      "all_applicants_notified": 0,
+      "protective_unsuccessful_result_lookup": 0
+    },
+    "safe_downgrade_candidates": 0,
+    "downgrade_requires_all": [
+      "unsuccessful_or_all_applicants",
+      "result_lookup_available",
+      "concrete_channel",
+      "no_successful_applicants_only_condition"
+    ],
+    "decision": "hold_rule_change_pending_human_labels"
+  },
+  "created_at": "2026-08-03T16:45:00Z",
+  "decision": {
+    "action": "retain_review_question_without_new_exclusion",
+    "reason": "The observed cluster is dominated by notices limited to successful applicants; no sufficiently clear all-applicant notice or result-lookup language was found to justify a broad automatic exclusion.",
+    "risk": "medium"
+  },
+  "limitations": [
+    "Cluster assignments are model-assisted heuristics over de-identified train context, not human ground truth.",
+    "The single-source corpus cannot estimate private-market precision, recall, or prevalence.",
+    "A question activation identifies a review need and does not establish an unfair or unlawful hiring practice.",
+    "Human review is required before changing Q-INFO-014 or making a performance claim."
+  ],
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "not_human_labels": true,
+  "not_performance_measurement": true,
+  "privacy_boundary": {
+    "contains_context": false,
+    "contains_matched_text": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false
+  },
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "schema_version": "private-result-notice-context-audit-v1",
+  "scope": {
+    "activated_records": 161,
+    "records": 2100,
+    "rule_id": "Q-INFO-014",
+    "sector": "private",
+    "source_category_count": 1,
+    "split": "train_only"
+  },
+  "status": "model_assisted_aggregate_only"
+}

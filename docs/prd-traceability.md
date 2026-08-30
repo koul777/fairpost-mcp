@@ -14,7 +14,7 @@
 |---|---|---|
 | G1 법령 표현 정밀도 ≥ 0.90 | 미충족 | 평가기는 있으나 90개 공공 및 90개 민간 홀드아웃의 사람 라벨과 측정 보고서가 없음 |
 | G2 부재 탐지 재현율 ≥ 0.85 | 미충족 | 11개 슬롯과 평가기는 있으나 사람 라벨과 측정 보고서가 없음 |
-| G3 질문 카드 15개 이상 | 충족 | `data/rules/questions.yaml` 42개, `tools/validate_data.py`, 공고별ㆍ공통 범위와 관련성 감사 |
+| G3 질문 카드 15개 이상 | 충족 | `data/rules/questions.yaml` 52개, `tools/validate_data.py`, 공고별ㆍ공통 범위와 관련성 감사, 4차원 균형 회귀 테스트 |
 | G4 결정론 | 충족 | `test_deterministic_for_100_runs` |
 | G5 설치ㆍ키ㆍ비용 없는 웹 | 충족 | `web/index.html`, 네트워크 차단 및 CSP 테스트 |
 
@@ -28,15 +28,15 @@
 | 3블록 CheckResult와 고정 면책문 | 충족 | `core/schema.py`, `core/engine.py` |
 | 공백ㆍ특수문자ㆍ어미 정규화와 원문 offsetㆍsection | 충족 | NFKCㆍ비표준 공백ㆍ제로폭ㆍ한국어 어미 및 CRLFㆍUnicode 패리티 테스트 |
 | 로컬 규칙 확장 | 충족 | `FAIRPOST_LOCAL_RULES_PATH`, statute 근거 거부 테스트 |
-| MCP 도구 3종 | 충족 | `check_job_posting`, `save_answer`, `get_saved_answers` 프로토콜 테스트 |
+| MCP 도구 4종 | 충족 | 루프백 로컬은 4도구를 제공하고, 인증ㆍ익명 원격 배포는 모두 `check_job_posting`, `next_review_question`만 제공하는 프로토콜 테스트 |
 | 기본 MCP Streamable HTTP | 충족 | `fairpost-mcp`, `test_streamable_http_is_default_and_calls_all_tools` |
 | Claude 계열 클라이언트 HTTP 설정 | 부분 충족 | `.mcp.json`에 Vercel 운영ㆍ로컬 HTTP를 등록하고 SDKㆍInspector 원격 호출 성공. Claude Code 프로젝트 승인은 대기 중 |
-| 사용자 로컬 답변 저장 | 충족 | `LocalAnswerStore`, 격리 경로 및 HTTP 왕복 테스트. Vercel 저장은 Upstash 미연결로 비활성 |
+| 사용자 로컬 답변 저장 | 충족 | `LocalAnswerStore`, 격리 경로 및 HTTP 왕복 테스트. Vercel 원격은 저장 도구 자체를 노출하지 않음 |
 | 정적 웹ㆍMCP 결과 동등성 | 충족 | Python/JavaScript 패리티 테스트 |
 
 PRD의 엄격한 개인정보 경계를 충족하는 HTTP 주소는
 `http://127.0.0.1:8000/mcp`다. Vercel 운영 주소
-`https://fairpost-mcp.vercel.app/api/mcp`는 사용자가 별도로 요청한
+`https://fairmcp.vercel.app/api/mcp`는 사용자가 별도로 요청한
 확장 모드다. 원문을 영속 저장하지 않지만 AI 제공자와 Vercel로 전송되므로
 PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 문서에 고지한다.
 
@@ -45,7 +45,7 @@ PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 �
 | 요구사항 | 상태 | 현재 증거 |
 |---|---|---|
 | 법령 규칙 15개 이상 | 충족 | `data/rules/law.yaml` 19개 |
-| 질문 카드 15개 이상 | 충족 | `data/rules/questions.yaml` 42개 |
+| 질문 카드 15개 이상 | 충족 | `data/rules/questions.yaml` 52개 |
 | rejected/deferred 기록 | 충족 | `data/rules/rejected.yaml`, 데이터 검증기 |
 | 6개 대상 법령 스냅샷 | 충족 | `data/statutes/*.yaml` |
 | 원문ㆍ시행일ㆍ해시 검증 | 충족 | 공식 법령 API 대조 보고서, 스냅샷 테스트 |
@@ -65,13 +65,15 @@ PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 �
 | 원문 미배포 | 충족 | `.corpus*/` Git 제외, 익명 집계만 `reports/`에 존재 |
 | 후보 추출ㆍ정규화 도구 | 충족 | `mine_candidates.py`, `normalize_candidates.py` |
 | 질문 관련성 감사 | 충족 | train-only 420건 익명 집계, 공통 체크리스트와 누락 슬롯 중복 분리, 명백한 문맥 오발동 104개 감소. `docs/question-relevance-audit.md` |
+| 민간 반복 공정성 감사 자동화 | 충족 | `tools/run_private_fairness_cycle.py`의 train-only snapshot→익명 audit→기준선 drift→로컬 review queue 단일 실행, 경로 충돌ㆍrollbackㆍ익명 출력ㆍ버전 호환성 검증 |
+| 민간 사람 검토 성능 게이트 | 부분 충족 | queue, 오프라인 검토 UI와 summary 도구, 규칙별 최소 검토 수ㆍ정밀도 임계값ㆍ누락 규칙 경보, 원본 snapshot 해시ㆍ외부 기대 규칙 결합을 구현. 현재 232건 미라벨로 summary `alert`, precision `null`이며 G1ㆍG2 증거가 아님 |
 | 봉인 홀드아웃 평가 | 부분 충족 | 오염 차단, 정식 180건 로컬 라벨링 화면과 완전 라벨 강제는 구현. `reports/human_labeling_handoff.json` 생성, 사람 정답 데이터 없음 |
 
 ## 수용 기준
 
-AC-1~AC-18의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. 현재
-162개 테스트가 통과한다. 다만 수용 기준 통과가 G1ㆍG2 성능 목표를 대신
-증명하지는 않는다.
+AC-1~AC-19의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. 현재 전수
+테스트 862개가 통과했고 JUnit 해시는 `reports/build_artifact.json`에 고정한다.
+다만 수용 기준 통과가 G1ㆍG2 성능 목표를 대신 증명하지는 않는다.
 
 ## 완료를 위해 남은 증거
 
@@ -80,4 +82,3 @@ AC-1~AC-18의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. �
 3. PRD에 지정된 Work24 민간 공고 출처를 충족할 기업회원 API 권한 또는 출처 변경 승인
 4. Git 저장소ㆍ법령 감사 Actions 성공 실행ㆍ릴리스 태그
 5. Claude Code 프로젝트 MCP 승인과 실제 Claude 호출
-6. Vercel 답변 저장을 운영할 경우 Upstash Redis

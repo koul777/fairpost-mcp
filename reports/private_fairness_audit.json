@@ -1,0 +1,637 @@
+{
+  "input": {
+    "manifest_verified": false,
+    "records": 2100,
+    "sector": "private",
+    "sha256": "ea418b26ad1ee8b5b5739d182d837ee03b409f56a1bf1f8dcccc26c7605791a4",
+    "sources": {
+      "jincheon-jobs": 2100
+    },
+    "split": "train_only"
+  },
+  "law_rules": [
+    {
+      "id": "AGE-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "AGE-002",
+      "rate": 0.091429,
+      "records": 192
+    },
+    {
+      "id": "AI-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "ASSET-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "BODY-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "BODY-002",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "COST-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "DISABILITY-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "FAMILY-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "HEALTH-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "IP-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "LOOK-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "ORIGIN-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "PHOTO-001",
+      "rate": 0.001905,
+      "records": 4
+    },
+    {
+      "id": "PREG-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "RETURN-001",
+      "rate": 0.032381,
+      "records": 68
+    },
+    {
+      "id": "SCHOOL-001",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "SEX-001",
+      "rate": 0.299524,
+      "records": 629
+    },
+    {
+      "id": "SEX-002",
+      "rate": 0.0,
+      "records": 0
+    }
+  ],
+  "matching_version": "match-1e34d81e35e57b3f",
+  "privacy_boundary": {
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false,
+    "contains_posting_text": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false
+  },
+  "questions": [
+    {
+      "id": "Q-DIST-001",
+      "rate": 0.364286,
+      "records": 765
+    },
+    {
+      "id": "Q-DIST-002",
+      "rate": 0.991429,
+      "records": 2082
+    },
+    {
+      "id": "Q-DIST-003",
+      "rate": 0.010952,
+      "records": 23
+    },
+    {
+      "id": "Q-DIST-004",
+      "rate": 0.121429,
+      "records": 255
+    },
+    {
+      "id": "Q-DIST-005",
+      "rate": 0.00381,
+      "records": 8
+    },
+    {
+      "id": "Q-DIST-006",
+      "rate": 0.004762,
+      "records": 10
+    },
+    {
+      "id": "Q-DIST-007",
+      "rate": 0.013333,
+      "records": 28
+    },
+    {
+      "id": "Q-DIST-008",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-DIST-009",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-DIST-010",
+      "rate": 0.012857,
+      "records": 27
+    },
+    {
+      "id": "Q-DIST-011",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-DIST-012",
+      "rate": 0.000476,
+      "records": 1
+    },
+    {
+      "id": "Q-DIST-013",
+      "rate": 0.007143,
+      "records": 15
+    },
+    {
+      "id": "Q-DIST-014",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-DIST-015",
+      "rate": 0.31,
+      "records": 651
+    },
+    {
+      "id": "Q-DIST-016",
+      "rate": 0.000476,
+      "records": 1
+    },
+    {
+      "id": "Q-DIST-017",
+      "rate": 0.000952,
+      "records": 2
+    },
+    {
+      "id": "Q-INFO-001",
+      "rate": 1.0,
+      "records": 2100
+    },
+    {
+      "id": "Q-INFO-002",
+      "rate": 0.932857,
+      "records": 1959
+    },
+    {
+      "id": "Q-INFO-003",
+      "rate": 0.230476,
+      "records": 484
+    },
+    {
+      "id": "Q-INFO-004",
+      "rate": 0.994286,
+      "records": 2088
+    },
+    {
+      "id": "Q-INFO-005",
+      "rate": 1.0,
+      "records": 2100
+    },
+    {
+      "id": "Q-INFO-006",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-INFO-007",
+      "rate": 1.0,
+      "records": 2100
+    },
+    {
+      "id": "Q-INFO-008",
+      "rate": 1.0,
+      "records": 2100
+    },
+    {
+      "id": "Q-INFO-009",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-INFO-010",
+      "rate": 0.114762,
+      "records": 241
+    },
+    {
+      "id": "Q-INFO-011",
+      "rate": 0.077143,
+      "records": 162
+    },
+    {
+      "id": "Q-INFO-012",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-INFO-013",
+      "rate": 0.032857,
+      "records": 69
+    },
+    {
+      "id": "Q-INFO-014",
+      "rate": 0.076667,
+      "records": 161
+    },
+    {
+      "id": "Q-INTER-001",
+      "rate": 0.001429,
+      "records": 3
+    },
+    {
+      "id": "Q-INTER-002",
+      "rate": 0.001429,
+      "records": 3
+    },
+    {
+      "id": "Q-INTER-003",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-INTER-004",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-INTER-005",
+      "rate": 1.0,
+      "records": 2100
+    },
+    {
+      "id": "Q-INTER-006",
+      "rate": 1.0,
+      "records": 2100
+    },
+    {
+      "id": "Q-INTER-007",
+      "rate": 0.247619,
+      "records": 520
+    },
+    {
+      "id": "Q-PROC-001",
+      "rate": 0.927619,
+      "records": 1948
+    },
+    {
+      "id": "Q-PROC-002",
+      "rate": 0.999524,
+      "records": 2099
+    },
+    {
+      "id": "Q-PROC-003",
+      "rate": 0.000476,
+      "records": 1
+    },
+    {
+      "id": "Q-PROC-004",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-PROC-005",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-PROC-006",
+      "rate": 0.65,
+      "records": 1365
+    },
+    {
+      "id": "Q-PROC-007",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-PROC-008",
+      "rate": 0.055238,
+      "records": 116
+    },
+    {
+      "id": "Q-PROC-009",
+      "rate": 1.0,
+      "records": 2100
+    },
+    {
+      "id": "Q-PROC-010",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "Q-PROC-011",
+      "rate": 0.156667,
+      "records": 329
+    },
+    {
+      "id": "Q-PROC-012",
+      "rate": 0.000476,
+      "records": 1
+    },
+    {
+      "id": "Q-PROC-013",
+      "rate": 1.0,
+      "records": 2100
+    },
+    {
+      "id": "Q-PROC-014",
+      "rate": 0.0,
+      "records": 0
+    }
+  ],
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "schema_version": "private-fairness-audit-v1",
+  "slots_found": [
+    {
+      "id": "ai_disclosure",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "appeal_channel",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "compensation",
+      "rate": 1.0,
+      "records": 2100
+    },
+    {
+      "id": "contact_point",
+      "rate": 0.769524,
+      "records": 1616
+    },
+    {
+      "id": "document_return",
+      "rate": 0.005714,
+      "records": 12
+    },
+    {
+      "id": "evaluation_criteria",
+      "rate": 0.000476,
+      "records": 1
+    },
+    {
+      "id": "preference_items",
+      "rate": 0.635714,
+      "records": 1335
+    },
+    {
+      "id": "qualification_rationale",
+      "rate": 0.009524,
+      "records": 20
+    },
+    {
+      "id": "result_notice",
+      "rate": 0.067143,
+      "records": 141
+    },
+    {
+      "id": "schedule",
+      "rate": 0.999524,
+      "records": 2099
+    },
+    {
+      "id": "selection_stages",
+      "rate": 0.072381,
+      "records": 152
+    }
+  ],
+  "slots_missing": [
+    {
+      "id": "ai_disclosure",
+      "rate": 1.0,
+      "records": 2100
+    },
+    {
+      "id": "appeal_channel",
+      "rate": 1.0,
+      "records": 2100
+    },
+    {
+      "id": "compensation",
+      "rate": 0.0,
+      "records": 0
+    },
+    {
+      "id": "contact_point",
+      "rate": 0.230476,
+      "records": 484
+    },
+    {
+      "id": "document_return",
+      "rate": 0.994286,
+      "records": 2088
+    },
+    {
+      "id": "evaluation_criteria",
+      "rate": 0.999524,
+      "records": 2099
+    },
+    {
+      "id": "preference_items",
+      "rate": 0.364286,
+      "records": 765
+    },
+    {
+      "id": "qualification_rationale",
+      "rate": 0.990476,
+      "records": 2080
+    },
+    {
+      "id": "result_notice",
+      "rate": 0.932857,
+      "records": 1959
+    },
+    {
+      "id": "schedule",
+      "rate": 0.000476,
+      "records": 1
+    },
+    {
+      "id": "selection_stages",
+      "rate": 0.927619,
+      "records": 1948
+    }
+  ],
+  "summary": {
+    "high_frequency_missing_slots": [
+      {
+        "id": "ai_disclosure",
+        "rate": 1.0,
+        "records": 2100
+      },
+      {
+        "id": "appeal_channel",
+        "rate": 1.0,
+        "records": 2100
+      },
+      {
+        "id": "document_return",
+        "rate": 0.994286,
+        "records": 2088
+      },
+      {
+        "id": "evaluation_criteria",
+        "rate": 0.999524,
+        "records": 2099
+      },
+      {
+        "id": "qualification_rationale",
+        "rate": 0.990476,
+        "records": 2080
+      },
+      {
+        "id": "result_notice",
+        "rate": 0.932857,
+        "records": 1959
+      },
+      {
+        "id": "selection_stages",
+        "rate": 0.927619,
+        "records": 1948
+      }
+    ],
+    "high_frequency_questions": [
+      {
+        "id": "Q-DIST-002",
+        "rate": 0.991429,
+        "records": 2082
+      },
+      {
+        "id": "Q-INFO-001",
+        "rate": 1.0,
+        "records": 2100
+      },
+      {
+        "id": "Q-INFO-002",
+        "rate": 0.932857,
+        "records": 1959
+      },
+      {
+        "id": "Q-INFO-004",
+        "rate": 0.994286,
+        "records": 2088
+      },
+      {
+        "id": "Q-INFO-005",
+        "rate": 1.0,
+        "records": 2100
+      },
+      {
+        "id": "Q-INFO-007",
+        "rate": 1.0,
+        "records": 2100
+      },
+      {
+        "id": "Q-INFO-008",
+        "rate": 1.0,
+        "records": 2100
+      },
+      {
+        "id": "Q-INTER-005",
+        "rate": 1.0,
+        "records": 2100
+      },
+      {
+        "id": "Q-INTER-006",
+        "rate": 1.0,
+        "records": 2100
+      },
+      {
+        "id": "Q-PROC-001",
+        "rate": 0.927619,
+        "records": 1948
+      },
+      {
+        "id": "Q-PROC-002",
+        "rate": 0.999524,
+        "records": 2099
+      },
+      {
+        "id": "Q-PROC-009",
+        "rate": 1.0,
+        "records": 2100
+      },
+      {
+        "id": "Q-PROC-013",
+        "rate": 1.0,
+        "records": 2100
+      }
+    ],
+    "high_frequency_threshold": 0.8,
+    "law_rules_never_observed": [
+      "AGE-001",
+      "AI-001",
+      "ASSET-001",
+      "BODY-001",
+      "BODY-002",
+      "COST-001",
+      "DISABILITY-001",
+      "FAMILY-001",
+      "HEALTH-001",
+      "IP-001",
+      "LOOK-001",
+      "ORIGIN-001",
+      "PREG-001",
+      "SCHOOL-001",
+      "SEX-002"
+    ],
+    "questions_never_observed": [
+      "Q-DIST-008",
+      "Q-DIST-009",
+      "Q-DIST-011",
+      "Q-DIST-014",
+      "Q-INFO-006",
+      "Q-INFO-009",
+      "Q-INFO-012",
+      "Q-INTER-003",
+      "Q-INTER-004",
+      "Q-PROC-004",
+      "Q-PROC-005",
+      "Q-PROC-007",
+      "Q-PROC-010",
+      "Q-PROC-014"
+    ],
+    "records_with_law_findings": 773,
+    "records_with_law_findings_rate": 0.368095
+  }
+}

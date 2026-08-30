@@ -1,0 +1,98 @@
+{
+  "schema_version": "private-health-job-relevance-context-audit-v1",
+  "created_at": "2026-08-04T04:40:00+09:00",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "scope": {
+    "sector": "private",
+    "split": "train_only",
+    "total_records": 2100,
+    "rule_id": "Q-DIST-007",
+    "candidate_count": 28
+  },
+  "trigger_composition": {
+    "healthy_person_wording": 19,
+    "physical_health_wording": 9,
+    "medical_exam_pass_wording": 0,
+    "physical_condition_wording": 0,
+    "ppe_capability_wording": 0
+  },
+  "exclusive_clusters": {
+    "recruitment_medical_exam": 17,
+    "abstract_health_standard": 5,
+    "ppe_or_protective_equipment": 0,
+    "general_work_environment": 6,
+    "statutory_or_special_exam": 0,
+    "protective_or_accommodation_guidance": 0,
+    "ambiguous": 0
+  },
+  "overlapping_job_and_safety_cues": {
+    "concrete_job_expression": 22,
+    "recruitment_exam_context": 17,
+    "general_workplace_or_production_environment": 7,
+    "concrete_hazard": 0,
+    "functional_performance_requirement": 0,
+    "statutory_or_special_exam_basis": 0,
+    "explicit_ppe": 0,
+    "accommodation_or_protective_measure_guidance": 0,
+    "qualification_or_requirement_expression": 28
+  },
+  "review_priority": {
+    "high": 22,
+    "medium": 6,
+    "low": 0
+  },
+  "conservative_refinement": {
+    "status": "retain_rule_and_record_downgrade_criteria",
+    "automatic_exclusion_candidates": 0,
+    "downgrade_requires_statutory_exam_or_concrete_hazard_or_functional_requirement": true,
+    "current_general_downgrade_candidates": 0,
+    "ppe_downgrade_requires_hazard_equipment_training_and_accommodation": true,
+    "current_ppe_downgrade_candidates": 0,
+    "general_workplace_or_production_wording_is_sufficient": false
+  },
+  "external_context": {
+    "research_source_ids": [
+      "src_017",
+      "src_018"
+    ],
+    "relation": "context_only",
+    "use_boundary": "특정 질환 보유 사실을 일률적 채용 배제에 사용한 사례의 검토 맥락이며, 공고상 병력 요구 자체의 위법 판단이나 HEALTH-001 자동 확장 근거로 사용하지 않음"
+  },
+  "method": {
+    "context_window_characters_each_side": 120,
+    "exclusive_priority": [
+      "statutory_or_special_exam",
+      "protective_or_accommodation_guidance",
+      "ppe_or_protective_equipment",
+      "recruitment_medical_exam",
+      "general_work_environment",
+      "abstract_health_standard",
+      "ambiguous"
+    ],
+    "reproduction_boundary": "원문과 식별자를 저장하지 않은 현재 private train 스냅샷 집계"
+  },
+  "privacy_boundary": {
+    "contains_posting_text": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false,
+    "contains_urls": false,
+    "contains_hashes": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false
+  },
+  "limitations": {
+    "heuristic_not_human_label": true,
+    "not_performance_measurement": true,
+    "not_legal_determination": true,
+    "exclusive_cluster_sums_checked": true,
+    "overlapping_cues_do_not_sum": true,
+    "single_source_category": true
+  }
+}

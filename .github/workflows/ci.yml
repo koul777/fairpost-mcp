@@ -8,6 +8,66 @@ permissions:
   contents: read
 
 jobs:
+  # Linux owns the full evidence pipeline. Windows independently proves that
+  # Korean console output, package member paths, and installed-wheel lookup work.
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade "pip==26.2.1" "setuptools==84.0.0"
+          python -m pip install -e ".[dev]"
+      - name: Validate dictionaries and snapshots
+        run: |
+          python tools/validate_data.py
+          python tools/export_web_bundle.py --check
+      - name: Test
+        run: python -m pytest
+      - name: Build and inspect Windows package
+        shell: pwsh
+        run: |
+          $distDir = Join-Path $env:RUNNER_TEMP "dist"
+          $venvDir = Join-Path $env:RUNNER_TEMP "wheel-smoke"
+          python -m build --outdir $distDir
+          $sdist = (Get-ChildItem -LiteralPath $distDir -Filter "fairpost-*.tar.gz" | Select-Object -Last 1).FullName
+          $wheel = (Get-ChildItem -LiteralPath $distDir -Filter "fairpost-*.whl" | Select-Object -Last 1).FullName
+          python tools/verify_distribution.py `
+            --sdist $sdist `
+            --wheel $wheel `
+            --output (Join-Path $env:RUNNER_TEMP "distribution-audit.json")
+          python -m venv $venvDir
+          & (Join-Path $venvDir "Scripts/python.exe") -m pip install $wheel
+          Push-Location $env:RUNNER_TEMP
+          try {
+            & (Join-Path $venvDir "Scripts/python.exe") -c "from core import FairpostEngine; assert len(FairpostEngine().ruleset.rules) >= 71"
+          } finally {
+            Pop-Location
+          }
+
+  test-python-latest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade "pip==26.2.1" "setuptools==84.0.0"
+          python -m pip install -e ".[dev]"
+      - name: Validate dictionaries and web bundle
+        run: |
+          python tools/validate_data.py
+          python tools/export_web_bundle.py --check
+      - name: Test declared latest Python compatibility
+        run: python -m pytest
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -17,11 +77,207 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: Install
-        run: python -m pip install -e ".[dev]"
+        run: |
+          python -m pip install --upgrade "pip==26.2.1" "setuptools==84.0.0"
+          python -m pip install -e ".[dev]"
+      - name: Audit dependencies
+        run: |
+          python -m pip install "pip-audit==2.10.1"
+          python -m pip_audit --skip-editable
       - name: Validate dictionaries and snapshots
         run: |
           python tools/validate_data.py
           python tools/build_statutes.py
           python tools/export_web_bundle.py --check
+      - name: Verify release evidence and product gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/check_evidence_versions.py \
+            --scope local \
+            --output "$RUNNER_TEMP/evidence-version-audit.json"
+          python tools/audit_corpus_diversity.py \
+            --output "$RUNNER_TEMP/corpus-diversity-audit.json"
+          python tools/summarize_pilot_feedback.py \
+            --input examples/pilot_feedback.example.jsonl \
+            --output "$RUNNER_TEMP/pilot-summary.json" \
+            --min-cases 1 \
+            --min-teams 1
+      - name: Smoke-test private fairness monitoring
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          python tools/run_private_monitoring.py \
+            --input examples/private_monitoring_input.example.jsonl \
+            --output-dir "$work/baseline-snapshot" \
+            --snapshot-summary "$work/baseline-summary.json" \
+            --audit-output "$work/baseline-audit.json" \
+            > "$work/baseline-stdout.json"
+          python tools/run_private_fairness_cycle.py \
+            --input examples/private_monitoring_input.example.jsonl \
+            --output-dir "$work/current-snapshot" \
+            --snapshot-summary "$work/current-summary.json" \
+            --audit-output "$work/current-audit.json" \
+            --baseline-audit "$work/baseline-audit.json" \
+            --drift-output "$work/current-drift.json" \
+            --review-queue-output "$work/current-review.jsonl" \
+            --sampling-audit-output "$work/current-review-sampling.json" \
+            --rule-id PHOTO-001 \
+            --per-rule 1 \
+            --require-version-match \
+            > "$work/cycle-stdout.json"
+          python tools/build_private_review_ui.py \
+            --input "$work/current-review.jsonl" \
+            --output "$work/current-review.html" \
+            > "$work/review-ui-stdout.json"
+          set +e
+          python tools/summarize_private_review.py \
+            --input "$work/current-review.jsonl" \
+            --output "$work/current-review-summary.json" \
+            --manifest "$work/current-review.jsonl.manifest.json" \
+            --source-input "$work/current-snapshot/train/records.jsonl" \
+            --min-reviewed-per-rule 1 \
+            --min-precision 0.80 \
+            --expect-rule-id PHOTO-001 \
+            > "$work/review-summary-stdout.json"
+          review_status=$?
+          set -e
+          test "$review_status" -eq 2
+          python - "$work" <<'PY'
+          import hashlib
+          import json
+          import sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          records_path = root / "current-snapshot" / "train" / "records.jsonl"
+          manifest_path = root / "current-snapshot" / "train" / "manifest.json"
+          raw = records_path.read_bytes()
+          records = [json.loads(line) for line in raw.decode("utf-8").splitlines()]
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          summary = json.loads((root / "current-summary.json").read_text(encoding="utf-8"))
+          audit = json.loads((root / "current-audit.json").read_text(encoding="utf-8"))
+          cycle_stdout = json.loads((root / "cycle-stdout.json").read_text(encoding="utf-8"))
+          drift = json.loads((root / "current-drift.json").read_text(encoding="utf-8"))
+          queue = [json.loads(line) for line in (root / "current-review.jsonl").read_text(encoding="utf-8").splitlines()]
+          queue_manifest = json.loads((root / "current-review.jsonl.manifest.json").read_text(encoding="utf-8"))
+          review_html = (root / "current-review.html").read_text(encoding="utf-8")
+          review_ui_stdout = json.loads((root / "review-ui-stdout.json").read_text(encoding="utf-8"))
+          review_sampling = json.loads((root / "current-review-sampling.json").read_text(encoding="utf-8"))
+          review_summary = json.loads((root / "current-review-summary.json").read_text(encoding="utf-8"))
+          review_stdout = json.loads((root / "review-summary-stdout.json").read_text(encoding="utf-8"))
+
+          assert len(records) == 2
+          assert all(row["split"] == "train" and row["sector"] == "private" for row in records)
+          assert manifest["records_sha256"] == hashlib.sha256(raw).hexdigest()
+          assert summary["counts"]["written"] == 2
+          assert all(summary["privacy"].values())
+          assert audit["input"]["manifest_verified"] is True
+          assert all(value is False for value in audit["privacy_boundary"].values())
+          assert cycle_stdout == {
+              "alerts": 0,
+              "audit_records": 2,
+              "queued_reviews": 1,
+              "snapshot_records": 2,
+              "status": "ok",
+          }
+          assert drift["schema_version"] == "private-fairness-drift-v1"
+          assert drift["status"] == "ok"
+          assert drift["summary"]["alert_count"] == 0
+          assert len(queue) == 1
+          assert queue[0]["rule_id"] == "PHOTO-001"
+          assert queue_manifest["schema_version"] == "private-review-queue-manifest-v1"
+          assert queue_manifest["selected_rule_ids"] == ["PHOTO-001"]
+          assert queue_manifest["row_count"] == 1
+          assert review_ui_stdout == {"rows": 1, "rules": 1}
+          assert review_sampling["selection"]["selected_rows"] == 1
+          assert all(value is False for value in review_sampling["privacy_boundary"].values())
+          assert "connect-src 'none'" in review_html
+          assert "<script src=" not in review_html
+          assert "https://" not in review_html and "http://" not in review_html
+          assert review_summary["status"] == "alert"
+          assert review_summary["provenance"]["verified"] is True
+          assert review_summary["provenance"]["source_input_verified"] is True
+          assert review_summary["provenance"]["expected_rules_explicit"] is True
+          assert review_summary["aggregate"] == review_stdout
+          assert review_summary["aggregate"]["unreviewed"] == 1
+          assert review_summary["aggregate"]["precision"] is None
+          PY
       - name: Test
-        run: python -m pytest
+        run: python -m pytest --junitxml="$RUNNER_TEMP/pytest.xml"
+      - name: Build and verify candidate evidence
+        run: |
+          python -m build
+          python -m venv "$RUNNER_TEMP/wheel-smoke"
+          "$RUNNER_TEMP/wheel-smoke/bin/python" -m pip install dist/fairpost-*.whl
+          (
+            cd "$RUNNER_TEMP"
+            "$RUNNER_TEMP/wheel-smoke/bin/python" - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from core import FairpostEngine
+          from mcp_server.server import public_mcp
+
+          engine = FairpostEngine()
+          expected = json.loads(
+              (Path(os.environ["GITHUB_WORKSPACE"]) / "reports" / "corpus_rule_coverage.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          assert engine.ruleset.version == expected["ruleset_version"]
+          assert engine.ruleset.matching_version == expected["matching_version"]
+          assert sorted(
+              tool.name for tool in public_mcp._tool_manager.list_tools()
+          ) == ["check_job_posting", "next_review_question"]
+          assert not any(
+              finding.id == "AI-001"
+              for finding in engine.check(
+                  "AI가 최종 결정하지 않으며 사람이 판단합니다."
+              ).findings
+          )
+          assert any(
+              finding.id == "AI-001"
+              for finding in engine.check(
+                  "AI 자동 탈락을 적용합니다. 단, AI가 최종 결정하지 않고 사람이 판단합니다."
+              ).findings
+          )
+          assert any(
+              finding.id == "HEALTH-001"
+              for finding in engine.check(
+                  "치료 이력을 제출해야 합니다. 단, 과거 병력은 기재하지 마세요."
+              ).findings
+          )
+          PY
+          )
+          python tools/verify_distribution.py
+          python tools/build_release_report.py \
+            --junitxml "$RUNNER_TEMP/pytest.xml" \
+            --evidence-version-audit "$RUNNER_TEMP/evidence-version-audit.json" \
+            --corpus-diversity-audit "$RUNNER_TEMP/corpus-diversity-audit.json" \
+            --candidate-report \
+            --allow-stale-deployment \
+            --output "$RUNNER_TEMP/build-artifact.json"
+          python - "$RUNNER_TEMP/build-artifact.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          assert report["verification"]["tests_passed"] > 0
+          assert report["verification"]["test_evidence_fresh_for_current_inputs"] is True
+          assert report["verification"]["distribution_audit_passed"] is True
+          assert report["verification"]["distribution_matches_current_runtime"] is True
+          assert report["verification"]["distribution_matches_current_source"] is True
+          assert report["verification"]["web_parity_mismatches"] == 0
+          assert report["verification"]["evidence_versions_passed"] is True
+          assert report["verification"]["corpus_diversity_release_blocking"] is False
+          assert report["verification"]["vercel_production_deployed"] is True
+          assert report["verification"]["vercel_asgi_protocol_test_passed"] is True
+          assert isinstance(report["verification"]["vercel_deployment_matches_current_ruleset"], bool)
+          assert isinstance(report["verification"]["vercel_runtime_source_fingerprint_matches_local"], bool)
+          assert report["release_readiness"]["status"] in {"ready", "blocked"}
+          PY

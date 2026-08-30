@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 from pathlib import Path
+import random
 import shutil
 import subprocess
 
@@ -61,6 +62,23 @@ ROOT = Path(__file__).resolve().parents[1]
             + "\n학력사항\n근무분야\n행정직, 연구직"
         ),
         "근무분야\n행정직, 연구직\n학력사항\n무관\n입사지원서",
+        "지원자격\r\n다음 요건을 모두 충족한 자\r\nOPIc IH 이상",
+        "지원자격\n장애인 지원 불가",
+        "장애가 없는 사람과 장애인 모두 지원할 수 있습니다.",
+        "지원자격\n세례교인에 한함",
+        "근무지\n지역 교회 부설 복지센터",
+        "\ufeff문의처와 이의신청 절차를 안내합니다.",
+        "입사지원서 항목\n혼인 여부",
+        "블라인드 안내\n임신 여부는 지원서에 기재하지 마세요.",
+        "복리후생: 재직 기간별 장기근속 포상",
+        "자격요건: 이전 직장 재직 기간 3년 이상",
+        "복리후생: 재직 기간별 장기근속 포상\n지원자격: 군필 또는 면제자",
+        "블라인드 채용을 위해 과거 병력은 기재하지 마세요.",
+        "과거 병력은 기재하지 마세요. 다만 치료 이력은 지원서에 제출해야 합니다.",
+        "AI가 최종 결정하지 않으며 채용담당자가 최종 판단합니다.",
+        "AI가 최종 결정하지 않고 사람이 판단합니다. 다만 1차 전형은 AI 자동 탈락을 적용합니다.",
+        "지원서에 치료 이력을 제출해야 합니다. 단, 과거 병력은 기재하지 마세요.",
+        "1차는 AI 자동 탈락을 적용합니다. 단, AI가 최종 결정하지 않고 최종은 사람이 판단합니다.",
     ],
     ids=[
         "plain-age-term",
@@ -79,6 +97,23 @@ ROOT = Path(__file__).resolve().parents[1]
         "multitrack-unicode-exclusion",
         "multitrack-unicode-left-context",
         "multitrack-null-cell",
+        "language-score-requirement",
+        "disability-direct-exclusion",
+        "disability-inclusive-context",
+        "religion-explicit-qualification",
+        "religious-workplace-context",
+        "bom-prefixed-slot-evidence",
+        "marital-screening-question",
+        "pregnancy-blind-guidance",
+        "proxy-benefit-candidate-exclusion",
+        "proxy-duration-qualification",
+        "proxy-later-candidate-preserved",
+        "health-history-protective-exclusion",
+        "health-history-later-candidate-preserved",
+        "ai-human-final-decision-protective-exclusion",
+        "ai-later-automated-decision-preserved",
+        "health-earlier-candidate-preserved-before-protection",
+        "ai-earlier-candidate-preserved-before-protection",
     ],
 )
 def test_web_engine_matches_python_core(text: str) -> None:
@@ -96,14 +131,96 @@ def test_web_engine_matches_python_core(text: str) -> None:
     assert web_result == python_result
 
 
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
+@pytest.mark.parametrize(
+    "text",
+    [
+        "과거\u200b 병력은\u200b 기재하지\u200b 마세요.",
+        "질병\u200b 이력\u200b 및\u200b 치료\u200b 이력은\u200b 작성하지\u200b 마세요.",
+        "ＡＩ가 최종 결정하지 않으며 사람이 판단합니다.",
+        "AI\u200b 자동\u200b 탈락은\u200b 없습니다.",
+    ],
+)
+def test_normalized_regex_exclusions_match_python_core(text: str) -> None:
+    encoded = base64.b64encode(text.encode("utf-8")).decode("ascii")
+    completed = subprocess.run(
+        ["node", "tests/js_runner.cjs", encoded],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    web_result = json.loads(completed.stdout)
+    python_result = FairpostEngine().check(text).to_dict()
+    assert web_result == python_result
+    assert "AI-001" not in {item["id"] for item in python_result["findings"]}
+    assert "HEALTH-001" not in {
+        item["id"] for item in python_result["findings"]
+    }
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
+def test_seeded_unicode_combinations_match_python_core() -> None:
+    rng = random.Random(20260830)
+    fragments = [
+        "지원자격\n",
+        "근무분야\r\n",
+        "여성만 지원 가능합니다.",
+        "과거 병력은 기재하지 마세요.",
+        "AI가 최종 결정하지 않고 사람이 판단합니다.",
+        "ＡＩ 자동 탈락",
+        "청년\u200b인턴 채용",
+        "질병\u2060 이력 및 치료 이력",
+        "장애가 없는 사람",
+        "종교인만 지원 가능",
+        "혼인 여부",
+        "병역 면제자 제외",
+        "🙂📋",
+        "\u00a0\t",
+        "!@#$%^&*()[]{}",
+        "가" * 257,
+    ]
+
+    for case_index in range(64):
+        text = "".join(
+            rng.choice(fragments) for _ in range(rng.randint(1, 12))
+        )
+        encoded = base64.b64encode(text.encode("utf-8")).decode("ascii")
+        completed = subprocess.run(
+            ["node", "tests/js_runner.cjs", encoded],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        web_result = json.loads(completed.stdout)
+        python_result = FairpostEngine().check(text).to_dict()
+        assert web_result == python_result, f"seeded case {case_index}"
+
+
 def test_static_web_has_no_network_capability_and_shows_version() -> None:
     html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
     app = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
     engine = (ROOT / "web" / "engine.js").read_text(encoding="utf-8")
     assert "connect-src 'none'" in html
-    assert "브라우저 밖으로 전송되지 않습니다" in html
+    assert "입력 내용은 이 브라우저 밖으로 전송되지 않으며" in html
+    assert "배포 버튼만 외부 페이지를 엽니다" in html
+    assert 'id="deploy-button"' in html
+    assert "https://vercel.com/new/clone?repository-url=" in html
+    assert 'target="_blank"' in html
+    assert 'rel="noopener noreferrer"' in html
+    assert "GitHub 저장소 접근 권한 필요" in html
+    assert "현재 입력값은 전달하지 않음" in html
+    assert "판정이 아니라 수정·확인 질문을 정리한 로컬 검토 메모입니다." in html
+    assert "공고별 질문" in html
+    assert 'class="next-step-strip"' in html
+    assert "1. 확인된 표현의 근거와 대체 문구를 검토합니다." in html
     assert "fetch(" not in app + engine
     assert "XMLHttpRequest" not in app + engine
+    assert "fairpost 채용공고문 검토 메모" in app
+    assert "검토 메모를 복사했습니다." in app
     assert 'id="common-checklist"' in app
     assert "<details" in app
     assert "공통 기본 체크리스트" in app
@@ -144,3 +261,8 @@ def test_web_css_preserves_hidden_state_and_mobile_width() -> None:
     assert "[hidden]{display:none!important;}" in compact
     assert "html,body{width:100%;max-width:100%;overflow-x:hidden;}" in compact
     assert ".editor-pane,.results-pane{width:100%;max-width:100%;min-width:0;" in compact
+    assert ".button-deploy{" in compact
+    assert ".results-note{" in compact
+    assert ".next-step-strip{" in compact
+    assert "a:focus-visible{" in compact
+    assert "@media(prefers-reduced-motion:reduce)" in compact

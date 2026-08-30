@@ -68,6 +68,9 @@ class Question:
     offset: tuple[int, int] | None = None
     section: str | None = None
     reference: QuestionReference | None = None
+    trigger_reason: str = "presence"
+    linked_findings: list[str] = field(default_factory=list)
+    priority: int = 3
 
 
 @dataclass(frozen=True)

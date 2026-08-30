@@ -2,7 +2,7 @@
   "mcpServers": {
     "fairpost": {
       "type": "http",
-      "url": "https://fairpost-mcp.vercel.app/api/mcp",
+      "url": "https://fairmcp.vercel.app/api/mcp",
       "headers": {
         "Authorization": "Bearer ${FAIRPOST_MCP_TOKEN}"
       }

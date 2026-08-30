@@ -1,0 +1,90 @@
+{
+  "schema_version": "private-preference-process-context-audit-v1",
+  "created_at": "2026-08-04T04:35:00+09:00",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "scope": {
+    "sector": "private",
+    "split": "train_only",
+    "total_records": 2100,
+    "rule_id": "Q-PROC-006",
+    "candidate_count": 1365
+  },
+  "exclusive_clusters": {
+    "general_recruitment_preference": 1181,
+    "statutory_or_policy_preference": 168,
+    "protective_no_preference_with_other_surviving_reference": 13,
+    "employee_benefit_only_candidate": 1,
+    "pure_product_customer_or_commercial_preference": 0,
+    "ambiguous_reference": 2
+  },
+  "first_match_family": {
+    "general_preference_word": 1365,
+    "point_or_additional_point_word": 0
+  },
+  "sectioning": {
+    "preference_section": 1310,
+    "full_or_other_context": 55
+  },
+  "review_priority": {
+    "high_general_recruitment": 1181,
+    "normal_policy_protective_or_ambiguous": 183,
+    "downgrade_manual_check_employee_benefit": 1,
+    "safe_record_level_auto_exclusion": 0
+  },
+  "overlapping_transparency_cues": {
+    "selection_stage": 356,
+    "numeric_score_or_point": 67,
+    "basis_or_policy": 153,
+    "overlap_or_cap": 26
+  },
+  "opaque_preference_groups": {
+    "clean_section_general_records": 1141,
+    "clean_section_general_without_score_or_stage": 853,
+    "clean_section_policy_records": 156,
+    "clean_section_policy_without_score_or_stage": 60,
+    "clean_section_policy_with_basis_and_score_or_stage": 26
+  },
+  "refinement_decision": {
+    "status": "hold_rule_change_pending_human_labels",
+    "explicit_no_preference_exclusion_private_record_delta": 0,
+    "explicit_no_preference_exclusion_comparison_corpus_loss": 3,
+    "section_scope_would_drop_full_context_records": 55,
+    "full_context_records_heuristically_recruitment_related": 52,
+    "employee_benefit_candidates_for_manual_review": 1,
+    "ambiguous_candidates_for_manual_review": 2,
+    "reason": "민간 공고 단위 정밀도 이득 없이 비교 코퍼스 손실이 생기며 비채용 후보가 일반화하기에 너무 적음"
+  },
+  "method": {
+    "classification": "규칙의 첫 매치 주변 문맥과 엔진 섹션을 익명 신호 정규식으로 중복 집계한 뒤 고정 우선순위로 배타 분류",
+    "protective_exclusion_windows_simulated": [
+      20,
+      30,
+      40
+    ],
+    "reproduction_boundary": "원문과 식별자를 저장하지 않은 현재 private train 스냅샷 집계"
+  },
+  "privacy_boundary": {
+    "contains_posting_text": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false,
+    "contains_urls": false,
+    "contains_hashes": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false
+  },
+  "limitations": {
+    "heuristic_not_human_label": true,
+    "not_performance_measurement": true,
+    "not_legal_determination": true,
+    "exclusive_cluster_sums_checked": true,
+    "overlapping_cues_do_not_sum": true,
+    "single_source_category": true
+  }
+}

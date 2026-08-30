@@ -143,6 +143,7 @@ def build_canonical(
         raise ValueError("canonical 학습/홀드아웃 원문 해시가 겹칩니다")
 
     summary = {
+        "schema_version": "fairpost-prd-corpus-summary-v1",
         "total": len(all_records),
         "train": len(train),
         "holdout": len(holdout),

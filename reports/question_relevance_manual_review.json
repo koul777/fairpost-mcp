@@ -1,5 +1,5 @@
 {
-  "audit_date": "2026-07-29",
+  "audit_date": "2026-08-30",
   "contains_organization_identifiers": false,
   "contains_personal_identifiers": false,
   "contains_posting_text": false,
@@ -48,14 +48,60 @@
     "ncs_monitoring_proof_document_split": {
       "Q-INFO-010_before": 186,
       "Q-INFO-010_after": 137,
-      "Q-INFO-011_after": 58,
-      "net_question_instances": 9,
+      "Q-INFO-011_after": 59,
+      "net_question_instances": 10,
       "source": "2025년 공공기관 공정채용 모니터링 주요 위반 사례 PDF 7쪽"
     },
     "ncs_monitoring_multi_track_review": {
       "Q-INFO-012_after": 2,
       "net_question_instances": 2,
       "source": "2025년 공공기관 공정채용 모니터링 주요 위반 사례 PDF 11쪽"
+    },
+    "ncs_monitoring_language_requirement_review": {
+      "Q-DIST-014_after": 3,
+      "net_question_instances": 3,
+      "source": "2025년 공공기관 공정채용 모니터링 주요 위반 사례 PDF 12쪽"
+    },
+    "private_monitoring_review": {
+      "Q-DIST-015_after": 73,
+      "Q-INFO-013_after": 5,
+      "net_question_instances": 78,
+      "source": "고용노동부ㆍ국가인권위원회 공식 근거와 2025~2026 공개 민간 채용공고 목적표본; 2026-08-30 train-only 재집계"
+    },
+    "private_monitoring_result_notice_review": {
+      "Q-INFO-014_after": 14,
+      "net_question_instances": 14,
+      "source": "국가법령정보센터 채용공고문 예시와 2026 공개 민간 채용공고 목적표본"
+    },
+    "private_religion_precision_review": {
+      "Q-DIST-012_after": 0,
+      "net_question_instances": 0,
+      "source": "국가인권위원회 종교 신앙 임용 차별 결정과 민간 train 148건 익명 문맥 집계"
+    },
+    "private_marital_screening_review": {
+      "Q-DIST-017_after": 0,
+      "net_question_instances": 0,
+      "source": "국가인권위원회 임신ㆍ출산 채용 차별 결정과 민간 train 혼인 여부 53건 익명 문맥 집계"
+    },
+    "private_military_proxy_precision_review": {
+      "Q-DIST-010_before": 75,
+      "Q-DIST-010_after": 62,
+      "net_question_instances": -13,
+      "source": "민간 train 근속 복리후생 136건 익명 문맥 감사와 비교 코퍼스 발동 보존 검증"
+    },
+    "interview_governance_and_ai_audit_questions": {
+      "Q-INTER-005_after": 419,
+      "Q-INTER-006_after": 419,
+      "Q-INTER-007_after": 191,
+      "Q-PROC-014_after": 1,
+      "net_question_instances": 1030,
+      "source": "면접 운영 공통질문 2개ㆍ면접 사적 질문 통제ㆍAI 감사 질문 추가 후 2026-08-30 train-only 재집계"
+    },
+    "related_question_linkage_review": {
+      "Q-DIST-002_before": 337,
+      "Q-DIST-002_after": 360,
+      "net_question_instances": 23,
+      "source": "법 finding 관련질문 연결 확대 후 2026-08-30 train-only 재집계"
     }
   }
 }

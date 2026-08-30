@@ -1,0 +1,53 @@
+{
+  "checks": {
+    "deidentification_declared": true,
+    "dominant_source_share": false,
+    "minimum_sources": false,
+    "non_field_share": false,
+    "raw_postings_not_committed": true,
+    "research_tech_share": false,
+    "train_holdout_hash_overlap_zero": true
+  },
+  "input": {
+    "occupations": {
+      "field": 2149,
+      "office": 674,
+      "research": 33,
+      "tech": 144
+    },
+    "source_count": 1,
+    "sources": {
+      "jincheon-jobs": 3000
+    },
+    "total": 3000
+  },
+  "limitations": [
+    "출처 수와 직군 비율은 대표성의 대리 지표이며 시장 전체 일반화를 증명하지 않습니다.",
+    "새 출처는 이용약관, API 승인과 비식별화 검토를 통과한 뒤에만 결합해야 합니다.",
+    "출처 다양성은 사람 라벨 기반 정밀도ㆍ재현율 평가를 대신하지 않습니다."
+  ],
+  "metrics": {
+    "dominant_source_share": 1.0,
+    "non_field_share": 0.283667,
+    "research_tech_share": 0.059
+  },
+  "privacy_boundary": {
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false,
+    "contains_posting_text": false,
+    "contains_record_ids": false
+  },
+  "release_policy": {
+    "applies_to": "v0.3 evidence snapshot",
+    "blocking": false,
+    "reason": "다양성 경보는 v0.3에서 정보성이다. v1.0 strict release에서는 별도 준비도 차단 사유로 처리한다."
+  },
+  "schema_version": "private-corpus-diversity-audit-v1",
+  "status": "alert",
+  "thresholds": {
+    "max_dominant_source_share": 0.7,
+    "min_non_field_share": 0.35,
+    "min_research_tech_share": 0.1,
+    "min_sources": 2
+  }
+}

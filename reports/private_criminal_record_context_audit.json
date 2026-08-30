@@ -1,0 +1,99 @@
+{
+  "schema_version": "private-criminal-record-context-audit-v1",
+  "created_at": "2026-08-04T04:01:43+09:00",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "scope": {
+    "sector": "private",
+    "split": "train_only",
+    "total_records": 2100,
+    "rule_id": "Q-DIST-013",
+    "candidate_count": 15
+  },
+  "exclusive_clusters": [
+    {
+      "category": "blanket_absence_or_disqualification",
+      "count": 6,
+      "review_tier": "high_priority"
+    },
+    {
+      "category": "statutory_sex_or_child_protection_check",
+      "count": 5,
+      "review_tier": "downgrade_candidate"
+    },
+    {
+      "category": "sex_or_child_protection_check_without_nearby_authority",
+      "count": 2,
+      "review_tier": "normal"
+    },
+    {
+      "category": "sex_or_child_reference_without_local_check_process",
+      "count": 1,
+      "review_tier": "normal"
+    },
+    {
+      "category": "generic_background_or_identity_check",
+      "count": 1,
+      "review_tier": "normal"
+    }
+  ],
+  "trigger_families": {
+    "criminal_record_wording": 13,
+    "background_or_identity_check_wording": 2
+  },
+  "overlapping_context": {
+    "sex_or_child_protection": 13,
+    "check_or_process": 12,
+    "consent_or_document": 14,
+    "explicit_authority_or_statute": 7,
+    "post_selection_timing": 11,
+    "explanation_or_correction": 7,
+    "explicit_absence_requirement": 4,
+    "explicit_disqualification": 4,
+    "explicit_job_relevance": 0,
+    "limited_use_or_separation": 0,
+    "negated_or_no_check_protection": 0
+  },
+  "recommendation_counts": {
+    "retain_high_priority": 6,
+    "retain_normal_review": 4,
+    "downgrade_candidate": 5,
+    "automatic_exclusion_candidate": 0
+  },
+  "safe_downgrade_condition": {
+    "requires_all": [
+      "protected_domain",
+      "check_process",
+      "explicit_authority",
+      "post_selection_timing"
+    ],
+    "requires_absent": [
+      "record_absence_requirement",
+      "disqualification_or_cancellation"
+    ],
+    "consent_or_document_alone_is_sufficient": false
+  },
+  "privacy_boundary": {
+    "contains_posting_text": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false,
+    "contains_urls": false,
+    "contains_hashes": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false
+  },
+  "limitations": {
+    "heuristic_not_human_label": true,
+    "not_performance_measurement": true,
+    "not_legal_determination": true,
+    "exclusive_cluster_sum_checked": true,
+    "overlapping_context_counts_do_not_sum": true,
+    "single_source_category": true
+  }
+}

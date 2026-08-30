@@ -100,9 +100,11 @@
     let cursor = 0;
     for (const character of text) {
       if (!ZERO_WIDTH.has(character)) {
-        const replacement = /\s/u.test(character)
-          ? " "
-          : character.normalize("NFKC");
+        const replacement = /[\r\n\t]/u.test(character)
+          ? character
+          : /\s/u.test(character)
+            ? " "
+            : character.normalize("NFKC");
         normalized += replacement;
         for (let index = 0; index < replacement.length; index += 1) {
           starts.push(cursor);
@@ -145,12 +147,15 @@
   function findMatches(text, patterns) {
     const matches = [];
     const seen = new Set();
+    const normalizedView = normalizedTextWithOffsets(text);
     const matchView = matchTextWithOffsets(text);
     const needsMatchView = matchView.normalized !== text;
     patterns.forEach((pattern) => {
+      const isRegex = pattern.startsWith("re:");
       const regex = patternToRegex(pattern);
       let match;
-      while ((match = regex.exec(text)) !== null) {
+      const exactText = isRegex && normalizedView.normalized !== text ? null : text;
+      while (exactText !== null && (match = regex.exec(exactText)) !== null) {
         const item = {
           start: match.index,
           end: match.index + match[0].length,
@@ -163,17 +168,26 @@
         }
         if (match[0].length === 0) regex.lastIndex += 1;
       }
-      if (pattern.startsWith("re:")) return;
-      if (!needsMatchView) return;
-      const normalizedPattern = matchPlain(pattern);
+      let searchView;
+      if (isRegex) {
+        if (normalizedView.normalized === text) return;
+        searchView = normalizedView;
+      } else {
+        if (!needsMatchView) return;
+        searchView = matchView;
+      }
+      // Keep regex exclusions on the same NFKC/zero-width-normalized view as
+      // literal candidates so protective wording cannot become a false
+      // positive merely because it contains compatibility or invisible text.
+      const normalizedPattern = isRegex ? pattern : matchPlain(pattern);
       const normalizedRegex = patternToRegex(normalizedPattern);
-      while ((match = normalizedRegex.exec(matchView.normalized)) !== null) {
+      while ((match = normalizedRegex.exec(searchView.normalized)) !== null) {
         if (match[0].length === 0) {
           normalizedRegex.lastIndex += 1;
           continue;
         }
-        const start = matchView.starts[match.index];
-        const end = matchView.ends[match.index + match[0].length - 1];
+        const start = searchView.starts[match.index];
+        const end = searchView.ends[match.index + match[0].length - 1];
         const item = { start, end, text: text.slice(start, end) };
         const key = `${start}:${end}:${item.text.toLocaleLowerCase("ko")}`;
         if (!seen.has(key)) {
@@ -196,10 +210,26 @@
 
   function isExcluded(text, match, excludes) {
     return excludes.some((exclusion) => {
+      if (
+        exclusion.candidate &&
+        !findFirst(match.text, [String(exclusion.candidate)])
+      ) {
+        return false;
+      }
       const window = Number(exclusion.window || 0);
-      return Boolean(
-        findFirst(codePointWindow(text, match, window), [String(exclusion.term)])
-      );
+      const left = moveCodePointsLeft(text, match.start, window);
+      const right = moveCodePointsRight(text, match.end, window);
+      const termMatches = findMatches(text.slice(left, right), [
+        String(exclusion.term),
+      ]);
+      if (exclusion.overlap_candidate) {
+        const relativeStart = match.start - left;
+        const relativeEnd = match.end - left;
+        return termMatches.some(
+          (item) => item.start < relativeEnd && item.end > relativeStart
+        );
+      }
+      return termMatches.length > 0;
     });
   }
 
@@ -294,12 +324,27 @@
     return text.slice(left, right);
   }
 
+  const PYTHON_WHITESPACE =
+    /^[\t\n\v\f\r\x1c-\x20\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]$/u;
+
+  function trimPythonWhitespace(value) {
+    let start = 0;
+    let end = value.length;
+    while (start < end && PYTHON_WHITESPACE.test(value[start])) {
+      start += 1;
+    }
+    while (end > start && PYTHON_WHITESPACE.test(value[end - 1])) {
+      end -= 1;
+    }
+    return value.slice(start, end);
+  }
+
   function evidenceLine(text, start, end) {
     const prior = text.lastIndexOf("\n", start - 1);
     const lineStart = prior + 1;
     const next = text.indexOf("\n", end);
     const lineEnd = next === -1 ? text.length : next;
-    return text.slice(lineStart, lineEnd).trim().slice(0, 240);
+    return trimPythonWhitespace(text.slice(lineStart, lineEnd)).slice(0, 240);
   }
 
   function extractSlots(text, sections, definitions) {
@@ -379,6 +424,12 @@
     };
   }
 
+  function questionPriority(linkedFindings, reviewScope, triggerReason) {
+    if (linkedFindings.length) return 1;
+    if (reviewScope === "common") return 4;
+    return triggerReason === "presence" ? 2 : 3;
+  }
+
   function matchesContextGroups(source, match, trigger) {
     const contextGroups = trigger.context_groups;
     if (!contextGroups) return true;
@@ -399,64 +450,98 @@
     const findings = [];
     const questions = [];
 
+    const fired = new Map();
+    const suppressed = new Set();
     data.rules.forEach((rule) => {
       const trigger = rule.trigger;
-      let match = null;
-      let matched = false;
       if (trigger.type === "absence") {
-        matched = !slotsById[trigger.field].found;
-      } else {
-        match =
-          findMatches(source, trigger.patterns).find(
-            (candidate) =>
-              !isExcluded(source, candidate, trigger.exclude || []) &&
-              (!trigger.section_scope ||
-                sectionAt(sections, candidate.start) === trigger.section_scope) &&
-              matchesContextGroups(source, candidate, trigger)
-          ) || null;
-        matched = Boolean(match);
+        if (!slotsById[trigger.field].found) fired.set(rule.id, null);
+        return;
       }
-      if (!matched) return;
+      const candidates = findMatches(source, trigger.patterns);
+      const match =
+        candidates.find(
+          (candidate) =>
+            !isExcluded(source, candidate, trigger.exclude || []) &&
+            (!trigger.section_scope ||
+              sectionAt(sections, candidate.start) === trigger.section_scope) &&
+            matchesContextGroups(source, candidate, trigger)
+        ) || null;
+      if (match) fired.set(rule.id, match);
+      else if (candidates.length) suppressed.add(rule.id);
+    });
 
-      if (rule.layer === "law") {
-        findings.push({
-          id: rule.id,
-          dimension: rule.dimension,
-          message: rule.message,
-          matched_text: match.text,
-          offset: [
-            codePointOffset(source, match.start),
-            codePointOffset(source, match.end),
-          ],
-          section: sectionAt(sections, match.start),
-          severity: rule.severity,
-          basis: makeBasis(rule, data),
-          alternatives: [...(rule.alternatives || [])],
-          provenance_method: rule.provenance.method,
-          book_ref: rule.book_ref,
-        });
-      } else {
-        questions.push({
-          id: rule.id,
-          dimension: rule.dimension,
-          question: rule.question,
-          follow_up: [...(rule.follow_up || [])],
-          basis_type: rule.basis.type,
-          book_ref: rule.book_ref,
-          review_scope: rule.review_scope || "posting",
-          saved_answer: answers[rule.id] ?? null,
-          matched_text: match ? match.text : null,
-          offset: match
-            ? [codePointOffset(source, match.start), codePointOffset(source, match.end)]
-            : null,
-          section: match ? sectionAt(sections, match.start) : null,
-          reference: makeQuestionReference(rule),
-        });
-      }
+    // Findings are resolved before questions so that related_questions links
+    // do not depend on the order rule files happen to be concatenated in.
+    data.rules.forEach((rule) => {
+      if (rule.layer !== "law" || !fired.has(rule.id)) return;
+      const match = fired.get(rule.id);
+      findings.push({
+        id: rule.id,
+        dimension: rule.dimension,
+        message: rule.message,
+        matched_text: match.text,
+        offset: [
+          codePointOffset(source, match.start),
+          codePointOffset(source, match.end),
+        ],
+        section: sectionAt(sections, match.start),
+        severity: rule.severity,
+        basis: makeBasis(rule, data),
+        alternatives: [...(rule.alternatives || [])],
+        provenance_method: rule.provenance.method,
+        book_ref: rule.book_ref,
+      });
+    });
+
+    const linked = new Map();
+    data.rules.forEach((rule) => {
+      if (rule.layer !== "law" || !fired.has(rule.id)) return;
+      (rule.related_questions || []).forEach((questionId) => {
+        if (!linked.has(questionId)) linked.set(questionId, []);
+        linked.get(questionId).push(rule.id);
+      });
+    });
+
+    data.rules.forEach((rule) => {
+      if (rule.layer !== "question") return;
+      const ownTrigger = fired.has(rule.id);
+      // A finding link never overrides the question's own protective
+      // exclusions: if the wording was found and deliberately rejected,
+      // pulling it back in would undo that false-positive work.
+      const linkedFindings =
+        !ownTrigger && suppressed.has(rule.id)
+          ? []
+          : (linked.get(rule.id) || []).slice().sort();
+      if (!ownTrigger && !linkedFindings.length) return;
+      const match = ownTrigger ? fired.get(rule.id) : null;
+      const reviewScope = rule.review_scope || "posting";
+      const triggerReason = ownTrigger ? rule.trigger.type : "finding";
+      questions.push({
+        id: rule.id,
+        dimension: rule.dimension,
+        question: rule.question,
+        follow_up: [...(rule.follow_up || [])],
+        basis_type: rule.basis.type,
+        book_ref: rule.book_ref,
+        review_scope: reviewScope,
+        saved_answer: answers[rule.id] ?? null,
+        matched_text: match ? match.text : null,
+        offset: match
+          ? [codePointOffset(source, match.start), codePointOffset(source, match.end)]
+          : null,
+        section: match ? sectionAt(sections, match.start) : null,
+        reference: makeQuestionReference(rule),
+        trigger_reason: triggerReason,
+        linked_findings: linkedFindings,
+        priority: questionPriority(linkedFindings, reviewScope, triggerReason),
+      });
     });
 
     findings.sort((a, b) => a.id.localeCompare(b.id));
-    questions.sort((a, b) => a.id.localeCompare(b.id));
+    questions.sort(
+      (a, b) => a.priority - b.priority || a.id.localeCompare(b.id)
+    );
     const statuteSnapshotDate = Object.values(data.statutes)
       .map((statute) => statute.snapshot_date)
       .sort()[0];

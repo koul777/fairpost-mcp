@@ -1,4 +1,5 @@
 {
+  "schema_version": "fairpost-prd-corpus-summary-v1",
   "canonical_prd_corpus": true,
   "derived_from_fixed_partitions": true,
   "employment_types": {

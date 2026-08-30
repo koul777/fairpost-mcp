@@ -53,7 +53,8 @@ button {
 
 button:focus-visible,
 textarea:focus-visible,
-summary:focus-visible {
+summary:focus-visible,
+a:focus-visible {
   outline: 3px solid rgba(53, 106, 138, 0.3);
   outline-offset: 2px;
 }
@@ -118,6 +119,12 @@ summary:focus-visible {
   font-weight: 600;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .privacy-dot {
   width: 8px;
   height: 8px;
@@ -177,6 +184,14 @@ summary:focus-visible {
 .results-toolbar h2 {
   font-size: 19px;
   line-height: 1.2;
+}
+
+.results-note {
+  margin: 6px 0 0;
+  max-width: 420px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
 }
 
 .editor-actions {
@@ -240,6 +255,22 @@ summary:focus-visible {
   border-color: var(--line);
   color: #425048;
   font-size: 12px;
+}
+
+.button-deploy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-color: #17211d;
+  background: #17211d;
+  color: white;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.button-deploy:hover {
+  background: #303a35;
 }
 
 #posting-input {
@@ -340,6 +371,21 @@ summary:focus-visible {
   font-weight: 700;
 }
 
+.next-step-strip {
+  display: grid;
+  gap: 8px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfb;
+}
+
+.next-step-strip span {
+  display: block;
+  color: #435049;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
 .result-block {
   padding: 24px 22px 4px;
   border-bottom: 1px solid var(--line);
@@ -406,6 +452,7 @@ summary:focus-visible {
 .id-tag,
 .dimension-tag,
 .scope-tag,
+.link-tag,
 .severity-tag {
   padding: 3px 6px;
   border-radius: 4px;
@@ -415,6 +462,11 @@ summary:focus-visible {
 .scope-tag {
   background: #edf3f7;
   color: var(--blue);
+}
+
+.link-tag {
+  background: #f4efe6;
+  color: var(--red);
 }
 
 .severity-high {
@@ -673,6 +725,14 @@ summary:focus-visible {
   transform: translateY(0);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .icon-button,
+  .toast {
+    transition: none;
+  }
+}
+
 @media (max-width: 920px) {
   .workspace {
     grid-template-columns: 1fr;
@@ -701,6 +761,13 @@ summary:focus-visible {
 
   .privacy {
     font-size: 11px;
+  }
+
+  .header-actions {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
   }
 
   .workspace {
@@ -737,6 +804,10 @@ summary:focus-visible {
 
   .summary-strip span {
     line-height: 1.35;
+  }
+
+  .next-step-strip {
+    padding: 12px 15px;
   }
 
   .result-block {

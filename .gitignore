@@ -24,6 +24,10 @@ test-results/
 screenshots/
 tmp/
 reports/overnight_sessions/
+reports/pytest-*.xml
+.private-review/
+.tmppdf/
+output/
 *.log
 
 .vercel

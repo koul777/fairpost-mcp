@@ -11,13 +11,16 @@ import os
 from pathlib import Path
 import re
 import time
-from typing import Iterable
-from urllib.parse import unquote, urlencode
+from typing import Any, Iterable
+from urllib.parse import unquote, urlencode, urlsplit
 from urllib.request import Request, urlopen
-import xml.etree.ElementTree as ET
+
+from defusedxml import ElementTree as ET
+from defusedxml.common import DefusedXmlException
 
 
 USER_AGENT = "fairpost-corpus-builder/0.3 (+local research)"
+DEFAULT_MAX_DOWNLOAD_BYTES = 32 * 1024 * 1024
 JOB_ALIO_LIST = "https://job.alio.go.kr/recruit.do"
 JOB_ALIO_DETAIL = "https://job.alio.go.kr/recruitview.do"
 GOJOBS_LIST = "https://www.gojobs.go.kr/apmList.do"
@@ -130,19 +133,83 @@ class ContentParser(HTMLParser):
         return "\n".join(line for line in lines if line)
 
 
+def _parse_xml(payload: str, *, context: str) -> Any:
+    try:
+        return ET.fromstring(payload)
+    except (ET.ParseError, DefusedXmlException) as exc:
+        raise RuntimeError(f"{context}: 안전하지 않거나 잘못된 XML 응답입니다") from exc
+
+
+def _validate_https_url(url: str) -> None:
+    parsed = urlsplit(url)
+    if (
+        parsed.scheme.casefold() != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.fragment
+    ):
+        raise ValueError(
+            "수집 URL은 자격정보ㆍfragment가 없는 HTTPS URL이어야 합니다"
+        )
+
+
+class CollectionResponseTooLarge(RuntimeError):
+    """Raised when an upstream corpus response exceeds the configured bound."""
+
+
+def _max_download_bytes() -> int:
+    raw_value = os.environ.get(
+        "FAIRPOST_MAX_DOWNLOAD_BYTES",
+        str(DEFAULT_MAX_DOWNLOAD_BYTES),
+    )
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise ValueError("FAIRPOST_MAX_DOWNLOAD_BYTES must be a positive integer") from exc
+    if value < 1:
+        raise ValueError("FAIRPOST_MAX_DOWNLOAD_BYTES must be a positive integer")
+    return value
+
+
+def _read_bounded_response(response: Any) -> bytes:
+    max_bytes = _max_download_bytes()
+    declared_length = response.headers.get("Content-Length")
+    if declared_length is not None:
+        try:
+            declared_bytes = int(declared_length)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError("Upstream response has an invalid Content-Length") from exc
+        if declared_bytes < 0:
+            raise RuntimeError("Upstream response has an invalid Content-Length")
+        if declared_bytes > max_bytes:
+            raise CollectionResponseTooLarge(
+                f"Upstream response exceeds {max_bytes} bytes"
+            )
+    payload = response.read(max_bytes + 1)
+    if len(payload) > max_bytes:
+        raise CollectionResponseTooLarge(
+            f"Upstream response exceeds {max_bytes} bytes"
+        )
+    return payload
+
+
 def fetch(url: str, params: dict[str, str | int], *, retries: int = 3) -> str:
+    _validate_https_url(url)
     target = f"{url}?{urlencode(params)}"
     request = Request(target, headers={"User-Agent": USER_AGENT})
     error: Exception | None = None
     for attempt in range(retries):
         try:
-            with urlopen(request, timeout=35) as response:
-                body = response.read()
+            with urlopen(request, timeout=35) as response:  # nosec B310
+                body = _read_bounded_response(response)
                 try:
                     return body.decode("utf-8")
                 except UnicodeDecodeError:
                     encoding = response.headers.get_content_charset() or "euc-kr"
                     return body.decode(encoding, errors="replace")
+        except CollectionResponseTooLarge:
+            raise
         except Exception as exc:  # Network errors are retried at build time only.
             error = exc
             time.sleep(1.5 * (attempt + 1))
@@ -158,6 +225,7 @@ def fetch_post(
     *,
     retries: int = 3,
 ) -> str:
+    _validate_https_url(url)
     body = urlencode(params).encode("utf-8")
     request = Request(
         url,
@@ -171,13 +239,15 @@ def fetch_post(
     error: Exception | None = None
     for attempt in range(retries):
         try:
-            with urlopen(request, timeout=35) as response:
-                payload = response.read()
+            with urlopen(request, timeout=35) as response:  # nosec B310
+                payload = _read_bounded_response(response)
                 try:
                     return payload.decode("utf-8")
                 except UnicodeDecodeError:
                     encoding = response.headers.get_content_charset() or "euc-kr"
                     return payload.decode(encoding, errors="replace")
+        except CollectionResponseTooLarge:
+            raise
         except Exception as exc:  # Network errors are retried at build time only.
             error = exc
             time.sleep(1.5 * (attempt + 1))
@@ -188,12 +258,15 @@ def fetch_post(
 
 
 def fetch_bytes(url: str, *, retries: int = 3) -> bytes:
+    _validate_https_url(url)
     request = Request(url, headers={"User-Agent": USER_AGENT})
     error: Exception | None = None
     for attempt in range(retries):
         try:
-            with urlopen(request, timeout=120) as response:
-                return response.read()
+            with urlopen(request, timeout=120) as response:  # nosec B310
+                return _read_bounded_response(response)
+        except CollectionResponseTooLarge:
+            raise
         except Exception as exc:
             error = exc
             time.sleep(1.5 * (attempt + 1))
@@ -487,7 +560,6 @@ def _gojobs_organization(html: str) -> str | None:
     )
     if not match:
         return None
-    parser = ContentParser(target_classes=set())
     return re.sub(r"<[^>]+>", " ", match.group(1)).strip()
 
 
@@ -598,7 +670,7 @@ def collect_cleaneye(limit: int, delay: float) -> Iterable[dict[str, str]]:
         page += 1
 
 
-def _xml_leaf_text(root: ET.Element) -> str:
+def _xml_leaf_text(root: Any) -> str:
     lines: list[str] = []
     for element in root.iter():
         if len(element) == 0 and element.text and element.text.strip():
@@ -811,7 +883,7 @@ def collect_work24(
                 "sortOrderBy": "DESC",
             },
         )
-        root = ET.fromstring(listing)
+        root = _parse_xml(listing, context="고용24 목록")
         api_error = root.findtext(".//error")
         _raise_work24_error(api_error)
         wanted_nodes = root.findall(".//wanted")
@@ -830,7 +902,7 @@ def collect_work24(
                     "wantedAuthNo": source_id,
                 },
             )
-            detail_root = ET.fromstring(detail_xml)
+            detail_root = _parse_xml(detail_xml, context="고용24 상세")
             api_error = detail_root.findtext(".//error")
             _raise_work24_error(api_error)
             text = _xml_leaf_text(detail_root)
@@ -870,7 +942,7 @@ def _raise_work24_error(api_error: str | None) -> None:
     raise RuntimeError(f"고용24 API 오류: {message}")
 
 
-def _senior_job_error(root: ET.Element) -> str | None:
+def _senior_job_error(root: Any) -> str | None:
     result_code = (root.findtext(".//resultCode") or "").strip()
     if result_code in {"", "0", "00", "0000"}:
         return None
@@ -879,8 +951,8 @@ def _senior_job_error(root: ET.Element) -> str | None:
 
 
 def _senior_job_text(
-    detail: ET.Element,
-    listing: ET.Element,
+    detail: Any,
+    listing: Any,
 ) -> str:
     fields = (
         ("wantedTitle", "title"),
@@ -931,7 +1003,7 @@ def collect_senior_job(
                 "numOfRows": min(100, limit - collected),
             },
         )
-        listing_root = ET.fromstring(listing_xml)
+        listing_root = _parse_xml(listing_xml, context="노인일자리 목록")
         api_error = _senior_job_error(listing_root)
         if api_error:
             raise RuntimeError(api_error)
@@ -953,7 +1025,7 @@ def collect_senior_job(
                     "id": source_id,
                 },
             )
-            detail_root = ET.fromstring(detail_xml)
+            detail_root = _parse_xml(detail_xml, context="노인일자리 상세")
             api_error = _senior_job_error(detail_root)
             if api_error:
                 raise RuntimeError(api_error)

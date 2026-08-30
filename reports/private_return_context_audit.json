@@ -1,0 +1,64 @@
+{
+  "schema_version": "private-return-context-audit-v1",
+  "created_at": "2026-08-03T17:12:00Z",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "status": "model_assisted_aggregate_only",
+  "not_human_labels": true,
+  "not_performance_measurement": true,
+  "scope": {
+    "records": 2100,
+    "sector": "private",
+    "split": "train_only",
+    "source_category_count": 1,
+    "phrase_family": "nonreturn_conjunctive_variant"
+  },
+  "classification": {
+    "method": "mutually exclusive de-identified submission-channel cluster review",
+    "variant_records": 69,
+    "clusters": [
+      {
+        "cluster": "email_and_visit_mixed_submission",
+        "records": 68,
+        "share": 0.985507
+      },
+      {
+        "cluster": "email_only_submission",
+        "records": 1,
+        "share": 0.014493
+      }
+    ],
+    "nearby_destruction_notice_records": 67,
+    "nearby_privacy_notice_records": 67,
+    "explicit_return_process_records": 0
+  },
+  "post_change_activation": {
+    "RETURN-001": 68,
+    "Q-INFO-013": 69
+  },
+  "decision": {
+    "action": "protect_email_only_keep_mixed_submission_finding_candidate",
+    "reason": "Electronic-only submission can fall within the statutory return exception, while mixed email and visit submission can include paper hiring documents. All rows remain review questions because the notice does not distinguish return, retention, and destruction by submission channel.",
+    "risk": "medium"
+  },
+  "privacy_boundary": {
+    "contains_context": false,
+    "contains_matched_text": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false
+  },
+  "limitations": [
+    "Cluster assignments are deterministic phrase heuristics over a de-identified train corpus, not human ground truth.",
+    "A RETURN-001 activation is a review candidate and does not establish a statutory violation.",
+    "The single-source corpus cannot estimate private-market precision, recall, or prevalence.",
+    "Actual submission media and employer size can require information outside the posting text."
+  ]
+}

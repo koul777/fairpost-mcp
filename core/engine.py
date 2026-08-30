@@ -76,6 +76,53 @@ class FairpostEngine:
             sections=list(sections) if isinstance(sections, list) else None,
         )
 
+    def _fired_match(
+        self,
+        source: str,
+        sections: list[Any],
+        slots_by_id: dict[str, Any],
+        rule: dict[str, Any],
+    ) -> tuple[bool, Any, bool]:
+        """Return whether the rule fired, its match, and whether it was suppressed.
+
+        Suppressed means the patterns did occur but a protective exclusion,
+        section scope, or context group deliberately rejected every candidate.
+        """
+        trigger = rule["trigger"]
+        if trigger["type"] == "absence":
+            return not slots_by_id[trigger["field"]].found, None, False
+        candidates = find_matches(source, trigger["patterns"])
+        match = next(
+            (
+                candidate
+                for candidate in candidates
+                if not is_excluded(
+                    source,
+                    candidate.start(),
+                    candidate.end(),
+                    trigger.get("exclude", []),
+                )
+                and (
+                    not trigger.get("section_scope")
+                    or section_at(sections, candidate.start())
+                    == trigger["section_scope"]
+                )
+                and _matches_context_groups(source, candidate, trigger)
+            ),
+            None,
+        )
+        return bool(match), match, bool(candidates) and match is None
+
+    @staticmethod
+    def _priority(
+        linked_findings: list[str], review_scope: str, trigger_reason: str
+    ) -> int:
+        if linked_findings:
+            return 1
+        if review_scope == "common":
+            return 4
+        return 2 if trigger_reason == "presence" else 3
+
     def check(
         self,
         text: str,
@@ -87,77 +134,88 @@ class FairpostEngine:
         slots = extract_slots(source, sections, self.ruleset.slots)
         slots_by_id = {slot.slot: slot for slot in slots}
         answers = saved_answers or {}
-        findings: list[Finding] = []
-        questions: list[Question] = []
 
+        fired: dict[str, Any] = {}
+        suppressed: set[str] = set()
         for rule in self.ruleset.rules:
-            trigger = rule["trigger"]
-            if trigger["type"] == "absence":
-                matched = not slots_by_id[trigger["field"]].found
-                match = None
-            else:
-                candidates = find_matches(source, trigger["patterns"])
-                match = next(
-                    (
-                        candidate
-                        for candidate in candidates
-                        if not is_excluded(
-                            source,
-                            candidate.start(),
-                            candidate.end(),
-                            trigger.get("exclude", []),
-                        )
-                        and (
-                            not trigger.get("section_scope")
-                            or section_at(sections, candidate.start())
-                            == trigger["section_scope"]
-                        )
-                        and _matches_context_groups(source, candidate, trigger)
-                    ),
-                    None,
-                )
-                matched = bool(match)
+            matched, match, was_suppressed = self._fired_match(
+                source, sections, slots_by_id, rule
+            )
+            if matched:
+                fired[rule["id"]] = match
+            elif was_suppressed:
+                suppressed.add(rule["id"])
 
-            if not matched:
+        findings: list[Finding] = []
+        # Findings are resolved before questions so that related_questions links
+        # do not depend on the order rule files happen to be concatenated in.
+        for rule in self.ruleset.rules:
+            if rule["layer"] != "law" or rule["id"] not in fired:
                 continue
+            match = fired[rule["id"]]
+            findings.append(
+                Finding(
+                    id=rule["id"],
+                    dimension=rule["dimension"],
+                    message=rule["message"],
+                    matched_text=match.group(0),
+                    offset=(match.start(), match.end()),
+                    section=section_at(sections, match.start()),
+                    severity=rule["severity"],
+                    basis=self._basis(rule),
+                    alternatives=list(rule.get("alternatives", [])),
+                    provenance_method=rule["provenance"]["method"],
+                    book_ref=rule["book_ref"],
+                )
+            )
 
-            if rule["layer"] == "law":
-                assert match is not None
-                findings.append(
-                    Finding(
-                        id=rule["id"],
-                        dimension=rule["dimension"],
-                        message=rule["message"],
-                        matched_text=match.group(0),
-                        offset=(match.start(), match.end()),
-                        section=section_at(sections, match.start()),
-                        severity=rule["severity"],
-                        basis=self._basis(rule),
-                        alternatives=list(rule.get("alternatives", [])),
-                        provenance_method=rule["provenance"]["method"],
-                        book_ref=rule["book_ref"],
-                    )
+        linked: dict[str, list[str]] = {}
+        for rule in self.ruleset.rules:
+            if rule["layer"] != "law" or rule["id"] not in fired:
+                continue
+            for question_id in rule.get("related_questions", []):
+                linked.setdefault(question_id, []).append(rule["id"])
+
+        questions: list[Question] = []
+        for rule in self.ruleset.rules:
+            if rule["layer"] != "question":
+                continue
+            linked_findings = sorted(linked.get(rule["id"], []))
+            own_trigger = rule["id"] in fired
+            # A finding link never overrides the question's own protective
+            # exclusions: if the wording was found and deliberately rejected,
+            # pulling it back in would undo that false-positive work.
+            if not own_trigger and rule["id"] in suppressed:
+                linked_findings = []
+            if not own_trigger and not linked_findings:
+                continue
+            match = fired.get(rule["id"])
+            trigger_reason = rule["trigger"]["type"] if own_trigger else "finding"
+            review_scope = str(rule.get("review_scope", "posting"))
+            questions.append(
+                Question(
+                    id=rule["id"],
+                    dimension=rule["dimension"],
+                    question=rule["question"],
+                    follow_up=list(rule.get("follow_up", [])),
+                    basis_type=rule["basis"]["type"],
+                    book_ref=rule["book_ref"],
+                    review_scope=review_scope,
+                    saved_answer=answers.get(rule["id"]),
+                    matched_text=match.group(0) if match is not None else None,
+                    offset=(match.start(), match.end()) if match is not None else None,
+                    section=section_at(sections, match.start()) if match is not None else None,
+                    reference=self._question_reference(rule),
+                    trigger_reason=trigger_reason,
+                    linked_findings=linked_findings,
+                    priority=self._priority(
+                        linked_findings, review_scope, trigger_reason
+                    ),
                 )
-            else:
-                questions.append(
-                    Question(
-                        id=rule["id"],
-                        dimension=rule["dimension"],
-                        question=rule["question"],
-                        follow_up=list(rule.get("follow_up", [])),
-                        basis_type=rule["basis"]["type"],
-                        book_ref=rule["book_ref"],
-                        review_scope=str(rule.get("review_scope", "posting")),
-                        saved_answer=answers.get(rule["id"]),
-                        matched_text=match.group(0) if match is not None else None,
-                        offset=(match.start(), match.end()) if match is not None else None,
-                        section=section_at(sections, match.start()) if match is not None else None,
-                        reference=self._question_reference(rule),
-                    )
-                )
+            )
 
         findings.sort(key=lambda item: item.id)
-        questions.sort(key=lambda item: item.id)
+        questions.sort(key=lambda item: (item.priority, item.id))
         statute_snapshot_date = min(
             str(statute["snapshot_date"])
             for statute in self.ruleset.statutes.values()

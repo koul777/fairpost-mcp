@@ -1,0 +1,85 @@
+{
+  "actions": [
+    {
+      "change": "Recognize the common sibling-education genitive variant while excluding explicit do-not-enter, not-collected, prohibited, and unnecessary-entry notices.",
+      "decision": "implemented",
+      "risk": "low"
+    },
+    {
+      "change": "Route resident-registration abstracts and basic certificates to Q-INFO-011 for timing, purpose, masking, access, retention, and deletion review; do not classify the document name as a violation.",
+      "decision": "implemented_as_review_question",
+      "risk": "medium"
+    }
+  ],
+  "created_at": "2026-08-03T17:05:00Z",
+  "evidence_document_candidates": {
+    "basic_certificate_new_review_records": 4,
+    "basic_certificate_records": 25,
+    "resident_registration_abstract_new_review_records": 0,
+    "resident_registration_abstract_records": 5
+  },
+  "limitations": [
+    "The phrase clusters are deterministic heuristics over de-identified train context, not human ground truth.",
+    "The single-source corpus cannot estimate private-market precision, recall, or prevalence.",
+    "A question activation identifies a review need and does not establish an unfair or unlawful hiring practice.",
+    "No sibling-education request remained after protective notices were separated, so the corpus does not measure precision for the new positive variant."
+  ],
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "not_human_labels": true,
+  "not_performance_measurement": true,
+  "post_change_verification": {
+    "FAMILY-001": 0,
+    "Q-INFO-011": 162,
+    "Q-INFO-011_delta": 4,
+    "SCHOOL-001": 0,
+    "public_Q-INFO-011": 43,
+    "web_parity_mismatches": 0,
+    "web_parity_records": 2310
+  },
+  "pre_change_analysis": {
+    "FAMILY-001": 0,
+    "Q-INFO-011": 158,
+    "SCHOOL-001": 0,
+    "protective_phrase_clusters": [
+      {
+        "cluster": "do_not_enter",
+        "records": 51
+      },
+      {
+        "cluster": "not_collected",
+        "records": 1
+      }
+    ],
+    "sibling_education_protective_records": 52,
+    "sibling_education_unprotected_records": 0,
+    "sibling_education_variant_records": 52
+  },
+  "privacy_boundary": {
+    "contains_context": false,
+    "contains_matched_text": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false
+  },
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "schema_version": "private-family-evidence-context-audit-v1",
+  "scope": {
+    "records": 2100,
+    "rule_ids": [
+      "FAMILY-001",
+      "SCHOOL-001",
+      "Q-INFO-011"
+    ],
+    "sector": "private",
+    "source_category_count": 1,
+    "split": "train_only"
+  },
+  "status": "model_assisted_aggregate_only"
+}

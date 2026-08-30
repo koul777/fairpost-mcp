@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+import hashlib
 import json
+import os
 from pathlib import Path
 import sys
+import tempfile
 from typing import Any, Iterable, Sequence
 
 
@@ -37,6 +40,44 @@ def _reject_holdout_path(path: Path) -> None:
             "holdout paths are forbidden; question relevance audit accepts "
             "train-only input"
         )
+
+
+def _paths_alias(left: Path, right: Path) -> bool:
+    try:
+        if left.resolve(strict=False) == right.resolve(strict=False):
+            return True
+    except OSError:
+        pass
+    try:
+        return left.exists() and right.exists() and os.path.samefile(left, right)
+    except OSError:
+        return False
+
+
+def validate_output_path(input_path: Path, output_path: Path) -> None:
+    if _paths_alias(input_path, output_path):
+        raise ValueError("question relevance output must not overwrite its input")
+    if output_path.exists() and output_path.is_dir():
+        raise ValueError("question relevance output must be a file path")
+
+
+def _atomic_write(path: Path, payload: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, staged_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    staged = Path(staged_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(staged, path)
+    except BaseException:
+        staged.unlink(missing_ok=True)
+        raise
 
 
 def load_training_records(path: Path) -> list[str]:
@@ -103,6 +144,7 @@ def build_report(
     posting_texts: Iterable[str],
     *,
     engine: Any | None = None,
+    input_sha256: str | None = None,
 ) -> dict[str, object]:
     checker = engine if engine is not None else FairpostEngine()
     texts = list(posting_texts)
@@ -192,6 +234,13 @@ def build_report(
     )
     report: dict[str, object] = {
         "split": "train_only",
+        "ruleset_version": checker.ruleset.version,
+        "matching_version": checker.ruleset.matching_version,
+        "input": {
+            "split": "train_only",
+            "records": record_count,
+            "sha256": input_sha256,
+        },
         "record_count": record_count,
         "question_definition_count": len(question_scopes),
         "question_instances_total": question_instances_total,
@@ -279,17 +328,21 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    parser = _parser()
+    args = parser.parse_args(argv)
     try:
+        validate_output_path(args.input, args.output)
         records = load_training_records(args.input)
-        report = build_report(records)
+        report = build_report(
+            records,
+            input_sha256=hashlib.sha256(args.input.read_bytes()).hexdigest(),
+        )
     except (OSError, UnicodeError, ValueError) as exc:
-        raise SystemExit(str(exc)) from exc
+        parser.error(str(exc))
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
+    _atomic_write(
+        args.output,
         json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
-        encoding="utf-8",
     )
     print(
         "Question relevance audit created: "

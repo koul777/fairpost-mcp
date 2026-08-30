@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -38,7 +39,11 @@ class FakeEngine:
         rules: list[dict[str, object]],
         responses: dict[str, list[SimpleNamespace]],
     ) -> None:
-        self.ruleset = SimpleNamespace(rules=rules)
+        self.ruleset = SimpleNamespace(
+            rules=rules,
+            version="test-rules",
+            matching_version="test-matching",
+        )
         self.responses = responses
 
     def check(self, text: str) -> SimpleNamespace:
@@ -86,6 +91,13 @@ def test_report_counts_scopes_rates_repetition_and_default_reduction() -> None:
     )
 
     assert report["split"] == "train_only"
+    assert report["ruleset_version"] == "test-rules"
+    assert report["matching_version"] == "test-matching"
+    assert report["input"] == {
+        "split": "train_only",
+        "records": 20,
+        "sha256": None,
+    }
     assert report["record_count"] == 20
     assert report["question_definition_count"] == 4
     assert report["question_instances_total"] == 41
@@ -250,6 +262,38 @@ def test_cli_output_is_deterministic_and_excludes_posting_metadata(
     assert report["question_activation_rates"][0]["question_id"] == "Q-COMMON"
 
 
+def test_cli_rejects_output_that_aliases_input(tmp_path: Path) -> None:
+    module = load_tool()
+    input_path = tmp_path / "train-records.jsonl"
+    original = '{"text":"채용 공고"}\n'
+    input_path.write_text(original, encoding="utf-8")
+
+    with pytest.raises(SystemExit) as caught:
+        module.main(
+            ["--input", str(input_path), "--output", str(input_path)]
+        )
+
+    assert caught.value.code == 2
+    assert input_path.read_text(encoding="utf-8") == original
+
+
+def test_cli_rejects_hardlink_output_alias(tmp_path: Path) -> None:
+    module = load_tool()
+    input_path = tmp_path / "train-records.jsonl"
+    output_path = tmp_path / "audit.json"
+    original = '{"text":"채용 공고"}\n'
+    input_path.write_text(original, encoding="utf-8")
+    os.link(input_path, output_path)
+
+    with pytest.raises(SystemExit) as caught:
+        module.main(
+            ["--input", str(input_path), "--output", str(output_path)]
+        )
+
+    assert caught.value.code == 2
+    assert input_path.read_text(encoding="utf-8") == original
+
+
 def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
     manual = json.loads(
         (
@@ -297,7 +341,7 @@ def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
         + ncs_split["Q-INFO-011_after"]
         - ncs_split["Q-INFO-010_before"]
         == ncs_split["net_question_instances"]
-        == 9
+        == 10
     )
     multi_track = manual["subsequent_train_only_changes"][
         "ncs_monitoring_multi_track_review"
@@ -307,17 +351,101 @@ def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
         == multi_track["net_question_instances"]
         == 2
     )
+    language_requirement = manual["subsequent_train_only_changes"][
+        "ncs_monitoring_language_requirement_review"
+    ]
+    assert (
+        language_requirement["Q-DIST-014_after"]
+        == language_requirement["net_question_instances"]
+        == 3
+    )
+    private_monitoring = manual["subsequent_train_only_changes"][
+        "private_monitoring_review"
+    ]
+    assert (
+        private_monitoring["Q-DIST-015_after"]
+        + private_monitoring["Q-INFO-013_after"]
+        == private_monitoring["net_question_instances"]
+        == 78
+    )
+    result_notice_review = manual["subsequent_train_only_changes"][
+        "private_monitoring_result_notice_review"
+    ]
+    assert (
+        result_notice_review["Q-INFO-014_after"]
+        == result_notice_review["net_question_instances"]
+        == 14
+    )
+    military_proxy_review = manual["subsequent_train_only_changes"][
+        "private_military_proxy_precision_review"
+    ]
+    assert (
+        military_proxy_review["Q-DIST-010_after"]
+        - military_proxy_review["Q-DIST-010_before"]
+        == military_proxy_review["net_question_instances"]
+        == -13
+    )
+    new_questions = manual["subsequent_train_only_changes"][
+        "interview_governance_and_ai_audit_questions"
+    ]
+    assert (
+        new_questions["Q-INTER-005_after"]
+        + new_questions["Q-INTER-006_after"]
+        + new_questions["Q-INTER-007_after"]
+        + new_questions["Q-PROC-014_after"]
+        == new_questions["net_question_instances"]
+        == 1030
+    )
+    related_question_linkage = manual["subsequent_train_only_changes"][
+        "related_question_linkage_review"
+    ]
+    assert (
+        related_question_linkage["Q-DIST-002_after"]
+        - related_question_linkage["Q-DIST-002_before"]
+        == related_question_linkage["net_question_instances"]
+        == 23
+    )
     assert (
         before["question_instances_total"] - current["question_instances_total"]
         == 104
         - ncs_split["net_question_instances"]
         - multi_track["net_question_instances"]
+        - language_requirement["net_question_instances"]
+        - private_monitoring["net_question_instances"]
+        - result_notice_review["net_question_instances"]
+        - military_proxy_review["net_question_instances"]
+        - new_questions["net_question_instances"]
+        - related_question_linkage["net_question_instances"]
     )
     current_by_id = {
         row["question_id"]: row["activated_records"]
         for row in current["question_activation_rates"]
     }
     assert current_by_id["Q-INFO-012"] == multi_track["Q-INFO-012_after"]
+    assert current_by_id["Q-DIST-014"] == language_requirement[
+        "Q-DIST-014_after"
+    ]
+    assert current_by_id["Q-DIST-015"] == private_monitoring[
+        "Q-DIST-015_after"
+    ]
+    assert current_by_id["Q-INFO-014"] == result_notice_review[
+        "Q-INFO-014_after"
+    ]
+    assert current_by_id["Q-INFO-013"] == private_monitoring[
+        "Q-INFO-013_after"
+    ]
+    for question_id in (
+        "Q-INTER-005",
+        "Q-INTER-006",
+        "Q-INTER-007",
+        "Q-PROC-014",
+    ):
+        assert current_by_id[question_id] == new_questions[
+            f"{question_id}_after"
+        ]
+    assert current_by_id["Q-DIST-002"] == related_question_linkage[
+        "Q-DIST-002_after"
+    ]
     assert sum(
         before_count - current_by_id[question_id]
         for question_id, before_count in before[

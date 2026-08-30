@@ -11,8 +11,9 @@ import sys
 from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-import xml.etree.ElementTree as ET
 
+from defusedxml import ElementTree as ET
+from defusedxml.common import DefusedXmlException
 import yaml
 
 
@@ -63,7 +64,7 @@ def _write_yaml(path: Path, payload: Any) -> None:
         )
 
 
-def _article_key(node: ET.Element) -> str:
+def _article_key(node: Any) -> str:
     number = (node.findtext("조문번호") or "").strip()
     branch = (node.findtext("조문가지번호") or "").strip()
     if not number:
@@ -71,7 +72,7 @@ def _article_key(node: ET.Element) -> str:
     return f"제{number}조" + (f"의{branch}" if branch and branch != "0" else "")
 
 
-def _official_article_text(node: ET.Element) -> str:
+def _official_article_text(node: Any) -> str:
     parts: list[str] = []
     for child in node.iter():
         if child.tag not in ARTICLE_TEXT_TAGS or not child.text:
@@ -90,7 +91,7 @@ def _iso_basic_date(value: str, *, context: str) -> str:
     return f"{value[:4]}-{value[4:6]}-{value[6:]}"
 
 
-def fetch_official_law(law_name: str, oc: str) -> ET.Element:
+def fetch_official_law(law_name: str, oc: str) -> Any:
     if not oc.strip():
         raise ValueError(
             "공식 조문 조회에는 LAW_OPEN_API_OC 환경변수 또는 --oc가 필요합니다"
@@ -105,13 +106,13 @@ def fetch_official_law(law_name: str, oc: str) -> ET.Element:
     )
     request = Request(f"{LAW_API}?{query}", headers={"User-Agent": USER_AGENT})
     try:
-        with urlopen(request, timeout=45) as response:
+        with urlopen(request, timeout=45) as response:  # nosec B310
             body = response.read()
     except Exception as exc:
         raise RuntimeError(f"국가법령정보센터 조회 실패: {law_name}: {exc}") from exc
     try:
         root = ET.fromstring(body)
-    except ET.ParseError as exc:
+    except (ET.ParseError, DefusedXmlException) as exc:
         raise RuntimeError(f"국가법령정보센터 XML 파싱 실패: {law_name}") from exc
     returned_name = (root.findtext("./기본정보/법령명_한글") or "").strip()
     if returned_name != law_name:
@@ -122,10 +123,10 @@ def fetch_official_law(law_name: str, oc: str) -> ET.Element:
 
 
 def official_articles(
-    root: ET.Element,
+    root: Any,
     requested: set[str],
 ) -> tuple[dict[str, dict[str, str]], str]:
-    available: dict[str, ET.Element] = {}
+    available: dict[str, Any] = {}
     for node in root.findall("./조문/조문단위"):
         if (node.findtext("조문여부") or "").strip() != "조문":
             continue

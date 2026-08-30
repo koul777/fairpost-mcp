@@ -1,0 +1,219 @@
+{
+  "schema_version": "private-fairness-case-matrix-v1",
+  "evidence_status": "historical",
+  "source_ruleset_version": "not_recorded",
+  "source_matching_version": "not_recorded",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "The model-assisted case matrix has no deterministic generator or recorded source version, so its dated classifications are preserved and are not current release evidence.",
+  "created_at": "2026-08-03T23:59:00+09:00",
+  "updated_at": "2026-08-04T05:06:00+09:00",
+  "accessed_at": "2026-08-04",
+  "method": "공식 근거와 2025~2026 공개 민간 채용공고 목적표본을 대조한 모델 보조 사례 분류",
+  "not_human_labels": true,
+  "not_performance_measurement": true,
+  "privacy_boundary": {
+    "contains_posting_text": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false,
+    "source_id_definition": "contains_source_ids는 원시 코퍼스 source ID를 뜻한다.",
+    "contains_research_source_references": true,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false
+  },
+  "case_families": [
+    {
+      "family_id": "gender-restriction-preference-inclusion",
+      "dimension": "분배",
+      "observed_variants": ["성별 직접 제한", "여성ㆍ남성 우대", "성별 선호", "성별 무관ㆍ지원 가능"],
+      "classification": "mixed",
+      "current_coverage": ["SEX-001", "Q-DIST-015"],
+      "decision": "implemented",
+      "reason": "직접 배제는 law finding, 우대ㆍ선호는 근거 질문, 포용 문맥은 음성으로 분리",
+      "internal_evidence_report": "reports/private_gender_context_audit.json",
+      "research_source_ids": ["src_003", "src_004"]
+    },
+    {
+      "family_id": "document-return-scope",
+      "dimension": "정보",
+      "observed_variants": ["일률적 반환 거부", "전자접수 후 미반환", "반환 청구 안내와 본문 상충"],
+      "classification": "mixed",
+      "current_coverage": ["RETURN-001", "Q-INFO-013"],
+      "decision": "implemented",
+      "reason": "전자ㆍ자발 제출 예외를 law finding에서 제외하고 반환ㆍ보관ㆍ파기 범위를 질문으로 분리",
+      "research_source_ids": ["src_001", "src_005", "src_102", "src_103", "src_111"]
+    },
+    {
+      "family_id": "photo-attachment",
+      "dimension": "정보",
+      "observed_variants": ["사진 필수", "사진 부착", "사진 첨부", "사진 제출 불필요"],
+      "classification": "mixed",
+      "current_coverage": ["PHOTO-001"],
+      "decision": "implemented",
+      "reason": "부착ㆍ첨부 요구를 추가하고 불필요ㆍ금지 문맥을 제외",
+      "research_source_ids": ["src_104", "src_107"]
+    },
+    {
+      "family_id": "retirement-age",
+      "dimension": "분배",
+      "observed_variants": ["정년 연령 고지", "나이ㆍ연령 제한 없음", "고령자 고용촉진 지원서류", "일반 연령 상ㆍ하한"],
+      "classification": "mixed",
+      "current_coverage": ["AGE-002"],
+      "decision": "implemented-protective-context",
+      "reason": "정년, 제한 없음, 시니어인턴십ㆍ노인일자리 지원조치 문맥은 제외하고 일반 연령 제한만 finding 후보로 유지",
+      "research_source_ids": ["src_010", "src_011", "src_110"]
+    },
+    {
+      "family_id": "military-status-and-deferral",
+      "dimension": "분배",
+      "observed_variants": ["병역필ㆍ면제", "남성 한정 병역조건", "병역 이행 후 입사시기 조정"],
+      "classification": "ambiguous",
+      "current_coverage": ["Q-DIST-010"],
+      "decision": "existing-review-strengthened",
+      "reason": "근속 복리후생 결합 문맥은 후보별로 제외하고 병역 제한ㆍ지원서 수집ㆍ직무ㆍ입사일ㆍ법정의무ㆍ보호적 유예 문맥은 사람 검토",
+      "internal_evidence_report": "reports/private_military_proxy_context_audit.json",
+      "research_source_ids": ["src_101", "src_102"]
+    },
+    {
+      "family_id": "residence-and-vehicle",
+      "dimension": "분배",
+      "observed_variants": ["인근 거주 우대", "자차 출퇴근 가능", "원격지 주거비 지원"],
+      "classification": "ambiguous",
+      "current_coverage": ["Q-DIST-004", "Q-DIST-006"],
+      "decision": "existing-review",
+      "reason": "실제 이동업무ㆍ야간교통과 대체수단ㆍ주거지원 여부를 확인",
+      "internal_evidence_report": "reports/private_residence_vehicle_context_audit.json",
+      "research_source_ids": []
+    },
+    {
+      "family_id": "protective-preference",
+      "dimension": "분배",
+      "observed_variants": ["장애ㆍ보훈 가점", "장애인 제한경쟁", "경력단절여성 우대"],
+      "classification": "protective-or-ambiguous",
+      "current_coverage": ["Q-DIST-001", "Q-PROC-006", "Q-DIST-015"],
+      "decision": "review-only",
+      "reason": "가점 근거ㆍ중복ㆍ상한과 적극적 개선조치 범위를 확인하되 차별 finding으로 올리지 않음",
+      "internal_evidence_report": "reports/private_preference_process_context_audit.json",
+      "research_source_ids": ["src_101"]
+    },
+    {
+      "family_id": "education-and-language",
+      "dimension": "분배",
+      "observed_variants": ["고졸 이상", "공인어학 최소점수", "외국어 업무 활용"],
+      "classification": "ambiguous",
+      "current_coverage": ["Q-DIST-002", "Q-DIST-014"],
+      "decision": "existing-review",
+      "reason": "직무기술서의 실제 학력ㆍ언어 사용 수준과 연결 여부를 확인",
+      "research_source_ids": ["src_101"]
+    },
+    {
+      "family_id": "health-screening-and-ppe",
+      "dimension": "정보",
+      "observed_variants": ["채용신체검사", "신체검사 결격사유", "보호장구 착용 가능", "보호장구 지급ㆍ작업환경 안내"],
+      "classification": "ambiguous",
+      "current_coverage": ["HEALTH-001", "Q-DIST-007"],
+      "decision": "existing-review",
+      "reason": "병력 요구 finding과 신체검사ㆍ보호장구의 직무 필수성ㆍ합리적 편의 질문을 분리",
+      "internal_evidence_report": "reports/private_health_job_relevance_context_audit.json",
+      "research_source_ids": ["src_006", "src_017", "src_018", "src_103", "src_106", "src_108"]
+    },
+    {
+      "family_id": "family-evidence-stage",
+      "dimension": "정보",
+      "observed_variants": ["지원ㆍ서류심사 단계 가족관계증명서", "사회형평 우대자격 입증", "최종합격자 입사서류"],
+      "classification": "mixed",
+      "current_coverage": ["FAMILY-001", "Q-INFO-011"],
+      "decision": "implemented",
+      "reason": "가족의 학력ㆍ직업ㆍ재산 요구만 finding 후보로 유지하고 가족관계증명서 문서명은 제출 시점ㆍ목적 질문으로 분리",
+      "research_source_ids": ["src_001", "src_009", "src_019", "src_020", "src_109"]
+    },
+    {
+      "family_id": "online-interview-and-result-notice",
+      "dimension": "절차",
+      "observed_variants": ["온라인 서류 인터뷰", "역량검사 면접 참고", "미합격자 미통보"],
+      "classification": "ambiguous",
+      "current_coverage": ["ai_disclosure", "result_notice", "Q-INFO-002", "Q-INFO-014"],
+      "decision": "implemented",
+      "reason": "일반 화상면접은 AI로 간주하지 않고 합격자 한정ㆍ불합격 미통지는 법 적용범위와 별도 통지ㆍ조회 경로를 확인하는 질문으로 분리",
+      "research_source_ids": ["src_005", "src_007", "src_008", "src_021", "src_022", "src_023", "src_105"]
+    },
+    {
+      "family_id": "nationality-and-work-authorization",
+      "dimension": "분배",
+      "observed_variants": ["외국인 지원 배제", "내국인ㆍ국적자 한정", "외국인 지원 가능ㆍ우대", "취업 가능한 체류자격 확인"],
+      "classification": "mixed",
+      "current_coverage": ["Q-DIST-016"],
+      "decision": "implemented",
+      "reason": "국적에 따른 일률 배제와 국내 취업이 가능한 체류자격ㆍ직무상 직접 요건을 구분해 사람 검토",
+      "research_source_ids": ["src_012"]
+    },
+    {
+      "family_id": "criminal-record-and-background-check",
+      "dimension": "분배",
+      "observed_variants": ["범죄경력", "전과", "신원조회", "실효된 형", "직무 관련 법정 결격사유"],
+      "classification": "ambiguous",
+      "current_coverage": ["Q-DIST-013"],
+      "decision": "existing-review-strengthened",
+      "reason": "실효된 범죄경력과 일률 배제를 자동 판정하지 않고 직무 관련성ㆍ조회 권한ㆍ경과 기간ㆍ소명 절차를 확인",
+      "internal_evidence_report": "reports/private_criminal_record_context_audit.json",
+      "research_source_ids": ["src_013"]
+    },
+    {
+      "family_id": "disability-application-exclusion",
+      "dimension": "분배",
+      "observed_variants": ["장애인 직접 지원 불가", "장애를 이유로 한 지원 접수 제한", "장애ㆍ보훈 우대", "합리적 편의 제공"],
+      "classification": "mixed",
+      "current_coverage": ["DISABILITY-001", "Q-DIST-007"],
+      "decision": "implemented",
+      "reason": "직접적인 장애인 지원 배제만 finding 후보로 추가하고 건강ㆍ이동ㆍ보호장구 요건은 개별 수행능력과 합리적 편의를 사람 검토",
+      "research_source_ids": ["src_014"]
+    },
+    {
+      "family_id": "religion-qualification-and-workplace",
+      "dimension": "분배",
+      "observed_variants": ["세례교인 한정", "특정 종교 우대", "종교관 질문", "교회ㆍ성당ㆍ사찰 기관명 또는 근무지"],
+      "classification": "mixed",
+      "current_coverage": ["Q-DIST-012"],
+      "decision": "implemented-precision",
+      "reason": "종교 단독 키워드를 버리고 지원자격ㆍ우대ㆍ질문 표현만 직무상 불가피성과 함께 사람 검토",
+      "research_source_ids": ["src_015"]
+    },
+    {
+      "family_id": "marital-pregnancy-child-screening",
+      "dimension": "분배",
+      "observed_variants": ["혼인 여부 지원서 항목", "결혼 예정 시기 질문", "임신ㆍ출산 계획", "자녀 유무", "혼인정보 기재 금지"],
+      "classification": "mixed",
+      "current_coverage": ["Q-DIST-017"],
+      "decision": "implemented",
+      "reason": "명시적인 가족상황 질문만 사람 검토하고 블라인드 기재 금지 안내는 보호",
+      "research_source_ids": ["src_016"]
+    }
+  ],
+  "summary": {
+    "case_family_count": 16,
+    "implemented": 10,
+    "covered_by_existing_review": 6,
+    "backlog": 0,
+    "private_train_observations": {
+      "AGE-002": 192,
+      "PHOTO-001": 4,
+      "RETURN-001": 68,
+      "Q-DIST-015": 50,
+      "Q-DIST-016": 1,
+      "Q-DIST-013": 15,
+      "Q-INFO-013": 69,
+      "Q-INFO-014": 161,
+      "Q-DIST-007": 28,
+      "DISABILITY-001": 0,
+      "Q-DIST-012": 1,
+      "Q-DIST-017": 2,
+      "FAMILY-001": 0,
+      "Q-INFO-011": 162
+    }
+  },
+  "limitations": [
+    "목적표본 사례군이며 발생률 또는 규칙 성능을 추정하지 않는다.",
+    "research_source_ids는 docs/private-fairness-research-bundle.json의 익명 출처 키를 참조한다.",
+    "질문 규칙은 사람 검토 대상을 좁히며 해당 표현만으로 위반이나 차별을 판정하지 않는다."
+  ]
+}

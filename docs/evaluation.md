@@ -46,7 +46,7 @@ python tools\build_annotation_ui.py `
 
 ```json
 {
-  "id": "job-alio:123",
+  "id": "synthetic:123",
   "content_hash": "본문 SHA-256",
   "text": "비식별화된 홀드아웃 공고문",
   "expected_findings": ["AGE-001"],
@@ -78,9 +78,11 @@ ID, 아직 다루지 못하면 `null`로 기록합니다. 이 값으로 사전 �
 
 ```powershell
 python tools\evaluate.py .corpus-prd\holdout\annotations.jsonl `
+  --phase final `
   --train-manifest .corpus-prd\train\manifest.json `
   --holdout-manifest .corpus-prd\holdout\manifest.json `
   --holdout-records .corpus-prd\holdout\records.jsonl `
+  --human-attestation .corpus-prd\holdout\human-attestation.json `
   --enforce-targets `
   --output reports\evaluation.json
 ```
@@ -93,6 +95,7 @@ python tools\evaluate.py .corpus-prd\holdout\annotations.jsonl `
 - 라벨 본문의 SHA-256이 `content_hash`와 일치
 - 모든 라벨이 홀드아웃 manifest에 포함
 - 홀드아웃 manifest와 `records.jsonl`의 IDㆍ본문 해시가 정확히 일치
+- 사람 확인서 schema v2가 라벨ㆍmanifestㆍrecords 세 파일 해시와 현재 규칙ㆍ매칭 버전에 결합
 - 홀드아웃 전체가 정확히 한 번씩 라벨링됨
 - 공공과 민간 홀드아웃이 각각 90건 이상
 - 규칙 ID와 슬롯 ID가 현재 사전에 실재

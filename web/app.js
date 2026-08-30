@@ -180,12 +180,19 @@
       : "";
     const scopeLabel =
       question.review_scope === "common" ? "공통 기본" : "공고별";
+    const linkedFindings = question.linked_findings || [];
+    const linkTag = linkedFindings.length
+      ? `<span class="link-tag">관련 표현 ${linkedFindings
+          .map((id) => escapeHtml(id))
+          .join(", ")}</span>`
+      : "";
     return `<article class="question-item">
       <div class="item-main">
         <div class="item-meta">
           <span class="id-tag">${escapeHtml(question.id)}</span>
           <span class="dimension-tag">${escapeHtml(question.dimension)}</span>
           <span class="scope-tag">${scopeLabel}</span>
+          ${linkTag}
           <span>${escapeHtml(question.book_ref)}</span>
         </div>
         <p class="item-title">${escapeHtml(question.question)}</p>
@@ -259,7 +266,7 @@
 
   function makeReport(result) {
     const lines = [
-      "fairpost 채용공고문 검토 의견서",
+      "fairpost 채용공고문 검토 메모",
       `규칙 사전: ${result.ruleset_version}`,
       `법령 기준일: ${result.statute_snapshot_date}`,
       result.statute_notice,
@@ -365,7 +372,7 @@
     if (!latestResult) return;
     try {
       await navigator.clipboard.writeText(makeReport(latestResult));
-      showToast("검토 의견서를 복사했습니다.");
+      showToast("검토 메모를 복사했습니다.");
     } catch (_error) {
       const temporary = document.createElement("textarea");
       temporary.value = makeReport(latestResult);
@@ -375,7 +382,7 @@
       temporary.select();
       document.execCommand("copy");
       temporary.remove();
-      showToast("검토 의견서를 복사했습니다.");
+      showToast("검토 메모를 복사했습니다.");
     }
   });
 

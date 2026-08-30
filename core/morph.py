@@ -5,7 +5,7 @@ from functools import lru_cache
 import re
 import unicodedata
 
-MORPH_VERSION = "local-v4-nfkc-whitespace-zero-width-source-offset"
+MORPH_VERSION = "local-v5-nfkc-whitespace-zero-width-regex-source-offset"
 MORPH_REWRITES: tuple[tuple[str, str], ...] = (
     ("않습니다", "않음"),
     ("있으신", "있는"),
@@ -95,7 +95,11 @@ def _normalized_text_with_offsets(
         if character in ZERO_WIDTH:
             continue
         replacement = (
-            " " if character.isspace() else unicodedata.normalize("NFKC", character)
+            character
+            if character in {"\r", "\n", "\t"}
+            else " "
+            if character.isspace()
+            else unicodedata.normalize("NFKC", character)
         )
         normalized.extend(replacement)
         starts.extend([cursor] * len(replacement))
@@ -135,25 +139,50 @@ def find_matches(
 ) -> list[re.Match[str] | SourceMatch]:
     matches: list[re.Match[str] | SourceMatch] = []
     seen: set[tuple[int, int, str]] = set()
+    normalized_text, normalized_starts, normalized_ends = (
+        _normalized_text_with_offsets(text)
+    )
     match_text, match_starts, match_ends = _match_text_with_offsets(text)
     needs_match_view = match_text != text
     for pattern in patterns:
-        exact_matches = list(pattern_to_regex(pattern).finditer(text))
+        is_regex = pattern.startswith("re:")
+        # A raw regex can miss a normalized candidate in its own lookahead and
+        # incorrectly consume a later protective phrase. Once compatibility
+        # or invisible characters are present, the normalized regex view is
+        # authoritative; morphology-only rewrites still keep the raw view.
+        exact_matches = (
+            []
+            if is_regex and normalized_text != text
+            else list(pattern_to_regex(pattern).finditer(text))
+        )
         for match in exact_matches:
             key = (match.start(), match.end(), match.group(0).casefold())
             if key not in seen:
                 matches.append(match)
                 seen.add(key)
-        if pattern.startswith("re:"):
-            continue
-        if not needs_match_view:
-            continue
-        match_pattern = _match_plain(pattern)
-        for match in pattern_to_regex(match_pattern).finditer(match_text):
+        if is_regex:
+            if normalized_text == text:
+                continue
+            search_text = normalized_text
+            search_starts = normalized_starts
+            search_ends = normalized_ends
+        else:
+            if not needs_match_view:
+                continue
+            search_text = match_text
+            search_starts = match_starts
+            search_ends = match_ends
+        # Regex rules must see the same NFKC/zero-width-normalized view as
+        # literal rules. This is especially important for protective
+        # exclusions: otherwise a normalized candidate can be found while its
+        # adjacent "do not collect" expression is tested only against the raw
+        # text and becomes a false positive.
+        match_pattern = pattern if is_regex else _match_plain(pattern)
+        for match in pattern_to_regex(match_pattern).finditer(search_text):
             if match.start() == match.end():
                 continue
-            start = match_starts[match.start()]
-            end = match_ends[match.end() - 1]
+            start = search_starts[match.start()]
+            end = search_ends[match.end() - 1]
             source_match = SourceMatch(text, start, end)
             key = (start, end, source_match.group(0).casefold())
             if key not in seen:
@@ -164,9 +193,23 @@ def find_matches(
 
 def is_excluded(text: str, start: int, end: int, excludes: list[dict]) -> bool:
     for exclusion in excludes:
+        candidate_pattern = exclusion.get("candidate")
+        if candidate_pattern and find_first(
+            text[start:end], [str(candidate_pattern)]
+        ) is None:
+            continue
         window = int(exclusion.get("window", 0))
         left = max(0, start - window)
         right = min(len(text), end + window)
-        if find_first(text[left:right], [str(exclusion["term"])]):
+        term_matches = find_matches(text[left:right], [str(exclusion["term"])])
+        if exclusion.get("overlap_candidate"):
+            relative_start = start - left
+            relative_end = end - left
+            if any(
+                match.start() < relative_end and match.end() > relative_start
+                for match in term_matches
+            ):
+                return True
+        elif term_matches:
             return True
     return False

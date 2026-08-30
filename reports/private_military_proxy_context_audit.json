@@ -1,0 +1,187 @@
+{
+  "schema_version": "private-military-proxy-context-audit-v1",
+  "created_at": "2026-08-04T04:23:00+09:00",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "matching_version": "match-674b70d043fc8b4a",
+  "evidence_status": "historical",
+  "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
+  "source_matching_version": "match-674b70d043fc8b4a",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-7c381c142ac1",
+  "current_matching_version": "match-1e34d81e35e57b3f",
+  "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
+  "baseline_scope": {
+    "sector": "private",
+    "split": "train_only",
+    "total_records": 2100,
+    "rule_id": "Q-DIST-010",
+    "candidate_count": 163,
+    "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-46206b6c02b2",
+    "matching_version": "match-8a01c6131a5f255f"
+  },
+  "baseline_trigger_families": {
+    "previous_employment_duration": 136,
+    "military": 15,
+    "hobby": 5,
+    "school_origin": 4,
+    "club": 2,
+    "residence": 1,
+    "graduation_year": 0,
+    "service_tenure": 0,
+    "postal_code": 0
+  },
+  "baseline_exclusive_clusters": [
+    {
+      "id": "employee_tenure_benefit_block",
+      "count": 136
+    },
+    {
+      "id": "other_employee_benefit_or_activity_support",
+      "count": 6
+    },
+    {
+      "id": "protective_non_collection_instruction",
+      "count": 4
+    },
+    {
+      "id": "job_content_hobby",
+      "count": 1
+    },
+    {
+      "id": "military_completed_or_exempt_restriction",
+      "count": 8
+    },
+    {
+      "id": "military_application_field_collection",
+      "count": 5
+    },
+    {
+      "id": "military_special_service_program",
+      "count": 1
+    },
+    {
+      "id": "generic_military_reference",
+      "count": 1
+    },
+    {
+      "id": "residence_qualification",
+      "count": 1
+    }
+  ],
+  "baseline_review_tiers": {
+    "high": 9,
+    "normal": 6,
+    "downgrade": 1,
+    "conservative_auto_exclusion": 147
+  },
+  "military_only_overlap": {
+    "candidate_count": 15,
+    "male_marker": 7,
+    "explicit_restriction": 8,
+    "application_field_collection": 5,
+    "duty_or_law_context": 2,
+    "special_service_program": 1,
+    "anchored_deferral": 0,
+    "explicit_job_relevance": 0
+  },
+  "current_scope": {
+    "sector": "private",
+    "split": "train_only",
+    "total_records": 2100,
+    "rule_id": "Q-DIST-010",
+    "candidate_count": 27
+  },
+  "current_trigger_families": {
+    "military": 15,
+    "hobby": 5,
+    "school_origin": 4,
+    "club": 2,
+    "residence": 1,
+    "graduation_year": 0,
+    "service_tenure": 0,
+    "postal_code": 0
+  },
+  "current_exclusive_clusters": [
+    {
+      "id": "other_employee_benefit_or_activity_support",
+      "count": 6
+    },
+    {
+      "id": "protective_non_collection_instruction",
+      "count": 4
+    },
+    {
+      "id": "job_content_hobby",
+      "count": 1
+    },
+    {
+      "id": "military_completed_or_exempt_restriction",
+      "count": 8
+    },
+    {
+      "id": "military_application_field_collection",
+      "count": 5
+    },
+    {
+      "id": "military_special_service_program",
+      "count": 1
+    },
+    {
+      "id": "generic_military_reference",
+      "count": 1
+    },
+    {
+      "id": "residence_qualification",
+      "count": 1
+    }
+  ],
+  "current_review_tiers": {
+    "high": 9,
+    "normal": 6,
+    "downgrade": 1,
+    "conservative_auto_exclusion": 11
+  },
+  "refinement_decision": {
+    "status": "implemented_and_regression_tested",
+    "target_patterns": [
+      "재직 기간",
+      "근속 기간"
+    ],
+    "strategy": "기존 기간 탐지는 유지하고 현재 후보와 겹치는 복리후생ㆍ근속포상 결합 문맥만 제외",
+    "reason": "기준선 163건 중 136건이 지원자 대리변수 수집이 아닌 근속 복리후생 문맥",
+    "military_patterns_unchanged": true,
+    "automatic_legal_conclusion": false
+  },
+  "method": {
+    "context_window_characters_each_side": 350,
+    "classification": "정규화한 규칙 매치 주변 문맥을 신호 정규식으로 중복 집계한 뒤 고정 우선순위로 배타 분류",
+    "exclusive_priority": [
+      "employee_tenure_benefit_block",
+      "other_employee_benefit_or_activity_support",
+      "protective_non_collection_instruction",
+      "job_content_hobby",
+      "military_completed_or_exempt_restriction",
+      "military_application_field_collection",
+      "military_special_service_program",
+      "generic_military_reference",
+      "residence_qualification"
+    ],
+    "reproduction_boundary": "원문과 식별자를 저장하지 않은 익명 집계이며 현재 private train 스냅샷에서만 재계산"
+  },
+  "privacy_boundary": {
+    "contains_posting_text": false,
+    "contains_record_ids": false,
+    "contains_source_ids": false,
+    "contains_urls": false,
+    "contains_hashes": false,
+    "contains_organization_identifiers": false,
+    "contains_personal_identifiers": false
+  },
+  "limitations": {
+    "heuristic_not_human_label": true,
+    "not_performance_measurement": true,
+    "not_legal_determination": true,
+    "exclusive_cluster_sums_checked": true,
+    "overlapping_military_counts_do_not_sum": true,
+    "single_source_category": true
+  }
+}
