@@ -43,7 +43,7 @@ python tools\check_evidence_versions.py --scope all
 배포를 다시 검증해야 한다.
 
 `runtime_source_fingerprint`는 Python 엔진ㆍMCPㆍVercel 진입점뿐 아니라 루트
-랜딩, 정적 웹 번들, `vercel.json`, `pyproject.toml`을 함께 묶는다. 텍스트 파일의
+랜딩, 정적 웹 번들, `vercel.json`, `.vercelignore`, `pyproject.toml`을 함께 묶는다. 텍스트 파일의
 LFㆍCRLF 차이는 정규화하므로 같은 Git 내용은 Windows와 Vercel Linux에서 같은
 지문을 만들고, 사용자에게 보이는 문구나 웹 동작이 달라지면 지문도 달라진다.
 

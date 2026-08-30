@@ -21,6 +21,7 @@ def test_runtime_source_manifest_covers_engine_dependencies() -> None:
 
 def test_runtime_source_manifest_covers_deployed_web() -> None:
     assert {
+        ".vercelignore",
         "index.html",
         "pyproject.toml",
         "vercel.json",
@@ -30,6 +31,29 @@ def test_runtime_source_manifest_covers_deployed_web() -> None:
         "web/index.html",
         "web/styles.css",
     } <= set(RUNTIME_SOURCE_FILES)
+
+
+def test_runtime_source_fingerprint_binds_deployment_exclusions(
+    tmp_path: Path,
+) -> None:
+    exclusions = tmp_path / ".vercelignore"
+    exclusions.write_text(".env\n.corpus*\n", encoding="utf-8")
+    first = runtime_source_fingerprint(
+        ruleset_version="rules",
+        matching_version="matching",
+        root=tmp_path,
+        source_files=(".vercelignore",),
+    )
+
+    exclusions.write_text(".env\n", encoding="utf-8")
+    changed = runtime_source_fingerprint(
+        ruleset_version="rules",
+        matching_version="matching",
+        root=tmp_path,
+        source_files=(".vercelignore",),
+    )
+
+    assert changed != first
 
 
 def test_runtime_source_fingerprint_binds_code_and_rule_versions(

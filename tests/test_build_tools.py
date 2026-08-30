@@ -1386,8 +1386,18 @@ def test_vercel_configuration_excludes_private_inputs() -> None:
     ignored = (ROOT / ".vercelignore").read_text(encoding="utf-8")
     for private_path in (
         ".env",
+        ".agents/",
+        ".claude/",
         ".corpus*/",
+        ".corpus*",
+        ".git/",
+        ".mcp.json",
+        ".mypy_cache/",
         ".private-review/",
+        ".ruff_cache/",
+        ".vercel/",
+        ".coverage",
+        "*.log",
         "answers.json",
         "data/local_rules.yaml",
     ):

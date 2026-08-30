@@ -9,6 +9,7 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_SOURCE_FILES = (
+    ".vercelignore",
     "index.html",
     "pyproject.toml",
     "vercel.json",
