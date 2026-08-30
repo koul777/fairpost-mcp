@@ -65,6 +65,9 @@ def _current_client_evidence_matches(
     inspector = client.get("official_inspector")
     if not isinstance(inspector, dict):
         return False
+    claude = client.get("claude_code")
+    if not isinstance(claude, dict):
+        return False
     return bool(
         client.get("schema_version") == "fairpost-mcp-client-audit-v2"
         and client.get("evidence_status") == "current"
@@ -79,6 +82,17 @@ def _current_client_evidence_matches(
         and client.get("authentication") == authentication
         and client.get("contains_posting_text") is False
         and client.get("synthetic_input_only") is True
+        and claude.get("authenticated") is True
+        and claude.get("invocation_passed") is True
+        and claude.get("project_registration_passed") is True
+        and claude.get("status") == "final-independent-supervision-passed"
+        and claude.get("tools_called")
+        == [
+            "check_job_posting",
+            "check_job_posting_structured",
+            "next_review_question",
+        ]
+        and claude.get("read_only") is True
         and inspector.get("tools_list_exit_code") == 0
         and inspector.get("tool_call_exit_code") == 0
         and inspector.get("is_error") is False

@@ -463,6 +463,18 @@ def test_current_client_evidence_is_bound_to_deployment_audit() -> None:
         "authentication": "bearer",
         "contains_posting_text": False,
         "synthetic_input_only": True,
+        "claude_code": {
+            "authenticated": True,
+            "invocation_passed": True,
+            "project_registration_passed": True,
+            "status": "final-independent-supervision-passed",
+            "tools_called": [
+                "check_job_posting",
+                "check_job_posting_structured",
+                "next_review_question",
+            ],
+            "read_only": True,
+        },
         "official_inspector": {
             "tools_list_exit_code": 0,
             "tool_call_exit_code": 0,
@@ -499,6 +511,9 @@ def test_current_client_evidence_is_bound_to_deployment_audit() -> None:
     assert module._current_client_evidence_matches(client, **arguments) is False
     client["official_inspector"]["endpoint"] = "https://example.test/api/mcp"
     client["official_inspector"]["version"] = "1.0.0"
+    assert module._current_client_evidence_matches(client, **arguments) is False
+    client["official_inspector"]["version"] = "2.4.0"
+    client["claude_code"]["tools_called"] = ["check_job_posting"]
     assert module._current_client_evidence_matches(client, **arguments) is False
 
 
