@@ -72,7 +72,7 @@ PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 �
 ## 수용 기준
 
 AC-1~AC-20의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. 현재 전수
-테스트 882개가 통과했고 JUnit 해시는 `reports/build_artifact.json`에 고정한다.
+테스트 883개가 통과했고 JUnit 해시는 `reports/build_artifact.json`에 고정한다.
 다만 수용 기준 통과가 G1ㆍG2 성능 목표를 대신 증명하지는 않는다.
 
 ## 완료를 위해 남은 증거

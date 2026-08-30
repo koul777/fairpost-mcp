@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 from mcp_server.build_identity import (
+    DEPLOYMENT_CONFIG_POLICY,
     DEPLOYMENT_EXCLUSION_POLICY,
     RUNTIME_SOURCE_FILES,
     _canonical_python_source,
@@ -25,7 +27,6 @@ def test_runtime_source_manifest_covers_deployed_web() -> None:
     assert {
         "index.html",
         "pyproject.toml",
-        "vercel.json",
         "web/app.js",
         "web/data.js",
         "web/engine.js",
@@ -45,6 +46,32 @@ def test_deployment_exclusion_policy_matches_vercelignore() -> None:
     }
 
     assert set(DEPLOYMENT_EXCLUSION_POLICY) <= configured
+
+
+def test_deployment_config_policy_matches_vercel_json() -> None:
+    config = json.loads(
+        (Path(__file__).resolve().parents[1] / "vercel.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    function = config["functions"]["api/index.py"]
+    rewrites = tuple(
+        (item["source"], item["destination"])
+        for item in config["rewrites"]
+    )
+    headers = tuple(
+        (item["key"], item["value"])
+        for item in config["headers"][0]["headers"]
+    )
+
+    assert function["maxDuration"] == DEPLOYMENT_CONFIG_POLICY[
+        "function_max_duration"
+    ]
+    assert function["excludeFiles"] == DEPLOYMENT_CONFIG_POLICY[
+        "function_exclude_files"
+    ]
+    assert rewrites == DEPLOYMENT_CONFIG_POLICY["rewrites"]
+    assert headers == DEPLOYMENT_CONFIG_POLICY["headers"]
 
 
 def test_runtime_source_fingerprint_binds_code_and_rule_versions(

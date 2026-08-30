@@ -43,9 +43,10 @@ python tools\check_evidence_versions.py --scope all
 배포를 다시 검증해야 한다.
 
 `runtime_source_fingerprint`는 Python 엔진ㆍMCPㆍVercel 진입점뿐 아니라 루트
-랜딩, 정적 웹 번들, `vercel.json`, `pyproject.toml`과 배포 제외 정책을 함께 묶는다.
-실제 `.vercelignore`는 배포되지 않으므로, 해시되는 `build_identity.py`의 정책 상수와
-파일 내용이 일치하는지 회귀 테스트로 강제한다. 텍스트 파일의
+랜딩, 정적 웹 번들, `pyproject.toml`과 배포 설정ㆍ제외 정책을 함께 묶는다.
+Vercel은 `vercel.json`을 빌드 과정에서 내부 형식으로 정규화하고 `.vercelignore`는
+배포하지 않는다. 따라서 두 파일의 보안 의미를 해시되는 `build_identity.py` 정책
+상수로 고정하고 실제 파일 내용과 일치하는지 회귀 테스트로 강제한다. 텍스트 파일의
 LFㆍCRLF 차이는 정규화하므로 같은 Git 내용은 Windows와 Vercel Linux에서 같은
 지문을 만들고, 사용자에게 보이는 문구나 웹 동작이 달라지면 지문도 달라진다.
 운영 health에는 원문 없이 파일별 정규화 SHA-256 manifest도 제공해 패키징 경계가

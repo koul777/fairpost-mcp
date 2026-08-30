@@ -24,11 +24,28 @@ DEPLOYMENT_EXCLUSION_POLICY = (
     "answers.json",
     "data/local_rules.yaml",
 )
+DEPLOYMENT_CONFIG_POLICY = {
+    "function_max_duration": 30,
+    "function_exclude_files": (
+        "{.corpus*/**,build/**,dist/**,tmp/**,tests/**,tools/**,reports/**,"
+        "docs/**,.env,.env.*,*.egg-info/**}"
+    ),
+    "rewrites": (
+        ("/api/mcp", "/api"),
+        ("/api/claude-mcp", "/api"),
+        ("/api/health", "/api"),
+    ),
+    "headers": (
+        ("Cache-Control", "no-store"),
+        ("X-Content-Type-Options", "nosniff"),
+        ("X-Frame-Options", "DENY"),
+        ("Referrer-Policy", "no-referrer"),
+    ),
+}
 
 RUNTIME_SOURCE_FILES = (
     "index.html",
     "pyproject.toml",
-    "vercel.json",
     "api/index.py",
     "core/__init__.py",
     "core/engine.py",
