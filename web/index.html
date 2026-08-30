@@ -1,15 +1,15 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; connect-src 'none'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
-    />
-    <meta name="color-scheme" content="light" />
+    >
+    <meta name="color-scheme" content="light">
     <title>fairpost | 채용공고 검토 메모</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <header class="app-header">
@@ -72,7 +72,7 @@
         <div class="results-toolbar">
           <div>
             <p class="eyebrow">사람 검토용 메모</p>
-            <h2 id="results-title">검토 메모</h2>
+            <h2 id="results-title" tabindex="-1">검토 메모</h2>
             <p class="results-note">판정이 아니라 수정·확인 질문을 정리한 로컬 검토 메모입니다.</p>
           </div>
           <button id="copy-button" class="button button-secondary" type="button" disabled>
@@ -94,13 +94,13 @@
             점수·등급·합격/불합격 또는 공정성 판정으로 해석하지 않고, 담당자가 원문과 근거를 확인해 수정 여부를 결정합니다.
           </div>
 
-          <div class="summary-strip" aria-label="검토 작업 개수">
+          <div class="summary-strip" role="group" aria-label="검토 작업 개수">
             <div><strong id="finding-count">0</strong><span>표현 검토 후보</span></div>
             <div><strong id="missing-count">0</strong><span>확인되지 않은 항목</span></div>
             <div><strong id="question-count">0</strong><span>공고별 질문</span></div>
           </div>
 
-          <div class="next-step-strip" aria-label="검토 순서">
+          <div class="next-step-strip" role="group" aria-label="검토 순서">
             <span>1. 확인된 표현의 근거와 대체 문구를 검토합니다.</span>
             <span>2. 누락된 항목 카드를 펼쳐 안내 문구를 보완합니다.</span>
             <span>3. 공고별 질문과 공통 체크리스트로 최종 확인합니다.</span>

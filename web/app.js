@@ -9,6 +9,7 @@
   const charCount = document.getElementById("char-count");
   const emptyState = document.getElementById("empty-state");
   const resultContent = document.getElementById("result-content");
+  const resultsTitle = document.getElementById("results-title");
   const toast = document.getElementById("toast");
   const SLOT_EMBEDDED_QUESTION_ALLOWLIST = new Set(
     ["Q-INFO-001", "Q-INFO-004", "Q-PROC-002"]
@@ -411,6 +412,7 @@
     }
     reviewAnswers.clear();
     render(window.FairpostEngine.check(input.value));
+    resultsTitle.focus();
   }
 
   input.addEventListener("input", () => {

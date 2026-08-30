@@ -137,6 +137,11 @@ def test_mcp_save_and_get_tools(tmp_path: Path, monkeypatch) -> None:
     assert response["status"] == "stored_locally"
     assert server.get_saved_answers("org-b") == {"Q-PROC-001": "서류와 면접"}
 
+    server.save_answer("org-b", "Q-PROC-001", "서류, 면접, 실기")
+    assert server.get_saved_answers("org-b") == {
+        "Q-PROC-001": "서류, 면접, 실기"
+    }
+
 
 def test_mcp_rejects_unknown_question_id_without_writing(
     tmp_path: Path,

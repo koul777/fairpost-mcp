@@ -223,11 +223,13 @@ def test_static_web_has_no_network_capability_and_shows_version() -> None:
     assert "판정이 아니라 수정·확인 질문을 정리한 로컬 검토 메모입니다." in html
     assert "fairpost | 채용공고 검토 메모" in html
     assert "검토 메모 만들기" in html
+    assert 'id="results-title" tabindex="-1"' in html
     assert "개수는 검토할 작업량입니다." in html
     assert "점수·등급·합격/불합격 또는 공정성 판정" in html
     assert html.index('id="disclaimer"') < html.index('class="summary-strip"')
+    assert 'class="summary-strip" role="group"' in html
     assert "공고별 질문" in html
-    assert 'class="next-step-strip"' in html
+    assert 'class="next-step-strip" role="group"' in html
     assert "1. 확인된 표현의 근거와 대체 문구를 검토합니다." in html
     assert 'id="answer-progress"' in html
     assert "질문별 답변은 현재 분석 세션에만 남고" in html
@@ -287,6 +289,7 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
         encoding="utf-8",
     )
     result = json.loads(completed.stdout)
+    assert result["resultsTitleFocused"] is True
     assert result["progressAfterAnswer"] == (
         f"담당자 답변 1/{result['questionCount']}"
     )
@@ -325,6 +328,7 @@ def test_web_css_preserves_hidden_state_and_mobile_width() -> None:
     assert ".button-deploy{" in compact
     assert ".results-note{" in compact
     assert ".next-step-strip{" in compact
+    assert "#results-title:focus-visible{" in compact
     assert ".review-progress-strip{" in compact
     assert ".review-answer-contenttextarea{" in compact
     assert "a:focus-visible{" in compact

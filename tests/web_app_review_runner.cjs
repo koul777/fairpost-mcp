@@ -16,6 +16,7 @@ class FakeElement {
     this.handlers = new Map();
     this.classList = { add() {}, remove() {} };
     this.replaced = false;
+    this.focused = false;
   }
 
   addEventListener(type, handler) {
@@ -32,7 +33,7 @@ class FakeElement {
     return handler ? handler({ type, target: this, ...event }) : undefined;
   }
 
-  focus() {}
+  focus() { this.focused = true; }
   select() {}
   remove() {}
 
@@ -53,6 +54,7 @@ const ids = [
   "char-count",
   "empty-state",
   "result-content",
+  "results-title",
   "toast",
   "ruleset-version",
   "answer-progress",
@@ -118,6 +120,7 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
   const posting = elements.get("posting-input");
   posting.value = "여성만 지원 가능";
   elements.get("check-button").trigger("click");
+  const resultsTitleFocused = elements.get("results-title").focused;
 
   const result = window.FairpostEngine.check(posting.value);
   const questionId = result.questions[0].id;
@@ -153,6 +156,7 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
   console.log(JSON.stringify({
     questionId,
     questionCount: result.questions.length,
+    resultsTitleFocused,
     progressAfterAnswer,
     copiedWithAnswer,
     progressAfterRerun,

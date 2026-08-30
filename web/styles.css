@@ -54,7 +54,8 @@ button {
 button:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
-a:focus-visible {
+a:focus-visible,
+#results-title:focus-visible {
   outline: 3px solid rgba(53, 106, 138, 0.3);
   outline-offset: 2px;
 }
