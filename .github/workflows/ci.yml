@@ -232,7 +232,11 @@ jobs:
           assert engine.ruleset.matching_version == expected["matching_version"]
           assert sorted(
               tool.name for tool in public_mcp._tool_manager.list_tools()
-          ) == ["check_job_posting", "next_review_question"]
+          ) == [
+              "check_job_posting",
+              "check_job_posting_structured",
+              "next_review_question",
+          ]
           assert not any(
               finding.id == "AI-001"
               for finding in engine.check(

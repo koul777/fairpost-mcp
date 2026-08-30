@@ -88,7 +88,8 @@ def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
                 assert get_tool.annotations.readOnlyHint is True
                 assert save_tool.annotations is not None
                 assert save_tool.annotations.readOnlyHint is False
-                assert save_tool.annotations.destructiveHint is False
+                assert save_tool.annotations.destructiveHint is True
+                assert "replaces an existing answer" in save_tool.description
                 assert check_tool.outputSchema is None
                 assert structured_tool.outputSchema is not None
                 assert set(structured_tool.outputSchema["required"]) == {

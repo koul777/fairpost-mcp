@@ -564,7 +564,7 @@ def build_report(
                 "reason": "현재 HEAD에 단일 릴리스 태그가 없습니다.",
             }
         )
-    report = {
+    report: dict[str, object] = {
         "schema_version": "fairpost-build-artifact-v2",
         "built_at": built_at
         or datetime.now(KST).isoformat(timespec="seconds"),

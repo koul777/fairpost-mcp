@@ -52,6 +52,18 @@ def _anonymous_authentication_behavior_matches(
     return status_code not in {401, 503}
 
 
+def _first_text_content(result: Any | None) -> str:
+    """Return the first text block without assuming every MCP block is text."""
+
+    if result is None:
+        return ""
+    for item in result.content:
+        text = getattr(item, "text", None)
+        if isinstance(text, str):
+            return text
+    return ""
+
+
 async def verify(
     base_url: str,
     token: str,
@@ -127,7 +139,6 @@ async def verify(
                     "next_review_question",
                     {"text": SAMPLE_POSTING},
                 )
-                saved = None
 
     claude_initialized = None
     claude_listed = None
@@ -155,7 +166,7 @@ async def verify(
                     )
 
     tool_names = {tool.name for tool in listed.tools}
-    checked_text = checked.content[0].text if checked.content else ""
+    checked_text = _first_text_content(checked)
     authentication = health.get("authentication")
     expected_claude_authentication = (
         "bearer"
@@ -182,11 +193,7 @@ async def verify(
         if claude_listed is not None
         else set()
     )
-    claude_checked_text = (
-        claude_checked.content[0].text
-        if claude_checked is not None and claude_checked.content
-        else ""
-    )
+    claude_checked_text = _first_text_content(claude_checked)
 
     authentication_behavior_matches = _anonymous_authentication_behavior_matches(
         authentication,
@@ -364,7 +371,7 @@ async def verify(
             if allow_write_check
             else None
         ),
-        "save_answer_is_error": None if saved is None else bool(saved.isError),
+        "save_answer_is_error": None,
         "checks": checks,
         "passed": all(checks.values()),
         "secret_recorded": False,

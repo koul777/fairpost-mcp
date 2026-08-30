@@ -166,9 +166,9 @@ READ_ONLY_ANNOTATIONS = ToolAnnotations(
     idempotentHint=True,
     openWorldHint=False,
 )
-ADDITIVE_WRITE_ANNOTATIONS = ToolAnnotations(
+LOCAL_ANSWER_WRITE_ANNOTATIONS = ToolAnnotations(
     readOnlyHint=False,
-    destructiveHint=False,
+    destructiveHint=True,
     idempotentHint=True,
     openWorldHint=False,
 )
@@ -525,9 +525,10 @@ def next_review_question_public(text: str) -> dict[str, Any]:
 @mcp.tool(
     description=(
         "조직의 검토 질문 답변을 사용자 컴퓨터의 로컬 JSON에만 저장합니다. "
+        "같은 조직ㆍ질문의 기존 답변이 있으면 새 답변으로 교체합니다. "
         "채용공고문 원문은 저장하지 않습니다."
     ),
-    annotations=ADDITIVE_WRITE_ANNOTATIONS,
+    annotations=LOCAL_ANSWER_WRITE_ANNOTATIONS,
 )
 def save_answer(org_id: str, question_id: str, answer: str) -> dict[str, str]:
     if question_id not in _question_ids():
@@ -560,7 +561,8 @@ _set_tool_description(
     mcp,
     "save_answer",
     "Persist an organization's review-question answer in the configured "
-    "answer store. The raw job posting text is never stored.",
+    "answer store. A new answer replaces an existing answer for the same "
+    "organization and question. The raw job posting text is never stored.",
 )
 _set_tool_description(
     mcp,
