@@ -33,6 +33,7 @@ SDIST_REQUIRED = {
     ".vercelignore",
     "vercel.json",
     "index.html",
+    "favicon.svg",
     "api/index.py",
     "core/engine.py",
     "mcp_server/server.py",

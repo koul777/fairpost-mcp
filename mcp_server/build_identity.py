@@ -44,6 +44,7 @@ DEPLOYMENT_CONFIG_POLICY = {
 }
 
 RUNTIME_SOURCE_FILES = (
+    "favicon.svg",
     "index.html",
     "pyproject.toml",
     "api/index.py",

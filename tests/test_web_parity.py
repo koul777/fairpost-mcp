@@ -212,6 +212,7 @@ def test_static_web_has_no_network_capability_and_shows_version() -> None:
     app = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
     engine = (ROOT / "web" / "engine.js").read_text(encoding="utf-8")
     assert "connect-src 'none'" in html
+    assert '<link rel="icon" href="/favicon.svg"' in html
     assert "입력ㆍ답변은 이 브라우저 밖으로 전송되지 않으며" in html
     assert "배포ㆍ근거 링크만 새 외부 페이지를 엽니다" in html
     assert 'id="deploy-button"' in html
