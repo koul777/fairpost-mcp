@@ -70,7 +70,7 @@ RUNTIME_SOURCE_FILES = (
 def _canonical_python_source(path: Path) -> bytes:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=path.name)
     # Keep one canonical AST shape across every supported Python boundary.
-    # Python 3.12 added empty ``type_params`` fields, while Python 3.14 began
+    # Python 3.12 added empty ``type_params`` fields, while Python 3.13 began
     # hiding empty fields from ast.dump() unless show_empty is requested.
     if sys.version_info < (3, 12):
         for node in ast.walk(tree):
@@ -78,7 +78,7 @@ def _canonical_python_source(path: Path) -> bytes:
                 node._fields = (*node._fields, "type_params")
                 node.type_params = []
     options = {"annotate_fields": True, "include_attributes": False}
-    if sys.version_info >= (3, 14):
+    if sys.version_info >= (3, 13):
         options["show_empty"] = True
     return ast.dump(tree, **options).encode("utf-8")
 
