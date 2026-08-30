@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass
 import os
-from typing import Any
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 
 from core import FairpostEngine
-from core.schema import CheckResult, Question
+from core.schema import CheckResult, Finding, Question, SlotStatus
 from .storage import (
     EphemeralAnswerStore,
     UnavailableRemoteAnswerStore,
@@ -18,7 +19,7 @@ from .storage import (
 
 
 def _host_from_environment() -> str:
-    """Resolve the full four-tool MCP host, which is always loopback-only."""
+    """Resolve the full five-tool MCP host, which is always loopback-only."""
 
     host = os.environ.get("FAIRPOST_MCP_HOST", "127.0.0.1").strip()
     if not host:
@@ -130,6 +131,35 @@ CLAUDE_MCP_PATH = _claude_mcp_path_from_environment()
 # linked to a real finding.
 _GENERIC_QUESTION_MATCHES = frozenset({"채용", "모집"})
 
+
+@dataclass(frozen=True)
+class StructuredCheckResult:
+    """Versioned machine-readable evidence contract for human-review clients."""
+
+    schema_version: Literal["fairpost-structured-check-v1"]
+    findings: list[Finding]
+    slots: list[SlotStatus]
+    questions: list[Question]
+    counts: dict[str, int]
+    ruleset_version: str
+    statute_snapshot_date: str
+    statute_notice: str
+    disclaimer: str
+
+
+def _structured_check_result(result: CheckResult) -> StructuredCheckResult:
+    return StructuredCheckResult(
+        schema_version="fairpost-structured-check-v1",
+        findings=result.findings,
+        slots=result.slots,
+        questions=result.questions,
+        counts=dict(result.counts),
+        ruleset_version=result.ruleset_version,
+        statute_snapshot_date=result.statute_snapshot_date,
+        statute_notice=result.statute_notice,
+        disclaimer=result.disclaimer,
+    )
+
 READ_ONLY_ANNOTATIONS = ToolAnnotations(
     readOnlyHint=True,
     destructiveHint=False,
@@ -150,7 +180,8 @@ mcp = FastMCP(
         "slots/questions를 하나도 누락하지 않고 근거 법령ㆍ조문ㆍ해당 문구ㆍ대안 "
         "표현이 드러나는 사람이 읽기 쉬운 텍스트로 반환합니다. 이 텍스트를 요약하거나 "
         "생략하지 말고 그대로 제시하십시오. 공정성 여부 판정이나 법률 자문을 "
-        "제공하지 않습니다."
+        "제공하지 않습니다. 기계가 근거 연결을 재사용해야 할 때는 기존 평문 도구를 "
+        "바꾸지 말고 check_job_posting_structured를 사용하십시오."
     ),
     host=_host_from_environment(),
     port=_port_from_environment(),
@@ -162,8 +193,12 @@ mcp = FastMCP(
 public_mcp = FastMCP(
     "fairpost",
     instructions=(
-        "Analyze job postings with deterministic rules and return findings plus "
-        "review questions without persisting answers."
+        "Use deterministic evidence to support a human review of job postings. "
+        "The findings and questions do not judge fairness, legality, or a "
+        "candidate's pass/fail outcome. This read-only profile does not persist "
+        "posting text, answers, or analysis results. Use check_job_posting for "
+        "human-readable text and check_job_posting_structured for the versioned "
+        "machine-readable evidence contract."
     ),
     host=_read_only_host_from_environment(),
     port=_port_from_environment(),
@@ -231,6 +266,8 @@ def _format_check_result_text(result: CheckResult) -> str:
     dropping items).
     """
     lines: list[str] = [
+        result.disclaimer,
+        "",
         f"채용공고 점검 결과 — 발견 {len(result.findings)}건, "
         f"검토 질문 {len(result.questions)}건, "
         f"확인된 안내 항목 {sum(1 for slot in result.slots if slot.found)}건"
@@ -240,7 +277,9 @@ def _format_check_result_text(result: CheckResult) -> str:
 
     lines.append("## 1. 관련 법령 표현 검토 후보 (findings)")
     if result.findings:
-        lines.append("| ID | 구분 | 매칭 문구 | 근거 법령·조문 | 심각도 | 대안 표현 |")
+        lines.append(
+            "| ID | 구분 | 매칭 문구 | 근거 법령·조문 | 검토 우선도 | 대안 표현 |"
+        )
         lines.append("|---|---|---|---|---|---|")
         for finding in result.findings:
             law_ref = "ㆍ".join(
@@ -327,7 +366,6 @@ def _format_check_result_text(result: CheckResult) -> str:
 
     lines.append(f"규칙셋 버전: {result.ruleset_version}")
     lines.append(f"근거 법령 스냅샷: {result.statute_snapshot_date} — {result.statute_notice}")
-    lines.append(result.disclaimer)
     return "\n".join(lines)
 
 
@@ -380,8 +418,9 @@ def check_job_posting_readonly(text: str) -> str:
 @public_mcp.tool(
     name="check_job_posting",
     description=(
-        "Analyze a job posting and return the complete findings and follow-up "
-        "questions as plain text. The posting text is not persisted."
+        "Return deterministic evidence and follow-up questions for human review. "
+        "This does not judge fairness, legality, or candidate pass/fail outcomes, "
+        "and it does not persist the posting text or analysis."
     ),
     annotations=READ_ONLY_ANNOTATIONS,
     structured_output=False,
@@ -390,17 +429,54 @@ def check_job_posting_public(text: str) -> str:
     return check_job_posting(text, None)
 
 
+@mcp.tool(
+    description=(
+        "채용공고문의 findings, slots, questions와 근거ㆍ원문 위치를 버전이 있는 "
+        "기계 판독 구조로 반환합니다. 사람의 검토를 지원하는 읽기 전용 도구이며 "
+        "공정성ㆍ적법성ㆍ합격 여부를 판정하지 않습니다."
+    ),
+    annotations=READ_ONLY_ANNOTATIONS,
+    structured_output=True,
+)
+def check_job_posting_structured(
+    text: str,
+    org_id: str | None = None,
+) -> StructuredCheckResult:
+    """Return the complete versioned evidence graph without flattening to text."""
+    answers = _saved_answers(org_id)
+    return _structured_check_result(engine.check(text, saved_answers=answers))
+
+
+@public_mcp.tool(
+    name="check_job_posting_structured",
+    description=(
+        "Return versioned machine-readable findings, slots, questions, evidence, "
+        "and source offsets for human review. This does not judge fairness, "
+        "legality, or candidate pass/fail outcomes, and it does not persist the "
+        "posting text, answers, or analysis."
+    ),
+    annotations=READ_ONLY_ANNOTATIONS,
+    structured_output=True,
+)
+def check_job_posting_structured_public(text: str) -> StructuredCheckResult:
+    return _structured_check_result(engine.check(text))
+
+
 def _question_payload(question: Question) -> dict[str, Any]:
     return {
         "id": question.id,
         "dimension": question.dimension,
         "question": question.question,
         "follow_up": list(question.follow_up),
+        "book_ref": question.book_ref,
         "review_scope": question.review_scope,
         "trigger_reason": question.trigger_reason,
         "linked_findings": list(question.linked_findings),
         "matched_text": question.matched_text,
+        "offset": list(question.offset) if question.offset is not None else None,
         "section": question.section,
+        "reference": asdict(question.reference) if question.reference else None,
+        "saved_answer": question.saved_answer,
     }
 
 
@@ -426,6 +502,9 @@ def next_review_question(text: str, org_id: str | None = None) -> dict[str, Any]
             "remaining": len(pending),
         },
         "counts": dict(result.counts),
+        "ruleset_version": result.ruleset_version,
+        "statute_snapshot_date": result.statute_snapshot_date,
+        "statute_notice": result.statute_notice,
         "disclaimer": result.disclaimer,
     }
 
@@ -433,8 +512,9 @@ def next_review_question(text: str, org_id: str | None = None) -> dict[str, Any]
 @public_mcp.tool(
     name="next_review_question",
     description=(
-        "Return the next unanswered review question for a job posting without "
-        "storing answers or changing server state."
+        "Return the next evidence-backed question for a human review. This does "
+        "not judge fairness, legality, or candidate pass/fail outcomes, and it "
+        "does not persist the posting text, answers, or analysis."
     ),
     annotations=READ_ONLY_ANNOTATIONS,
 )

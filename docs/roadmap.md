@@ -22,7 +22,7 @@ FairPost는 채용공고의 공정성을 점수화하거나 위반 여부를 판
 - 법령 규칙 19개, 검토 질문 52개, 고정 슬롯 11개
 - PRD 코퍼스 600건, train/holdout 420/180 고정 분할과 해시 중복 0
 - 확장 train 2,310건 PythonㆍJavaScript 결과 불일치 0
-- 공개 원격 MCP는 `check_job_posting`, `next_review_question` 읽기 전용 2도구
+- 공개 원격 MCP는 평문ㆍ구조화 점검과 다음 질문을 제공하는 읽기 전용 3도구
 - 원격은 Bearer 인증 여부와 관계없이 읽기 전용이며 로컬 MCP만 답변 저장 도구를 노출
 - 현재 규칙ㆍ매칭ㆍ런타임 소스 지문을 Vercel 운영 배포에서 대조
 - 공식 MCP Inspector 2.4.0으로 현재 Bearer 운영 엔드포인트의 도구 조회ㆍ호출 성공

@@ -62,12 +62,18 @@ def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
                 tools = await session.list_tools()
                 assert {tool.name for tool in tools.tools} == {
                     "check_job_posting",
+                    "check_job_posting_structured",
                     "next_review_question",
                     "save_answer",
                     "get_saved_answers",
                 }
                 check_tool = next(
                     tool for tool in tools.tools if tool.name == "check_job_posting"
+                )
+                structured_tool = next(
+                    tool
+                    for tool in tools.tools
+                    if tool.name == "check_job_posting_structured"
                 )
                 save_tool = next(
                     tool for tool in tools.tools if tool.name == "save_answer"
@@ -84,6 +90,31 @@ def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
                 assert save_tool.annotations.readOnlyHint is False
                 assert save_tool.annotations.destructiveHint is False
                 assert check_tool.outputSchema is None
+                assert structured_tool.outputSchema is not None
+                assert set(structured_tool.outputSchema["required"]) == {
+                    "schema_version",
+                    "findings",
+                    "slots",
+                    "questions",
+                    "counts",
+                    "ruleset_version",
+                    "statute_snapshot_date",
+                    "statute_notice",
+                    "disclaimer",
+                }
+                assert structured_tool.outputSchema["properties"]["schema_version"][
+                    "const"
+                ] == "fairpost-structured-check-v1"
+                finding_schema = structured_tool.outputSchema["$defs"]["Finding"]
+                assert {"id", "matched_text", "offset", "basis", "book_ref"} <= set(
+                    finding_schema["required"]
+                )
+                question_schema = structured_tool.outputSchema["$defs"]["Question"]
+                assert {"id", "book_ref", "review_scope"} <= set(
+                    question_schema["required"]
+                )
+                assert structured_tool.annotations is not None
+                assert structured_tool.annotations.readOnlyHint is True
 
                 check = await session.call_tool(
                     "check_job_posting",
@@ -95,6 +126,22 @@ def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
                 assert "발견 0건" in check_text
                 assert "2026-07-26" in check_text
                 assert "공식 대조 스냅샷" in check_text
+
+                structured = await session.call_tool(
+                    "check_job_posting_structured",
+                    {"text": "여성만 지원 가능", "org_id": "org-protocol"},
+                )
+                assert structured.isError is False
+                assert structured.structuredContent is not None
+                assert structured.structuredContent["schema_version"] == (
+                    "fairpost-structured-check-v1"
+                )
+                assert structured.structuredContent["findings"][0]["id"] == (
+                    "SEX-001"
+                )
+                assert structured.structuredContent["disclaimer"].startswith(
+                    "이 결과는 점검 참고자료"
+                )
 
                 saved = await session.call_tool(
                     "save_answer",
@@ -158,6 +205,7 @@ def test_streamable_http_is_default_and_calls_all_tools(tmp_path: Path) -> None:
                     tools = await session.list_tools()
                     assert {tool.name for tool in tools.tools} == {
                         "check_job_posting",
+                        "check_job_posting_structured",
                         "next_review_question",
                         "save_answer",
                         "get_saved_answers",
@@ -168,6 +216,12 @@ def test_streamable_http_is_default_and_calls_all_tools(tmp_path: Path) -> None:
                         if tool.name == "check_job_posting"
                     )
                     assert check_tool.outputSchema is None
+                    structured_tool = next(
+                        tool
+                        for tool in tools.tools
+                        if tool.name == "check_job_posting_structured"
+                    )
+                    assert structured_tool.outputSchema is not None
 
                     check = await session.call_tool(
                         "check_job_posting",
@@ -184,6 +238,16 @@ def test_streamable_http_is_default_and_calls_all_tools(tmp_path: Path) -> None:
                     finding_text = finding_check.content[0].text
                     assert "SEX-001" in finding_text
                     assert "남녀고용평등" in finding_text
+
+                    structured = await session.call_tool(
+                        "check_job_posting_structured",
+                        {"text": "남성만 지원 가능"},
+                    )
+                    assert structured.isError is False
+                    assert structured.structuredContent is not None
+                    assert structured.structuredContent["findings"][0]["id"] == (
+                        "SEX-001"
+                    )
 
                     question_check = await session.call_tool(
                         "check_job_posting",
@@ -403,12 +467,22 @@ def test_vercel_asgi_entrypoint_requires_bearer_and_calls_mcp(
                     http_client=client,
                 ) as (read, write, _session_id):
                     async with ClientSession(read, write) as session:
-                        await session.initialize()
+                        initialized = await session.initialize()
+                        instructions = initialized.instructions or ""
+                        assert "human review" in instructions
+                        assert "do not judge fairness, legality" in instructions
+                        assert "does not persist" in instructions
                         tools = await session.list_tools()
                         assert {tool.name for tool in tools.tools} == {
                             "check_job_posting",
+                            "check_job_posting_structured",
                             "next_review_question",
                         }
+                        for tool in tools.tools:
+                            description = tool.description or ""
+                            assert "human review" in description
+                            assert "does not judge fairness, legality" in description
+                            assert "does not persist" in description
                         checked = await session.call_tool(
                             "check_job_posting",
                             {"text": "남성만 지원 가능"},
@@ -416,6 +490,18 @@ def test_vercel_asgi_entrypoint_requires_bearer_and_calls_mcp(
                         assert checked.isError is False
                         assert checked.structuredContent is None
                         assert "SEX-001" in checked.content[0].text
+                        structured = await session.call_tool(
+                            "check_job_posting_structured",
+                            {"text": "남성만 지원 가능"},
+                        )
+                        assert structured.isError is False
+                        assert structured.structuredContent is not None
+                        assert structured.structuredContent["schema_version"] == (
+                            "fairpost-structured-check-v1"
+                        )
+                        assert structured.structuredContent["findings"][0]["id"] == (
+                            "SEX-001"
+                        )
                         denied_write = await session.call_tool(
                             "save_answer",
                             {
@@ -525,18 +611,36 @@ def test_vercel_public_remote_exposes_only_read_only_analysis_tools() -> None:
                 async with ClientSession(read, write) as session:
                     initialized = await session.initialize()
                     assert initialized.serverInfo.name == "fairpost"
+                    instructions = initialized.instructions or ""
+                    assert "human review" in instructions
+                    assert "do not judge fairness, legality" in instructions
+                    assert "does not persist" in instructions
                     tools = await session.list_tools()
                     assert {tool.name for tool in tools.tools} == {
                         "check_job_posting",
+                        "check_job_posting_structured",
                         "next_review_question",
                     }
                     for tool in tools.tools:
                         assert set(tool.inputSchema["properties"]) == {"text"}
+                        description = tool.description or ""
+                        assert "human review" in description
+                        assert "does not judge fairness, legality" in description
+                        assert "does not persist" in description
                     checked = await session.call_tool(
                         "check_job_posting",
                         {"text": "여성만 지원 가능"},
                     )
                     assert checked.isError is False
+                    structured = await session.call_tool(
+                        "check_job_posting_structured",
+                        {"text": "여성만 지원 가능"},
+                    )
+                    assert structured.isError is False
+                    assert structured.structuredContent is not None
+                    assert structured.structuredContent["findings"][0]["id"] == (
+                        "SEX-001"
+                    )
                     next_question = await session.call_tool(
                         "next_review_question",
                         {"text": "여성만 지원 가능"},

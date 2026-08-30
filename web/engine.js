@@ -344,7 +344,37 @@
     const lineStart = prior + 1;
     const next = text.indexOf("\n", end);
     const lineEnd = next === -1 ? text.length : next;
-    return trimPythonWhitespace(text.slice(lineStart, lineEnd)).slice(0, 240);
+    const boundaries = [".", "!", "?", "。", "！", "？"];
+    const sentenceStart = Math.max(
+      ...boundaries.map((mark) => text.lastIndexOf(mark, start - 1))
+    );
+    const segmentStart = sentenceStart >= lineStart ? sentenceStart + 1 : lineStart;
+    const sentenceEnds = boundaries
+      .map((mark) => text.indexOf(mark, end))
+      .filter((position) => position !== -1 && position < lineEnd);
+    const segmentEnd = sentenceEnds.length
+      ? Math.min(...sentenceEnds) + 1
+      : lineEnd;
+    const segment = text.slice(segmentStart, segmentEnd);
+    const codePoints = Array.from(segment);
+    const limit = 238;
+    if (codePoints.length <= limit) {
+      return trimPythonWhitespace(segment);
+    }
+    const relativeStart = Array.from(text.slice(segmentStart, start)).length;
+    const relativeEnd = Array.from(text.slice(segmentStart, end)).length;
+    let windowStart = Math.max(0, relativeStart - 96);
+    const windowEnd = Math.min(
+      codePoints.length,
+      Math.max(relativeEnd + 96, windowStart + limit)
+    );
+    windowStart = Math.max(0, windowEnd - limit);
+    const evidence = trimPythonWhitespace(
+      codePoints.slice(windowStart, windowEnd).join("")
+    );
+    return `${windowStart ? "…" : ""}${evidence}${
+      windowEnd < codePoints.length ? "…" : ""
+    }`;
   }
 
   function extractSlots(text, sections, definitions) {

@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
   <title>FairPost MCP</title>
   <style>
     :root {
@@ -97,19 +98,21 @@
   <main>
     <h1>FairPost MCP</h1>
     <p class="status">운영 중</p>
-    <p>채용공고문을 법령 근거와 공정성 검토 질문으로 점검하는 원격 MCP 서버입니다.</p>
+    <p>채용공고의 표현과 확인할 질문을 근거와 함께 정리하는 읽기 전용 원격 MCP 서버입니다.</p>
+    <p>결과는 사람 검토용 참고자료이며 공정성ㆍ법률ㆍ합격 여부를 판정하지 않습니다.</p>
     <div class="actions">
+      <a class="deploy" href="/web/">웹 검토 메모 열기</a>
       <a
         class="deploy"
         href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkoul777%2Ffairpost-mcp&amp;project-name=fairpost-mcp&amp;repository-name=fairpost-mcp"
         target="_blank"
         rel="noopener noreferrer"
       >내 Vercel에 이 MCP 배포 ↗</a>
-      <p class="hint">Vercel이 저장소를 복제하고 프로젝트 생성 화면을 엽니다. 현재 비공개 저장소에 접근 가능한 계정에서 배포 직후 읽기 전용 MCP를 사용할 수 있습니다.</p>
+      <p class="hint">Vercel이 공개 저장소를 복제하고 프로젝트 생성 화면을 엽니다. 원격 MCP를 열기 전에 Bearer 토큰과 허용 호스트를 설정하세요.</p>
     </div>
     <dl>
       <div>
-        <dt>전체 도구 MCP</dt>
+        <dt>읽기 전용 MCP</dt>
         <dd><code>https://fairmcp.vercel.app/api/mcp</code></dd>
       </div>
       <div>
@@ -122,16 +125,17 @@
       </div>
       <div>
         <dt>인증</dt>
-        <dd>전체 도구는 Bearer 필수 · Claude 읽기 전용은 무인증</dd>
+        <dd>운영 기본값은 두 MCP 경로 모두 Bearer 필수</dd>
       </div>
       <div>
         <dt>상태 확인</dt>
         <dd><a href="/api/health">/api/health</a></dd>
       </div>
     </dl>
-    <p>공고문은 Vercel 함수에서 처리되며 FairPost가 원문을 영속 저장하지 않습니다.</p>
-    <p>전체 도구 MCP를 쓰려면 배포 후 <code>FAIRPOST_MCP_TOKEN</code>을 설정하세요. 읽기 전용 점검에는 토큰이 필요하지 않습니다.</p>
-    <p>누구나 쓰는 공개 원클릭 템플릿으로 제공하려면 원본 저장소 또는 별도 배포 템플릿 저장소를 공개해야 합니다.</p>
+    <p>원격 MCP로 보낸 공고문은 Vercel 함수 내부의 결정론적 규칙 엔진이 처리합니다. 클라우드 AI 클라이언트에서 호출하면 해당 AI 제공자도 입력을 처리할 수 있습니다.</p>
+    <p>FairPost 애플리케이션은 원문을 파일이나 DB에 영속 저장하지 않지만, Vercel과 사용한 AI 제공자의 로그ㆍ보존 정책은 각 서비스 설정을 별도로 확인해야 합니다.</p>
+    <p>배포 후 <code>FAIRPOST_MCP_TOKEN</code>을 설정하세요. 명시적 공개 opt-in이 없는 운영 기본값에서는 읽기 전용 도구에도 Bearer 인증이 필요합니다.</p>
+    <p>답변 저장과 이어서 검토하기는 루프백 로컬 MCP의 다섯 도구에서만 제공됩니다.</p>
   </main>
 </body>
 </html>

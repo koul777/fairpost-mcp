@@ -215,16 +215,16 @@ class RemoteSecurityMiddleware:
             return
         if token and (mcp_request or claude_mcp_request):
             authorization_values = [
-                value.decode("latin-1")
+                value
                 for key, value in scope.get("headers", [])
                 if key.lower() == b"authorization"
             ]
             supplied = (
                 authorization_values[0]
                 if len(authorization_values) == 1
-                else ""
+                else b""
             )
-            expected = f"Bearer {token}"
+            expected = f"Bearer {token}".encode("utf-8")
             if not hmac.compare_digest(supplied, expected):
                 await self._json(
                     send,

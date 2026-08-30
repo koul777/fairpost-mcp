@@ -15,7 +15,7 @@
     corpus_hits: 0
     corpus_split: public
     method: manual
-    reviewed_at: '2026-07-26'
+    reviewed_at: '2026-08-31'
     reviewed_by: fairpost-maintainers
   related_questions:
   - Q-DIST-002
@@ -30,6 +30,7 @@
       window: 10
     patterns:
     - 젊은
+    - 젊고
     - 20대
     - 30대 이하
     type: presence
@@ -50,7 +51,7 @@
     corpus_hits: 32
     corpus_split: public
     method: manual
-    reviewed_at: '2026-08-03'
+    reviewed_at: '2026-08-31'
     reviewed_by: fairpost-maintainers
   related_questions:
   - Q-DIST-002
@@ -67,6 +68,7 @@
     - 나이 제한
     - 연령 제한
     - re:\d{2}\s*세\s*(?:이하|미만|이상)
+    - re:(?:19|20)\d{2}\s*년\s*(?:이후|이전)\s*출생(?:자)?\s*(?:만|에\s*한(?:함|합니다?))
     type: presence
 - alternatives:
   - 성별 대신 직무 수행에 필요한 조건을 구체적으로 명시
@@ -199,7 +201,7 @@
     corpus_hits: 0
     corpus_split: public
     method: manual
-    reviewed_at: '2026-07-26'
+    reviewed_at: '2026-08-31'
     reviewed_by: fairpost-maintainers
   related_questions:
   - Q-DIST-007
@@ -208,6 +210,7 @@
   trigger:
     patterns:
     - 용모 단정
+    - 외모 단정
     - 단정한 외모
     - 외모가 준수
     - 준수한 외모

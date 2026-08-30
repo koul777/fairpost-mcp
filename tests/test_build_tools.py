@@ -97,14 +97,14 @@ def test_build_release_report_accepts_built_at_override(
                 "mcpServers": {
                     "fairpost": {
                         "type": "http",
+                        "url": "http://127.0.0.1:8000/mcp",
+                    },
+                    "fairpost-remote": {
+                        "type": "http",
                         "url": "https://fairmcp.vercel.app/api/mcp",
                         "headers": {
                             "Authorization": "Bearer ${FAIRPOST_MCP_TOKEN}"
                         },
-                    },
-                    "fairpost-local": {
-                        "type": "http",
-                        "url": "http://127.0.0.1:8000/mcp",
                     },
                 }
             }
@@ -170,7 +170,7 @@ def test_build_release_report_accepts_built_at_override(
     (reports_dir / "vercel_deployment_audit.json").write_text(
         json.dumps(
             {
-                "schema_version": "fairpost-vercel-deployment-audit-v2",
+                "schema_version": "fairpost-vercel-deployment-audit-v3",
                 "passed": True,
                 "production_url": "https://example.test",
                 "health": {
@@ -180,7 +180,18 @@ def test_build_release_report_accepts_built_at_override(
                     "matching_version": "matching-version",
                     "runtime_source_fingerprint": "runtime-test",
                 },
-                "checks": {"tool_call_succeeded": True},
+                "checks": {
+                    "tool_call_succeeded": True,
+                    "structured_tool_call_succeeded": True,
+                    "structured_contract_is_traceable": True,
+                    "claude_readonly_profile_verified": True,
+                    "verification_context_complete": True,
+                },
+                "verification_context": {
+                    "source_commit": "a" * 40,
+                    "verified_by": "codex-agent",
+                    "approval_ref": "user-approved-poc-2026-08-31",
+                },
             }
         ),
         encoding="utf-8",
@@ -303,6 +314,13 @@ def test_build_release_report_accepts_built_at_override(
     assert report["verification"][
         "vercel_runtime_source_fingerprint_matches_local"
     ] is True
+    assert report["verification"]["vercel_verification_context_complete"] is True
+    assert report["verification"]["vercel_contract_checks_passed"] is True
+    assert report["verification"]["vercel_verification_context"] == {
+        "source_commit": "a" * 40,
+        "verified_by": "codex-agent",
+        "approval_ref": "user-approved-poc-2026-08-31",
+    }
     assert report["verification"]["distribution_matches_current_runtime"] is True
     assert report["verification"]["distribution_matches_current_source"] is True
     assert report["release_readiness"]["status"] == "blocked"
@@ -346,7 +364,7 @@ def test_release_report_rejects_xml_entities() -> None:
         ({}, "fairpost-distribution-audit-v2", "distribution audit"),
         (
             {"schema_version": "fairpost-vercel-deployment-audit-v1"},
-            "fairpost-vercel-deployment-audit-v2",
+            "fairpost-vercel-deployment-audit-v3",
             "Vercel deployment audit",
         ),
         ({"schema_version": 2}, 3, "evaluation report"),
@@ -389,6 +407,8 @@ def test_release_report_validation_enforces_operational_evidence() -> None:
         "evidence_versions_passed": True,
         "vercel_production_deployed": True,
         "vercel_asgi_protocol_test_passed": True,
+        "vercel_verification_context_complete": True,
+        "vercel_contract_checks_passed": True,
         "vercel_deployment_matches_current_ruleset": True,
         "vercel_runtime_source_fingerprint_matches_local": True,
         "distribution_audit_passed": True,
@@ -408,6 +428,14 @@ def test_release_report_validation_enforces_operational_evidence() -> None:
     with pytest.raises(ValueError, match="protocol audit"):
         module.validate_release_report(report)
     verification["vercel_asgi_protocol_test_passed"] = True
+    verification["vercel_verification_context_complete"] = False
+    with pytest.raises(ValueError, match="verification context"):
+        module.validate_release_report(report)
+    verification["vercel_verification_context_complete"] = True
+    verification["vercel_contract_checks_passed"] = False
+    with pytest.raises(ValueError, match="structured and Claude"):
+        module.validate_release_report(report)
+    verification["vercel_contract_checks_passed"] = True
     verification["vercel_runtime_source_fingerprint_matches_local"] = False
     with pytest.raises(ValueError, match="runtime source fingerprint"):
         module.validate_release_report(report)
@@ -425,6 +453,7 @@ def test_current_client_evidence_is_bound_to_deployment_audit() -> None:
     client = {
         "schema_version": "fairpost-mcp-client-audit-v2",
         "evidence_status": "current",
+        "passed": True,
         "ruleset_version": "rules-v1",
         "matching_version": "match-v1",
         "runtime_source_fingerprint": "runtime-v1",
@@ -438,8 +467,12 @@ def test_current_client_evidence_is_bound_to_deployment_audit() -> None:
             "tools_list_exit_code": 0,
             "tool_call_exit_code": 0,
             "is_error": False,
-            "tool_count": 2,
-            "tools": ["check_job_posting", "next_review_question"],
+            "tool_count": 3,
+            "tools": [
+                "check_job_posting",
+                "check_job_posting_structured",
+                "next_review_question",
+            ],
             "all_tools_read_only": True,
             "endpoint": "https://example.test/api/mcp",
             "version": "2.4.0",
@@ -456,6 +489,9 @@ def test_current_client_evidence_is_bound_to_deployment_audit() -> None:
     }
 
     assert module._current_client_evidence_matches(client, **arguments) is True
+    client["passed"] = False
+    assert module._current_client_evidence_matches(client, **arguments) is False
+    client["passed"] = True
     client["deployment_id"] = "dpl-stale"
     assert module._current_client_evidence_matches(client, **arguments) is False
     client["deployment_id"] = "dpl-current"
@@ -1342,7 +1378,11 @@ def test_vercel_configuration_excludes_private_inputs() -> None:
     assert "내 Vercel에 이 MCP 배포" in landing
     assert "https://vercel.com/new/clone?repository-url=" in landing
     assert "FAIRPOST_MCP_TOKEN" in landing
-    assert "현재 비공개 저장소에 접근 가능한 계정" in landing
+    assert "공개 저장소를 복제" in landing
+    assert "운영 기본값은 두 MCP 경로 모두 Bearer 필수" in landing
+    assert "공정성ㆍ법률ㆍ합격 여부를 판정하지 않습니다." in landing
+    assert "답변 저장과 이어서 검토하기는 루프백 로컬 MCP" in landing
+    assert "읽기 전용 점검에는 토큰이 필요하지 않습니다" not in landing
     ignored = (ROOT / ".vercelignore").read_text(encoding="utf-8")
     for private_path in (
         ".env",
@@ -1436,24 +1476,74 @@ def test_public_reports_directory_contains_no_raw_jsonl() -> None:
     assert not list((ROOT / "reports").glob("*.jsonl"))
 
 
-def test_project_mcp_config_uses_authenticated_remote_and_local_alias() -> None:
+def test_project_mcp_config_uses_local_default_and_remote_opt_in() -> None:
     config = json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8"))
 
     assert config == {
         "mcpServers": {
             "fairpost": {
                 "type": "http",
+                "url": "http://127.0.0.1:8000/mcp",
+            },
+            "fairpost-remote": {
+                "type": "http",
                 "url": "https://fairmcp.vercel.app/api/mcp",
                 "headers": {
                     "Authorization": "Bearer ${FAIRPOST_MCP_TOKEN}",
                 },
             },
-            "fairpost-local": {
-                "type": "http",
-                "url": "http://127.0.0.1:8000/mcp",
-            },
         }
     }
+
+
+def test_release_report_mcp_config_preserves_local_and_remote_evidence() -> None:
+    module = load_tool("build_release_report")
+
+    assert module._project_mcp_config() == {
+        "valid": True,
+        "default_server": "fairpost",
+        "remote_server": "fairpost-remote",
+        "local_first": True,
+        "remote_url": "https://fairmcp.vercel.app/api/mcp",
+        "local_url": "http://127.0.0.1:8000/mcp",
+        "authorization_uses_environment_reference": True,
+    }
+
+
+def test_release_report_mcp_config_rejects_remote_as_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = load_tool("build_release_report")
+    (tmp_path / ".mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "fairpost": {
+                        "type": "http",
+                        "url": "https://fairmcp.vercel.app/api/mcp",
+                        "headers": {
+                            "Authorization": "Bearer ${FAIRPOST_MCP_TOKEN}"
+                        },
+                    },
+                    "fairpost-local": {
+                        "type": "http",
+                        "url": "http://127.0.0.1:8000/mcp",
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+
+    evidence = module._project_mcp_config()
+
+    assert evidence["valid"] is False
+    assert evidence["local_first"] is False
+    assert evidence["local_url"] == "https://fairmcp.vercel.app/api/mcp"
+    assert evidence["remote_url"] is None
+    assert evidence["authorization_uses_environment_reference"] is False
 
 
 def test_distribution_audit_rejects_private_build_artifacts() -> None:

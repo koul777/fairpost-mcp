@@ -8,7 +8,7 @@
       content="default-src 'self'; connect-src 'none'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <meta name="color-scheme" content="light" />
-    <title>fairpost | 채용공고문 공정성 체크</title>
+    <title>fairpost | 채용공고 검토 메모</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -17,13 +17,13 @@
         <span class="brand-mark" aria-hidden="true">fp</span>
         <div>
           <h1>fairpost</h1>
-          <p>채용공고문 공정성 체크</p>
+          <p>근거 기반 채용공고 검토 메모</p>
         </div>
       </div>
       <div class="header-actions">
         <div class="privacy" role="status">
           <span class="privacy-dot" aria-hidden="true"></span>
-          입력 내용은 이 브라우저 밖으로 전송되지 않으며 배포 버튼만 외부 페이지를 엽니다
+          입력ㆍ답변은 이 브라우저 밖으로 전송되지 않으며 배포ㆍ근거 링크만 새 외부 페이지를 엽니다
         </div>
         <a
           id="deploy-button"
@@ -43,7 +43,7 @@
         <div class="pane-header">
           <div>
             <p class="eyebrow">공고문 원문</p>
-            <h2 id="editor-title">점검할 내용</h2>
+            <h2 id="editor-title">검토할 공고문</h2>
           </div>
           <div class="editor-actions">
             <button id="sample-button" class="button button-quiet" type="button">
@@ -63,7 +63,7 @@
         <div class="editor-footer">
           <span id="char-count">0자</span>
           <button id="check-button" class="button button-primary" type="button">
-            공고문 점검
+            검토 메모 만들기
           </button>
         </div>
       </section>
@@ -71,7 +71,7 @@
       <section class="results-pane" aria-labelledby="results-title">
         <div class="results-toolbar">
           <div>
-            <p class="eyebrow">점검 결과</p>
+            <p class="eyebrow">사람 검토용 메모</p>
             <h2 id="results-title">검토 메모</h2>
             <p class="results-note">판정이 아니라 수정·확인 질문을 정리한 로컬 검토 메모입니다.</p>
           </div>
@@ -83,12 +83,19 @@
 
         <div id="empty-state" class="empty-state">
           <div class="empty-symbol" aria-hidden="true">⌁</div>
-          <p>공고문을 입력하면 확인된 표현, 누락된 안내, 추가 검토 질문이 순서대로 표시됩니다.</p>
+          <p>공고문을 입력하면 검토 담당자가 수정·확인할 표현, 안내 항목, 질문이 근거와 함께 표시됩니다.</p>
         </div>
 
         <div id="result-content" class="result-content" hidden>
-          <div class="summary-strip" aria-label="결과 개수">
-            <div><strong id="finding-count">0</strong><span>확인된 사항</span></div>
+          <aside class="disclaimer" id="disclaimer"></aside>
+
+          <div class="review-boundary" role="note">
+            <strong>개수는 검토할 작업량입니다.</strong>
+            점수·등급·합격/불합격 또는 공정성 판정으로 해석하지 않고, 담당자가 원문과 근거를 확인해 수정 여부를 결정합니다.
+          </div>
+
+          <div class="summary-strip" aria-label="검토 작업 개수">
+            <div><strong id="finding-count">0</strong><span>표현 검토 후보</span></div>
             <div><strong id="missing-count">0</strong><span>확인되지 않은 항목</span></div>
             <div><strong id="question-count">0</strong><span>공고별 질문</span></div>
           </div>
@@ -99,11 +106,16 @@
             <span>3. 공고별 질문과 공통 체크리스트로 최종 확인합니다.</span>
           </div>
 
+          <div class="review-progress-strip" role="status" aria-live="polite">
+            <strong id="answer-progress">담당자 답변 0/0</strong>
+            <span>질문별 답변은 현재 분석 세션에만 남고, 재분석하거나 입력을 지우면 삭제됩니다. 외부로 전송되지 않습니다.</span>
+          </div>
+
           <section class="result-block" aria-labelledby="findings-heading">
             <div class="block-heading">
               <span class="block-index">01</span>
               <div>
-                <h3 id="findings-heading">확인된 사항</h3>
+                <h3 id="findings-heading">표현 검토 후보</h3>
                 <p>공고문에서 법령 조항과 함께 살펴볼 표현</p>
               </div>
             </div>
@@ -131,8 +143,6 @@
             </div>
             <div id="questions-list" class="item-list"></div>
           </section>
-
-          <aside class="disclaimer" id="disclaimer"></aside>
         </div>
       </section>
     </main>

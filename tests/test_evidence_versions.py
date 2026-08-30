@@ -45,7 +45,7 @@ def test_local_evidence_audit_detects_stale_and_skips_operational(
     (reports / "vercel_deployment_audit.json").write_text(
         json.dumps(
             {
-                "schema_version": "fairpost-vercel-deployment-audit-v2",
+                "schema_version": "fairpost-vercel-deployment-audit-v3",
                 "health": {
                     "ruleset_version": "rules-old",
                     "matching_version": "match-old",
@@ -88,7 +88,7 @@ def test_all_evidence_audit_checks_live_health_and_historical_marker(
     (reports / "vercel_deployment_audit.json").write_text(
         json.dumps(
             {
-                "schema_version": "fairpost-vercel-deployment-audit-v2",
+                "schema_version": "fairpost-vercel-deployment-audit-v3",
                 "health": {
                     "ruleset_version": "rules-current",
                     "matching_version": "match-current",

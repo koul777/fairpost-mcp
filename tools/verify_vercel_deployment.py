@@ -17,12 +17,14 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from core.engine import DISCLAIMER  # noqa: E402
 from core.loader import load_ruleset  # noqa: E402
 from mcp_server.build_identity import runtime_source_fingerprint  # noqa: E402
 
 
 EXPECTED_PUBLIC_TOOLS = {
     "check_job_posting",
+    "check_job_posting_structured",
     "next_review_question",
 }
 KST = timezone(timedelta(hours=9))
@@ -114,11 +116,40 @@ async def verify(
                     "check_job_posting",
                     {"text": SAMPLE_POSTING},
                 )
+                checked_structured = await session.call_tool(
+                    "check_job_posting_structured",
+                    {"text": SAMPLE_POSTING},
+                )
                 next_question = await session.call_tool(
                     "next_review_question",
                     {"text": SAMPLE_POSTING},
                 )
                 saved = None
+
+    claude_initialized = None
+    claude_listed = None
+    claude_checked = None
+    if health.get("claude_readonly_authentication") != "disabled":
+        claude_headers = (
+            {"Authorization": f"Bearer {token}"}
+            if health.get("claude_readonly_authentication") == "bearer"
+            else {}
+        )
+        async with httpx.AsyncClient(
+            headers=claude_headers,
+            timeout=timeout,
+        ) as claude_client:
+            async with streamable_http_client(
+                claude_endpoint,
+                http_client=claude_client,
+            ) as (read, write, _session_id):
+                async with ClientSession(read, write) as session:
+                    claude_initialized = await session.initialize()
+                    claude_listed = await session.list_tools()
+                    claude_checked = await session.call_tool(
+                        "check_job_posting",
+                        {"text": SAMPLE_POSTING},
+                    )
 
     tool_names = {tool.name for tool in listed.tools}
     checked_text = checked.content[0].text if checked.content else ""
@@ -141,6 +172,17 @@ async def verify(
         matching_version=local_ruleset.matching_version,
     )
     next_question_content = next_question.structuredContent or {}
+    structured_content = checked_structured.structuredContent or {}
+    claude_tool_names = (
+        {tool.name for tool in claude_listed.tools}
+        if claude_listed is not None
+        else set()
+    )
+    claude_checked_text = (
+        claude_checked.content[0].text
+        if claude_checked is not None and claude_checked.content
+        else ""
+    )
 
     authentication_behavior_matches = _anonymous_authentication_behavior_matches(
         authentication,
@@ -173,11 +215,45 @@ async def verify(
                 claude_anonymous.status_code,
             )
         ),
+        "claude_readonly_profile_verified": (
+            health.get("claude_readonly_authentication") == "disabled"
+            or (
+                claude_initialized is not None
+                and claude_initialized.serverInfo.name == "fairpost-readonly"
+                and claude_tool_names == {"check_job_posting"}
+                and claude_checked is not None
+                and not bool(claude_checked.isError)
+                and claude_checked.structuredContent is None
+                and claude_checked_text.strip().startswith(DISCLAIMER)
+                and EXPECTED_FINDING_ID in claude_checked_text
+            )
+        ),
         "expected_tools": tool_names == _expected_tools(authentication),
         "tool_call_succeeded": not bool(checked.isError),
         "check_job_posting_returns_plain_text": (
             checked.structuredContent is None
-            and checked_text.strip().startswith("채용공고 점검 결과")
+            and checked_text.strip().startswith(DISCLAIMER)
+            and "채용공고 점검 결과" in checked_text
+            and "| 검토 우선도 |" in checked_text
+        ),
+        "structured_tool_call_succeeded": not bool(checked_structured.isError),
+        "structured_contract_is_traceable": (
+            structured_content.get("schema_version")
+            == "fairpost-structured-check-v1"
+            and structured_content.get("disclaimer") == DISCLAIMER
+            and any(
+                finding.get("id") == EXPECTED_FINDING_ID
+                and finding.get("offset") == [0, 3]
+                and finding.get("matched_text") == "여성만"
+                for finding in structured_content.get("findings", [])
+                if isinstance(finding, dict)
+            )
+            and any(
+                EXPECTED_FINDING_ID in question.get("linked_findings", [])
+                and bool(question.get("book_ref"))
+                for question in structured_content.get("questions", [])
+                if isinstance(question, dict)
+            )
         ),
         "next_question_succeeded": not bool(next_question.isError)
         and isinstance(next_question_content.get("progress"), dict),
@@ -220,7 +296,7 @@ async def verify(
         ),
     }
     return {
-        "schema_version": "fairpost-vercel-deployment-audit-v2",
+        "schema_version": "fairpost-vercel-deployment-audit-v3",
         "verified_at": datetime.now(UTC).astimezone(KST).isoformat(
             timespec="seconds"
         ),
@@ -249,7 +325,13 @@ async def verify(
         "anonymous_initialize_status": anonymous.status_code,
         "anonymous_claude_initialize_status": claude_anonymous.status_code,
         "server_name": initialized.serverInfo.name,
+        "claude_server_name": (
+            claude_initialized.serverInfo.name
+            if claude_initialized is not None
+            else None
+        ),
         "tools": sorted(tool_names),
+        "claude_tools": sorted(claude_tool_names),
         "allow_write_check": allow_write_check,
         "local_ruleset": {
             "ruleset_version": local_ruleset.version,
@@ -290,6 +372,21 @@ def main() -> int:
     )
     parser.add_argument("--deployment-id")
     parser.add_argument(
+        "--source-commit",
+        default=os.environ.get("VERCEL_GIT_COMMIT_SHA"),
+        help="Git commit whose deployable source was verified, when known.",
+    )
+    parser.add_argument(
+        "--verified-by",
+        default=os.environ.get("FAIRPOST_VERIFIED_BY"),
+        help="Automation or person identifier responsible for this verification.",
+    )
+    parser.add_argument(
+        "--approval-ref",
+        default=os.environ.get("FAIRPOST_APPROVAL_REF"),
+        help="Optional release-approval reference; never place secrets here.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("reports/vercel_deployment_audit.json"),
@@ -311,13 +408,31 @@ def main() -> int:
         args.deployment_id,
         args.allow_write_check,
     )
+    verification_context = {
+        "source_commit": args.source_commit,
+        "verified_by": args.verified_by,
+        "approval_ref": args.approval_ref,
+    }
+    verification_context_complete = all(
+        isinstance(value, str) and bool(value.strip())
+        for value in verification_context.values()
+    )
+    report["verification_context"] = verification_context
+    checks = report.setdefault("checks", {})
+    if not isinstance(checks, dict):
+        raise SystemExit("Vercel MCP 검증 checks 형식이 잘못되었습니다")
+    checks["verification_context_complete"] = verification_context_complete
+    report["passed"] = report.get("passed") is True and verification_context_complete
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     if not report["passed"]:
-        raise SystemExit("Vercel MCP 운영 검증에 실패했습니다")
+        raise SystemExit(
+            "Vercel MCP 운영 검증에 실패했습니다. "
+            "source commit, verifier, approval reference를 모두 확인하십시오."
+        )
     print(
         "Vercel MCP 검증 통과: "
         f"{report['mcp_endpoint']} ({len(report['tools'])} tools)"

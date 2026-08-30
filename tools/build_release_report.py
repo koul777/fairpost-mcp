@@ -17,6 +17,14 @@ from defusedxml.common import DefusedXmlException
 
 
 ROOT = Path(__file__).resolve().parents[1]
+VERCEL_REQUIRED_CONTRACT_CHECKS = frozenset(
+    {
+        "structured_tool_call_succeeded",
+        "structured_contract_is_traceable",
+        "claude_readonly_profile_verified",
+        "verification_context_complete",
+    }
+)
 KST = timezone(timedelta(hours=9), name="KST")
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -60,6 +68,7 @@ def _current_client_evidence_matches(
     return bool(
         client.get("schema_version") == "fairpost-mcp-client-audit-v2"
         and client.get("evidence_status") == "current"
+        and client.get("passed") is True
         and client.get("ruleset_version") == ruleset_version
         and client.get("matching_version") == matching_version
         and client.get("runtime_source_fingerprint")
@@ -73,9 +82,13 @@ def _current_client_evidence_matches(
         and inspector.get("tools_list_exit_code") == 0
         and inspector.get("tool_call_exit_code") == 0
         and inspector.get("is_error") is False
-        and inspector.get("tool_count") == 2
+        and inspector.get("tool_count") == 3
         and inspector.get("tools")
-        == ["check_job_posting", "next_review_question"]
+        == [
+            "check_job_posting",
+            "check_job_posting_structured",
+            "next_review_question",
+        ]
         and inspector.get("all_tools_read_only") is True
         and inspector.get("endpoint") == endpoint
         and inspector.get("version") == "2.4.0"
@@ -283,22 +296,30 @@ def _project_metadata() -> tuple[str, str]:
 def _project_mcp_config() -> dict[str, object]:
     payload = json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8"))
     servers = payload.get("mcpServers") if isinstance(payload, dict) else None
-    remote = servers.get("fairpost") if isinstance(servers, dict) else None
-    local = servers.get("fairpost-local") if isinstance(servers, dict) else None
+    local = servers.get("fairpost") if isinstance(servers, dict) else None
+    remote = servers.get("fairpost-remote") if isinstance(servers, dict) else None
     remote_headers = remote.get("headers") if isinstance(remote, dict) else None
+    local_first = bool(
+        isinstance(local, dict)
+        and local.get("type") == "http"
+        and local.get("url") == "http://127.0.0.1:8000/mcp"
+    )
     valid = bool(
-        isinstance(remote, dict)
+        local_first
+        and isinstance(remote, dict)
         and remote.get("type") == "http"
         and remote.get("url") == "https://fairmcp.vercel.app/api/mcp"
         and isinstance(remote_headers, dict)
         and remote_headers.get("Authorization")
         == "Bearer ${FAIRPOST_MCP_TOKEN}"
-        and isinstance(local, dict)
-        and local.get("type") == "http"
-        and local.get("url") == "http://127.0.0.1:8000/mcp"
+        and isinstance(servers, dict)
+        and "fairpost-local" not in servers
     )
     return {
         "valid": valid,
+        "default_server": "fairpost",
+        "remote_server": "fairpost-remote",
+        "local_first": local_first,
         "remote_url": remote.get("url") if isinstance(remote, dict) else None,
         "local_url": local.get("url") if isinstance(local, dict) else None,
         "authorization_uses_environment_reference": bool(
@@ -367,7 +388,7 @@ def build_report(
     vercel = json.loads(vercel_path.read_text(encoding="utf-8"))
     _require_report_schema(
         vercel,
-        "fairpost-vercel-deployment-audit-v2",
+        "fairpost-vercel-deployment-audit-v3",
         "Vercel deployment audit",
     )
     prd_corpus = json.loads(
@@ -460,6 +481,23 @@ def build_report(
         and deployed_matching_version is not None
         else None
     )
+    verification_context = vercel.get("verification_context")
+    verification_context_complete = bool(
+        isinstance(verification_context, dict)
+        and all(
+            isinstance(verification_context.get(field), str)
+            and bool(verification_context[field].strip())
+            for field in ("source_commit", "verified_by", "approval_ref")
+        )
+    )
+    vercel_checks = vercel.get("checks")
+    vercel_contract_checks_passed = bool(
+        isinstance(vercel_checks, dict)
+        and all(
+            vercel_checks.get(check_name) is True
+            for check_name in VERCEL_REQUIRED_CONTRACT_CHECKS
+        )
+    )
     release_tag, release_tag_note = _release_tag_evidence()
     current_evaluator_fingerprint = evaluator_fingerprint()
     blockers: list[dict[str, str]] = []
@@ -493,12 +531,15 @@ def build_report(
         vercel.get("passed") is True
         and deployment_matches_current_ruleset is True
         and deployed_runtime_fingerprint == local_runtime_fingerprint
+        and verification_context_complete
+        and vercel_contract_checks_passed
     ):
         blockers.append(
             {
                 "id": "current_production_deployment",
                 "reason": (
                     "운영 배포 증거가 현재 규칙·매칭·런타임 소스와 일치하지 않습니다."
+                    " 또한 소스 커밋·검증 담당·승인 참조가 모두 기록되어야 합니다."
                 ),
             }
         )
@@ -603,6 +644,9 @@ def build_report(
             "vercel_runtime_source_fingerprint_matches_local": (
                 deployed_runtime_fingerprint == local_runtime_fingerprint
             ),
+            "vercel_verification_context_complete": verification_context_complete,
+            "vercel_verification_context": verification_context,
+            "vercel_contract_checks_passed": vercel_contract_checks_passed,
             "vercel_remote_tool_call_passed": vercel["checks"][
                 "tool_call_succeeded"
             ],
@@ -643,6 +687,10 @@ def validate_release_report(
         raise ValueError("Vercel production deployment audit did not pass")
     if not verification["vercel_asgi_protocol_test_passed"]:
         raise ValueError("Vercel production protocol audit did not pass")
+    if not verification["vercel_verification_context_complete"]:
+        raise ValueError("Vercel verification context is incomplete")
+    if not verification["vercel_contract_checks_passed"]:
+        raise ValueError("Vercel structured and Claude contract checks did not pass")
     if not allow_stale_deployment:
         if not verification["vercel_deployment_matches_current_ruleset"]:
             raise ValueError("Vercel ruleset or matching version is stale")

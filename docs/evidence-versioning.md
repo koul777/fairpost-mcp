@@ -24,7 +24,7 @@ python tools\check_evidence_versions.py --scope local
 | `prd_corpus_summary.json` | `fairpost-prd-corpus-summary-v1` |
 | `human_labeling_handoff.json` | `fairpost-human-labeling-handoff-v1` |
 | `mcp_client_audit.json` | `fairpost-mcp-client-audit-v2` |
-| `vercel_deployment_audit.json` | `fairpost-vercel-deployment-audit-v2` |
+| `vercel_deployment_audit.json` | `fairpost-vercel-deployment-audit-v3` |
 | `corpus_diversity_audit.json` | `private-corpus-diversity-audit-v1` |
 | `evaluation.json` | `3` |
 | `build_artifact.json` | `fairpost-build-artifact-v2` |
@@ -42,9 +42,14 @@ python tools\check_evidence_versions.py --scope all
 점검한다. 운영 감사가 stale이면 먼저 `tools/verify_vercel_deployment.py`로 현재
 배포를 다시 검증해야 한다.
 
+`runtime_source_fingerprint`는 Python 엔진ㆍMCPㆍVercel 진입점뿐 아니라 루트
+랜딩, 정적 웹 번들, `vercel.json`, `pyproject.toml`을 함께 묶는다. 텍스트 파일의
+LFㆍCRLF 차이는 정규화하므로 같은 Git 내용은 Windows와 Vercel Linux에서 같은
+지문을 만들고, 사용자에게 보이는 문구나 웹 동작이 달라지면 지문도 달라진다.
+
 ## 후보 릴리스 재생성 순서
 
-2026-08-30 기준으로 후보 릴리스 증거를 다시 묶을 때 권장 순서는 다음과 같다.
+2026-08-31 기준으로 후보 릴리스 증거를 다시 묶을 때 권장 순서는 다음과 같다.
 
 1. `python tools\check_evidence_versions.py --scope local`
 2. `python -m build --outdir dist`

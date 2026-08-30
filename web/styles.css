@@ -339,6 +339,20 @@ a:focus-visible {
   padding-bottom: 22px;
 }
 
+.review-boundary {
+  padding: 12px 18px;
+  border-bottom: 1px solid #d7e2dc;
+  background: #f1f7f3;
+  color: #405249;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.review-boundary strong {
+  display: block;
+  color: var(--green-dark);
+}
+
 .summary-strip {
   min-height: 82px;
   display: grid;
@@ -537,6 +551,56 @@ a:focus-visible {
   margin-top: 0;
 }
 
+.review-answer-detail {
+  border-top: 1px solid var(--line);
+  background: #f7f9f7;
+}
+
+.review-answer-detail summary {
+  padding: 10px 15px;
+  cursor: pointer;
+  color: #315747;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.review-answer-content {
+  display: grid;
+  gap: 7px;
+  padding: 0 15px 14px;
+}
+
+.review-answer-content label {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.review-answer-content textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 9px 10px;
+  resize: vertical;
+  border: 1px solid #aebdb5;
+  border-radius: 5px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.review-answer-content textarea:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.review-answer-content small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .basis-content {
   padding: 0 15px 14px;
 }
@@ -677,13 +741,39 @@ a:focus-visible {
 }
 
 .disclaimer {
-  margin: 20px 22px 0;
+  margin: 0;
   padding: 14px 16px;
+  border-bottom: 1px solid #c9dbe3;
   border-left: 3px solid var(--blue);
   background: #eef5f8;
   color: #415963;
   font-size: 11px;
   line-height: 1.65;
+}
+
+.review-progress-strip {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 14px 16px 0;
+  padding: 11px 13px;
+  border: 1px solid #b8cec2;
+  border-radius: 6px;
+  background: #f2f8f4;
+}
+
+.review-progress-strip strong {
+  flex: 0 0 auto;
+  color: #295540;
+  font-size: 12px;
+}
+
+.review-progress-strip span {
+  color: #52665c;
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: right;
 }
 
 .app-footer {
@@ -808,6 +898,17 @@ a:focus-visible {
 
   .next-step-strip {
     padding: 12px 15px;
+  }
+
+  .review-progress-strip {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+    margin: 12px 15px 0;
+  }
+
+  .review-progress-strip span {
+    text-align: left;
   }
 
   .result-block {

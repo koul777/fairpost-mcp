@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import json
 
 import anyio
+import pytest
 
 from tools import verify_vercel_deployment as verify_mod
 
@@ -62,8 +63,8 @@ def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
                     "status": "ok",
                     "transport": "streamable-http",
                     "stateless": True,
-                    "authentication": "none",
-                    "claude_readonly_authentication": "disabled",
+                    "authentication": "bearer",
+                    "claude_readonly_authentication": "bearer",
                     "answer_store": "disabled_on_remote_endpoint",
                     "remote_tool_profile": "read_only",
                     "ruleset_version": "rules-v1",
@@ -91,9 +92,9 @@ def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
         async def post(self, url: str, **_kwargs) -> _FakeResponse:
             assert self.instance_id == 1
             if url.endswith("/api/mcp"):
-                return _FakeResponse(status_code=200, payload={})
+                return _FakeResponse(status_code=401, payload={})
             assert url.endswith("/api/claude-mcp")
-            return _FakeResponse(status_code=503, payload={})
+            return _FakeResponse(status_code=401, payload={})
 
     class FakeStreamClient:
         async def __aenter__(self):
@@ -103,8 +104,11 @@ def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
             return None
 
     class FakeSession:
+        instance_count = 0
+
         def __init__(self, _read, _write) -> None:
-            return None
+            type(self).instance_count += 1
+            self.instance_id = type(self).instance_count
 
         async def __aenter__(self):
             return self
@@ -113,12 +117,18 @@ def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
             return None
 
         async def initialize(self):
-            return SimpleNamespace(serverInfo=SimpleNamespace(name="fairpost"))
+            name = "fairpost" if self.instance_id == 1 else "fairpost-readonly"
+            return SimpleNamespace(serverInfo=SimpleNamespace(name=name))
 
         async def list_tools(self):
+            if self.instance_id == 2:
+                return SimpleNamespace(
+                    tools=[SimpleNamespace(name="check_job_posting")]
+                )
             return SimpleNamespace(
                 tools=[
                     SimpleNamespace(name="check_job_posting"),
+                    SimpleNamespace(name="check_job_posting_structured"),
                     SimpleNamespace(name="next_review_question"),
                 ]
             )
@@ -132,7 +142,9 @@ def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
                     content=[
                         SimpleNamespace(
                             text=(
+                                f"{verify_mod.DISCLAIMER}\n\n"
                                 "채용공고 점검 결과\n"
+                                "| 검토 우선도 |\n"
                                 "SEX-001\n"
                                 "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률\n"
                                 "제7조"
@@ -144,6 +156,29 @@ def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
                 return SimpleNamespace(
                     isError=False,
                     structuredContent={"progress": {"total": 1, "answered": 0}},
+                    content=[],
+                )
+            if name == "check_job_posting_structured":
+                return SimpleNamespace(
+                    isError=False,
+                    structuredContent={
+                        "schema_version": "fairpost-structured-check-v1",
+                        "disclaimer": verify_mod.DISCLAIMER,
+                        "findings": [
+                            {
+                                "id": "SEX-001",
+                                "matched_text": "여성만",
+                                "offset": [0, 3],
+                            }
+                        ],
+                        "questions": [
+                            {
+                                "id": "Q-DIST-015",
+                                "linked_findings": ["SEX-001"],
+                                "book_ref": "question-basis",
+                            }
+                        ],
+                    },
                     content=[],
                 )
             raise AssertionError(f"unexpected tool call: {name}")
@@ -169,19 +204,31 @@ def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
     report = anyio.run(
         verify_mod.verify,
         "https://example.test",
-        "",
+        "test-token",
         None,
     )
 
-    assert calls == ["check_job_posting", "next_review_question"]
+    assert calls == [
+        "check_job_posting",
+        "check_job_posting_structured",
+        "next_review_question",
+        "check_job_posting",
+    ]
     assert report["passed"] is True
     assert report["write_check_performed"] is False
     assert report["save_answer_is_error"] is None
     assert report["allow_write_check"] is False
-    assert report["tools"] == ["check_job_posting", "next_review_question"]
+    assert report["tools"] == [
+        "check_job_posting",
+        "check_job_posting_structured",
+        "next_review_question",
+    ]
     assert report["verified_at"].endswith("+09:00")
-    assert report["schema_version"] == "fairpost-vercel-deployment-audit-v2"
-    assert report["anonymous_claude_initialize_status"] == 503
+    assert report["schema_version"] == "fairpost-vercel-deployment-audit-v3"
+    assert report["anonymous_claude_initialize_status"] == 401
+    assert report["claude_server_name"] == "fairpost-readonly"
+    assert report["claude_tools"] == ["check_job_posting"]
+    assert report["checks"]["claude_readonly_profile_verified"] is True
 
 
 def test_main_forwards_allow_write_check_flag(
@@ -215,6 +262,12 @@ def test_main_forwards_allow_write_check_flag(
             "https://example.test",
             "--deployment-id",
             "dep-123",
+            "--source-commit",
+            "abc123",
+            "--verified-by",
+            "codex-agent",
+            "--approval-ref",
+            "user-approved-poc",
             "--output",
             str(output_path),
             "--allow-write-check",
@@ -233,5 +286,48 @@ def test_main_forwards_allow_write_check_flag(
         "passed": True,
         "mcp_endpoint": "https://example.test/api/mcp",
         "tools": ["check_job_posting"],
+        "checks": {"verification_context_complete": True},
+        "verification_context": {
+            "source_commit": "abc123",
+            "verified_by": "codex-agent",
+            "approval_ref": "user-approved-poc",
+        },
     }
     assert "https://example.test/api/mcp (1 tools)" in capsys.readouterr().out
+
+
+def test_main_rejects_missing_verification_context(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    output_path = tmp_path / "audit.json"
+
+    def fake_run(*_args):
+        return {
+            "passed": True,
+            "checks": {"tool_call_succeeded": True},
+            "mcp_endpoint": "https://example.test/api/mcp",
+            "tools": ["check_job_posting"],
+        }
+
+    monkeypatch.setattr(verify_mod.anyio, "run", fake_run)
+    monkeypatch.setattr(
+        verify_mod.sys,
+        "argv",
+        [
+            "verify_vercel_deployment.py",
+            "--url",
+            "https://example.test",
+            "--output",
+            str(output_path),
+        ],
+    )
+    monkeypatch.delenv("VERCEL_GIT_COMMIT_SHA", raising=False)
+    monkeypatch.delenv("FAIRPOST_VERIFIED_BY", raising=False)
+    monkeypatch.delenv("FAIRPOST_APPROVAL_REF", raising=False)
+
+    with pytest.raises(SystemExit, match="source commit"):
+        verify_mod.main()
+    report = json.loads(output_path.read_text(encoding="utf-8"))
+    assert report["passed"] is False
+    assert report["checks"]["verification_context_complete"] is False

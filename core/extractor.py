@@ -8,7 +8,10 @@ from .morph import find_first
 from .schema import SlotStatus
 
 
-SECTION_VERSION = "sections-v1-heading-alias-preferred-fallback"
+SECTION_VERSION = "sections-v2-heading-alias-sentence-evidence"
+
+_SENTENCE_BOUNDARIES = ".!?。！？"
+_EVIDENCE_WINDOW_CODEPOINTS = 238
 
 
 SECTION_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -77,7 +80,37 @@ def _evidence_line(text: str, start: int, end: int) -> str:
     line_end = text.find("\n", end)
     if line_end == -1:
         line_end = len(text)
-    return text[line_start:line_end].strip()[:240]
+
+    sentence_start = max(
+        (text.rfind(mark, line_start, start) for mark in _SENTENCE_BOUNDARIES),
+        default=-1,
+    )
+    segment_start = sentence_start + 1 if sentence_start >= line_start else line_start
+    sentence_ends = [
+        position
+        for mark in _SENTENCE_BOUNDARIES
+        if (position := text.find(mark, end, line_end)) != -1
+    ]
+    segment_end = min(sentence_ends) + 1 if sentence_ends else line_end
+
+    segment = text[segment_start:segment_end]
+    if len(segment) <= _EVIDENCE_WINDOW_CODEPOINTS:
+        return segment.strip()
+
+    relative_start = start - segment_start
+    relative_end = end - segment_start
+    window_start = max(0, relative_start - 96)
+    window_end = min(
+        len(segment),
+        max(relative_end + 96, window_start + _EVIDENCE_WINDOW_CODEPOINTS),
+    )
+    window_start = max(0, window_end - _EVIDENCE_WINDOW_CODEPOINTS)
+    evidence = segment[window_start:window_end].strip()
+    return (
+        ("…" if window_start else "")
+        + evidence
+        + ("…" if window_end < len(segment) else "")
+    )
 
 
 def extract_slots(

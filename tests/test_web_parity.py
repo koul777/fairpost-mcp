@@ -29,6 +29,11 @@ ROOT = Path(__file__).resolve().parents[1]
         "자격요건\r\n남성만 지원 가능\r\n전형절차\r\n서류전형",
         "📌 채용 안내\n자격요건\n여성만 지원 가능",
         (
+            "지원자격은 별도로 안내합니다. 급여는 면접 후 협의합니다. "
+            "개인정보 보관기간은 추후 안내합니다."
+        ),
+        (("😀" * 180) + " 급여는 협의합니다 " + ("가" * 180)),
+        (
             "AI 면접으로 최종 결정\n일정\n접수 기간 8월 1일까지\n"
             "문의처\n인사팀 02-1234-5678"
         ),
@@ -90,6 +95,8 @@ ROOT = Path(__file__).resolve().parents[1]
         "benign-personality",
         "crlf-sections",
         "emoji-prefix",
+        "single-line-sentence-evidence",
+        "long-unicode-evidence-window",
         "multiple-sections",
         "multitrack-long-context",
         "multitrack-outside-context",
@@ -205,8 +212,8 @@ def test_static_web_has_no_network_capability_and_shows_version() -> None:
     app = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
     engine = (ROOT / "web" / "engine.js").read_text(encoding="utf-8")
     assert "connect-src 'none'" in html
-    assert "입력 내용은 이 브라우저 밖으로 전송되지 않으며" in html
-    assert "배포 버튼만 외부 페이지를 엽니다" in html
+    assert "입력ㆍ답변은 이 브라우저 밖으로 전송되지 않으며" in html
+    assert "배포ㆍ근거 링크만 새 외부 페이지를 엽니다" in html
     assert 'id="deploy-button"' in html
     assert "https://vercel.com/new/clone?repository-url=" in html
     assert 'target="_blank"' in html
@@ -214,13 +221,26 @@ def test_static_web_has_no_network_capability_and_shows_version() -> None:
     assert "GitHub 저장소 접근 권한 필요" in html
     assert "현재 입력값은 전달하지 않음" in html
     assert "판정이 아니라 수정·확인 질문을 정리한 로컬 검토 메모입니다." in html
+    assert "fairpost | 채용공고 검토 메모" in html
+    assert "검토 메모 만들기" in html
+    assert "개수는 검토할 작업량입니다." in html
+    assert "점수·등급·합격/불합격 또는 공정성 판정" in html
+    assert html.index('id="disclaimer"') < html.index('class="summary-strip"')
     assert "공고별 질문" in html
     assert 'class="next-step-strip"' in html
     assert "1. 확인된 표현의 근거와 대체 문구를 검토합니다." in html
+    assert 'id="answer-progress"' in html
+    assert "질문별 답변은 현재 분석 세션에만 남고" in html
     assert "fetch(" not in app + engine
     assert "XMLHttpRequest" not in app + engine
+    assert "localStorage" not in app
+    assert "sessionStorage" not in app
     assert "fairpost 채용공고문 검토 메모" in app
     assert "검토 메모를 복사했습니다." in app
+    assert 'high: "우선 검토"' in app
+    assert 'medium: "검토"' in app
+    assert 'aria-label="검토 우선도' in app
+    assert "개수는 검토할 작업량이며 점수·등급·합격/불합격 또는 공정성 판정이 아닙니다." in app
     assert 'id="common-checklist"' in app
     assert "<details" in app
     assert "공통 기본 체크리스트" in app
@@ -238,16 +258,57 @@ def test_static_web_has_no_network_capability_and_shows_version() -> None:
         "question.review_scope !== \"common\" &&\n"
         "          !SLOT_EMBEDDED_QUESTION_IDS.has(question.id)"
     ) in app
-    assert "visiblePostingQuestions.forEach(appendQuestion)" in app
+    assert "visiblePostingQuestions.forEach((question) => appendQuestion(question))" in app
     assert 'appendQuestion(slotQuestion, "  확인 질문:")' in app
     assert 'class="question-detail"' in app
     assert "후속 질문 ${question.follow_up.length}개 보기" in app
     assert "question.reference.publisher" in app
     assert "question.reference.accessed_at" in app
     assert "확인 ${question.reference.accessed_at}" in app
+    assert 'data-question-answer="${escapeHtml(question.id)}"' in app
+    assert "reviewAnswers.set(questionId, target.value)" in app
+    assert "담당자 답변 진행: ${answeredCount}/${result.questions.length}" in app
+    assert "서버나 브라우저 저장소로 전송·저장되지 않습니다." in app
+    assert "reviewAnswers.clear()" in app
+    assert 'document.getElementById(id).replaceChildren()' in app
     assert "function moveCodePointsLeft" in engine
     assert "function moveCodePointsRight" in engine
     assert "const codePoints = Array.from(text)" not in engine
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
+def test_web_review_answers_are_copied_and_cleared_locally() -> None:
+    completed = subprocess.run(
+        ["node", "tests/web_app_review_runner.cjs"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    result = json.loads(completed.stdout)
+    assert result["progressAfterAnswer"] == (
+        f"담당자 답변 1/{result['questionCount']}"
+    )
+    assert result["questionId"] in result["copiedWithAnswer"]
+    assert "담당자 답변: 원문을 직무 요건 중심으로 수정합니다." in result[
+        "copiedWithAnswer"
+    ]
+    assert "담당자 재확인 완료" in result["copiedWithAnswer"]
+    assert f"- {result['questionId']}" in result["copiedWithAnswer"]
+    assert f"0 {result['questionId']}" not in result["copiedWithAnswer"]
+    assert result["progressAfterRerun"] == (
+        f"담당자 답변 0/{result['questionCount']}"
+    )
+    assert "담당자 재확인 완료" not in result["copiedAfterRerun"]
+    assert result["copyFailureToast"] == "브라우저에서 메모를 복사하지 못했습니다."
+    assert result["cleared"] == {
+        "input": "",
+        "progress": "담당자 답변 0/0",
+        "resultHidden": True,
+        "copyDisabled": True,
+        "dynamicContainersCleared": True,
+    }
 
 
 def test_web_bundle_version_matches_core() -> None:
@@ -264,5 +325,7 @@ def test_web_css_preserves_hidden_state_and_mobile_width() -> None:
     assert ".button-deploy{" in compact
     assert ".results-note{" in compact
     assert ".next-step-strip{" in compact
+    assert ".review-progress-strip{" in compact
+    assert ".review-answer-contenttextarea{" in compact
     assert "a:focus-visible{" in compact
     assert "@media(prefers-reduced-motion:reduce)" in compact

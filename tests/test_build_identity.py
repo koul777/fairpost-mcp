@@ -19,6 +19,19 @@ def test_runtime_source_manifest_covers_engine_dependencies() -> None:
     } <= set(RUNTIME_SOURCE_FILES)
 
 
+def test_runtime_source_manifest_covers_deployed_web() -> None:
+    assert {
+        "index.html",
+        "pyproject.toml",
+        "vercel.json",
+        "web/app.js",
+        "web/data.js",
+        "web/engine.js",
+        "web/index.html",
+        "web/styles.css",
+    } <= set(RUNTIME_SOURCE_FILES)
+
+
 def test_runtime_source_fingerprint_binds_code_and_rule_versions(
     tmp_path: Path,
 ) -> None:
@@ -91,4 +104,36 @@ def test_runtime_source_fingerprint_binds_vercel_entrypoint(
         source_files=("api/index.py",),
     )
 
+    assert changed != first
+
+
+def test_runtime_source_fingerprint_normalizes_web_line_endings(
+    tmp_path: Path,
+) -> None:
+    asset = tmp_path / "web" / "app.js"
+    asset.parent.mkdir()
+    asset.write_bytes(b"const value = 1;\nexport { value };\n")
+    first = runtime_source_fingerprint(
+        ruleset_version="rules",
+        matching_version="matching",
+        root=tmp_path,
+        source_files=("web/app.js",),
+    )
+
+    asset.write_bytes(b"const value = 1;\r\nexport { value };\r\n")
+    crlf = runtime_source_fingerprint(
+        ruleset_version="rules",
+        matching_version="matching",
+        root=tmp_path,
+        source_files=("web/app.js",),
+    )
+    assert crlf == first
+
+    asset.write_bytes(b"const value = 2;\r\nexport { value };\r\n")
+    changed = runtime_source_fingerprint(
+        ruleset_version="rules",
+        matching_version="matching",
+        root=tmp_path,
+        source_files=("web/app.js",),
+    )
     assert changed != first

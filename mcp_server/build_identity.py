@@ -9,6 +9,9 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_SOURCE_FILES = (
+    "index.html",
+    "pyproject.toml",
+    "vercel.json",
     "api/index.py",
     "core/__init__.py",
     "core/engine.py",
@@ -21,6 +24,11 @@ RUNTIME_SOURCE_FILES = (
     "mcp_server/remote.py",
     "mcp_server/server.py",
     "mcp_server/storage.py",
+    "web/app.js",
+    "web/data.js",
+    "web/engine.js",
+    "web/index.html",
+    "web/styles.css",
 )
 
 
@@ -38,6 +46,17 @@ def _canonical_python_source(path: Path) -> bytes:
     if sys.version_info >= (3, 14):
         options["show_empty"] = True
     return ast.dump(tree, **options).encode("utf-8")
+
+
+def _canonical_text_source(path: Path) -> bytes:
+    """Keep deploy fingerprints stable across Git LF/CRLF checkouts."""
+
+    return (
+        path.read_text(encoding="utf-8")
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .encode("utf-8")
+    )
 
 
 def _resolve_source_path(
@@ -76,7 +95,7 @@ def runtime_source_fingerprint(
             payload = (
                 _canonical_python_source(path)
                 if path.suffix == ".py"
-                else path.read_bytes()
+                else _canonical_text_source(path)
             )
             digest.update(len(payload).to_bytes(8, byteorder="big", signed=False))
             digest.update(payload)

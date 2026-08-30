@@ -31,6 +31,7 @@
     Object.values(SLOT_QUESTION_IDS)
   );
   let latestResult = null;
+  const reviewAnswers = new Map();
   let toastTimer = null;
 
   const sample = `2026년 행정직 채용
@@ -72,6 +73,41 @@
     toastTimer = window.setTimeout(() => toast.classList.remove("visible"), 1800);
   }
 
+  function reviewPriorityLabel(value) {
+    return {
+      high: "우선 검토",
+      medium: "검토",
+      low: "참고",
+    }[value] || "검토";
+  }
+
+  function updateAnswerProgress() {
+    const total = latestResult ? latestResult.questions.length : 0;
+    const answered = latestResult
+      ? latestResult.questions.filter((question) =>
+          Boolean((reviewAnswers.get(question.id) || "").trim())
+        ).length
+      : 0;
+    document.getElementById("answer-progress").textContent =
+      `담당자 답변 ${answered}/${total}`;
+  }
+
+  function resetReview() {
+    latestResult = null;
+    reviewAnswers.clear();
+    ["findings-list", "slots-list", "questions-list"].forEach((id) =>
+      document.getElementById(id).replaceChildren()
+    );
+    document.getElementById("disclaimer").textContent = "";
+    document.getElementById("finding-count").textContent = "0";
+    document.getElementById("missing-count").textContent = "0";
+    document.getElementById("question-count").textContent = "0";
+    emptyState.hidden = false;
+    resultContent.hidden = true;
+    copyButton.disabled = true;
+    updateAnswerProgress();
+  }
+
   function renderFindings(findings) {
     const container = document.getElementById("findings-list");
     if (!findings.length) {
@@ -91,7 +127,7 @@
             <div class="item-meta">
               <span class="id-tag">${escapeHtml(finding.id)}</span>
               <span class="dimension-tag">${escapeHtml(finding.dimension)}</span>
-              <span class="severity-tag severity-${escapeHtml(finding.severity)}">${escapeHtml(finding.severity)}</span>
+              <span class="severity-tag severity-${escapeHtml(finding.severity)}" aria-label="검토 우선도 ${escapeHtml(reviewPriorityLabel(finding.severity))}">${escapeHtml(reviewPriorityLabel(finding.severity))}</span>
               <span>${escapeHtml(finding.section)} · ${finding.offset[0]}–${finding.offset[1]}</span>
             </div>
             <p class="item-title">${escapeHtml(finding.message)}</p>
@@ -186,6 +222,7 @@
           .map((id) => escapeHtml(id))
           .join(", ")}</span>`
       : "";
+    const answerId = `answer-${question.id}`;
     return `<article class="question-item">
       <div class="item-main">
         <div class="item-meta">
@@ -200,6 +237,14 @@
         ${reference}
       </div>
       ${detail}
+      <details class="review-answer-detail">
+        <summary>담당자 답변 남기기</summary>
+        <div class="review-answer-content">
+          <label for="${escapeHtml(answerId)}">${escapeHtml(question.id)} 사람 검토 답변</label>
+          <textarea id="${escapeHtml(answerId)}" data-question-answer="${escapeHtml(question.id)}" rows="3" placeholder="근거를 확인한 뒤 수정 여부, 확인한 사실, 후속 조치를 기록하세요."></textarea>
+          <small>이 답변은 현재 분석 메모리에만 보관되며 서버나 브라우저 저장소로 전송·저장되지 않습니다.</small>
+        </div>
+      </details>
     </article>`;
   }
 
@@ -259,17 +304,25 @@
     renderFindings(result.findings);
     renderSlots(result.slots, result.questions);
     renderQuestions(result.questions);
+    updateAnswerProgress();
     emptyState.hidden = true;
     resultContent.hidden = false;
     copyButton.disabled = false;
   }
 
   function makeReport(result) {
+    const answeredCount = result.questions.filter((question) =>
+      Boolean((reviewAnswers.get(question.id) || "").trim())
+    ).length;
     const lines = [
       "fairpost 채용공고문 검토 메모",
+      result.disclaimer,
+      "개수는 검토할 작업량이며 점수·등급·합격/불합격 또는 공정성 판정이 아닙니다.",
+      "",
       `규칙 사전: ${result.ruleset_version}`,
       `법령 기준일: ${result.statute_snapshot_date}`,
       result.statute_notice,
+      `담당자 답변 진행: ${answeredCount}/${result.questions.length}`,
       "",
       `[확인된 사항 ${result.counts.findings}건]`,
     ];
@@ -326,6 +379,12 @@
         );
       }
       question.follow_up.forEach((item) => lines.push(`  · ${item}`));
+      const answer = (reviewAnswers.get(question.id) || "").trim();
+      if (answer) {
+        answer.split(/\r?\n/).forEach((line, index) => {
+          lines.push(index === 0 ? `  담당자 답변: ${line}` : `    ${line}`);
+        });
+      }
     };
     lines.push("", `[확인되지 않은 항목 ${result.counts.not_found}건]`);
     result.slots
@@ -336,21 +395,21 @@
         if (slotQuestion) {
           appendQuestion(slotQuestion, "  확인 질문:");
         }
-      });
+    });
     lines.push("", `[공고별 추가 검토 질문 ${visiblePostingQuestions.length}건]`);
-    visiblePostingQuestions.forEach(appendQuestion);
+    visiblePostingQuestions.forEach((question) => appendQuestion(question));
     lines.push("", `[공통 기본 체크리스트 ${commonQuestions.length}건]`);
-    commonQuestions.forEach(appendQuestion);
-    lines.push("", result.disclaimer);
+    commonQuestions.forEach((question) => appendQuestion(question));
     return lines.join("\n");
   }
 
   function runCheck() {
     if (!input.value.trim()) {
-      showToast("점검할 공고문을 입력하세요.");
+      showToast("검토할 공고문을 입력하세요.");
       input.focus();
       return;
     }
+    reviewAnswers.clear();
     render(window.FairpostEngine.check(input.value));
   }
 
@@ -361,6 +420,7 @@
   clearButton.addEventListener("click", () => {
     input.value = "";
     input.dispatchEvent(new Event("input"));
+    resetReview();
     input.focus();
   });
   sampleButton.addEventListener("click", () => {
@@ -375,15 +435,31 @@
       showToast("검토 메모를 복사했습니다.");
     } catch (_error) {
       const temporary = document.createElement("textarea");
-      temporary.value = makeReport(latestResult);
-      temporary.style.position = "fixed";
-      temporary.style.opacity = "0";
-      document.body.appendChild(temporary);
-      temporary.select();
-      document.execCommand("copy");
-      temporary.remove();
-      showToast("검토 메모를 복사했습니다.");
+      try {
+        temporary.value = makeReport(latestResult);
+        temporary.style.position = "fixed";
+        temporary.style.opacity = "0";
+        document.body.appendChild(temporary);
+        temporary.select();
+        if (!document.execCommand("copy")) {
+          throw new Error("copy command was rejected");
+        }
+        showToast("검토 메모를 복사했습니다.");
+      } catch (_fallbackError) {
+        showToast("브라우저에서 메모를 복사하지 못했습니다.");
+      } finally {
+        temporary.remove();
+      }
     }
+  });
+
+  resultContent.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLTextAreaElement)) return;
+    const questionId = target.dataset.questionAnswer;
+    if (!questionId) return;
+    reviewAnswers.set(questionId, target.value);
+    updateAnswerProgress();
   });
 
   document.getElementById("ruleset-version").textContent =

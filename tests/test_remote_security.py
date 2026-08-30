@@ -375,3 +375,43 @@ def test_duplicate_authorization_headers_are_rejected(monkeypatch) -> None:
     monkeypatch.setenv("FAIRPOST_MCP_TOKEN", "test-token")
     anyio.run(exercise)
     assert called is False
+
+
+def test_non_ascii_bearer_token_is_compared_as_raw_utf8_bytes(monkeypatch) -> None:
+    token = "검토-토큰-2026"
+    called = False
+
+    async def downstream(_scope, _receive, send) -> None:
+        nonlocal called
+        called = True
+        await send({"type": "http.response.start", "status": 204, "headers": []})
+        await send({"type": "http.response.body", "body": b""})
+
+    async def exercise() -> None:
+        middleware = RemoteSecurityMiddleware(downstream)
+        messages = []
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(message) -> None:
+            messages.append(message)
+
+        await middleware(
+            {
+                "type": "http",
+                "path": MCP_PATH,
+                "headers": [
+                    (b"authorization", f"Bearer {token}".encode("utf-8"))
+                ],
+            },
+            receive,
+            send,
+        )
+
+        assert messages[0]["status"] == 204
+
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("FAIRPOST_MCP_TOKEN", token)
+    anyio.run(exercise)
+    assert called is True

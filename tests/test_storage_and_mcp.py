@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 import json
 
@@ -45,10 +46,36 @@ def test_public_analysis_tools_never_read_organization_answers(
     monkeypatch.setattr(server, "answer_store", FailOnReadStore())
 
     checked = server.check_job_posting_public("간단한 채용 공고")
+    structured = server.check_job_posting_structured_public("간단한 채용 공고")
     next_question = server.next_review_question_public("간단한 채용 공고")
 
     assert "저장된 답변:" not in checked
+    assert all(question.saved_answer is None for question in structured.questions)
     assert isinstance(next_question["progress"], dict)
+
+
+def test_structured_check_contract_is_versioned_and_traceable() -> None:
+    text = "여성만 지원 가능"
+    result = server.check_job_posting_structured_public(text)
+
+    assert result.schema_version == "fairpost-structured-check-v1"
+    assert result.disclaimer.startswith("이 결과는 점검 참고자료")
+    assert result.findings[0].id == "SEX-001"
+    assert result.findings[0].offset is not None
+    assert text[slice(*result.findings[0].offset)] == result.findings[0].matched_text
+    linked = [
+        question
+        for question in result.questions
+        if "SEX-001" in question.linked_findings
+    ]
+    assert linked
+    assert linked[0].book_ref
+    assert linked[0].reference is not None
+
+    structured_payload = asdict(result)
+    structured_payload.pop("schema_version")
+    json_payload = json.loads(json.dumps(structured_payload, ensure_ascii=False))
+    assert json_payload == server.engine.check(text).to_dict()
 
 
 def test_check_output_describes_candidates_without_declaring_illegality() -> None:
@@ -56,6 +83,38 @@ def test_check_output_describes_candidates_without_declaring_illegality() -> Non
 
     assert "관련 법령 표현 검토 후보" in checked
     assert "법령 위반 사항" not in checked
+
+
+def test_check_output_leads_with_human_review_boundary_and_keeps_priority() -> None:
+    result = server.engine.check("여성만 지원 가능")
+    checked = server._format_check_result_text(result)
+
+    assert checked.startswith(result.disclaimer)
+    assert checked.index(result.disclaimer) < checked.index("채용공고 점검 결과")
+    assert checked.count(result.disclaimer) == 1
+    assert "| 검토 우선도 |" in checked
+    assert f"| {result.findings[0].severity} |" in checked
+    assert "| 심각도 |" not in checked
+
+
+def test_next_question_payload_is_traceable_and_json_serializable() -> None:
+    text = "지원자격: 외국인 제외"
+    result = server.engine.check(text)
+    response = server.next_review_question_public(text)
+    question = response["question"]
+
+    assert question is not None
+    assert question["book_ref"]
+    assert question["saved_answer"] is None
+    assert question["offset"] is None or text[slice(*question["offset"])] == (
+        question["matched_text"]
+    )
+    assert question["reference"] is not None
+    assert question["reference"]["type"]
+    assert response["ruleset_version"] == result.ruleset_version
+    assert response["statute_snapshot_date"] == result.statute_snapshot_date
+    assert response["statute_notice"] == result.statute_notice
+    json.dumps(response, ensure_ascii=False)
 
 
 def test_vercel_transport_security_allows_current_production_hostname(

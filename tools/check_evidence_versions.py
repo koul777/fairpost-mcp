@@ -30,7 +30,7 @@ EXPECTED_REPORT_SCHEMAS = {
     "human_labeling_handoff.json": "fairpost-human-labeling-handoff-v1",
     "mcp_client_audit.json": "fairpost-mcp-client-audit-v2",
     "prd_corpus_summary.json": "fairpost-prd-corpus-summary-v1",
-    "vercel_deployment_audit.json": "fairpost-vercel-deployment-audit-v2",
+    "vercel_deployment_audit.json": "fairpost-vercel-deployment-audit-v3",
     "web_engine_parity.json": "fairpost-web-engine-parity-v1",
     "work24_access_audit.json": "fairpost-work24-access-audit-v1",
 }

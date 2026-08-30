@@ -168,6 +168,27 @@ def test_nfkc_and_zero_width_normalization_preserves_source_offsets(
     assert text[finding.offset[0] : finding.offset[1]] == expected_text
 
 
+@pytest.mark.parametrize(
+    ("text", "expected_text", "rule_id"),
+    [
+        ("젊고 역동적인 지원자를 우대합니다.", "젊고", "AGE-001"),
+        ("1995년 이후 출생자만 지원할 수 있습니다.", "1995년 이후 출생자만", "AGE-002"),
+        ("외모 단정한 분을 찾습니다.", "외모 단정", "LOOK-001"),
+    ],
+)
+def test_claude_mcp_review_variants_preserve_evidence_offsets(
+    text: str,
+    expected_text: str,
+    rule_id: str,
+) -> None:
+    result = FairpostEngine().check(text)
+    finding = next(item for item in result.findings if item.id == rule_id)
+
+    assert finding.matched_text == expected_text
+    assert finding.offset is not None
+    assert text[finding.offset[0] : finding.offset[1]] == expected_text
+
+
 def test_korean_ending_normalization_retrieves_question_card() -> None:
     result = FairpostEngine().check("책임감 있으신 분을 찾습니다.")
     assert "Q-INTER-001" in {question.id for question in result.questions}
@@ -264,6 +285,36 @@ def test_contact_point_and_appeal_process_are_independent() -> None:
     assert appeal_slots["contact_point"] is False
     assert "Q-INFO-001" not in appeal_questions
     assert "Q-INFO-003" in appeal_questions
+
+
+def test_slot_evidence_is_bounded_to_the_matching_sentence() -> None:
+    text = (
+        "지원자격은 별도로 안내합니다. "
+        "급여는 면접 후 협의합니다. "
+        "개인정보 보관기간은 추후 안내합니다."
+    )
+    result = FairpostEngine().check(text)
+    compensation = next(
+        slot for slot in result.slots if slot.slot == "compensation"
+    )
+
+    assert compensation.evidence == "급여는 면접 후 협의합니다."
+    assert "지원자격" not in compensation.evidence
+    assert "개인정보" not in compensation.evidence
+
+
+def test_long_slot_evidence_keeps_the_match_in_a_bounded_window() -> None:
+    text = ("😀" * 180) + " 급여는 협의합니다 " + ("가" * 180)
+    result = FairpostEngine().check(text)
+    compensation = next(
+        slot for slot in result.slots if slot.slot == "compensation"
+    )
+
+    assert compensation.evidence is not None
+    assert "급여" in compensation.evidence
+    assert len(compensation.evidence) <= 240
+    assert compensation.evidence.startswith("…")
+    assert compensation.evidence.endswith("…")
 
 
 def test_book_based_questions_cover_full_ai_hiring_review() -> None:

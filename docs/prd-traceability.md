@@ -28,9 +28,9 @@
 | 3블록 CheckResult와 고정 면책문 | 충족 | `core/schema.py`, `core/engine.py` |
 | 공백ㆍ특수문자ㆍ어미 정규화와 원문 offsetㆍsection | 충족 | NFKCㆍ비표준 공백ㆍ제로폭ㆍ한국어 어미 및 CRLFㆍUnicode 패리티 테스트 |
 | 로컬 규칙 확장 | 충족 | `FAIRPOST_LOCAL_RULES_PATH`, statute 근거 거부 테스트 |
-| MCP 도구 4종 | 충족 | 루프백 로컬은 4도구를 제공하고, 인증ㆍ익명 원격 배포는 모두 `check_job_posting`, `next_review_question`만 제공하는 프로토콜 테스트 |
+| MCP 도구 5종 | 충족 | 루프백 로컬은 평문ㆍ구조화 점검, 다음 질문, 답변 저장ㆍ조회 5도구를 제공한다. 인증ㆍ익명 일반 원격은 저장 없는 읽기 전용 3도구, Claude 호환 전용 경로는 기존 평문 점검 1도구로 고정하는 프로토콜 테스트 |
 | 기본 MCP Streamable HTTP | 충족 | `fairpost-mcp`, `test_streamable_http_is_default_and_calls_all_tools` |
-| Claude 계열 클라이언트 HTTP 설정 | 부분 충족 | `.mcp.json`에 Vercel 운영ㆍ로컬 HTTP를 등록하고 SDKㆍInspector 원격 호출 성공. Claude Code 프로젝트 승인은 대기 중 |
+| Claude 계열 클라이언트 HTTP 설정 | 충족 | `.mcp.json`의 `fairpost`는 루프백 기본이고 Vercel은 `fairpost-remote` 명시 선택이다. SDKㆍInspector 원격 호출과 Claude Code 프로젝트 승인ㆍ로컬 두 도구 실제 호출을 확인 |
 | 사용자 로컬 답변 저장 | 충족 | `LocalAnswerStore`, 격리 경로 및 HTTP 왕복 테스트. Vercel 원격은 저장 도구 자체를 노출하지 않음 |
 | 정적 웹ㆍMCP 결과 동등성 | 충족 | Python/JavaScript 패리티 테스트 |
 
@@ -71,8 +71,8 @@ PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 �
 
 ## 수용 기준
 
-AC-1~AC-19의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. 현재 전수
-테스트 863개가 통과했고 JUnit 해시는 `reports/build_artifact.json`에 고정한다.
+AC-1~AC-20의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. 현재 전수
+테스트 880개가 통과했고 JUnit 해시는 `reports/build_artifact.json`에 고정한다.
 다만 수용 기준 통과가 G1ㆍG2 성능 목표를 대신 증명하지는 않는다.
 
 ## 완료를 위해 남은 증거
@@ -81,4 +81,3 @@ AC-1~AC-19의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. �
 2. `tools/evaluate.py --enforce-targets` 통과 보고서
 3. PRD에 지정된 Work24 민간 공고 출처를 충족할 기업회원 API 권한 또는 출처 변경 승인
 4. Git 저장소ㆍ법령 감사 Actions 성공 실행ㆍ릴리스 태그
-5. Claude Code 프로젝트 MCP 승인과 실제 Claude 호출
