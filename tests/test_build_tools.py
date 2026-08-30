@@ -468,12 +468,23 @@ def test_current_client_evidence_is_bound_to_deployment_audit() -> None:
             "invocation_passed": True,
             "project_registration_passed": True,
             "status": "final-independent-supervision-passed",
+            "invocation_exit_code": 0,
+            "output_sha256": "b" * 64,
             "tools_called": [
                 "check_job_posting",
                 "check_job_posting_structured",
                 "next_review_question",
             ],
+            "tool_results": {
+                "check_job_posting": True,
+                "check_job_posting_structured": True,
+                "next_review_question": True,
+            },
             "read_only": True,
+            "plain_structured_parity_passed": True,
+            "structured_traceability_passed": True,
+            "no_remote_persistence_confirmed": True,
+            "human_controlled_in_memory_browser_confirmed": True,
         },
         "official_inspector": {
             "tools_list_exit_code": 0,
@@ -515,6 +526,37 @@ def test_current_client_evidence_is_bound_to_deployment_audit() -> None:
     client["official_inspector"]["version"] = "2.4.0"
     client["claude_code"]["tools_called"] = ["check_job_posting"]
     assert module._current_client_evidence_matches(client, **arguments) is False
+    client["claude_code"]["tools_called"] = [
+        "next_review_question",
+        "check_job_posting_structured",
+        "check_job_posting",
+    ]
+    assert module._current_client_evidence_matches(client, **arguments) is True
+    client["claude_code"]["output_sha256"] = "not-a-receipt"
+    assert module._current_client_evidence_matches(client, **arguments) is False
+    client["claude_code"]["output_sha256"] = "b" * 64
+    client["claude_code"]["tool_results"]["next_review_question"] = False
+    assert module._current_client_evidence_matches(client, **arguments) is False
+
+
+def test_current_client_evidence_requires_claude_receipt() -> None:
+    module = load_tool("build_release_report")
+    common = {
+        "ruleset_version": "rules-v1",
+        "matching_version": "match-v1",
+        "runtime_source_fingerprint_value": "runtime-v1",
+        "deployment_id": "dpl-current",
+        "vercel_audit_sha256": "a" * 64,
+        "endpoint": "https://example.test/api/mcp",
+        "authentication": "bearer",
+    }
+    assert module._current_client_evidence_matches({}, **common) is False
+    assert (
+        module._current_client_evidence_matches(
+            {"official_inspector": {}}, **common
+        )
+        is False
+    )
 
 
 def test_release_report_rejects_hidden_testcase_failure(tmp_path: Path) -> None:

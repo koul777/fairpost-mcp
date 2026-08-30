@@ -25,6 +25,13 @@ VERCEL_REQUIRED_CONTRACT_CHECKS = frozenset(
         "verification_context_complete",
     }
 )
+EXPECTED_PUBLIC_TOOLS = frozenset(
+    {
+        "check_job_posting",
+        "check_job_posting_structured",
+        "next_review_question",
+    }
+)
 KST = timezone(timedelta(hours=9), name="KST")
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -47,6 +54,33 @@ def _require_report_schema(
     if not isinstance(payload, dict) or payload.get("schema_version") != expected:
         raise ValueError(f"{label} has an unsupported schema_version")
     return payload
+
+
+def _has_exact_public_tools(value: object) -> bool:
+    return bool(
+        isinstance(value, list)
+        and len(value) == len(EXPECTED_PUBLIC_TOOLS)
+        and all(isinstance(item, str) for item in value)
+        and set(value) == EXPECTED_PUBLIC_TOOLS
+    )
+
+
+def _is_sha256(value: object) -> bool:
+    return bool(
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _is_compatible_inspector_version(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    parts = value.split(".")
+    if len(parts) != 3 or not all(part.isdecimal() for part in parts):
+        return False
+    major, minor, patch = (int(part) for part in parts)
+    return major == 2 and (minor, patch) >= (4, 0)
 
 
 def _current_client_evidence_matches(
@@ -86,26 +120,24 @@ def _current_client_evidence_matches(
         and claude.get("invocation_passed") is True
         and claude.get("project_registration_passed") is True
         and claude.get("status") == "final-independent-supervision-passed"
-        and claude.get("tools_called")
-        == [
-            "check_job_posting",
-            "check_job_posting_structured",
-            "next_review_question",
-        ]
+        and claude.get("invocation_exit_code") == 0
+        and _is_sha256(claude.get("output_sha256"))
+        and _has_exact_public_tools(claude.get("tools_called"))
+        and claude.get("tool_results")
+        == {tool: True for tool in EXPECTED_PUBLIC_TOOLS}
         and claude.get("read_only") is True
+        and claude.get("plain_structured_parity_passed") is True
+        and claude.get("structured_traceability_passed") is True
+        and claude.get("no_remote_persistence_confirmed") is True
+        and claude.get("human_controlled_in_memory_browser_confirmed") is True
         and inspector.get("tools_list_exit_code") == 0
         and inspector.get("tool_call_exit_code") == 0
         and inspector.get("is_error") is False
         and inspector.get("tool_count") == 3
-        and inspector.get("tools")
-        == [
-            "check_job_posting",
-            "check_job_posting_structured",
-            "next_review_question",
-        ]
+        and _has_exact_public_tools(inspector.get("tools"))
         and inspector.get("all_tools_read_only") is True
         and inspector.get("endpoint") == endpoint
-        and inspector.get("version") == "2.4.0"
+        and _is_compatible_inspector_version(inspector.get("version"))
     )
 
 
