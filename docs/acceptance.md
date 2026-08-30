@@ -12,7 +12,7 @@
 | AC-6 부재 문구 | 통과 | 출력 문자열 회귀 테스트 |
 | AC-7 원문 offset·section | 통과 | CRLF, Unicode, NFKCㆍ제로폭 정규화 회귀 테스트 |
 | AC-8 사전 교체 | 통과 | 임시 YAML 규칙 삽입 테스트 |
-| AC-9 로컬 답변 저장 | 통과 | 격리 임시 경로 테스트 |
+| AC-9 로컬 답변 저장 | 통과 | 격리 임시 경로 저장, 전체ㆍ조직별 privacy-safe purge, 마지막 답변 삭제 시 파일 제거 테스트 |
 | AC-10 스키마 오류 실패 | 통과 | 잘못된 question severity 테스트 |
 | AC-11 provenance | 통과 | 전체 규칙 검사 |
 | AC-12 core 의존 방향 | 통과 | 정적 import 검사 |
@@ -25,7 +25,7 @@
 | AC-19 민간 반복감사 자동화 | 통과 | train-only 경로 사전검사, snapshot→audit→drift→로컬 review queue 단일 사이클, 복구 가능한 다중 파일 게시ㆍ일반 오류 rollback, 익명 출력과 경보 종료 코드 회귀 테스트 |
 | AC-20 웹 사람 검토 메모 | 통과 | 질문별 담당자 답변ㆍ진행률ㆍ답변 포함 복사, 재분석ㆍ입력 지우기 시 메모리 답변 삭제, 브라우저 저장소ㆍ네트워크 미사용 정적 검사 |
 
-자동 테스트 885개가 통과했으며 전수 JUnit SHA-256은
+자동 테스트 893개가 통과했으며 전수 JUnit SHA-256은
 `reports/build_artifact.json`에 기록합니다. 기본 MCP 전송 방식인
 Streamable HTTP는 실제
 로컬 포트에서 초기화, 도구 목록, 점검, 답변 저장ㆍ조회를 검증했습니다.

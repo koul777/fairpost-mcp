@@ -301,6 +301,11 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     assert "담당자 재확인 완료" in result["copiedWithAnswer"]
     assert f"- {result['questionId']}" in result["copiedWithAnswer"]
     assert f"0 {result['questionId']}" not in result["copiedWithAnswer"]
+    assert result["manuallyCleared"] == {
+        "progress": "담당자 답변 0/0",
+        "resultHidden": True,
+        "copyDisabled": True,
+    }
     assert result["progressAfterRerun"] == (
         f"담당자 답변 0/{result['questionCount']}"
     )

@@ -417,12 +417,14 @@
 
   input.addEventListener("input", () => {
     charCount.textContent = `${Array.from(input.value).length.toLocaleString("ko-KR")}자`;
+    if (!input.value.trim()) {
+      resetReview();
+    }
   });
   checkButton.addEventListener("click", runCheck);
   clearButton.addEventListener("click", () => {
     input.value = "";
     input.dispatchEvent(new Event("input"));
-    resetReview();
     input.focus();
   });
   sampleButton.addEventListener("click", () => {

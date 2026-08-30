@@ -100,6 +100,13 @@ Bearer 토큰을 URL 쿼리에 넣지 않는다.
 로컬 `save_answer`는 같은 조직ㆍ질문에 저장된 기존 답변을 새 답변으로 교체할 수
 있으므로 MCP 도구 주석도 파괴 가능 쓰기로 표시한다.
 
+로컬 답변은 `~/.fairpost/answers.json` 또는 `FAIRPOST_ANSWERS_PATH`가 가리키는
+파일에 평문으로 저장되며 자동 만료되지 않는다. 따라서 공용 PC나 공유 OS 계정에는
+저장하지 않고 운영자가 보존 기간을 정해야 한다. 전체 로컬 답변은
+`fairpost purge-answers`, 특정 조직 답변은
+`fairpost purge-answers --org-id <조직 ID>`로 삭제한다. 마지막 조직을 지우면
+파일도 제거되며, 삭제 명령은 조직 IDㆍ답변ㆍ저장 경로를 출력하지 않는다.
+
 참고:
 
 - Anthropic 원격 MCP 안내:

@@ -133,6 +133,16 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
   await elements.get("copy-button").trigger("click");
   const copiedWithAnswer = copied;
 
+  posting.value = "";
+  posting.dispatchEvent(new Event("input"));
+  const manuallyCleared = {
+    progress: elements.get("answer-progress").textContent,
+    resultHidden: elements.get("result-content").hidden,
+    copyDisabled: elements.get("copy-button").disabled,
+  };
+
+  posting.value = "여성만 지원 가능";
+  posting.dispatchEvent(new Event("input"));
   elements.get("check-button").trigger("click");
   const progressAfterRerun = elements.get("answer-progress").textContent;
   await elements.get("copy-button").trigger("click");
@@ -159,6 +169,7 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     resultsTitleFocused,
     progressAfterAnswer,
     copiedWithAnswer,
+    manuallyCleared,
     progressAfterRerun,
     copiedAfterRerun,
     copyFailureToast,

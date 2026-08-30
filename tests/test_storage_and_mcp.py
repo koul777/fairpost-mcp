@@ -24,6 +24,37 @@ def test_answer_store_writes_only_configured_local_file(tmp_path: Path) -> None:
     assert list(tmp_path.rglob("*.json")) == [path]
 
 
+def test_local_store_purge_all_removes_store_without_parsing(tmp_path: Path) -> None:
+    path = tmp_path / "answers.json"
+    path.write_text("damaged private answer storage", encoding="utf-8")
+    store = LocalAnswerStore(path)
+
+    assert store.purge() is True
+    assert not path.exists()
+    assert store.purge() is False
+
+
+def test_local_store_purge_org_preserves_other_answers(tmp_path: Path) -> None:
+    path = tmp_path / "answers.json"
+    store = LocalAnswerStore(path)
+    store.save("org-a", "Q-INFO-001", "answer a")
+    store.save("org-b", "Q-PROC-001", "answer b")
+
+    assert store.purge("org-a") is True
+    assert store.get("org-a") == {}
+    assert store.get("org-b") == {"Q-PROC-001": "answer b"}
+    assert store.purge("org-a") is False
+
+
+def test_local_store_purge_last_org_removes_empty_store(tmp_path: Path) -> None:
+    path = tmp_path / "answers.json"
+    store = LocalAnswerStore(path)
+    store.save("org-a", "Q-INFO-001", "answer a")
+
+    assert store.purge("org-a") is True
+    assert not path.exists()
+
+
 def test_mcp_check_injects_saved_answer(
     tmp_path: Path,
     monkeypatch,

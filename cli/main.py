@@ -4,9 +4,19 @@ import argparse
 import json
 from pathlib import Path
 import sys
-from typing import Iterable
+from typing import Iterable, NoReturn
 
 from core import FairpostEngine, RuleLoadError
+from mcp_server.storage import LocalAnswerStore
+
+
+class _PurgeArgumentError(Exception):
+    pass
+
+
+class _PrivacySafePurgeParser(argparse.ArgumentParser):
+    def error(self, _message: str) -> NoReturn:
+        raise _PurgeArgumentError
 
 
 def _read_stdin(encoding: str) -> str:
@@ -56,8 +66,42 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_purge_parser() -> argparse.ArgumentParser:
+    parser = _PrivacySafePurgeParser(
+        prog="fairpost purge-answers",
+        description="Delete answers from the local FairPost answer store.",
+    )
+    parser.add_argument(
+        "--org-id",
+        help="Delete only this organization's answers. Omit to delete all answers.",
+    )
+    return parser
+
+
+def _purge_answers(argv: list[str]) -> int:
+    try:
+        args = build_purge_parser().parse_args(argv)
+    except _PurgeArgumentError:
+        print("fairpost: invalid purge-answers arguments", file=sys.stderr)
+        return 2
+    try:
+        changed = LocalAnswerStore().purge(args.org_id)
+    except (OSError, ValueError):
+        # Do not echo answer-store paths, organization IDs, or malformed contents.
+        print("fairpost: unable to purge local answer storage", file=sys.stderr)
+        return 2
+    if changed:
+        print("Local answer storage purged.")
+    else:
+        print("No matching local answer storage found.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(_normalize_argv(argv))
+    values = list(sys.argv[1:] if argv is None else argv)
+    if values and values[0] == "purge-answers":
+        return _purge_answers(values[1:])
+    args = build_parser().parse_args(_normalize_argv(values))
     try:
         engine = FairpostEngine(args.data_dir, args.local_rules)
         inputs = list(_read_inputs(args.files, args.encoding))

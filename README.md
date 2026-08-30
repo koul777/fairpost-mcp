@@ -103,7 +103,11 @@ claude mcp add --transport http --scope project fairpost http://127.0.0.1:8000/m
 - `save_answer`: 유효한 질문 ID에 대한 조직별 답변 저장(같은 조직ㆍ질문의 기존 답변은 교체)
 - `get_saved_answers`: 저장된 답변 조회
 
-답변은 사용자 컴퓨터의 `~/.fairpost/answers.json`에만 저장됩니다.
+답변은 사용자 컴퓨터의 `~/.fairpost/answers.json`에 평문으로 저장되며 자동
+만료되지 않습니다. 공용 PC나 여러 사람이 같은 OS 계정을 쓰는 환경에는 저장하지
+마세요. 전체 답변은 `fairpost purge-answers`, 특정 조직 답변은
+`fairpost purge-answers --org-id <조직 ID>`로 삭제할 수 있습니다. 마지막 답변을
+지우면 저장 파일도 제거됩니다. 이 삭제 명령은 조직 ID나 답변 내용을 출력하지 않습니다.
 
 ### Vercel 원격 MCP
 
@@ -142,7 +146,7 @@ Bearer 인증이 필요하며, 원격 환경에는 `org_id`와 로컬 답변 저
 
 | 항목 | 현재 증거 |
 |---|---:|
-| 자동화 테스트 | 885 passed |
+| 자동화 테스트 | 893 passed |
 | 전체 데이터 규칙 | 71 |
 | 질문 카드 | 52 |
 | 배포 형태 | 정적 웹 + Vercel 읽기 전용 MCP |

@@ -81,28 +81,65 @@ class LocalAnswerStore:
         with self._lock:
             return dict(self._read().get(org_id, {}))
 
+    def _write(self, payload: dict[str, dict[str, str]]) -> None:
+        if not payload:
+            try:
+                self.path.unlink()
+            except FileNotFoundError:
+                pass
+            return
+
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        handle, temporary_name = tempfile.mkstemp(
+            dir=self.path.parent,
+            prefix=f".{self.path.name}.",
+            suffix=".tmp",
+        )
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as stream:
+                json.dump(payload, stream, ensure_ascii=False, sort_keys=True, indent=2)
+                stream.write("\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.path)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+
     def save(self, org_id: str, question_id: str, answer: str) -> None:
         _validate_answer_fields(org_id, question_id, answer)
         with self._lock:
             payload = self._read()
             payload.setdefault(org_id, {})[question_id] = answer
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            handle, temporary_name = tempfile.mkstemp(
-                dir=self.path.parent,
-                prefix=f".{self.path.name}.",
-                suffix=".tmp",
-            )
-            temporary = Path(temporary_name)
-            try:
-                with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as stream:
-                    json.dump(payload, stream, ensure_ascii=False, sort_keys=True, indent=2)
-                    stream.write("\n")
-                    stream.flush()
-                    os.fsync(stream.fileno())
-                os.replace(temporary, self.path)
-            finally:
-                if temporary.exists():
-                    temporary.unlink()
+            self._write(payload)
+
+    def purge(self, org_id: str | None = None) -> bool:
+        """Remove local answers, optionally limited to one organization.
+
+        The return value only reports whether the local store changed; answer and
+        organization contents are never returned. A full purge deliberately does
+        not parse the file, so a damaged store can still be removed safely.
+        """
+
+        if org_id is not None:
+            _validate_answer_fields(org_id)
+        with self._lock:
+            if not self.path.exists():
+                return False
+            if org_id is None:
+                try:
+                    self.path.unlink()
+                except FileNotFoundError:
+                    return False
+                return True
+
+            payload = self._read()
+            if org_id not in payload:
+                return False
+            del payload[org_id]
+            self._write(payload)
+            return True
 
 
 class UpstashAnswerStore:
