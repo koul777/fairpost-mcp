@@ -18,8 +18,9 @@ FairPost는 채용공고문을 읽고 다음 세 가지를 한 번에 정리합�
 - 공고문에서 확인되지 않은 절차·정보
 - 채용담당자가 후속 검토할 질문
 
-결과는 같은 입력에 항상 같은 순서로 나옵니다. 런타임에 LLM이나 외부 API를
-호출하지 않으며 점수, 등급, 합격·통과 판정도 만들지 않습니다.
+기본 점검 결과는 같은 입력에 항상 같은 순서로 나옵니다. 기본 모드에서는
+LLM이나 외부 API를 호출하지 않으며 점수, 등급, 합격·통과 판정도 만들지 않습니다.
+사용자가 선택형 보강을 켠 경우에만 별도로 현행 법령 조회와 AI 검토 메모를 요청합니다.
 
 > FairPost의 결과는 검토 참고자료이며 공정성 여부에 대한 판정이나 법률
 > 자문이 아닙니다. “확인되지 않음”은 해당 절차가 없다는 뜻이 아니라
@@ -48,6 +49,7 @@ MCP 클라이언트 연결 화면 자체는 포함하지 않습니다.
 | 원하는 방식 | 실행·접속 | 처리 위치와 용도 |
 |---|---|---|
 | 정적 웹 | [배포된 웹 앱](https://fairmcp.vercel.app/web/) 또는 `web/index.html` | 입력과 점검을 브라우저 안에서만 처리합니다. |
+| 연결형 로컬 웹·MCP | `run_fairpost_web.bat` → `http://127.0.0.1:8000/web/` | 선택형 AI·법령 보강 API와 로컬 MCP `/mcp`를 함께 실행합니다. |
 | 로컬 CLI | `fairpost check .\posting.txt` | 서버 없이 기기 안에서 JSON 결과를 만듭니다. |
 | 로컬 CLI 검토 패킷 | `fairpost check .\posting.txt --review-packet` | NCS 통제와 선택적 현행 법령 조회 상태를 함께 만듭니다. |
 | 로컬 MCP | `fairpost-mcp` → `http://127.0.0.1:8000/mcp` | AI 클라이언트에서 점검·HR 검토 패킷·질문·로컬 답변 저장 도구를 사용합니다. |
@@ -187,6 +189,38 @@ stdio 자식 프로세스에는 시스템 실행에 필요한 최소 환경변�
 
 ### 선택적 AI·현행 법령 보강 버튼
 
+#### 이 PC에서 연결하여 실행하기
+
+프로젝트 폴더의 `run_fairpost_web.bat`을 실행한 뒤
+[로컬 웹](http://127.0.0.1:8000/web/)에서 **AI·현행 법령 보강**을 켜고
+**검토 메모 만들기**를 누릅니다. 같은 서버의 `/mcp`에서는 로컬 6개 도구도
+사용할 수 있으므로 별도 MCP 서버를 같은 포트에 중복 실행하지 않습니다.
+
+연결 설정은 프로젝트의 `.env.fairpost.local.json`에 저장합니다. 이 파일은
+Git·Python 배포 패키지·Vercel 업로드에서 제외됩니다. 다른 PC에서 처음 설정할
+때만 [설정 예제](examples/local-connections.example.json)를 이 이름으로 복사합니다.
+기존 설정을 덮어쓰지 마세요. 예제는 공개 Korean Law MCP 주소와 로컬 Ollama의
+`qwen3:4b`를 사용하며 API 키를 포함하지 않습니다. Ollama와 해당 모델이 실행
+가능해야 하고, 법령 조회에는 인터넷 연결이 필요합니다.
+
+```powershell
+python -m mcp_server.local_runtime web
+# 포트 충돌 시: python -m mcp_server.local_runtime web --port 8001
+# MCP만 실행: python -m mcp_server.local_runtime mcp
+# stdio 클라이언트용: python -m mcp_server.local_runtime stdio
+```
+
+설정 파일은 이 로컬 실행기와 `run_fairpost_mcp.bat`에서만 읽으며 기존 환경변수가
+우선합니다. `fairpost-mcp`나 CLI를 직접 실행할 때는 아래 환경변수 방식을 사용합니다.
+서버는 `127.0.0.1`에만 연결을 받고 다른 웹사이트에서 보내는 요청은 거부합니다.
+`web/index.html` 직접 열기나 단순 정적 서버에는 보강 API가 없습니다.
+
+**공개 Vercel 사이트에는 이 PC 설정이 적용되지 않습니다.** Vercel의 선택형 보강에는
+그 서버에서 접근 가능한 AI API·키와 Korean Law MCP 설정이 별도로 필요합니다.
+Vercel에서 이 PC의 `127.0.0.1:11434`에 연결할 수는 없습니다.
+
+#### 보강 동작과 사용자 지정 AI API
+
 웹의 **AI·현행 법령 보강** 스위치는 기본적으로 꺼져 있습니다. 꺼진 상태에서는
 기존 정적 규칙 엔진만 브라우저에서 실행되고 네트워크 요청을 만들지 않습니다.
 스위치를 켜면 먼저 같은 배포의 `/api/assisted-review`에서 설정 상태를 확인하며,
@@ -203,6 +237,15 @@ $env:FAIRPOST_AI_MODEL = "<model-name>"
 
 # 위 Korean Law MCP HTTP 또는 stdio 설정도 함께 필요합니다.
 ```
+
+`FAIRPOST_AI_TIMEOUT_SECONDS`는 1~300초(기본 30초)로 조정할 수 있습니다.
+로컬 예제는 180초를 허용하고 `FAIRPOST_AI_REASONING_EFFORT=none`으로 설정합니다.
+이는 [Ollama가 지원하는 추론 제어 옵션](https://docs.ollama.com/api/openai-compatibility)이며,
+다른 AI 제공자에서는 지원 여부를 확인하거나 생략하세요. 클라우드 함수의 실행시간
+제한은 이 옵션으로 늘어나지 않습니다. AI 메모는 검토 초안이며 모델 선택만으로
+법률 검토 품질이 보장되지 않습니다.
+로컬 Qwen3에는 [공식 `/no_think` 지시](https://qwenlm.github.io/blog/qwen3/)도 함께
+전달하며, 응답에 추론 태그가 섞이면 추론 부분을 제거하고 최종 메모만 표시합니다.
 
 API 키는 브라우저 코드나 응답에 포함하지 않습니다. 활성화된 요청의 공고문은
 FairPost 서버에서 재검사하지만, Korean Law MCP에는 `법령명·조문번호`만 보내고
@@ -253,7 +296,7 @@ AI API에는 `탐지 문구·조회된 현행 조문·활성 NCS 통제`만 보�
 
 | 항목 | 현재 증거 |
 |---|---:|
-| 자동화 테스트 | 915 passed |
+| 자동화 테스트 | 936 passed |
 | 전체 데이터 규칙 | 71 |
 | 질문 카드 | 52 |
 | 배포 형태 | 정적 웹 + CLI + 로컬 MCP + Vercel 읽기 전용 MCP + 선택형 AI·현행 법령 보강 API |

@@ -149,6 +149,75 @@ def test_live_law_verifier_resolves_current_mst_and_article_without_posting() ->
     anyio.run(exercise)
 
 
+def test_live_law_verifier_rejects_search_without_current_marker() -> None:
+    engine = FairpostEngine()
+    findings = engine.check("여성만 지원 가능").findings
+
+    class CurrentServerSession:
+        async def list_tools(self):
+            return SimpleNamespace(
+                tools=[
+                    SimpleNamespace(name="search_law"),
+                    SimpleNamespace(name="get_law_text"),
+                ]
+            )
+
+        async def call_tool(self, name, _arguments):
+            if name == "search_law":
+                return SimpleNamespace(
+                    isError=False,
+                    content=[
+                        SimpleNamespace(
+                            type="text",
+                            text=(
+                                "검색 결과 (총 1건):\n\n"
+                                "1. 남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률\n"
+                                "   - 법령ID: 000130\n"
+                                "   - MST: 283455\n"
+                            ),
+                        )
+                    ],
+                )
+            return SimpleNamespace(
+                isError=False,
+                content=[
+                    SimpleNamespace(
+                        type="text",
+                        text=(
+                            "법령명: 남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률\n"
+                            "제7조 모집과 채용\n사업주는 모집ㆍ채용에서 차별하여서는 아니 된다."
+                        ),
+                    )
+                ],
+            )
+
+    async def exercise() -> None:
+        verifier = LiveLawVerifier(
+            LawMcpConfig(transport="http", url="https://law.example/mcp")
+        )
+        from mcp_server.review import _references
+
+        results = await verifier._verify_with_session(
+            CurrentServerSession(),
+            _references(findings, engine.ruleset.statutes),
+        )
+        assert results[0].status == "current_law_not_resolved"
+        assert results[0].current_law_id is None
+        assert results[0].current_mst is None
+
+    anyio.run(exercise)
+
+
+@pytest.mark.parametrize("search", [
+    "1. 테스트법 시행령 [현행]\n- 법령ID: 001\n- MST: 002\n",
+    "1. 테스트법 [현행]\n2. 다른법 [현행]\n- 법령ID: 001\n- MST: 002\n",
+    "1. 테스트법 [시행예정]\n- 법령ID: 001\n- MST: 002\n",
+])
+def test_current_identifiers_do_not_mix_laws_or_versions(search):
+    from mcp_server.review import _current_identifiers
+    assert _current_identifiers(search, "테스트법") is None
+
+
 def test_law_mcp_configuration_is_disabled_by_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

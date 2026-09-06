@@ -10,6 +10,9 @@ include index.html
 include favicon.svg
 include examples/private_monitoring_input.example.jsonl
 include examples/pilot_feedback.example.jsonl
+include examples/local-connections.example.json
+include run_fairpost_web.bat
+include run_fairpost_mcp.bat
 recursive-include api *.py
 recursive-include core *.py
 recursive-include cli *.py

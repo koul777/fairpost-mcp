@@ -21,6 +21,8 @@ AI_ENV = (
     "FAIRPOST_AI_API_URL",
     "FAIRPOST_AI_API_KEY",
     "FAIRPOST_AI_MODEL",
+    "FAIRPOST_AI_TIMEOUT_SECONDS",
+    "FAIRPOST_AI_REASONING_EFFORT",
 )
 LAW_ENV = (
     "FAIRPOST_KOREAN_LAW_MCP_URL",
@@ -31,6 +33,56 @@ LAW_ENV = (
 def _clear_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in (*AI_ENV, *LAW_ENV):
         monkeypatch.delenv(name, raising=False)
+
+
+@pytest.mark.parametrize("timeout", ["0", "301", "bad", "NaN"])
+def test_ai_timeout_is_bounded(monkeypatch, timeout):
+    _clear_environment(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_AI_TIMEOUT_SECONDS", timeout)
+    with pytest.raises(ValueError, match="timeout"):
+        AiApiConfig.from_environment()
+
+
+def test_local_ai_options_are_passed_only_when_configured(monkeypatch):
+    _clear_environment(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_AI_API_URL", "http://127.0.0.1:11434/v1/chat/completions")
+    monkeypatch.setenv("FAIRPOST_AI_MODEL", "qwen3:8b")
+    monkeypatch.setenv("FAIRPOST_AI_TIMEOUT_SECONDS", "180")
+    captured = []
+    async def respond(request):
+        captured.append(request)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "검토 메모"}}]})
+    async def exercise():
+        reviewer = AiReviewer(AiApiConfig.from_environment(), transport=httpx.MockTransport(respond))
+        await reviewer.review({})
+        monkeypatch.setenv("FAIRPOST_AI_REASONING_EFFORT", "none")
+        reviewer = AiReviewer(AiApiConfig.from_environment(), transport=httpx.MockTransport(respond))
+        await reviewer.review({})
+    anyio.run(exercise)
+    assert "reasoning_effort" not in json.loads(captured[0].content)
+    assert json.loads(captured[1].content)["reasoning_effort"] == "none"
+    assert json.loads(captured[1].content)["messages"][-1]["content"].endswith("/no_think")
+    assert captured[1].extensions["timeout"]["read"] == 180
+    monkeypatch.setenv("FAIRPOST_AI_REASONING_EFFORT", "bad")
+    with pytest.raises(ValueError, match="reasoning"):
+        AiApiConfig.from_environment()
+
+
+@pytest.mark.parametrize("content", [
+    "<think>private reasoning</think>최종 메모",
+    "private reasoning</think>최종 메모",
+    [{"type": "text", "text": "<think>private reasoning</think>최종 메모"}],
+])
+def test_ai_response_excludes_reasoning_preamble(content):
+    from mcp_server.assisted_review import _response_text
+    assert _response_text({"choices": [{"message": {"content": content}}]}) == "최종 메모"
+
+
+@pytest.mark.parametrize("content", ["<think>unfinished", "reasoning</think>  "])
+def test_ai_response_requires_a_final_answer(content):
+    from mcp_server.assisted_review import _response_text
+    with pytest.raises(ValueError):
+        _response_text({"choices": [{"message": {"content": content}}]})
 
 
 def test_assisted_review_is_optional_and_disabled_without_configuration(

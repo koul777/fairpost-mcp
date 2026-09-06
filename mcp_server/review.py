@@ -283,9 +283,15 @@ def _result_text(result: Any) -> str:
 def _current_identifiers(text: str, law: str) -> tuple[str, str] | None:
     lines = text.splitlines()
     for index, line in enumerate(lines):
-        if law not in line or "[현행]" not in line:
+        candidate = re.sub(r"^\s*\d+\.\s*", "", line).strip()
+        if candidate != f"{law} [현행]":
             continue
-        window = "\n".join(lines[index : index + 10])
+        block = []
+        for detail in lines[index + 1 : index + 10]:
+            if re.match(r"^\s*\d+\.\s", detail):
+                break
+            block.append(detail)
+        window = "\n".join(block)
         law_id = re.search(r"법령ID\s*:\s*([0-9]+)", window)
         mst = re.search(r"MST\s*:\s*([0-9]+)", window)
         if law_id and mst:

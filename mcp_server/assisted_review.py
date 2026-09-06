@@ -24,15 +24,28 @@ class AiApiConfig:
     url: str | None
     api_key: str | None
     model: str | None
+    timeout_seconds: int = 30
+    reasoning_effort: str | None = None
 
     @classmethod
     def from_environment(cls) -> AiApiConfig:
         raw_url = os.environ.get("FAIRPOST_AI_API_URL", "").strip()
         model = os.environ.get("FAIRPOST_AI_MODEL", "").strip() or None
+        try:
+            timeout_seconds = int(os.environ.get("FAIRPOST_AI_TIMEOUT_SECONDS", "30"))
+        except ValueError as exc:
+            raise ValueError("AI timeout must be an integer between 1 and 300") from exc
+        if not 1 <= timeout_seconds <= 300:
+            raise ValueError("AI timeout must be an integer between 1 and 300")
+        reasoning_effort = os.environ.get("FAIRPOST_AI_REASONING_EFFORT", "").strip() or None
+        if reasoning_effort not in {None, "none", "low", "medium", "high", "max"}:
+            raise ValueError("Unknown AI reasoning effort")
         return cls(
             url=_validated_ai_url(raw_url) if raw_url else None,
             api_key=os.environ.get("FAIRPOST_AI_API_KEY") or None,
             model=model,
+            timeout_seconds=timeout_seconds,
+            reasoning_effort=reasoning_effort,
         )
 
     @property
@@ -155,6 +168,10 @@ class AiReviewer:
                         "적용 근거를 따르고, 공기업·준정부기관 경영 지침과 공공기관 "
                         "혁신 지침의 적용 범위를 같다고 가정하지 마세요. 규모 구간을 "
                         "법적 중소기업 분류나 법 적용 결론으로 사용하지 마세요."
+                        "최종 검토 메모만 출력하세요. 확인되지 않은 직무 관련성이나 예외를 "
+                        "사실로 단정하지 말고 담당자 확인 질문으로 적으세요. 작성자·검토일을 "
+                        "만들어 넣지 마세요. 각 탐지 항목은 확인 이유·조회 근거·수정 제안·"
+                        "담당자 확인 사항의 네 항목으로 간결하게 정리하세요."
                     ),
                 },
                 {
@@ -163,7 +180,17 @@ class AiReviewer:
                 },
             ],
         }
-        timeout = httpx.Timeout(30.0, connect=10.0)
+        if self.config.reasoning_effort is not None:
+            payload["reasoning_effort"] = self.config.reasoning_effort
+        if (
+            self.config.reasoning_effort == "none"
+            and (self.config.model or "").casefold().startswith("qwen3:")
+            and urlsplit(self.config.url or "").hostname in {"127.0.0.1", "::1", "localhost"}
+        ):
+            # Older local Qwen templates may ignore the API-level effort field.
+            # Qwen's documented soft switch also works with those templates.
+            payload["messages"][-1]["content"] += "\n/no_think"
+        timeout = httpx.Timeout(float(self.config.timeout_seconds), connect=10.0)
         async with httpx.AsyncClient(
             headers=headers,
             timeout=timeout,
@@ -196,6 +223,12 @@ def _response_text(body: Any) -> str:
         ).strip()
     else:
         text = ""
+    # Some local templates omit the opening tag, but still emit </think>.
+    # Never present the reasoning preamble as the HR review memo.
+    if "</think>" in text:
+        text = text.rsplit("</think>", 1)[1].strip()
+    if "<think>" in text:
+        raise ValueError("AI API response has no completed final answer")
     if not text:
         raise ValueError("AI API response message is empty")
     return text

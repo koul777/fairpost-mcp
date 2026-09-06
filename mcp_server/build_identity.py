@@ -60,6 +60,7 @@ RUNTIME_SOURCE_FILES = (
     "mcp_server/__init__.py",
     "mcp_server/assisted_review.py",
     "mcp_server/build_identity.py",
+    "mcp_server/local_runtime.py",
     "mcp_server/remote.py",
     "mcp_server/review.py",
     "mcp_server/server.py",
