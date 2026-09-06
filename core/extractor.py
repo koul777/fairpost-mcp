@@ -12,6 +12,8 @@ SECTION_VERSION = "sections-v2-heading-alias-sentence-evidence"
 
 _SENTENCE_BOUNDARIES = ".!?。！？"
 _EVIDENCE_WINDOW_CODEPOINTS = 238
+_HEADING_DECORATION = re.compile(r"^[\s#>*\-–—\d.()①-⑳]+|[\s:：]+$")
+_WHITESPACE = re.compile(r"\s+")
 
 
 SECTION_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -26,6 +28,14 @@ SECTION_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("문의처", ("문의처", "문의", "연락처")),
     ("기타", ("기타",)),
 )
+_SECTION_BY_COMPACT_ALIAS: dict[str, str] = {}
+for _canonical, _aliases in SECTION_ALIASES:
+    for _alias in _aliases:
+        # setdefault preserves the original first-match behavior if aliases
+        # ever overlap across canonical sections.
+        _SECTION_BY_COMPACT_ALIAS.setdefault(
+            _WHITESPACE.sub("", _alias), _canonical
+        )
 
 
 @dataclass(frozen=True)
@@ -37,14 +47,11 @@ class Section:
 
 
 def _heading_name(line: str) -> str | None:
-    cleaned = re.sub(r"^[\s#>*\-–—\d.()①-⑳]+|[\s:：]+$", "", line.strip())
+    cleaned = _HEADING_DECORATION.sub("", line.strip())
     if not cleaned or len(cleaned) > 30:
         return None
-    compact = re.sub(r"\s+", "", cleaned)
-    for canonical, aliases in SECTION_ALIASES:
-        if any(compact == re.sub(r"\s+", "", alias) for alias in aliases):
-            return canonical
-    return None
+    compact = _WHITESPACE.sub("", cleaned)
+    return _SECTION_BY_COMPACT_ALIAS.get(compact)
 
 
 def split_sections(text: str) -> list[Section]:

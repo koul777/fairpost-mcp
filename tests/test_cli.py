@@ -50,6 +50,27 @@ def test_legacy_direct_file_syntax_remains_supported(tmp_path, capsys) -> None:
     assert any(item["id"] == "SEX-001" for item in payload["findings"])
 
 
+def test_review_packet_includes_ncs_guidance_and_safe_law_requests(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    posting = tmp_path / "posting.txt"
+    posting.write_text("지원자격: 여성만 지원 가능", encoding="utf-8")
+    for name in (
+        "FAIRPOST_KOREAN_LAW_MCP_URL",
+        "FAIRPOST_KOREAN_LAW_MCP_COMMAND",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    assert main([str(posting), "--review-packet"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["schema_version"] == "fairpost-hr-review-v1"
+    assert payload["law_mcp_transport"] == "disabled"
+    assert payload["law_verifications"][0]["status"] == "not_configured"
+    assert payload["law_verifications"][0]["request"]["posting_text_sent"] is False
+    assert payload["ncs_guidance"]["authority"] == "guidance_not_law"
+
+
 def test_purge_answers_removes_all_local_answers(
     tmp_path, monkeypatch, capsys
 ) -> None:

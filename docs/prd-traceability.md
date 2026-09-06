@@ -28,7 +28,7 @@
 | 3블록 CheckResult와 고정 면책문 | 충족 | `core/schema.py`, `core/engine.py` |
 | 공백ㆍ특수문자ㆍ어미 정규화와 원문 offsetㆍsection | 충족 | NFKCㆍ비표준 공백ㆍ제로폭ㆍ한국어 어미 및 CRLFㆍUnicode 패리티 테스트 |
 | 로컬 규칙 확장 | 충족 | `FAIRPOST_LOCAL_RULES_PATH`, statute 근거 거부 테스트 |
-| MCP 도구 5종 | 충족 | 루프백 로컬은 평문ㆍ구조화 점검, 다음 질문, 답변 저장ㆍ조회 5도구를 제공한다. 인증ㆍ익명 일반 원격은 저장 없는 읽기 전용 3도구, Claude 호환 전용 경로는 기존 평문 점검 1도구로 고정하는 프로토콜 테스트 |
+| MCP 도구와 HR 검토 확장 | 충족 | 루프백 로컬은 평문ㆍ구조화 점검, NCSㆍ선택적 현행법 HR 검토, 다음 질문, 답변 저장ㆍ조회 6도구를 제공한다. 인증ㆍ익명 일반 원격은 저장ㆍ외부 프록시 없는 읽기 전용 3도구, Claude 호환 전용 경로는 기존 평문 점검 1도구로 고정하는 프로토콜 테스트 |
 | 기본 MCP Streamable HTTP | 충족 | `fairpost-mcp`, `test_streamable_http_is_default_and_calls_all_tools` |
 | Claude 계열 클라이언트 HTTP 설정 | 충족 | `.mcp.json`의 `fairpost`는 루프백 기본이고 Vercel은 `fairpost-remote` 명시 선택이다. SDKㆍInspector 원격 호출과 Claude Code 프로젝트 승인ㆍ로컬 두 도구 실제 호출을 확인 |
 | 사용자 로컬 답변 저장 | 충족 | `LocalAnswerStore`, 격리 경로 및 HTTP 왕복 테스트. Vercel 원격은 저장 도구 자체를 노출하지 않음 |

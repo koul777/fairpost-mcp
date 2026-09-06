@@ -44,6 +44,10 @@ packages = ["core", "cli", "mcp_server"]
   "data/statutes/personal-information-act.yaml",
   "data/statutes/recruitment-procedure-act.yaml",
 ]
+"share/fairpost/data/guidance" = [
+  "data/guidance/ncs-fair-hiring.yaml",
+  "data/guidance/organization-applicability.yaml",
+]
 "share/fairpost/web" = [
   "web/app.js",
   "web/data.js",

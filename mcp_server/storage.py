@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+import errno
 import hashlib
+import importlib
 import json
 import os
 from pathlib import Path
 import tempfile
 from threading import Lock
-from typing import Any
+import time
+from typing import Any, BinaryIO, Iterator
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -16,6 +20,69 @@ MAX_ORG_ID_CHARS = 256
 MAX_QUESTION_ID_CHARS = 128
 MAX_ANSWER_CHARS = 10_000
 MAX_UPSTASH_RESPONSE_BYTES = 1024 * 1024
+
+
+_THREAD_LOCKS_GUARD = Lock()
+_THREAD_LOCKS: dict[str, Lock] = {}
+
+
+def _thread_lock_for(path: Path) -> Lock:
+    try:
+        key = os.path.normcase(str(path.resolve(strict=False)))
+    except OSError:
+        key = os.path.normcase(str(path.absolute()))
+    with _THREAD_LOCKS_GUARD:
+        return _THREAD_LOCKS.setdefault(key, Lock())
+
+
+def _acquire_file_lock(handle: BinaryIO) -> None:
+    handle.seek(0)
+    if os.name == "nt":
+        import msvcrt
+
+        while True:
+            try:
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                return
+            except OSError as exc:
+                if exc.errno not in {errno.EACCES, errno.EDEADLK, errno.EAGAIN}:
+                    raise
+                time.sleep(0.05)
+    else:
+        fcntl = importlib.import_module("fcntl")
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+
+
+def _release_file_lock(handle: BinaryIO) -> None:
+    handle.seek(0)
+    if os.name == "nt":
+        import msvcrt
+
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl = importlib.import_module("fcntl")
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+@contextmanager
+def _process_file_lock(path: Path) -> Iterator[None]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        with os.fdopen(descriptor, "r+b") as handle:
+            descriptor = -1
+            if os.fstat(handle.fileno()).st_size == 0:
+                handle.write(b"\0")
+                handle.flush()
+                os.fsync(handle.fileno())
+            _acquire_file_lock(handle)
+            try:
+                yield
+            finally:
+                _release_file_lock(handle)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
 
 
 def _validate_answer_fields(
@@ -56,9 +123,16 @@ class LocalAnswerStore:
     def __init__(self, path: str | Path | None = None) -> None:
         configured = os.environ.get("FAIRPOST_ANSWERS_PATH")
         self.path = Path(path or configured or Path.home() / ".fairpost" / "answers.json")
-        self._lock = Lock()
+        self._lock_path = self.path.with_name(f".{self.path.name}.lock")
+        self._lock = _thread_lock_for(self._lock_path)
 
-    def _read(self) -> dict[str, dict[str, str]]:
+    @contextmanager
+    def _exclusive(self) -> Iterator[None]:
+        with self._lock:
+            with _process_file_lock(self._lock_path):
+                yield
+
+    def _read_unlocked(self) -> dict[str, dict[str, str]]:
         if not self.path.exists():
             return {}
         try:
@@ -78,10 +152,10 @@ class LocalAnswerStore:
 
     def get(self, org_id: str) -> dict[str, str]:
         _validate_answer_fields(org_id)
-        with self._lock:
-            return dict(self._read().get(org_id, {}))
+        with self._exclusive():
+            return dict(self._read_unlocked().get(org_id, {}))
 
-    def _write(self, payload: dict[str, dict[str, str]]) -> None:
+    def _write_unlocked(self, payload: dict[str, dict[str, str]]) -> None:
         if not payload:
             try:
                 self.path.unlink()
@@ -109,10 +183,28 @@ class LocalAnswerStore:
 
     def save(self, org_id: str, question_id: str, answer: str) -> None:
         _validate_answer_fields(org_id, question_id, answer)
-        with self._lock:
-            payload = self._read()
+        with self._exclusive():
+            payload = self._read_unlocked()
             payload.setdefault(org_id, {})[question_id] = answer
-            self._write(payload)
+            self._write_unlocked(payload)
+
+    def _purge_orphaned_temporaries_unlocked(self) -> bool:
+        if not self.path.parent.is_dir():
+            return False
+        changed = False
+        prefix = f".{self.path.name}."
+        for temporary in sorted(self.path.parent.iterdir()):
+            if not (
+                temporary.name.startswith(prefix)
+                and temporary.name.endswith(".tmp")
+            ):
+                continue
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                continue
+            changed = True
+        return changed
 
     def purge(self, org_id: str | None = None) -> bool:
         """Remove local answers, optionally limited to one organization.
@@ -124,21 +216,22 @@ class LocalAnswerStore:
 
         if org_id is not None:
             _validate_answer_fields(org_id)
-        with self._lock:
+        with self._exclusive():
+            changed = self._purge_orphaned_temporaries_unlocked()
             if not self.path.exists():
-                return False
+                return changed
             if org_id is None:
                 try:
                     self.path.unlink()
                 except FileNotFoundError:
-                    return False
+                    return changed
                 return True
 
-            payload = self._read()
+            payload = self._read_unlocked()
             if org_id not in payload:
-                return False
+                return changed
             del payload[org_id]
-            self._write(payload)
+            self._write_unlocked(payload)
             return True
 
 

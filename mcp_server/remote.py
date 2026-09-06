@@ -10,11 +10,16 @@ import time
 from typing import Any
 
 from starlette.applications import Starlette
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .build_identity import runtime_source_fingerprint, runtime_source_manifest
+from .assisted_review import (
+    assisted_review_capability,
+    prepare_assisted_review,
+)
 from .server import (
     CLAUDE_MCP_PATH,
     MCP_PATH,
@@ -25,7 +30,10 @@ from .server import (
 
 
 DEFAULT_PUBLIC_REQUESTS_PER_MINUTE = 60
+DEFAULT_ASSISTED_REVIEW_REQUESTS_PER_MINUTE = 5
 MAX_RATE_LIMIT_CLIENTS = 2048
+ASSISTED_REVIEW_PATH = "/api/assisted-review"
+MAX_ASSISTED_POSTING_CHARS = 100_000
 
 
 def _public_requests_per_minute() -> int:
@@ -40,6 +48,21 @@ def _public_requests_per_minute() -> int:
         raise ValueError("invalid public request rate limit") from exc
     if not 1 <= value <= 10_000:
         raise ValueError("invalid public request rate limit")
+    return value
+
+
+def _assisted_review_requests_per_minute() -> int:
+    try:
+        value = int(
+            os.environ.get(
+                "FAIRPOST_ASSISTED_REVIEW_REQUESTS_PER_MINUTE",
+                str(DEFAULT_ASSISTED_REVIEW_REQUESTS_PER_MINUTE),
+            )
+        )
+    except ValueError as exc:
+        raise ValueError("invalid assisted review rate limit") from exc
+    if not 1 <= value <= 1_000:
+        raise ValueError("invalid assisted review rate limit")
     return value
 
 
@@ -153,9 +176,69 @@ async def health(_request: Any) -> JSONResponse:
                 "공고문은 이 Vercel 배포의 서버 함수에서 처리되며 "
                 "FairPost는 공고문 원문을 영속 저장하지 않습니다."
             ),
+            "assisted_review": assisted_review_capability(),
         },
         headers={"Cache-Control": "no-store"},
     )
+
+
+async def assisted_review(request: Request) -> JSONResponse:
+    capability = assisted_review_capability()
+    if request.method == "GET":
+        return JSONResponse(capability, headers={"Cache-Control": "no-store"})
+    if not capability.get("ready"):
+        return JSONResponse(
+            {"error": "Assisted review is not configured", **capability},
+            status_code=503,
+            headers={"Cache-Control": "no-store"},
+        )
+    content_type = request.headers.get("content-type", "").split(";", 1)[0]
+    if content_type.casefold() != "application/json":
+        return JSONResponse(
+            {"error": "Content-Type must be application/json"},
+            status_code=415,
+            headers={"Cache-Control": "no-store"},
+        )
+    try:
+        payload = await request.json()
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return JSONResponse(
+            {"error": "Invalid JSON body"},
+            status_code=400,
+            headers={"Cache-Control": "no-store"},
+        )
+    if not isinstance(payload, dict) or payload.get("assist_enabled") is not True:
+        return JSONResponse(
+            {"error": "Assisted review must be explicitly enabled"},
+            status_code=400,
+            headers={"Cache-Control": "no-store"},
+        )
+    text = payload.get("text")
+    if not isinstance(text, str) or not text.strip():
+        return JSONResponse(
+            {"error": "Posting text is required"},
+            status_code=400,
+            headers={"Cache-Control": "no-store"},
+        )
+    if len(text) > MAX_ASSISTED_POSTING_CHARS:
+        return JSONResponse(
+            {"error": "Posting text is too large"},
+            status_code=413,
+            headers={"Cache-Control": "no-store"},
+        )
+    try:
+        result = await prepare_assisted_review(
+            engine,
+            text,
+            organization_profile=payload.get("organization_profile"),
+        )
+    except ValueError as exc:
+        return JSONResponse(
+            {"error": str(exc)},
+            status_code=400,
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(result.to_dict(), headers={"Cache-Control": "no-store"})
 
 
 class RemoteSecurityMiddleware:
@@ -265,6 +348,27 @@ class RemoteSecurityMiddleware:
                     send,
                     429,
                     {"error": "Public request rate limit exceeded"},
+                    extra_headers=[(b"retry-after", b"60")],
+                )
+                return
+
+        if path == ASSISTED_REVIEW_PATH:
+            try:
+                assisted_limit = _assisted_review_requests_per_minute()
+            except ValueError:
+                await self._json(
+                    send, 500, {"error": "Invalid assisted review rate limit"}
+                )
+                return
+            if not self._anonymous_rate_limiter.allow(
+                scope,
+                ASSISTED_REVIEW_PATH,
+                limit=assisted_limit,
+            ):
+                await self._json(
+                    send,
+                    429,
+                    {"error": "Assisted review rate limit exceeded"},
                     extra_headers=[(b"retry-after", b"60")],
                 )
                 return
@@ -397,13 +501,14 @@ class RemoteSecurityMiddleware:
 
 # A shared Bearer token is authentication, not tenant authorization. Remote
 # deployments therefore expose only the stateless analysis profile regardless
-# of whether access is public or token-protected. The four-tool MCP, including
-# answer persistence, remains available only through the local five-tool entrypoint.
+# of whether access is public or token-protected. HR review with optional upstream
+# law lookup and answer persistence remain available only through the local entrypoint.
 _mcp_app = public_mcp.streamable_http_app()
 _claude_mcp_app = claude_mcp.streamable_http_app()
 _routes = [
     Route(_root_path(), health, methods=["GET"]),
     Route(_health_path(), health, methods=["GET"]),
+    Route(ASSISTED_REVIEW_PATH, assisted_review, methods=["GET", "POST"]),
     *_mcp_app.routes,
     *_claude_mcp_app.routes,
 ]

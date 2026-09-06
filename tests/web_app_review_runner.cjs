@@ -95,6 +95,7 @@ window.clearTimeout = () => {};
 
 let copied = "";
 let clipboardShouldFail = false;
+const assistedFetchCalls = [];
 Object.defineProperty(globalThis, "navigator", {
   configurable: true,
   value: {
@@ -108,6 +109,32 @@ Object.defineProperty(globalThis, "navigator", {
     },
   },
 });
+globalThis.fetch = async (url, options = {}) => {
+  assistedFetchCalls.push({ url, options });
+  if ((options.method || "GET") === "GET") {
+    return {
+      ok: true,
+      async json() {
+        return {
+          ready: true,
+          privacy: "선별된 근거만 외부 서비스로 전달합니다.",
+        };
+      },
+    };
+  }
+  return {
+    ok: true,
+    async json() {
+      return {
+        schema_version: "fairpost-assisted-review-v1",
+        status: "completed",
+        summary: "현행 조문을 바탕으로 사람의 적용 범위 확인이 필요합니다.",
+        notice: "AI 보강 메모는 법률 자문이 아닙니다.",
+        current_articles_retrieved: 1,
+      };
+    },
+  };
+};
 
 for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
   vm.runInThisContext(
@@ -163,6 +190,34 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
       .every((id) => elements.get(id).replaced),
   };
 
+  clipboardShouldFail = false;
+  execCopyResult = true;
+  posting.value = "여성만 지원 가능";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("organization-sector").value = "public";
+  elements.get("organization-sector").trigger("change");
+  elements.get("organization-public-type").value = "public_corporation";
+  elements.get("organization-public-type").trigger("change");
+  elements.get("organization-size").value = "300_plus";
+  elements.get("organization-size").trigger("change");
+  const assistedToggle = elements.get("assisted-review-toggle");
+  assistedToggle.checked = true;
+  assistedToggle.trigger("change");
+  await new Promise((resolve) => setImmediate(resolve));
+  elements.get("check-button").trigger("click");
+  await new Promise((resolve) => setImmediate(resolve));
+  const assistedPost = assistedFetchCalls.find(
+    (call) => call.options.method === "POST"
+  );
+  const assisted = {
+    badge: elements.get("assisted-review-badge").textContent,
+    resultStatus: elements.get("assisted-review-result-status").textContent,
+    output: elements.get("assisted-review-output").textContent,
+    panelHidden: elements.get("assisted-review-panel").hidden,
+    postBody: assistedPost ? JSON.parse(assistedPost.options.body) : null,
+    organizationMarkup: elements.get("questions-list").innerHTML,
+  };
+
   console.log(JSON.stringify({
     questionId,
     questionCount: result.questions.length,
@@ -174,6 +229,7 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     copiedAfterRerun,
     copyFailureToast,
     cleared,
+    assisted,
   }));
 })().catch((error) => {
   console.error(error);

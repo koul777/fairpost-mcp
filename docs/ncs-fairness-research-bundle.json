@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "created_at": "2026-07-27T23:40:00+09:00",
-  "updated_at": "2026-07-29T13:35:00+09:00",
-  "accessed_at": "2026-07-29",
+  "updated_at": "2026-09-06T12:45:00+09:00",
+  "accessed_at": "2026-09-06",
   "research_question": "현재 NCS 공정채용 공식 웹 자료와 2025년 모니터링 위반사례에서 FairPost가 추가로 확인해야 할 공고문 기반 통제는 무엇인가?",
   "sanitized_scope": "공개 공정채용 지침과 가이드 문서만 검토했으며 지원자 개인정보, 실제 채용결과, 봉인 평가자료는 다루지 않았다.",
   "jurisdiction": "대한민국",
   "freshness_check": {
-    "checked_at": "2026-07-29",
-    "method": "NCS 공정채용 교육자료와 공정채용 가이드북 공식 목록 첫 페이지를 직접 확인",
+    "checked_at": "2026-09-06",
+    "method": "NCS 공정채용 공식 누리집의 최신소식, 공정채용 가이드북과 모니터링 자료 공개 목록을 재확인",
     "latest_monitoring_entry": {
       "title": "2025년 공공기관 공정채용 모니터링 주요 위반 사례(일부 문구 수정)",
       "published_at": "2025-04-24",
@@ -21,7 +21,15 @@
       "updated_at": "2025-04-23",
       "url": "https://www.ncs.go.kr/blind/rh13/bbs_lib_list.do?libDstinCd=19"
     },
-    "result": "공식 목록에서 두 자료보다 최근인 2026년판 가이드 또는 모니터링 자료는 확인되지 않았다."
+    "result": "2026년 공정채용 공지는 확인했지만 공개 목록에서 2026년판 가이드북 또는 모니터링 사례집은 확인되지 않았다."
+  },
+  "runtime_catalog": {
+    "schema_version": "fairpost-ncs-guidance-v1",
+    "path": "data/guidance/ncs-fair-hiring.yaml",
+    "as_of": "2026-09-06",
+    "controls": 9,
+    "connection": "prepare_hr_review 결과에서 활성 질문 ID를 기준으로 관련 통제와 공식 출처만 반환",
+    "authority": "guidance_not_law"
   },
   "sources": [
     {

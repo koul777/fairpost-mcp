@@ -1437,6 +1437,7 @@ def test_vercel_configuration_excludes_private_inputs() -> None:
         item["source"]: item["destination"] for item in config["rewrites"]
     }
     assert rewrites == {
+        "/api/assisted-review": "/api",
         "/api/claude-mcp": "/api",
         "/api/health": "/api",
         "/api/mcp": "/api",
@@ -1767,6 +1768,7 @@ def test_distribution_privacy_asset_scope_covers_packaged_data() -> None:
     assert module._is_privacy_asset("docs/evidence.json") is True
     assert module._is_privacy_asset("examples/input.jsonl") is True
     assert module._is_privacy_asset("data/rules/law.yaml") is True
+    assert module._is_privacy_asset("tests/test_engine.py") is True
     assert module._is_privacy_asset("web/data.js") is True
     assert module._is_privacy_asset("tools/evaluate.py") is False
 
@@ -1784,6 +1786,39 @@ def test_distribution_privacy_allowlist_is_exact_and_asset_scoped() -> None:
     assert module._privacy_kinds(
         module._privacy_scan_payload("web/app.js", b"010-9876-5432")
     ) == ["korean_phone"]
+    assert module._privacy_kinds(
+        module._privacy_scan_payload(
+            "tests/test_engine.py", b"02-1234-5678 / recruit@example.com"
+        )
+    ) == []
+    assert module._privacy_kinds(
+        module._privacy_scan_payload(
+            "tests/test_engine.py",
+            b"010-9876-5432 / person@" + b"company.co.kr",
+        )
+    ) == ["email", "korean_phone"]
+
+
+def test_sdist_privacy_scan_rejects_unreviewed_pii_in_packaged_test(
+    tmp_path: Path,
+) -> None:
+    module = load_tool("verify_distribution")
+    archive_path = tmp_path / "package.tar.gz"
+    payload = b"contact = " + b"person@" + b"company.co.kr"
+    with tarfile.open(archive_path, "w:gz") as archive:
+        info = tarfile.TarInfo("fairpost-0.3.0/tests/test_customer_case.py")
+        info.size = len(payload)
+        archive.addfile(info, io.BytesIO(payload))
+
+    with tarfile.open(archive_path, "r:gz") as archive:
+        findings = module._tar_asset_privacy_findings(archive)
+
+    assert findings == [
+        {
+            "member": "fairpost-0.3.0/tests/test_customer_case.py",
+            "kinds": ["email"],
+        }
+    ]
 
 
 def test_sdist_privacy_scan_fails_closed_for_oversized_asset(

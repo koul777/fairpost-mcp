@@ -6,6 +6,21 @@
   const clearButton = document.getElementById("clear-button");
   const sampleButton = document.getElementById("sample-button");
   const copyButton = document.getElementById("copy-button");
+  const assistedToggle = document.getElementById("assisted-review-toggle");
+  const assistedStatus = document.getElementById("assisted-review-status");
+  const assistedBadge = document.getElementById("assisted-review-badge");
+  const assistedPanel = document.getElementById("assisted-review-panel");
+  const assistedResultStatus = document.getElementById(
+    "assisted-review-result-status"
+  );
+  const assistedNotice = document.getElementById("assisted-review-notice");
+  const assistedOutput = document.getElementById("assisted-review-output");
+  const privacyMessage = document.getElementById("privacy-message");
+  const organizationSector = document.getElementById("organization-sector");
+  const organizationPublicType = document.getElementById(
+    "organization-public-type"
+  );
+  const organizationSize = document.getElementById("organization-size");
   const charCount = document.getElementById("char-count");
   const emptyState = document.getElementById("empty-state");
   const resultContent = document.getElementById("result-content");
@@ -31,7 +46,37 @@
   const SLOT_EMBEDDED_QUESTION_IDS = new Set(
     Object.values(SLOT_QUESTION_IDS)
   );
+  const PUBLIC_GUIDANCE_QUESTION_IDS = new Set([
+    "Q-DIST-014",
+    "Q-INFO-011",
+    "Q-INFO-012",
+  ]);
+  const ORGANIZATION_GUIDANCE = window.FAIRPOST_DATA.organization_guidance || {
+    profiles: [],
+    sources: [],
+  };
+  const ORGANIZATION_PROFILES = new Map(
+    ORGANIZATION_GUIDANCE.profiles.map((profile) => [profile.id, profile])
+  );
+  const ORGANIZATION_SOURCES = new Map(
+    ORGANIZATION_GUIDANCE.sources.map((source) => [source.id, source])
+  );
+  const AX_QUESTION_IDS = new Set(
+    window.FAIRPOST_DATA.rules
+      .filter(
+        (rule) =>
+          rule.layer === "question" &&
+          rule.trigger &&
+          Array.isArray(rule.trigger.patterns) &&
+          rule.trigger.patterns.some((pattern) =>
+            /AI|인공지능|자동화|알고리즘/i.test(pattern)
+          )
+      )
+      .map((rule) => rule.id)
+  );
   let latestResult = null;
+  let latestAssistedReview = null;
+  let assistedRequestSequence = 0;
   const reviewAnswers = new Map();
   let toastTimer = null;
 
@@ -82,6 +127,122 @@
     }[value] || "검토";
   }
 
+  function currentOrganizationProfile() {
+    const sector = organizationSector.value || "unspecified";
+    const size = organizationSize.value || "unspecified";
+    const publicEntityType =
+      sector === "public"
+        ? organizationPublicType.value || "unspecified"
+        : "unspecified";
+    const publicProfile = ORGANIZATION_PROFILES.get(publicEntityType);
+    return {
+      sector,
+      size,
+      public_entity_type: publicEntityType,
+      sector_label: {
+        unspecified: "기관 유형 미선택",
+        public: "공공기관",
+        private: "민간기업",
+      }[sector],
+      public_entity_type_label:
+        sector === "public"
+          ? publicProfile
+            ? publicProfile.label
+            : "공공 세부유형 미선택"
+          : "해당 없음",
+      size_label: {
+        unspecified: "규모 미선택",
+        under_30: "상시근로자 1~29명",
+        "30_to_299": "상시근로자 30~299명",
+        "300_plus": "상시근로자 300명 이상",
+      }[size],
+    };
+  }
+
+  function organizationPolicy(profile) {
+    if (profile.sector === "private") {
+      return {
+        applicability: "민간기업 기준",
+        statement:
+          "공공기관 경영·혁신 지침을 직접 적용하지 않고 일반 고용·개인정보 법령, 취업규칙, 단체협약과 내부 인사규정을 확인합니다.",
+        sources: [],
+      };
+    }
+    if (profile.sector !== "public") {
+      return {
+        applicability: "적용 범위 확인",
+        statement:
+          "공공·민간과 공공기관 지정 유형을 선택하면 직접 검토할 지침과 참고 기준을 구분합니다.",
+        sources: [],
+      };
+    }
+    const publicProfile = ORGANIZATION_PROFILES.get(
+      profile.public_entity_type
+    );
+    if (!publicProfile) {
+      const classification = ORGANIZATION_SOURCES.get(
+        "public-institutions-act-article-5"
+      );
+      return {
+        applicability: "공공기관 지정 유형 확인 필요",
+        statement:
+          "공기업·준정부기관·기타공공기관·지방공공기관은 적용 체계가 다릅니다. 기관의 공식 지정 유형을 먼저 확인합니다.",
+        sources: classification ? [classification] : [],
+      };
+    }
+    return {
+      applicability: publicProfile.applicability_label,
+      statement: publicProfile.statement,
+      sources: publicProfile.source_ids
+        .map((sourceId) => ORGANIZATION_SOURCES.get(sourceId))
+        .filter(Boolean),
+    };
+  }
+
+  function organizationContext(question) {
+    const profile = currentOrganizationProfile();
+    const policy = organizationPolicy(profile);
+    const publicGuidance = PUBLIC_GUIDANCE_QUESTION_IDS.has(question.id);
+    const axQuestion =
+      AX_QUESTION_IDS.has(question.id) || question.id === "Q-INFO-005";
+    let sectorNote;
+    if (profile.sector === "public") {
+      sectorNote = axQuestion
+        ? "공공기관은 도입 근거·조달 기준·평가위원 독립성·이의제기와 감사 추적을 명확히 문서화합니다."
+        : "공공기관은 공개된 기준, 평가위원 독립성, 이의제기와 감사 가능한 기록을 우선 확인합니다.";
+    } else if (profile.sector === "private") {
+      sectorNote = axQuestion
+        ? "민간기업은 공급자 계약·데이터 처리·직무관련성·사람의 최종 결정 권한과 운영 효과를 명확히 문서화합니다."
+        : "민간기업은 직무관련성, 비례적인 절차, 최소수집과 실제 운영 증거를 우선 확인합니다.";
+      if (publicGuidance) {
+        sectorNote +=
+          " 이 문항은 공공기관 지침 중심이므로 민간에는 법적 의무로 단정하지 않고 참고 적용합니다.";
+      }
+    } else {
+      sectorNote = publicGuidance
+        ? "공공기관 지침 중심 문항입니다. 기관 유형을 선택하면 민간 참고 적용 여부를 구분합니다."
+        : "기관 유형을 선택하면 공공의 감사·공개 책임과 민간의 계약·운영 책임을 구분합니다.";
+    }
+    const sizeNote = {
+      unspecified: "규모를 선택하면 문서화와 검토 체계의 깊이를 조정합니다.",
+      under_30:
+        "소규모 운영: 책임자 1인을 지정하고 핵심 판단·예외·수정 이력을 간단한 양식으로 남깁니다.",
+      "30_to_299":
+        "중규모 운영: HR과 현업의 이중 검토, 승인권자와 변경 이력을 분리해 남깁니다.",
+      "300_plus":
+        "대규모 운영: HR·법무·개인정보·보안 책임을 분리하고 위원회 검토와 정기 감사를 운영합니다.",
+    }[profile.size];
+    return {
+      label: `${profile.sector_label}${profile.sector === "public" ? ` · ${profile.public_entity_type_label}` : ""} · ${profile.size_label}`,
+      applicability:
+        profile.sector === "private" && publicGuidance
+          ? "공공기관 중심 문항·민간 참고 적용"
+          : policy.applicability,
+      note: `${policy.statement} ${sectorNote} ${sizeNote}`,
+      sources: policy.sources,
+    };
+  }
+
   function updateAnswerProgress() {
     const total = latestResult ? latestResult.questions.length : 0;
     const answered = latestResult
@@ -93,8 +254,129 @@
       `담당자 답변 ${answered}/${total}`;
   }
 
+  function setAssistBadge(element, label, state = "") {
+    element.textContent = label;
+    element.classList.remove("active", "error");
+    if (state) element.classList.add(state);
+  }
+
+  function resetAssistedReviewPanel() {
+    assistedRequestSequence += 1;
+    latestAssistedReview = null;
+    assistedPanel.hidden = true;
+    assistedNotice.textContent = "";
+    assistedOutput.textContent = "";
+    setAssistBadge(assistedResultStatus, "대기");
+  }
+
+  function setLocalPrivacyNotice() {
+    privacyMessage.textContent =
+      "AI·현행 법령 보강을 켜기 전에는 입력ㆍ답변이 이 브라우저 밖으로 전송되지 않습니다";
+  }
+
+  function setAssistedPrivacyNotice() {
+    privacyMessage.textContent =
+      "AI·현행 법령 보강 켜짐: 실행 시 공고문이 FairPost 서버에서 처리되고 선별 근거가 설정된 외부 서비스로 전송됩니다";
+  }
+
+  async function responseJson(response) {
+    try {
+      return await response.json();
+    } catch (_error) {
+      return {};
+    }
+  }
+
+  async function activateAssistedReview() {
+    const requestId = ++assistedRequestSequence;
+    assistedStatus.textContent = "서버의 AI API와 Korean Law MCP 설정을 확인하고 있습니다.";
+    setAssistBadge(assistedBadge, "확인 중");
+    try {
+      const response = await fetch("/api/assisted-review", {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      const capability = await responseJson(response);
+      if (requestId !== assistedRequestSequence || !assistedToggle.checked) return;
+      if (!response.ok || capability.ready !== true) {
+        throw new Error(capability.reason || "보강 검토가 설정되지 않았습니다.");
+      }
+      setAssistBadge(assistedBadge, "켜짐", "active");
+      assistedStatus.textContent = capability.privacy;
+      setAssistedPrivacyNotice();
+      showToast("AI·현행 법령 보강을 활성화했습니다.");
+      if (latestResult && input.value.trim()) {
+        void runAssistedReview(input.value);
+      }
+    } catch (error) {
+      if (requestId !== assistedRequestSequence) return;
+      assistedToggle.checked = false;
+      const message = error instanceof Error ? error.message : "연결을 확인하지 못했습니다.";
+      assistedStatus.textContent = `사용할 수 없음: ${message}`;
+      setAssistBadge(assistedBadge, "미설정", "error");
+      setLocalPrivacyNotice();
+      showToast("AI·현행 법령 보강 설정이 필요합니다.");
+    }
+  }
+
+  async function runAssistedReview(text) {
+    const requestId = ++assistedRequestSequence;
+    latestAssistedReview = null;
+    assistedPanel.hidden = false;
+    assistedNotice.textContent =
+      "Korean Law MCP에서 현행 조문을 확인한 뒤 AI 검토 메모를 작성하고 있습니다.";
+    assistedOutput.textContent = "";
+    setAssistBadge(assistedResultStatus, "검토 중", "active");
+    try {
+      const response = await fetch("/api/assisted-review", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          assist_enabled: true,
+          text,
+          organization_profile: currentOrganizationProfile(),
+        }),
+      });
+      const result = await responseJson(response);
+      if (requestId !== assistedRequestSequence || !assistedToggle.checked) return;
+      if (!response.ok) {
+        throw new Error(result.reason || result.error || "보강 검토 요청이 실패했습니다.");
+      }
+      latestAssistedReview = result;
+      assistedNotice.textContent = `${result.notice} 현행 조문 ${result.current_articles_retrieved || 0}건을 확인했습니다.`;
+      if (result.status === "completed" && result.summary) {
+        assistedOutput.textContent = result.summary;
+        setAssistBadge(assistedResultStatus, "완료", "active");
+        showToast("AI·현행 법령 보강 검토를 완료했습니다.");
+      } else if (result.status === "no_findings") {
+        assistedOutput.textContent =
+          "로컬 규칙에서 현행 법령을 추가 조회할 표현 후보가 확인되지 않아 AI API를 호출하지 않았습니다.";
+        setAssistBadge(assistedResultStatus, "호출 안 함");
+      } else if (result.status === "law_lookup_unavailable") {
+        assistedOutput.textContent =
+          "Korean Law MCP에서 현행 조문을 확보하지 못해 AI API를 호출하지 않았습니다.";
+        setAssistBadge(assistedResultStatus, "법령 확인 실패", "error");
+      } else {
+        assistedOutput.textContent = result.notice || "보강 검토를 완료하지 못했습니다.";
+        setAssistBadge(assistedResultStatus, "AI 확인 실패", "error");
+      }
+    } catch (error) {
+      if (requestId !== assistedRequestSequence) return;
+      const message = error instanceof Error ? error.message : "보강 검토를 완료하지 못했습니다.";
+      assistedNotice.textContent = "로컬 검토 결과는 그대로 사용할 수 있습니다.";
+      assistedOutput.textContent = message;
+      setAssistBadge(assistedResultStatus, "연결 실패", "error");
+    }
+  }
+
   function resetReview() {
     latestResult = null;
+    resetAssistedReviewPanel();
     reviewAnswers.clear();
     ["findings-list", "slots-list", "questions-list"].forEach((id) =>
       document.getElementById(id).replaceChildren()
@@ -224,6 +506,16 @@
           .join(", ")}</span>`
       : "";
     const answerId = `answer-${question.id}`;
+    const organization = organizationContext(question);
+    const organizationReferences = organization.sources.length
+      ? `<span class="organization-reference">기관 적용 근거 ${organization.sources
+          .map(
+            (source) =>
+              `<a href="${escapeHtml(source.source_url)}" target="_blank" rel="noreferrer">${escapeHtml(source.title)}</a>`
+          )
+          .join(" · ")}</span>`
+      : "";
+    const answer = reviewAnswers.get(question.id) || "";
     return `<article class="question-item">
       <div class="item-main">
         <div class="item-meta">
@@ -236,13 +528,14 @@
         <p class="item-title">${escapeHtml(question.question)}</p>
         ${evidence}
         ${reference}
+        <p class="organization-context"><span class="applicability-tag">${escapeHtml(organization.applicability)}</span><br><strong>${escapeHtml(organization.label)}</strong><br>${escapeHtml(organization.note)}${organizationReferences ? `<br>${organizationReferences}` : ""}</p>
       </div>
       ${detail}
       <details class="review-answer-detail">
         <summary>담당자 답변 남기기</summary>
         <div class="review-answer-content">
           <label for="${escapeHtml(answerId)}">${escapeHtml(question.id)} 사람 검토 답변</label>
-          <textarea id="${escapeHtml(answerId)}" data-question-answer="${escapeHtml(question.id)}" rows="3" placeholder="근거를 확인한 뒤 수정 여부, 확인한 사실, 후속 조치를 기록하세요."></textarea>
+          <textarea id="${escapeHtml(answerId)}" data-question-answer="${escapeHtml(question.id)}" rows="3" placeholder="근거를 확인한 뒤 수정 여부, 확인한 사실, 후속 조치를 기록하세요.">${escapeHtml(answer)}</textarea>
           <small>이 답변은 현재 분석 메모리에만 보관되며 서버나 브라우저 저장소로 전송·저장되지 않습니다.</small>
         </div>
       </details>
@@ -324,6 +617,7 @@
       `법령 기준일: ${result.statute_snapshot_date}`,
       result.statute_notice,
       `담당자 답변 진행: ${answeredCount}/${result.questions.length}`,
+      `조직 조건: ${currentOrganizationProfile().sector_label}${currentOrganizationProfile().sector === "public" ? ` · ${currentOrganizationProfile().public_entity_type_label}` : ""} · ${currentOrganizationProfile().size_label}`,
       "",
       `[확인된 사항 ${result.counts.findings}건]`,
     ];
@@ -355,6 +649,16 @@
     );
     const appendQuestion = (question, prefix = "-") => {
       lines.push(`${prefix} ${question.id} ${question.question}`);
+      const organization = organizationContext(question);
+      lines.push(
+        `  적용 구분: ${organization.applicability}`,
+        `  조직 맥락: ${organization.label} · ${organization.note}`
+      );
+      organization.sources.forEach((source) => {
+        lines.push(
+          `  기관 적용 근거: ${source.title} (${source.source_url}) · ${source.publisher} · ${source.published_or_updated_at}`
+        );
+      });
       if (question.matched_text) {
         lines.push(
           `  발동 문맥: "${question.matched_text}" (${question.section || ""}, ${question.offset ? `${question.offset[0]}–${question.offset[1]}` : ""})`
@@ -401,6 +705,14 @@
     visiblePostingQuestions.forEach((question) => appendQuestion(question));
     lines.push("", `[공통 기본 체크리스트 ${commonQuestions.length}건]`);
     commonQuestions.forEach((question) => appendQuestion(question));
+    if (latestAssistedReview && latestAssistedReview.summary) {
+      lines.push(
+        "",
+        "[AI·현행 법령 보강 검토]",
+        latestAssistedReview.notice,
+        latestAssistedReview.summary
+      );
+    }
     return lines.join("\n");
   }
 
@@ -411,8 +723,12 @@
       return;
     }
     reviewAnswers.clear();
+    resetAssistedReviewPanel();
     render(window.FairpostEngine.check(input.value));
     resultsTitle.focus();
+    if (assistedToggle.checked) {
+      void runAssistedReview(input.value);
+    }
   }
 
   input.addEventListener("input", () => {
@@ -422,6 +738,33 @@
     }
   });
   checkButton.addEventListener("click", runCheck);
+  assistedToggle.addEventListener("change", () => {
+    if (assistedToggle.checked) {
+      void activateAssistedReview();
+      return;
+    }
+    resetAssistedReviewPanel();
+    assistedStatus.textContent =
+      "기본 검사는 브라우저에서만 실행됩니다. 켜면 다음 검사부터 설정된 Korean Law MCP와 AI API를 함께 사용합니다.";
+    setAssistBadge(assistedBadge, "꺼짐");
+    setLocalPrivacyNotice();
+  });
+  organizationSector.addEventListener("change", () => {
+    const isPublic = organizationSector.value === "public";
+    organizationPublicType.disabled = !isPublic;
+    if (!isPublic) organizationPublicType.value = "unspecified";
+  });
+  [organizationSector, organizationPublicType, organizationSize].forEach((control) => {
+    control.addEventListener("change", () => {
+      if (!latestResult) return;
+      renderSlots(latestResult.slots, latestResult.questions);
+      renderQuestions(latestResult.questions);
+      if (assistedToggle.checked) {
+        resetAssistedReviewPanel();
+        void runAssistedReview(input.value);
+      }
+    });
+  });
   clearButton.addEventListener("click", () => {
     input.value = "";
     input.dispatchEvent(new Event("input"));

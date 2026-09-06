@@ -15,6 +15,12 @@ MORPH_REWRITES: tuple[tuple[str, str], ...] = (
     ("이신", "인"),
     ("으신", "은"),
 )
+_MORPH_REWRITES_BY_INITIAL = {
+    initial: tuple(
+        rewrite for rewrite in MORPH_REWRITES if rewrite[0][0] == initial
+    )
+    for initial in {source[0] for source, _target in MORPH_REWRITES}
+}
 ZERO_WIDTH = frozenset({"\u200b", "\u200c", "\u200d", "\ufeff"})
 
 
@@ -41,6 +47,7 @@ def normalize(text: str) -> str:
     return text
 
 
+@lru_cache(maxsize=1024)
 def pattern_to_regex(pattern: str) -> re.Pattern[str]:
     """Turn dictionary patterns into deterministic, whitespace-tolerant regexes."""
     if pattern.startswith("re:"):
@@ -57,14 +64,11 @@ def _morph_text_with_offsets(text: str) -> tuple[str, tuple[int, ...], tuple[int
     ends: list[int] = []
     cursor = 0
     while cursor < len(text):
-        rewrite = next(
-            (
-                (source, target)
-                for source, target in MORPH_REWRITES
-                if text.startswith(source, cursor)
-            ),
-            None,
-        )
+        rewrite = None
+        for candidate in _MORPH_REWRITES_BY_INITIAL.get(text[cursor], ()):
+            if text.startswith(candidate[0], cursor):
+                rewrite = candidate
+                break
         if rewrite is None:
             normalized.append(text[cursor])
             starts.append(cursor)

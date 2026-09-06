@@ -158,7 +158,7 @@ a:focus-visible,
 .editor-pane {
   min-height: 680px;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto 1fr auto auto;
   overflow: hidden;
 }
 
@@ -199,6 +199,78 @@ a:focus-visible,
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.organization-profile {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto auto auto;
+  align-items: end;
+  gap: 12px;
+  padding: 11px 16px 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: #f8faf9;
+}
+
+.organization-profile > div strong,
+.organization-profile > div span,
+.organization-profile label {
+  display: block;
+}
+
+.organization-profile > div strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.organization-profile > div span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.organization-profile label {
+  color: #536159;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.organization-profile select {
+  min-width: 112px;
+  height: 32px;
+  margin-top: 4px;
+  padding: 0 26px 0 9px;
+  border: 1px solid #b9c6bf;
+  border-radius: 5px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  font-size: 10px;
+}
+
+.organization-profile select:disabled {
+  background: #eef1ef;
+  color: #87918b;
+  cursor: not-allowed;
+}
+
+.applicability-tag {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 2px 6px;
+  border: 1px solid #abc3b6;
+  border-radius: 999px;
+  background: #edf7f1;
+  color: #24533b;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.organization-reference {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
 }
 
 .button,
@@ -289,6 +361,84 @@ a:focus-visible,
 
 #posting-input::placeholder {
   color: #929c97;
+}
+
+.assisted-option {
+  padding: 12px 16px 11px 20px;
+  border-top: 1px solid var(--line);
+  background: #f6f9f7;
+}
+
+.assisted-option-row,
+.assist-switch,
+.assisted-review-heading-row {
+  display: flex;
+  align-items: center;
+}
+
+.assisted-option-row,
+.assisted-review-heading-row {
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.assist-switch {
+  gap: 9px;
+  cursor: pointer;
+}
+
+.assist-switch input {
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--green);
+}
+
+.assist-switch span,
+.assist-switch strong,
+.assist-switch small {
+  display: block;
+}
+
+.assist-switch strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.assist-switch small {
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.assist-badge {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid #b9c7c0;
+  border-radius: 999px;
+  background: white;
+  color: #58665e;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.assist-badge.active {
+  border-color: #87ad98;
+  background: #eaf5ee;
+  color: #20553a;
+}
+
+.assist-badge.error {
+  border-color: #d5aaa4;
+  background: #fff1ef;
+  color: #8b342b;
+}
+
+#assisted-review-status {
+  margin: 7px 0 0 43px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .editor-footer {
@@ -477,6 +627,20 @@ a:focus-visible,
 .scope-tag {
   background: #edf3f7;
   color: var(--blue);
+}
+
+.organization-context {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-left: 2px solid #8da99a;
+  background: #f4f8f5;
+  color: #4b6155;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.organization-context strong {
+  color: #2d4e3b;
 }
 
 .link-tag {
@@ -777,6 +941,40 @@ a:focus-visible,
   text-align: right;
 }
 
+.assisted-review-panel {
+  margin: 14px 16px 0;
+  padding: 14px;
+  border: 1px solid #b5c9bd;
+  border-radius: 7px;
+  background: #f5faf7;
+}
+
+.assisted-review-heading-row h3 {
+  font-size: 14px;
+}
+
+.assisted-review-notice {
+  margin: 10px 0 0;
+  color: #52665c;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.assisted-review-output {
+  margin: 12px 0 0;
+  padding: 13px;
+  overflow: auto;
+  border: 1px solid #d2ddd7;
+  border-radius: 5px;
+  background: white;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .app-footer {
   min-height: 42px;
   padding: 0 clamp(18px, 3vw, 44px);
@@ -881,6 +1079,19 @@ a:focus-visible,
     margin-left: auto;
   }
 
+  .organization-profile {
+    grid-template-columns: 1fr 1fr;
+    padding: 11px 15px 12px;
+  }
+
+  .organization-profile > div {
+    grid-column: 1 / -1;
+  }
+
+  .organization-profile select {
+    width: 100%;
+  }
+
   .summary-strip div {
     padding: 12px 8px;
     align-items: center;
@@ -918,6 +1129,14 @@ a:focus-visible,
 
   .editor-footer {
     gap: 12px;
+  }
+
+  .assisted-option {
+    padding: 12px 15px;
+  }
+
+  #assisted-review-status {
+    margin-left: 0;
   }
 
   .button-primary {

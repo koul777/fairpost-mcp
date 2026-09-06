@@ -63,6 +63,7 @@ def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
                 assert {tool.name for tool in tools.tools} == {
                     "check_job_posting",
                     "check_job_posting_structured",
+                    "prepare_hr_review",
                     "next_review_question",
                     "save_answer",
                     "get_saved_answers",
@@ -74,6 +75,9 @@ def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
                     tool
                     for tool in tools.tools
                     if tool.name == "check_job_posting_structured"
+                )
+                review_tool = next(
+                    tool for tool in tools.tools if tool.name == "prepare_hr_review"
                 )
                 save_tool = next(
                     tool for tool in tools.tools if tool.name == "save_answer"
@@ -116,6 +120,11 @@ def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
                 )
                 assert structured_tool.annotations is not None
                 assert structured_tool.annotations.readOnlyHint is True
+                assert review_tool.annotations is not None
+                assert review_tool.annotations.readOnlyHint is True
+                assert review_tool.annotations.destructiveHint is False
+                assert review_tool.annotations.openWorldHint is True
+                assert review_tool.outputSchema is not None
 
                 check = await session.call_tool(
                     "check_job_posting",
@@ -142,6 +151,23 @@ def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
                 )
                 assert structured.structuredContent["disclaimer"].startswith(
                     "이 결과는 점검 참고자료"
+                )
+
+                review = await session.call_tool(
+                    "prepare_hr_review",
+                    {"text": "여성만 지원 가능", "org_id": "org-protocol"},
+                )
+                assert review.isError is False
+                assert review.structuredContent is not None
+                assert review.structuredContent["schema_version"] == (
+                    "fairpost-hr-review-v1"
+                )
+                assert review.structuredContent["law_mcp_transport"] == "disabled"
+                assert review.structuredContent["law_verifications"][0][
+                    "status"
+                ] == "not_configured"
+                assert review.structuredContent["ncs_guidance"]["authority"] == (
+                    "guidance_not_law"
                 )
 
                 saved = await session.call_tool(
@@ -183,6 +209,11 @@ def test_streamable_http_is_default_and_calls_all_tools(tmp_path: Path) -> None:
         "FAIRPOST_MCP_PORT": str(port),
         "PYTHONIOENCODING": "utf-8",
     }
+    for name in (
+        "FAIRPOST_KOREAN_LAW_MCP_URL",
+        "FAIRPOST_KOREAN_LAW_MCP_COMMAND",
+    ):
+        environment.pop(name, None)
     process = subprocess.Popen(
         [sys.executable, "-m", "mcp_server.server"],
         cwd=ROOT,
@@ -207,6 +238,7 @@ def test_streamable_http_is_default_and_calls_all_tools(tmp_path: Path) -> None:
                     assert {tool.name for tool in tools.tools} == {
                         "check_job_posting",
                         "check_job_posting_structured",
+                        "prepare_hr_review",
                         "next_review_question",
                         "save_answer",
                         "get_saved_answers",
@@ -249,6 +281,17 @@ def test_streamable_http_is_default_and_calls_all_tools(tmp_path: Path) -> None:
                     assert structured.structuredContent["findings"][0]["id"] == (
                         "SEX-001"
                     )
+
+                    review = await session.call_tool(
+                        "prepare_hr_review",
+                        {"text": "남성만 지원 가능"},
+                    )
+                    assert review.isError is False
+                    assert review.structuredContent is not None
+                    assert review.structuredContent["law_mcp_transport"] == "disabled"
+                    assert review.structuredContent["law_verifications"][0][
+                        "request"
+                    ]["posting_text_sent"] is False
 
                     question_check = await session.call_tool(
                         "check_job_posting",
@@ -351,6 +394,11 @@ def test_remote_import_ignores_partial_storage_configuration() -> None:
         "UPSTASH_REDIS_REST_URL": "https://redis.example",
         "PYTHONIOENCODING": "utf-8",
     }
+    for name in (
+        "FAIRPOST_KOREAN_LAW_MCP_URL",
+        "FAIRPOST_KOREAN_LAW_MCP_COMMAND",
+    ):
+        environment.pop(name, None)
     for name in (
         "UPSTASH_REDIS_REST_TOKEN",
         "KV_REST_API_URL",
@@ -642,6 +690,7 @@ def test_vercel_public_remote_exposes_only_read_only_analysis_tools() -> None:
                     assert structured.structuredContent["findings"][0]["id"] == (
                         "SEX-001"
                     )
+
                     next_question = await session.call_tool(
                         "next_review_question",
                         {"text": "여성만 지원 가능"},

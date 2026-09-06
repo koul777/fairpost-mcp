@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 import json
+import subprocess
+import sys
+from threading import Event, Thread, current_thread
 
 import pytest
 
@@ -32,6 +35,152 @@ def test_local_store_purge_all_removes_store_without_parsing(tmp_path: Path) -> 
     assert store.purge() is True
     assert not path.exists()
     assert store.purge() is False
+
+
+def test_local_store_purge_removes_crash_orphaned_plaintext_temporaries(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "answers.json"
+    store = LocalAnswerStore(path)
+    store.save("org-a", "Q-INFO-001", "current answer")
+    orphan = tmp_path / ".answers.json.crash.tmp"
+    orphan.write_text(
+        '{"org-a":{"Q-INFO-001":"orphaned private answer"}}',
+        encoding="utf-8",
+    )
+
+    assert store.purge() is True
+    assert not path.exists()
+    assert not orphan.exists()
+
+
+def test_local_store_purge_treats_custom_filename_as_literal(tmp_path: Path) -> None:
+    path = tmp_path / "answers[production].json"
+    store = LocalAnswerStore(path)
+    store.save("org-a", "Q-INFO-001", "current answer")
+    orphan = tmp_path / ".answers[production].json.crash.tmp"
+    orphan.write_text("orphaned private answer", encoding="utf-8")
+
+    assert store.purge() is True
+    assert not path.exists()
+    assert not orphan.exists()
+
+
+def test_local_store_serializes_save_and_purge_across_store_instances(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "answers.json"
+    LocalAnswerStore(path).save("org-a", "Q-INFO-001", "old answer")
+    writer_at_replace = Event()
+    allow_replace = Event()
+    purge_started = Event()
+    purge_finished = Event()
+    real_replace = storage.os.replace
+
+    def blocked_replace(source, target) -> None:
+        if current_thread().name == "answer-writer" and Path(target) == path:
+            writer_at_replace.set()
+            assert allow_replace.wait(5)
+        real_replace(source, target)
+
+    monkeypatch.setattr(storage.os, "replace", blocked_replace)
+    writer = Thread(
+        name="answer-writer",
+        target=lambda: LocalAnswerStore(path).save(
+            "org-a", "Q-INFO-001", "new answer"
+        ),
+    )
+
+    def purge() -> None:
+        purge_started.set()
+        LocalAnswerStore(path).purge()
+        purge_finished.set()
+
+    purger = Thread(name="answer-purger", target=purge)
+    writer.start()
+    assert writer_at_replace.wait(5)
+    purger.start()
+    assert purge_started.wait(5)
+    assert not purge_finished.wait(0.2)
+    allow_replace.set()
+    writer.join(5)
+    purger.join(5)
+
+    assert not writer.is_alive()
+    assert not purger.is_alive()
+    assert purge_finished.is_set()
+    assert not path.exists()
+
+
+def test_local_store_serializes_save_and_purge_across_processes(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "answers.json"
+    ready = tmp_path / "writer-ready"
+    release = tmp_path / "release-writer"
+    LocalAnswerStore(path).save("org-a", "Q-INFO-001", "old answer")
+    child_code = """
+from pathlib import Path
+import sys
+import time
+import mcp_server.storage as storage
+from mcp_server.storage import LocalAnswerStore
+
+path, ready, release = map(Path, sys.argv[1:])
+real_replace = storage.os.replace
+
+def blocked_replace(source, target):
+    if Path(target) == path:
+        ready.write_text("ready", encoding="utf-8")
+        deadline = time.monotonic() + 10
+        while not release.exists():
+            if time.monotonic() >= deadline:
+                raise TimeoutError("parent did not release writer")
+            time.sleep(0.01)
+    real_replace(source, target)
+
+storage.os.replace = blocked_replace
+LocalAnswerStore(path).save("org-a", "Q-INFO-001", "new answer")
+"""
+    process = subprocess.Popen(
+        [sys.executable, "-c", child_code, str(path), str(ready), str(release)],
+        cwd=Path(__file__).resolve().parents[1],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    deadline = 10.0
+    while not ready.exists() and deadline > 0:
+        if process.poll() is not None:
+            break
+        Event().wait(0.05)
+        deadline -= 0.05
+    assert ready.exists(), process.communicate(timeout=1)
+
+    purge_finished = Event()
+    purge_errors: list[BaseException] = []
+
+    def purge() -> None:
+        try:
+            LocalAnswerStore(path).purge()
+        except BaseException as exc:  # pragma: no cover - asserted below
+            purge_errors.append(exc)
+        finally:
+            purge_finished.set()
+
+    purger = Thread(name="cross-process-answer-purger", target=purge)
+    purger.start()
+    blocked_by_writer = not purge_finished.wait(1)
+    release.write_text("release", encoding="utf-8")
+    stdout, stderr = process.communicate(timeout=10)
+    purger.join(10)
+
+    assert blocked_by_writer
+    assert process.returncode == 0, f"stdout={stdout}\nstderr={stderr}"
+    assert not purge_errors
+    assert not purger.is_alive()
+    assert not path.exists()
 
 
 def test_local_store_purge_org_preserves_other_answers(tmp_path: Path) -> None:
@@ -180,8 +329,10 @@ def test_mcp_rejects_unknown_question_id_without_writing(
 ) -> None:
     path = tmp_path / "answers.json"
     monkeypatch.setattr(server, "answer_store", LocalAnswerStore(path))
-    with pytest.raises(ValueError, match="현재 사전에 없는 question_id"):
-        server.save_answer("org-b", "Q-NOT-FOUND", "저장되면 안 됩니다")
+    private_value = "Q-NOT-FOUND-private-value"
+    with pytest.raises(ValueError, match="현재 사전에 없는 question_id") as exc_info:
+        server.save_answer("org-b", private_value, "저장되면 안 됩니다")
+    assert private_value not in str(exc_info.value)
     assert not path.exists()
 
 

@@ -1,0 +1,140 @@
+{
+  "schema_version": "fairpost-korean-law-mcp-audit-v1",
+  "checked_at": "2026-09-06T12:40:00+09:00",
+  "jurisdiction": "대한민국",
+  "source": "Korean Law MCP backed by 국가법령정보센터 data",
+  "purpose": "FairPost에 연결된 법령명ㆍ조문이 현행 법령 검색과 조문 조회에서 해소되는지 확인",
+  "privacy_boundary": {
+    "posting_text_sent": false,
+    "matched_text_sent": false,
+    "organization_id_sent": false,
+    "sent_fields": [
+      "law_name",
+      "article"
+    ]
+  },
+  "summary": {
+    "statutes_searched": 6,
+    "exact_current_laws_resolved": 6,
+    "articles_requested": 14,
+    "articles_retrieved": 14,
+    "automatic_snapshot_equivalence_claimed": false,
+    "automatic_legality_conclusion_claimed": false
+  },
+  "statutes": [
+    {
+      "statute_id": "recruitment-procedure-act",
+      "law_name": "채용절차의 공정화에 관한 법률",
+      "law_id": "011990",
+      "current_mst": "218301",
+      "current_law_effective_date": "2020-05-26",
+      "retrieved_articles": [
+        "제3조",
+        "제4조",
+        "제4조의3",
+        "제8조",
+        "제9조",
+        "제10조",
+        "제11조"
+      ],
+      "scheduled_versions": []
+    },
+    {
+      "statute_id": "age-discrimination-act",
+      "law_name": "고용상 연령차별금지 및 고령자고용촉진에 관한 법률",
+      "law_id": "000121",
+      "current_mst": "243057",
+      "current_law_effective_date": "2022-06-10",
+      "retrieved_articles": [
+        "제4조의4",
+        "제4조의5"
+      ],
+      "scheduled_versions": []
+    },
+    {
+      "statute_id": "equal-employment-act",
+      "law_name": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률",
+      "law_id": "000130",
+      "current_mst": "283455",
+      "current_law_effective_date": "2026-08-20",
+      "retrieved_articles": [
+        "제7조"
+      ],
+      "scheduled_versions": [
+        {
+          "mst": "284457",
+          "effective_date": "2026-09-18"
+        },
+        {
+          "mst": "286255",
+          "effective_date": "2026-11-27"
+        }
+      ]
+    },
+    {
+      "statute_id": "disability-employment-act",
+      "law_name": "장애인고용촉진 및 직업재활법",
+      "law_id": "001763",
+      "current_mst": "279737",
+      "current_law_effective_date": "2026-05-12",
+      "retrieved_articles": [
+        "제5조"
+      ],
+      "scheduled_versions": [
+        {
+          "mst": "286231",
+          "effective_date": "2028-05-27"
+        }
+      ]
+    },
+    {
+      "statute_id": "national-human-rights-act",
+      "law_name": "국가인권위원회법",
+      "law_id": "009146",
+      "current_mst": "266711",
+      "current_law_effective_date": "2025-06-04",
+      "retrieved_articles": [
+        "제2조"
+      ],
+      "scheduled_versions": [
+        {
+          "mst": "288593",
+          "effective_date": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "statute_id": "personal-information-act",
+      "law_name": "개인정보 보호법",
+      "law_id": "011357",
+      "current_mst": "270351",
+      "current_law_effective_date": "2025-10-02",
+      "retrieved_articles": [
+        "제16조",
+        "제37조의2"
+      ],
+      "scheduled_versions": [
+        {
+          "mst": "283839",
+          "effective_date": "2026-09-11"
+        },
+        {
+          "mst": "283839",
+          "effective_date": "2027-07-01"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "이 감사는 현행 법령 식별자와 요청 조문의 조회 가능성을 확인한 기록이며 저장 스냅샷과 원문 전체가 동일하다고 자동 판정하지 않는다.",
+    "MCP 응답의 표시 형식과 스냅샷 원문의 개정주ㆍ공백 형식이 달라 해시 비교 근거로 사용하지 않는다.",
+    "시행예정 개정은 시행일 도래 전후에 공식 원문 비교와 규칙 영향 검토가 필요하다.",
+    "개별 채용에 대한 법 적용 범위와 예외는 조직의 사실관계 및 법률 전문가 검토가 필요하다."
+  ],
+  "required_actions": [
+    "2026-09-11 개인정보 보호법 시행예정본의 제16조ㆍ제37조의2 영향 재확인",
+    "2026-09-18 남녀고용평등법 시행예정본의 제7조 영향 재확인",
+    "2026-10-02 국가인권위원회법 시행예정본의 제2조 영향 재확인",
+    "LAW_OPEN_API_OC를 구성한 CI에서 원문 해시 비교를 통과한 뒤에만 스냅샷 날짜와 규칙 근거를 갱신"
+  ]
+}

@@ -10,6 +10,7 @@ from mcp.types import ToolAnnotations
 
 from core import FairpostEngine
 from core.schema import CheckResult, Finding, Question, SlotStatus
+from .review import HrReviewPacket, prepare_hr_review_packet
 from .storage import (
     EphemeralAnswerStore,
     UnavailableRemoteAnswerStore,
@@ -19,7 +20,7 @@ from .storage import (
 
 
 def _host_from_environment() -> str:
-    """Resolve the full five-tool MCP host, which is always loopback-only."""
+    """Resolve the full local MCP host, which is always loopback-only."""
 
     host = os.environ.get("FAIRPOST_MCP_HOST", "127.0.0.1").strip()
     if not host:
@@ -172,6 +173,12 @@ LOCAL_ANSWER_WRITE_ANNOTATIONS = ToolAnnotations(
     idempotentHint=True,
     openWorldHint=False,
 )
+LIVE_LAW_REVIEW_ANNOTATIONS = ToolAnnotations(
+    readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=True,
+    openWorldHint=True,
+)
 
 mcp = FastMCP(
     "fairpost",
@@ -181,7 +188,8 @@ mcp = FastMCP(
         "표현이 드러나는 사람이 읽기 쉬운 텍스트로 반환합니다. 이 텍스트를 요약하거나 "
         "생략하지 말고 그대로 제시하십시오. 공정성 여부 판정이나 법률 자문을 "
         "제공하지 않습니다. 기계가 근거 연결을 재사용해야 할 때는 기존 평문 도구를 "
-        "바꾸지 말고 check_job_posting_structured를 사용하십시오."
+        "바꾸지 말고 check_job_posting_structured를 사용하십시오. NCS 통제와 선택적 "
+        "현행 법령 조회까지 필요한 로컬 검토에는 prepare_hr_review를 사용하십시오."
     ),
     host=_host_from_environment(),
     port=_port_from_environment(),
@@ -447,6 +455,33 @@ def check_job_posting_structured(
     return _structured_check_result(engine.check(text, saved_answers=answers))
 
 
+@mcp.tool(
+    description=(
+        "Build a structured HR review packet from the deterministic FairPost "
+        "check, the activated preprocessed NCS guidance controls, and optional "
+        "current-law lookups. If a Korean Law MCP endpoint or command is "
+        "configured, only the law name and article number are sent upstream; "
+        "the job posting and organization ID are never sent. The tool is "
+        "read-only, does not persist the posting or analysis, and does not "
+        "judge fairness, legality, or candidate pass/fail outcomes."
+    ),
+    annotations=LIVE_LAW_REVIEW_ANNOTATIONS,
+    structured_output=True,
+)
+async def prepare_hr_review(
+    text: str,
+    org_id: str | None = None,
+) -> HrReviewPacket:
+    """Prepare a traceable HR packet and optionally retrieve current law text."""
+
+    answers = _saved_answers(org_id)
+    return await prepare_hr_review_packet(
+        engine,
+        text,
+        saved_answers=answers,
+    )
+
+
 @public_mcp.tool(
     name="check_job_posting_structured",
     description=(
@@ -532,7 +567,7 @@ def next_review_question_public(text: str) -> dict[str, Any]:
 )
 def save_answer(org_id: str, question_id: str, answer: str) -> dict[str, str]:
     if question_id not in _question_ids():
-        raise ValueError(f"현재 사전에 없는 question_id입니다: {question_id}")
+        raise ValueError("현재 사전에 없는 question_id입니다")
     answer_store.save(org_id, question_id, answer)
     if isinstance(answer_store, UpstashAnswerStore):
         status = "stored_remotely"

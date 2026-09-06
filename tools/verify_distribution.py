@@ -36,11 +36,15 @@ SDIST_REQUIRED = {
     "favicon.svg",
     "api/index.py",
     "core/engine.py",
+    "core/organization_guidance.py",
     "mcp_server/server.py",
     "mcp_server/remote.py",
+    "mcp_server/assisted_review.py",
     "mcp_server/build_identity.py",
     "web/index.html",
     "data/rules/law.yaml",
+    "data/guidance/ncs-fair-hiring.yaml",
+    "data/guidance/organization-applicability.yaml",
     "tools/collect_corpus.py",
     "tools/build_prd_corpus.py",
     "tools/build_annotation_ui.py",
@@ -140,6 +144,7 @@ SDIST_SOURCE_PATTERNS = (
 WHEEL_REQUIRED = {
     "core/engine.py",
     "core/loader.py",
+    "core/organization_guidance.py",
     "cli/main.py",
     "mcp_server/server.py",
     "mcp_server/build_identity.py",
@@ -187,6 +192,55 @@ SYNTHETIC_PRIVACY_EXAMPLES = {
         b"02-1234-5678",
         b"recruit@example.com",
     ),
+    # Exact, file-scoped literals used to verify privacy redaction and matching.
+    # Packaged tests are scanned after removing only these reviewed fixtures;
+    # an unlisted value, even in the same file, remains a release failure.
+    "tests/test_build_tools.py": (
+        b"person@company.example",
+        b"private-person@example.test",
+        b"recruit@example.com",
+        b"secret@db.example",
+        b"010-1234-5678",
+        b"010-9876-5432",
+        b"02-1234-5678",
+        b"900101-1234567",
+        b"jincheon-jobs:private-record-1",
+    ),
+    "tests/test_corpus_tools.py": (
+        b"recruit@example.com",
+        b"secret@example.test",
+        b"010-1234-5678",
+        b"02-1234-5678",
+        b"cleaneye:2026",
+    ),
+    "tests/test_engine.py": (b"recruit@example.com", b"02-1234-5678"),
+    "tests/test_private_fairness_audit.py": (
+        b"secret-company@example.com",
+        b"010-1234-5678",
+    ),
+    "tests/test_private_fairness_cycle.py": (b"private.person@example.com",),
+    "tests/test_private_fairness_drift.py": (b"person@example.test",),
+    "tests/test_private_monitoring_runner.py": (
+        b"private.person@example.com",
+        b"010-9876-5432",
+    ),
+    "tests/test_private_monitoring_snapshot.py": (
+        b"private.person@example.com",
+        b"recruit@example.com",
+        b"010-9876-5432",
+        b"02-1234-5678",
+    ),
+    "tests/test_private_review_queue.py": (
+        b"private.person@example.com",
+        b"010-9876-5432",
+    ),
+    "tests/test_private_review_ui.py": (b"private.person@example.com",),
+    "tests/test_storage_and_mcp.py": (b"pass@redis.example",),
+    "tests/test_summarize_private_review.py": (
+        b"candidate.name@example.invalid",
+        b"010-9999-8888",
+    ),
+    "tests/test_web_parity.py": (b"02-1234-5678",),
 }
 REPORT_SENSITIVE_KEYS = {
     "company",
@@ -414,7 +468,7 @@ def _is_privacy_asset(relative: str) -> bool:
     if not path.parts:
         return False
     return (
-        path.parts[0] in {"data", "docs", "examples", "reports", "web"}
+        path.parts[0] in {"data", "docs", "examples", "reports", "tests", "web"}
         or relative in {"README.md", "index.html"}
     ) and path.suffix.casefold() in TEXT_SOURCE_SUFFIXES | {".jsonl"}
 
@@ -616,6 +670,8 @@ def inspect_wheel(path: Path) -> dict[str, object]:
         "data/slots.yaml",
         "data/rules/law.yaml",
         "data/rules/questions.yaml",
+        "data/guidance/ncs-fair-hiring.yaml",
+        "data/guidance/organization-applicability.yaml",
         "data/statutes/recruitment-procedure-act.yaml",
         "web/index.html",
         "web/data.js",
@@ -725,6 +781,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     sdist_report = inspect_sdist(sdist)
     wheel_report = inspect_wheel(wheel)
     ruleset = load_ruleset(ROOT / "data")
+    passed = bool(sdist_report["passed"] and wheel_report["passed"])
     report = {
         "schema_version": "fairpost-distribution-audit-v2",
         "distribution_source_fingerprint": distribution_source_fingerprint(ROOT),
@@ -754,10 +811,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         "sdist": sdist_report,
         "wheel": wheel_report,
+        "passed": passed,
     }
-    report["passed"] = bool(
-        report["sdist"]["passed"] and report["wheel"]["passed"]
-    )
     _atomic_write_text(
         args.output,
         json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
