@@ -4,64 +4,40 @@
 
 [![FairPost MCP 홍보·시연 영상](docs/assets/fairpost-promo.gif)](docs/assets/fairpost-promo.mp4)
 
-<sub>미리보기를 누르면 24초·1920×1080 MP4 시연 영상을 볼 수 있습니다.</sub>
-
 **채용공고의 표현, 빠진 정보, 확인할 질문을 근거와 함께 정리하는 결정론적 리뷰 도구**
 
-[▶ 24초 데모 보기](docs/assets/fairpost-promo.mp4) · [웹에서 체험하기](https://fairmcp.vercel.app/web/) · [로컬 실행](#지금-사용해-보기) · [MCP 연결](#mcp-연결)
+[웹에서 체험하기](https://fairmcp.vercel.app/web/) · [24초 데모](docs/assets/fairpost-promo.mp4) · [빠른 시작](#빠른-시작) · [MCP 연결](#mcp-연결)
 
 </div>
 
-FairPost는 채용공고문을 읽고 다음 세 가지를 한 번에 정리합니다.
+FairPost는 채용공고문에서 다음 세 가지를 한 번에 정리합니다.
 
 - 관련 법령과 함께 다시 살펴볼 표현
 - 공고문에서 확인되지 않은 절차·정보
 - 채용담당자가 후속 검토할 질문
 
-기본 점검 결과는 같은 입력에 항상 같은 순서로 나옵니다. 기본 모드에서는
-LLM이나 외부 API를 호출하지 않으며 점수, 등급, 합격·통과 판정도 만들지 않습니다.
-사용자가 선택형 보강을 켠 경우에만 별도로 현행 법령 조회와 AI 검토 메모를 요청합니다.
+기본 점검은 같은 입력과 규칙 버전에 항상 같은 결과를 반환합니다. LLM이나 외부
+API를 호출하지 않으며 점수, 등급, 합격·통과 판정도 만들지 않습니다. 사용자가
+선택형 보강을 켠 요청에서만 Korean Law MCP와 Claude, GPT 또는 Gemini를 사용합니다.
 
-> FairPost의 결과는 검토 참고자료이며 공정성 여부에 대한 판정이나 법률
-> 자문이 아닙니다. “확인되지 않음”은 해당 절차가 없다는 뜻이 아니라
-> 공고문에서 발견되지 않았다는 뜻입니다.
+> FairPost의 결과는 사람의 검토를 돕는 참고자료이며 공정성 판정이나 법률 자문이
+> 아닙니다. “확인되지 않음”은 해당 절차가 없다는 뜻이 아니라 공고문에서 찾지
+> 못했다는 뜻입니다.
 
-## 24초 시연 영상
+## 빠른 시작
 
-[전체 MP4 보기](docs/assets/fairpost-promo.mp4) ·
-[포스터 보기](docs/assets/fairpost-promo-poster.jpg) ·
-[영상 콘티와 제작 사양](docs/demo/storyboard.md)
-
-| 시간 | 장면 | 보여 주는 내용 |
-|---:|---|---|
-| 0:00–0:03 | 브랜드 인트로 | “채용공고 검토, 근거부터 질문까지”라는 핵심 가치를 소개합니다. |
-| 0:03–0:10 | 1. 로컬 우선 | 내장 샘플 공고를 불러와 브라우저 안에서 즉시 점검하는 과정을 보여 줍니다. |
-| 0:10–0:21 | 2. 근거 기반 검토 | 매칭 표현과 법령 근거를 열어 보고, 누락 정보와 후속 질문까지 한 흐름으로 확인합니다. |
-| 0:21–0:24 | 엔드 카드 | “판정이 아닌 수정과 확인을 위한 메모”라는 원칙과 웹 주소를 안내합니다. |
-
-이 영상은 합성 목업이 아닌 **실제 배포 웹 UI를 조작한 시연**입니다.
-웹 앱에 포함된 샘플 공고만 사용했으며 실제 지원자·기업의 개인정보는
-포함하지 않습니다. 영상은 정적 웹의 로컬 처리와 결과 탐색을 보여 주며,
-MCP 클라이언트 연결 화면 자체는 포함하지 않습니다.
-
-## 지금 사용해 보기
-
-| 원하는 방식 | 실행·접속 | 처리 위치와 용도 |
-|---|---|---|
-| 정적 웹 | [배포된 웹 앱](https://fairmcp.vercel.app/web/) 또는 `web/index.html` | 입력과 점검을 브라우저 안에서만 처리합니다. |
-| 연결형 로컬 웹·MCP | `run_fairpost_web.bat` → `http://127.0.0.1:8000/web/` | 선택형 AI·법령 보강 API와 로컬 MCP `/mcp`를 함께 실행합니다. |
-| 로컬 CLI | `fairpost check .\posting.txt` | 서버 없이 기기 안에서 JSON 결과를 만듭니다. |
-| 로컬 CLI 검토 패킷 | `fairpost check .\posting.txt --review-packet` | NCS 통제와 선택적 현행 법령 조회 상태를 함께 만듭니다. |
-| 로컬 MCP | `fairpost-mcp` → `http://127.0.0.1:8000/mcp` | AI 클라이언트에서 점검·HR 검토 패킷·질문·로컬 답변 저장 도구를 사용합니다. |
-| 원격 MCP | `fairpost-remote` → `https://fairmcp.vercel.app/api/mcp` | Vercel에서 읽기 전용 점검을 수행하며 답변을 저장하지 않습니다. |
+### 1. 배포 웹
 
 가장 빠른 방법은 [배포된 웹 앱](https://fairmcp.vercel.app/web/)을 여는 것입니다.
-샘플 공고를 불러오거나 직접 문장을 붙여 넣은 뒤 **검토 메모 만들기**를 누르면 됩니다.
-질문마다 담당자 답변을 적으면 진행률과 답변이 복사 메모에 함께 들어갑니다.
-정적 웹에서는 입력ㆍ분석ㆍ답변이 브라우저 안에서만 처리됩니다. 답변은 현재 분석
-메모리에만 남으며 재분석하거나 입력을 지우면 삭제됩니다.
+샘플 공고를 불러오거나 공고문을 붙여 넣고 **검토 메모 만들기**를 누르세요.
 
-Python 3.11 이상에서는 CLI를 사용할 수 있습니다.
+기본 검사는 브라우저 안에서만 실행됩니다. 질문별 답변과 역할 검토 기록도
+브라우저에만 남으며, 외부 AI 호출은 사용자가 **AI·현행 법령 보강**을 명시적으로
+켰을 때만 시작됩니다.
+
+### 2. 로컬 CLI
+
+Python 3.11 이상이 필요합니다.
 
 ```powershell
 python -m pip install -e ".[dev]"
@@ -76,42 +52,103 @@ $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 Get-Content .\posting.txt -Raw | fairpost check -
 ```
 
-서버 없이 사용하려면 [web/index.html](web/index.html)을 브라우저에서 직접
-열어도 됩니다.
+### 3. 연결형 로컬 웹·MCP
 
-## 핵심 특징
+Windows에서는 `run_fairpost_web.bat`을 실행한 뒤
+`http://127.0.0.1:8000/web/`을 엽니다. 또는 다음 명령을 사용합니다.
 
-| 특징 | 동작 |
+```powershell
+python -m mcp_server.local_runtime web
+# 포트 충돌 시: python -m mcp_server.local_runtime web --port 8001
+# MCP만 실행: python -m mcp_server.local_runtime mcp
+# stdio 클라이언트용: python -m mcp_server.local_runtime stdio
+```
+
+| 사용 방식 | 처리 위치 | 주요 용도 |
+|---|---|---|
+| 배포 웹·`web/index.html` | 기본 점검은 브라우저 | 설치 없는 공고 검토 |
+| 로컬 CLI | 사용자 기기 | JSON 결과·검토 패킷 생성 |
+| 로컬 웹·MCP | `127.0.0.1` | AI·법령 보강과 로컬 답변 저장 |
+| Vercel MCP | FairPost 서버 | 인증된 읽기 전용 원격 분석 |
+
+## 주요 기능
+
+| 기능 | 동작 |
 |---|---|
 | 결정론적 엔진 | 동일한 입력과 규칙 버전은 동일한 결과와 순서를 반환합니다. |
-| 근거 추적 | 규칙 ID, 원문 인용, offset, 관련 법령, 수정 대안을 함께 제공합니다. |
-| 로컬 우선 | 정적 웹과 CLI는 공고문을 외부 서비스로 보내지 않습니다. |
-| 사람 중심 | 판정 대신 수정할 표현과 질문을 제시하고, 담당자 답변을 근거와 함께 메모로 묶습니다. |
+| 근거 추적 | 규칙 ID, 원문 인용, offset, 관련 법령과 수정 대안을 함께 제공합니다. |
+| 누락·질문 분리 | 누락된 절차·정보와 담당자가 확인할 질문을 구분합니다. |
+| 조직별 맥락 | 공공·민간, 공공기관 세부 유형과 조직 규모에 맞는 운영 맥락을 표시합니다. |
+| 역할 검토 | 위원장, 인사 운영책임자, 직무전문가, 면접위원, 정책검토자, 감사자, 지원자 대변인의 검토 이력을 기록합니다. |
+| 선택형 AI 보강 | 조회된 현행 조문과 NCS 통제만 근거로 사람 검토용 초안을 만듭니다. |
 | 다중 인터페이스 | 정적 웹, CLI, 로컬 MCP, 읽기 전용 원격 MCP를 제공합니다. |
 
 현재 기본 데이터에는 법령 표현 규칙 19개, 검토 질문 52개, 절차·정보 슬롯
-11개, 법령 스냅샷 6종이 들어 있습니다. 정규화 이후에도 결과 offset과 인용문은
-입력 원문을 그대로 가리킵니다.
+11개와 법령 스냅샷 6종이 들어 있습니다. 정규화 이후에도 결과의 offset과
+인용문은 입력 원문을 그대로 가리킵니다.
+
+## AI·현행 법령 보강
+
+보강 기능은 다음 조건을 모두 충족해야 활성화됩니다.
+
+1. Korean Law MCP가 연결되어 있을 것
+2. Claude, GPT, Gemini 중 하나 이상의 서버 API 키가 설정되어 있을 것
+3. 사용자가 웹에서 보강 스위치를 직접 켤 것
+
+서버에 둘 이상의 제공자를 설정하면 웹에서 요청마다 AI를 선택할 수 있습니다.
+
+| 웹 표시 | API 방식 | 키 환경변수 | 기본 모델 |
+|---|---|---|---|
+| Claude | Anthropic Messages | `FAIRPOST_ANTHROPIC_API_KEY` | `claude-sonnet-5` |
+| GPT | OpenAI Responses | `FAIRPOST_OPENAI_API_KEY` | `gpt-5.6-terra` |
+| Gemini | Gemini generateContent | `FAIRPOST_GEMINI_API_KEY` | `gemini-3.6-flash` |
+
+모델은 각각 `FAIRPOST_ANTHROPIC_MODEL`, `FAIRPOST_OPENAI_MODEL`,
+`FAIRPOST_GEMINI_MODEL`로 바꿀 수 있습니다. 여러 제공자가 준비된 경우
+`FAIRPOST_AI_PROVIDER=anthropic|openai|gemini`가 최초 선택값을 정합니다.
+
+```powershell
+$env:FAIRPOST_KOREAN_LAW_MCP_URL = "https://korean-law-mcp.fly.dev/mcp"
+$env:FAIRPOST_AI_PROVIDER = "anthropic"
+$env:FAIRPOST_ANTHROPIC_API_KEY = "<server-side-key>"
+
+python -m mcp_server.local_runtime web
+```
+
+GPT 또는 Gemini를 사용하려면 마지막 키 변수만 해당 제공자 변수로 바꾸면 됩니다.
+공개 웹에 연결하려면 같은 변수를 Vercel의 Production Environment Variables에
+설정하고 다시 배포해야 합니다. API 키를 브라우저 코드나 저장소에 넣지 마세요.
+
+요청 계약은 [Anthropic Messages](https://platform.claude.com/docs/en/api/messages/create),
+[OpenAI Responses](https://platform.openai.com/docs/api-reference/responses/create),
+[Gemini generateContent](https://ai.google.dev/api/generate-content) 공식 문서를 따릅니다.
+
+### 정보 전송 경계
+
+- FairPost 서버는 활성화된 요청의 공고문을 다시 검사하지만 영속 저장하지 않습니다.
+- Korean Law MCP에는 `법령명·조문번호`만 전달합니다.
+- AI API에는 탐지 문구, 조회된 현행 조문과 활성 NCS 통제만 전달합니다.
+- 이메일, 전화번호와 주민등록번호형 직접식별정보는 AI 전송 전에 마스킹합니다.
+- 네이티브 API 키는 각 제공자의 공식 호스트에만 전송합니다.
+- 법령 조회에 실패하면 AI가 현행법을 추측하지 않도록 AI 호출도 중단합니다.
+- 보강 API는 기본 5회/분으로 제한됩니다.
+
+이전 `FAIRPOST_AI_API_URL`, `FAIRPOST_AI_API_KEY`, `FAIRPOST_AI_MODEL` 방식도
+OpenAI 호환 로컬 모델이나 사내 게이트웨이를 위해 유지합니다. 원격 주소는
+HTTPS가 필수이며, 루프백 주소만 HTTP와 무인증을 허용합니다.
+
+자세한 운영 설정은 [Vercel 배포 가이드](docs/vercel-deployment.md)를 참고하세요.
 
 ## MCP 연결
 
 ### 로컬 MCP
 
-로컬 서버는 기본적으로 외부에서 접근할 수 없는
-`http://127.0.0.1:8000/mcp`에서 실행됩니다.
-
 ```powershell
 fairpost-mcp
-```
-
-Claude Code 프로젝트에 등록하려면 다음 명령을 사용합니다. 저장소의
-[.mcp.json](.mcp.json)에도 같은 설정이 들어 있습니다.
-
-```powershell
 claude mcp add --transport http --scope project fairpost http://127.0.0.1:8000/mcp
 ```
 
-일반적인 Streamable HTTP MCP 클라이언트 설정은 다음과 같습니다.
+저장소의 [.mcp.json](.mcp.json)에도 같은 프로젝트 설정이 들어 있습니다.
 
 ```json
 {
@@ -124,175 +161,54 @@ claude mcp add --transport http --scope project fairpost http://127.0.0.1:8000/m
 }
 ```
 
-로컬 MCP는 아래 여섯 도구를 제공합니다.
+로컬 MCP는 다음 여섯 도구를 제공합니다.
 
-- `check_job_posting`: 전체 표현·누락·질문 검토
-- `check_job_posting_structured`: finding→질문→근거ㆍ원문 위치를 버전 있는 기계 판독 구조로 반환
-- `prepare_hr_review`: 점검 결과, 활성 NCS 통제와 선택적 Korean Law MCP 현행 조문 조회를 한 패킷으로 반환
-- `next_review_question`: 아직 답하지 않은 질문 한 개와 진행률 반환
-- `save_answer`: 유효한 질문 ID에 대한 조직별 답변 저장(같은 조직ㆍ질문의 기존 답변은 교체)
+- `check_job_posting`: 표현·누락·질문 검토
+- `check_job_posting_structured`: finding→질문→근거·원문 위치의 기계 판독 구조
+- `prepare_hr_review`: 점검 결과, NCS 통제와 선택적 현행 조문 조회
+- `next_review_question`: 아직 답하지 않은 질문과 진행률
+- `save_answer`: 조직·질문별 로컬 답변 저장
 - `get_saved_answers`: 저장된 답변 조회
 
-답변은 사용자 컴퓨터의 `~/.fairpost/answers.json`에 평문으로 저장되며 자동
-만료되지 않습니다. 공용 PC나 여러 사람이 같은 OS 계정을 쓰는 환경에는 저장하지
-마세요. 전체 답변은 `fairpost purge-answers`, 특정 조직 답변은
-`fairpost purge-answers --org-id <조직 ID>`로 삭제할 수 있습니다. 마지막 답변을
-지우면 저장 파일도 제거됩니다. 이 삭제 명령은 조직 ID나 답변 내용을 출력하지 않습니다.
+답변은 `~/.fairpost/answers.json`에 평문으로 저장되며 자동 만료되지 않습니다.
+공용 PC에서는 저장하지 마세요. `fairpost purge-answers`로 전체 답변을,
+`fairpost purge-answers --org-id <조직 ID>`로 특정 조직 답변을 삭제할 수 있습니다.
 
 ### Vercel 원격 MCP
 
-운영 엔드포인트는 `https://fairmcp.vercel.app/api/mcp`입니다. 프로젝트 설정에서는
-로컬 `fairpost`와 구분되는 `fairpost-remote`라는 명시 선택 이름을 사용합니다. 기본 설정에서는
-Bearer 인증이 필요하며, 원격 환경에는 `org_id`와 로컬 답변 저장 기능을 받지
-않는 미리보기ㆍ분석용 읽기 도구만 노출합니다. 지속적인 답변 저장과 팀 검토는
-루프백 로컬 MCP에서만 수행합니다. Claude Desktop용 제한 엔드포인트와 인증,
-배포 절차는 [Vercel 배포 가이드](docs/vercel-deployment.md)를 참고하세요.
+| 용도 | 엔드포인트 |
+|---|---|
+| 일반 읽기 전용 MCP | `https://fairmcp.vercel.app/api/mcp` |
+| Claude 호환 읽기 전용 MCP | `https://fairmcp.vercel.app/api/claude-mcp` |
+| 상태 확인 | `https://fairmcp.vercel.app/api/health` |
 
-원격 MCP로 보낸 공고문은 Vercel 서버에서 처리됩니다. 클라우드 AI 클라이언트에
-연결하면 해당 AI 제공자도 입력을 처리할 수 있습니다. 완전한 기기 내 처리가
-필요하다면 정적 웹, CLI 또는 루프백 로컬 MCP를 사용하세요.
+원격 MCP는 Bearer 인증을 사용하며 답변 저장 도구와 임의 `org_id`를 받지 않습니다.
+공고문은 Vercel 서버에서 처리되므로 완전한 기기 내 처리가 필요하면 정적 웹,
+CLI 또는 루프백 로컬 MCP를 사용하세요.
 
-### Korean Law MCP와 함께 사용하기
+### 별도 Korean Law MCP 연결
 
-FairPost는 재현 가능한 오프라인 점검을 위해 검증된 법령 스냅샷을 기본으로
-사용합니다. 로컬 `prepare_hr_review` 도구와 CLI의 `--review-packet`은 Korean
-Law MCP가 설정된 경우 finding에 연결된 `법령명·조문번호`만 그때그때 조회합니다.
-공고문 원문, 매칭 문구와 `org_id`는 법령 MCP로 보내지 않습니다.
-
-HTTP MCP를 사용할 때는 다음 환경변수를 지정합니다. 외부 주소는 HTTPS만
-허용하고 로컬 `http://127.0.0.1`ㆍ`localhost`는 허용합니다.
+HTTP 서버는 다음과 같이 설정합니다.
 
 ```powershell
 $env:FAIRPOST_KOREAN_LAW_MCP_URL = "https://<Korean-Law-MCP>/mcp"
-$env:FAIRPOST_KOREAN_LAW_MCP_TOKEN = "<token>"  # 필요한 경우에만
+$env:FAIRPOST_KOREAN_LAW_MCP_TOKEN = "<token>"  # 필요한 경우만
 fairpost-mcp
 ```
 
-stdio 서버라면 실행 파일과 인자를 분리해서 지정합니다.
+stdio 서버는 실행 파일과 인자를 분리합니다.
 
 ```powershell
 $env:FAIRPOST_KOREAN_LAW_MCP_COMMAND = "<law-mcp-command>"
 $env:FAIRPOST_KOREAN_LAW_MCP_ARGS = '["--stdio"]'
-$env:FAIRPOST_KOREAN_LAW_MCP_ENV_ALLOWLIST = "LAW_OPEN_API_OC"  # 필요한 값만
+$env:FAIRPOST_KOREAN_LAW_MCP_ENV_ALLOWLIST = "LAW_OPEN_API_OC"
 fairpost-mcp
 ```
 
-stdio 자식 프로세스에는 시스템 실행에 필요한 최소 환경변수와 위 allowlist에
-명시한 값만 전달합니다. FairPost 원격 토큰과 답변 저장 설정은 기본적으로
-전달하지 않습니다.
-
-기본 도구 이름은 `search_law`와 `get_law_text`입니다. 다른 이름을 쓰는 서버는
-`FAIRPOST_KOREAN_LAW_SEARCH_TOOL`, `FAIRPOST_KOREAN_LAW_TEXT_TOOL`로 바꿀 수
-있습니다. 연결하지 않았거나 조회가 실패하면 스냅샷을 현행으로 가장하지 않고
-`not_configured` 또는 `upstream_unavailable` 상태와 재조회 요청을 반환합니다.
-조회 성공도 위법 판단이 아니라 현행 조문 원문 확보를 뜻합니다.
-
-### 선택적 AI·현행 법령 보강 버튼
-
-#### 이 PC에서 연결하여 실행하기
-
-프로젝트 폴더의 `run_fairpost_web.bat`을 실행한 뒤
-[로컬 웹](http://127.0.0.1:8000/web/)에서 **AI·현행 법령 보강**을 켜고
-**검토 메모 만들기**를 누릅니다. 같은 서버의 `/mcp`에서는 로컬 6개 도구도
-사용할 수 있으므로 별도 MCP 서버를 같은 포트에 중복 실행하지 않습니다.
-
-연결 설정은 프로젝트의 `.env.fairpost.local.json`에 저장합니다. 이 파일은
-Git·Python 배포 패키지·Vercel 업로드에서 제외됩니다. 다른 PC에서 처음 설정할
-때만 [설정 예제](examples/local-connections.example.json)를 이 이름으로 복사합니다.
-기존 설정을 덮어쓰지 마세요. 예제는 공개 Korean Law MCP 주소와
-ClaudeㆍGPTㆍGemini용 빈 서버 설정을 제공하며 API 키를 포함하지
-않습니다. 사용할 제공자의 키와 모델 ID를 직접 채워야 하고, 법령 조회와 AI
-호출에는 인터넷 연결이 필요합니다.
-
-```powershell
-python -m mcp_server.local_runtime web
-# 포트 충돌 시: python -m mcp_server.local_runtime web --port 8001
-# MCP만 실행: python -m mcp_server.local_runtime mcp
-# stdio 클라이언트용: python -m mcp_server.local_runtime stdio
-```
-
-설정 파일은 이 로컬 실행기와 `run_fairpost_mcp.bat`에서만 읽으며 기존 환경변수가
-우선합니다. `fairpost-mcp`나 CLI를 직접 실행할 때는 아래 환경변수 방식을 사용합니다.
-서버는 `127.0.0.1`에만 연결을 받고 다른 웹사이트에서 보내는 요청은 거부합니다.
-`web/index.html` 직접 열기나 단순 정적 서버에는 보강 API가 없습니다.
-
-**공개 Vercel 사이트에는 이 PC 설정이 적용되지 않습니다.** Vercel의 선택형 보강에는
-그 서버에서 접근 가능한 AI API·키와 Korean Law MCP 설정이 별도로 필요합니다.
-Vercel에서 이 PC의 루프백 주소에 연결할 수는 없습니다.
-
-#### 보강 동작과 사용자 지정 AI API
-
-웹의 **AI·현행 법령 보강** 스위치는 기본적으로 꺼져 있습니다. 꺼진 상태에서는
-기존 정적 규칙 엔진만 브라우저에서 실행되고 네트워크 요청을 만들지 않습니다.
-스위치를 켜면 먼저 같은 배포의 `/api/assisted-review`에서 설정 상태를 확인하며,
-AI API와 Korean Law MCP가 모두 준비된 경우에만 다음 검사부터 보강 검토를
-실행합니다.
-
-Claude(Anthropic Messages), GPT(OpenAI Responses), Gemini(generateContent)를
-각 제공자의 네이티브 HTTPS API로 지원합니다. 서버에 둘 이상을 설정하면 웹에서
-요청마다 제공자를 고를 수 있습니다. 아래 변수는 서버에서만 읽으며 API 키와
-공고문을 브라우저 저장소에 보관하지 않습니다.
-요청 형식은 [Anthropic Messages](https://platform.claude.com/docs/en/api/messages/create),
-[OpenAI Responses](https://developers.openai.com/api/reference/resources/responses/methods/create),
-[Gemini generateContent](https://ai.google.dev/api/generate-content) 공식 계약을 따릅니다.
-
-```powershell
-$env:FAIRPOST_AI_PROVIDER = "anthropic" # 둘 이상일 때 최초 선택: anthropic/openai/gemini
-
-$env:FAIRPOST_ANTHROPIC_API_KEY = "<server-side-key>"
-$env:FAIRPOST_ANTHROPIC_MODEL = "<Anthropic model ID>" # 생략 시 claude-sonnet-5
-
-$env:FAIRPOST_OPENAI_API_KEY = "<server-side-key>"
-$env:FAIRPOST_OPENAI_MODEL = "<OpenAI model ID>" # 생략 시 gpt-5.6-terra
-
-$env:FAIRPOST_GEMINI_API_KEY = "<server-side-key>"
-$env:FAIRPOST_GEMINI_MODEL = "<Gemini model ID>" # 생략 시 gemini-3.6-flash
-
-# 위 Korean Law MCP HTTP 또는 stdio 설정도 함께 필요합니다.
-```
-
-네이티브 키는 각각 `api.anthropic.com`, `api.openai.com`,
-`generativelanguage.googleapis.com`에만 전송됩니다. 선택적 `*_API_URL`도 공식
-호스트와 정해진 API 경로만 허용합니다. 기존 `FAIRPOST_AI_API_URL`ㆍ
-`FAIRPOST_AI_API_KEY`ㆍ`FAIRPOST_AI_MODEL` OpenAI 호환 설정은 로컬 모델이나
-사내 게이트웨이의 이전 연동을 위해 계속 지원하며, 로컬 루프백만 HTTP와
-무인증을 허용합니다.
-
-기본 모델은 2026-09-13 기준 각 제공자의 안정형 또는 품질·비용 균형형 모델로
-고정했습니다. 운영 계정의 허용 모델과 비용 정책이 다르면 위 `*_MODEL` 값을
-명시적으로 바꾸세요.
-
-`FAIRPOST_AI_TIMEOUT_SECONDS`는 1~300초(기본 30초)로 조정할 수 있습니다.
-`FAIRPOST_AI_REASONING_EFFORT`는 OpenAI Responses 또는 기존 OpenAI 호환
-엔드포인트에서만 선택적으로 사용합니다. 클라우드 함수의 실행시간 제한은 이
-옵션으로 늘어나지 않습니다. AI 메모는 검토 초안이며 모델 선택만으로 법률 검토
-품질이 보장되지 않습니다. 기존 로컬 응답에 추론 태그가 섞이면 추론 부분을
-제거하고 최종 메모만 표시합니다.
-
-API 키는 브라우저 코드나 응답에 포함하지 않습니다. 활성화된 요청의 공고문은
-FairPost 서버에서 재검사하지만, Korean Law MCP에는 `법령명·조문번호`만 보내고
-AI API에는 `탐지 문구·조회된 현행 조문·활성 NCS 통제`만 보냅니다. 원격 호출은
-기본 5회/분으로 제한하며 `FAIRPOST_ASSISTED_REVIEW_REQUESTS_PER_MINUTE`로 조정할
-수 있습니다. 법령 조회에 실패하면 AI가 법을 추측하지 않도록 AI API 호출도
-중단합니다.
-
-웹에서는 검사 전에 `공공기관/민간기업`과 `상시근로자 1~29명/30~299명/300명
-이상`을 선택할 수 있습니다. 공공기관은 다시 `공기업/준정부기관/기타공공기관/
-지방공기업·지방출자출연기관/국가·지방자치단체/그 밖의 공공부문`으로 구분합니다.
-모든 질문 카드에 적용 구분, 조직·규모별 운영 맥락과 공식 근거 링크를 표시합니다.
-
-공기업과 준정부기관에는 `공기업·준정부기관의 경영에 관한 지침`과
-`공공기관의 혁신에 관한 지침`을 함께 검토하도록 표시합니다. 기타공공기관은
-혁신 지침과 기관 특성을 중심으로 보고 경영 지침의 직접 적용을 자동 단정하지
-않습니다. 지방공공기관과 국가·지방자치단체는 각각의 별도 법·인사 지침을 먼저
-확인하게 합니다. 민간기업에는 공공기관 지침을 의무처럼 제시하지 않고 일반
-고용·개인정보 법령, 취업규칙, 단체협약과 내부 인사규정을 우선합니다.
-
-규모별로 책임자 1인, HR·현업 이중 검토, 다부서 위원회·정기 감사 순으로 통제
-깊이를 조정합니다. 이 규모 구간은 운영 설계를 위한 것이며 법적 중소기업 분류나
-법률 적용 여부를 자동 결정하지 않습니다. 적용 범위 카탈로그는
-[`data/guidance/organization-applicability.yaml`](data/guidance/organization-applicability.yaml)에
-기준일과 출처를 함께 관리합니다.
+기본 도구 이름은 `search_law`, `get_law_text`입니다. 다른 이름은
+`FAIRPOST_KOREAN_LAW_SEARCH_TOOL`, `FAIRPOST_KOREAN_LAW_TEXT_TOOL`로 지정합니다.
+연결이 없거나 실패하면 스냅샷을 현행으로 가장하지 않고 `not_configured` 또는
+`upstream_unavailable` 상태를 반환합니다.
 
 ## 동작 구조
 
@@ -300,28 +216,27 @@ AI API에는 `탐지 문구·조회된 현행 조문·활성 NCS 통제`만 보�
 채용공고 원문
    │
    ├─ 정규화 ── 원문 offset 매핑 유지
-   │
    ├─ 법령 표현 규칙 19개 ── finding + 근거 + 수정 대안
    ├─ 절차·정보 슬롯 11개 ── 확인되지 않은 항목
    └─ 검토 질문 52개 ─────── 우선순위 + 발동 문맥
                                   │
-                                  └─ Web / CLI / MCP
+                                  ├─ Web / CLI / MCP
+                                  └─ 선택 시 Korean Law MCP → AI 검토 초안
 ```
 
-질문은 분배·절차·대인·정보의 네 공정성 차원으로 구성됩니다. 공고에서 직접
-발동한 질문, finding과 연결된 질문, 누락 슬롯 질문, 공통 체크리스트를 구분해
-담당자가 확인 이유를 추적할 수 있게 합니다.
+법령 조문만 `law` finding의 직접 근거로 사용합니다. NCS 가이드, FAQ와 우수사례는
+법 위반 판정이 아니라 담당자 질문과 운영 통제의 근거로만 사용합니다.
 
-## 검증 상태
+## 검증 상태와 한계
 
 현재 버전은 `0.3.0` 릴리스 후보입니다.
 
 | 항목 | 현재 증거 |
 |---|---:|
-| 자동화 테스트 | 936 passed |
+| 자동화 테스트 | 971 passed |
 | 전체 데이터 규칙 | 71 |
 | 질문 카드 | 52 |
-| 배포 형태 | 정적 웹 + CLI + 로컬 MCP + Vercel 읽기 전용 MCP + 선택형 AI·현행 법령 보강 API |
+| 배포 형태 | 정적 웹 + CLI + 로컬 MCP + Vercel MCP + 선택형 AI·법령 보강 API |
 
 ```powershell
 python -m pytest
@@ -331,9 +246,17 @@ python tools\verify_web_parity.py
 python tools\verify_distribution.py
 ```
 
-사람이 확정한 홀드아웃 평가, 실제 채용담당자 파일럿, 허가된 독립 민간 출처,
-공개 원격 MCP의 전역 남용 방어는 아직 v1.0 차단 조건으로 추적합니다. 자동화
-테스트 통과를 법률 정확도나 현장 유용성 증명으로 해석하지 않습니다.
+자동화 테스트 통과는 법률 정확도나 현장 유용성의 증명이 아닙니다. 사람이 확정한
+홀드아웃 평가, 실제 채용담당자 파일럿, 허가된 독립 민간 출처와 공개 원격 MCP의
+전역 남용 방어는 v1.0 차단 조건으로 계속 추적합니다.
+
+법령 스냅샷은 국가법령정보센터 Open API의 조문, 시행일과 SHA-256 해시를
+`data/statutes/`에 보관합니다. NCS 근거는
+[NCS 공정채용 누리집](https://www.ncs.go.kr/blind/index.do)의 소개, 프로세스,
+평가샘플과 검증된 가이드를 전처리해 사용합니다. 공개 채용공고 코퍼스는 규칙
+개발과 오프라인 평가에만 사용하며 원문과 비공개 검토 큐는 Git에 배포하지 않습니다.
+
+주요 문서:
 
 - [요구사항 추적표](docs/prd-traceability.md)
 - [완료 감사와 남은 외부 조건](docs/completion-audit.md)
@@ -341,46 +264,8 @@ python tools\verify_distribution.py
 - [평가 무결성 프로토콜](docs/evaluation-protocol.md)
 - [질문 관련성 감사](docs/question-relevance-audit.md)
 - [법령 유지관리 절차](docs/statute-maintenance.md)
-
-## 데이터와 연구 워크플로
-
-고용24, 잡알리오, 클린아이 잡플러스, 나라일터 등 공개·승인된 출처의 공고는
-런타임 조회가 아니라 규칙 개발과 오프라인 평가용 코퍼스 구축에만 사용합니다.
-원문 코퍼스와 비공개 검토 큐는 Git에서 제외되며 수집 과정에서 담당자 이름,
-연락처, 기관·기업명을 비식별화합니다.
-
-### 법령·공정채용 근거 현황
-
-- **법령:** 국가법령정보센터 Open API로 수집한 6개 법령의 조문,
-  시행일, 스냅샷 날짜, SHA-256 해시를 `data/statutes/`에 저장합니다.
-  [`tools/build_statutes.py`](tools/build_statutes.py)가 공식 원문과 재검증합니다.
-  2026-09-06 Korean Law MCP로 6개 법령ㆍ14개 연결 조문의 조회 가능성을
-  [별도 감사](reports/korean_law_mcp_audit.json)했으며, 예정 개정은 원문 해시
-  비교 전까지 자동 반영하지 않습니다.
-- **NCS 공정채용:** [NCS 공정채용 누리집](https://www.ncs.go.kr/blind/index.do)의
-  공정채용 소개·프로세스·평가샘플, 2023·2024·2025 가이드, 2025 모니터링
-  주요 사례를 출처·페이지·확인일과 함께 전처리했습니다. 설치 패키지에도
-  [NCS 통제 카탈로그](data/guidance/ncs-fair-hiring.yaml)를 포함하고
-  `prepare_hr_review`가 실제로 활성화된 질문과 연결해 반환합니다.
-- **엄격한 분리:** 법령 조문만 `law` finding의 직접 근거로 사용합니다.
-  가이드·FAQ·우수사례는 법 위반 판정이 아닌 인사담당자의 `question` 근거로만
-  사용합니다.
-- **현재 경계:** 기존 연구 번들의 9개 주요 출처와 2026-09-06 재확인한 공식
-  누리집ㆍ가이드ㆍ모니터링 출처를 연결했습니다. 당시 2026년 공지는 확인됐지만
-  2026년판 가이드북ㆍ모니터링 사례집은 확인되지 않았습니다. 신규 게시물·첨부파일을 자동으로 주기 동기화하는
-  수집 파이프라인은 아직 없으며, 추가 사례는 수동 검증 후 반영합니다.
-
-이전 전처리·규칙 연결 기록은
-[능력중심 채용 가이드 적용 맵](docs/ability-based-hiring-guide-map.md)과
-[`ncs-fairness-research-bundle.json`](docs/ncs-fairness-research-bundle.json)에 보존합니다.
-
-관련 문서:
-
-- [코퍼스와 분할 정책](docs/corpus.md)
-- [고용24 API](docs/work24-api.md)
-- [민간 출처 정책](docs/private-job-sources.md)
-- [비공개 공정성 모니터링](docs/private-fairness-monitoring.md)
-- [증거 버전 관리](docs/evidence-versioning.md)
+- [능력중심 채용 가이드 적용 맵](docs/ability-based-hiring-guide-map.md)
+- [AI 에이전트 검토 기록](docs/ai-agent-review-2026-08-31.md)
 
 ## 프로젝트 구조
 
@@ -393,12 +278,9 @@ mcp_server/    로컬·원격 MCP 서버와 저장소
 api/           Vercel 함수 엔트리포인트
 tools/         검증, 코퍼스, 평가, 릴리스 도구
 tests/         엔진·웹·MCP·보안 회귀 테스트
-docs/          설계 결정, 증거, 운영 문서
-reports/       버전이 결합된 자동 생성 감사 산출물
+docs/          설계 결정, 증거와 운영 문서
+reports/       버전이 결합된 감사 산출물
 ```
-
-Claude와 Codex가 제품 방향, 반론, 합의, 실행 범위를 함께 정리한 기록은
-[AI 에이전트 검토 기록](docs/ai-agent-review-2026-08-31.md)에 있습니다.
 
 ## 기여와 라이선스
 
