@@ -25,7 +25,7 @@ echo.
 echo MCP 주소: http://127.0.0.1:8000/mcp
 echo.
 
-fairpost-mcp
+python -m mcp_server.local_runtime mcp
 
 echo.
 echo FairPost MCP가 종료되었습니다.

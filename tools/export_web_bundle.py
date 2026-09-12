@@ -10,6 +10,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core.loader import load_ruleset  # noqa: E402
+from core.organization_guidance import (  # noqa: E402
+    load_organization_guidance_catalog,
+)
 
 
 def main() -> int:
@@ -34,11 +37,13 @@ def main() -> int:
     args = parser.parse_args()
 
     ruleset = load_ruleset(args.data_dir)
+    organization_guidance = load_organization_guidance_catalog(args.data_dir)
     payload = {
         "rules": list(ruleset.rules),
         "slots": ruleset.slots,
         "statutes": ruleset.statutes,
         "version": ruleset.version,
+        "organization_guidance": organization_guidance.to_web_dict(),
     }
     serialized = json.dumps(
         payload,

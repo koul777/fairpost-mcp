@@ -6,6 +6,16 @@ FairPost는 실행 중 법령 API를 호출하지 않는다. 검수된 현행 �
 `data/statutes/`에 저장하고 규칙 사전 버전에 포함한다. 사용자는 같은
 사전 버전에서 항상 같은 결과를 받는다.
 
+기본 `check_job_posting`과 정적 웹은 이 원칙을 유지한다. 로컬 MCP의
+`prepare_hr_review`와 CLI의 `--review-packet`만 별도 선택 경로로 두며,
+Korean Law MCP가 설정된 경우 finding의 법령명ㆍ조문번호만 보내 현행 조문을
+조회한다. 공고문ㆍ매칭 문구ㆍ조직 ID는 보내지 않는다. 조회 결과는 자동으로
+스냅샷을 덮어쓰거나 적법성 결론을 만들지 않고 사람 검토 자료로만 반환한다.
+
+2026-09-06 실제 연결 점검 결과는
+[`reports/korean_law_mcp_audit.json`](../reports/korean_law_mcp_audit.json)에
+기록한다.
+
 각 스냅샷은 다음 정보를 가진다.
 
 - 국가법령정보센터의 법령 ID와 출처

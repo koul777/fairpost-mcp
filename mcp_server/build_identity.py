@@ -25,7 +25,7 @@ DEPLOYMENT_EXCLUSION_POLICY = (
     "data/local_rules.yaml",
 )
 DEPLOYMENT_CONFIG_POLICY = {
-    "function_max_duration": 30,
+    "function_max_duration": 60,
     "function_exclude_files": (
         "{.corpus*/**,build/**,dist/**,tmp/**,tests/**,tools/**,reports/**,"
         "docs/**,.env,.env.*,*.egg-info/**}"
@@ -34,6 +34,7 @@ DEPLOYMENT_CONFIG_POLICY = {
         ("/api/mcp", "/api"),
         ("/api/claude-mcp", "/api"),
         ("/api/health", "/api"),
+        ("/api/assisted-review", "/api"),
     ),
     "headers": (
         ("Cache-Control", "no-store"),
@@ -51,12 +52,17 @@ RUNTIME_SOURCE_FILES = (
     "core/__init__.py",
     "core/engine.py",
     "core/extractor.py",
+    "core/guidance.py",
+    "core/organization_guidance.py",
     "core/loader.py",
     "core/morph.py",
     "core/schema.py",
     "mcp_server/__init__.py",
+    "mcp_server/assisted_review.py",
     "mcp_server/build_identity.py",
+    "mcp_server/local_runtime.py",
     "mcp_server/remote.py",
+    "mcp_server/review.py",
     "mcp_server/server.py",
     "mcp_server/storage.py",
     "web/app.js",
@@ -64,6 +70,8 @@ RUNTIME_SOURCE_FILES = (
     "web/engine.js",
     "web/index.html",
     "web/styles.css",
+    "data/guidance/ncs-fair-hiring.yaml",
+    "data/guidance/organization-applicability.yaml",
 )
 
 

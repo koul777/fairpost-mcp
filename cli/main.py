@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 from pathlib import Path
 import sys
@@ -8,6 +9,7 @@ from typing import Iterable, NoReturn
 
 from core import FairpostEngine, RuleLoadError
 from mcp_server.storage import LocalAnswerStore
+from mcp_server.review import prepare_hr_review_packet
 
 
 class _PurgeArgumentError(Exception):
@@ -63,6 +65,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="단일 입력 결과를 들여쓰기한 JSON으로 출력",
     )
+    parser.add_argument(
+        "--review-packet",
+        action="store_true",
+        help=(
+            "NCS 공정채용 통제와 선택적 Korean Law MCP 현행 조문 조회를 포함한 "
+            "HR 검토 패킷 출력"
+        ),
+    )
     return parser
 
 
@@ -110,7 +120,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     for source, text in inputs:
-        payload = engine.check(text).to_dict()
+        if args.review_packet:
+            payload = asyncio.run(prepare_hr_review_packet(engine, text)).to_dict()
+        else:
+            payload = engine.check(text).to_dict()
         if len(inputs) > 1:
             payload = {"source": source, "result": payload}
         print(

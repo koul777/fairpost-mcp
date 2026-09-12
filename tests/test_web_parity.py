@@ -207,24 +207,26 @@ def test_seeded_unicode_combinations_match_python_core() -> None:
         assert web_result == python_result, f"seeded case {case_index}"
 
 
-def test_static_web_has_no_network_capability_and_shows_version() -> None:
+def test_static_web_keeps_optional_assisted_review_off_by_default() -> None:
     html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
     app = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
     engine = (ROOT / "web" / "engine.js").read_text(encoding="utf-8")
-    assert "connect-src 'none'" in html
+    assert "connect-src 'self'" in html
     assert '<link rel="icon" href="/favicon.svg"' in html
-    assert "입력ㆍ답변은 이 브라우저 밖으로 전송되지 않으며" in html
-    assert "배포ㆍ근거 링크만 새 외부 페이지를 엽니다" in html
+    assert "기본 검사는 브라우저 안에서 처리" in html
+    assert "역할 기록은 브라우저에만 저장" in html
     assert 'id="deploy-button"' in html
     assert "https://vercel.com/new/clone?repository-url=" in html
     assert 'target="_blank"' in html
     assert 'rel="noopener noreferrer"' in html
     assert "GitHub 저장소 접근 권한 필요" in html
-    assert "현재 입력값은 전달하지 않음" in html
+    assert "사용자가 켠 요청에서만 동작" in html
     assert "판정이 아니라 수정·확인 질문을 정리한 로컬 검토 메모입니다." in html
     assert "fairpost | 채용공고 검토 메모" in html
     assert "검토 메모 만들기" in html
     assert 'id="results-title" tabindex="-1"' in html
+    assert 'window.matchMedia("(max-width: 1100px)").matches' in app
+    assert 'resultsTitle.scrollIntoView({ behavior: "auto", block: "start" })' in app
     assert "개수는 검토할 작업량입니다." in html
     assert "점수·등급·합격/불합격 또는 공정성 판정" in html
     assert html.index('id="disclaimer"') < html.index('class="summary-strip"')
@@ -234,10 +236,41 @@ def test_static_web_has_no_network_capability_and_shows_version() -> None:
     assert "1. 확인된 표현의 근거와 대체 문구를 검토합니다." in html
     assert 'id="answer-progress"' in html
     assert "질문별 답변은 현재 분석 세션에만 남고" in html
-    assert "fetch(" not in app + engine
+    assert 'id="assisted-review-toggle"' in html
+    assert 'id="assisted-review-provider"' in html
+    assert 'role="switch"' in html
+    assert 'id="assisted-review-panel"' in html
+    assert 'id="organization-sector"' in html
+    assert 'id="organization-public-type"' in html
+    assert 'id="organization-size"' in html
+    assert "공공기관" in html and "민간기업" in html
+    assert "공기업" in html and "준정부기관" in html
+    assert "지방공기업·지방출자출연기관" in html
+    assert 'fetch("/api/assisted-review"' in app
+    assert "assist_enabled: true" in app
+    assert "if (assistedToggle.checked)" in app
+    assert "function organizationContext(question)" in app
+    assert 'class="organization-context"' in app
+    assert 'class="applicability-tag"' in app
+    assert "공공기관 지정 유형 확인 필요" in app
+    assert "공공기관 경영·혁신 지침을 직접 적용하지 않고" in app
+    assert "공공기관 지침 중심" in app
+    assert "소규모 운영" in app
     assert "XMLHttpRequest" not in app + engine
-    assert "localStorage" not in app
+    assert "localStorage" in app
     assert "sessionStorage" not in app
+    assert 'id="role-review-panel"' in html
+    assert 'id="role-review-record"' in html
+    assert 'id="role-review-clear"' in html
+    assert 'id="role-review-resolve-event"' in html
+    assert 'id="role-review-missing"' in html
+    assert "function initializeRoleReview(result, text)" in app
+    assert "function recordRoleReviewEvent()" in app
+    assert "function roleReviewIssueStatuses()" in app
+    assert "미해결 이슈" in app
+    assert "posting_fingerprint" in app
+    assert "원문·지원자 정보는 역할 기록에 저장하지 않습니다." in html
+    assert "공고 원문·지원자 개인정보·연락처" in html
     assert "fairpost 채용공고문 검토 메모" in app
     assert "검토 메모를 복사했습니다." in app
     assert 'high: "우선 검토"' in app
@@ -318,6 +351,53 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
         "copyDisabled": True,
         "dynamicContainersCleared": True,
     }
+    assisted = result["assisted"]
+    assert assisted["badge"] == "켜짐"
+    assert assisted["resultStatus"] == "완료"
+    assert assisted["output"] == (
+        "현행 조문을 바탕으로 사람의 적용 범위 확인이 필요합니다."
+    )
+    assert assisted["panelHidden"] is False
+    assert "경영·혁신 지침 직접 검토" in assisted["organizationMarkup"]
+    assert "공기업·준정부기관의 경영에 관한 지침" in assisted[
+        "organizationMarkup"
+    ]
+    assert assisted["postBody"] == {
+        "assist_enabled": True,
+        "ai_provider": "anthropic",
+        "text": "여성만 지원 가능",
+        "organization_profile": {
+            "sector": "public",
+            "size": "300_plus",
+            "public_entity_type": "public_corporation",
+            "sector_label": "공공기관",
+            "public_entity_type_label": "공기업",
+            "size_label": "상시근로자 300명 이상",
+        },
+    }
+    assert set(assisted) == {
+        "badge",
+        "resultStatus",
+        "output",
+        "panelHidden",
+        "postBody",
+        "organizationMarkup",
+    }
+    role_review = result["roleReview"]
+    assert role_review["status"] == "로컬 기록"
+    assert role_review["progress"] == "참여 역할 3/7 · 이벤트 4개 · 미해결 이슈 0건"
+    assert "아직 참여하지 않은 역할" in role_review["missingRoles"]
+    assert "감사자 · 평가 · 메모" in role_review["eventsMarkup"]
+    assert "릴리스 전 재현성 근거" in role_review["eventsMarkup"]
+    assert "해결됨" in role_review["eventsMarkup"]
+    assert "여성만 지원 가능" not in role_review["storage"]
+    assert "posting_text" not in role_review["storage"]
+    assert role_review["afterSensitiveNote"] == {
+        "progress": "참여 역할 2/7 · 이벤트 2개 · 미해결 이슈 0건",
+        "eventCount": 2,
+    }
+    assert role_review["afterVersionDrift"]["newPacket"] is True
+    assert "규칙셋 버전이 바뀌어" in role_review["afterVersionDrift"]["notice"]
 
 
 def test_web_bundle_version_matches_core() -> None:
@@ -339,3 +419,10 @@ def test_web_css_preserves_hidden_state_and_mobile_width() -> None:
     assert ".review-answer-contenttextarea{" in compact
     assert "a:focus-visible{" in compact
     assert "@media(prefers-reduced-motion:reduce)" in compact
+    assert "grid-template-columns:minmax(0,1fr);" in compact
+    assert ".editor-pane>*{min-width:0;}" in compact
+    assert "grid-template-columns:repeat(3,minmax(0,1fr));" in compact
+    assert ".organization-profilelabel{min-width:0;" in compact
+    assert ".organization-profileselect{width:100%;min-width:0;max-width:100%;" in compact
+    assert "@media(max-width:1100px)" in compact
+    assert "@media(max-width:820px)" in compact

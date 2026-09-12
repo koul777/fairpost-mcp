@@ -242,14 +242,24 @@ def _verify_junit_freshness(path: Path) -> dict[str, object]:
     }
 
 
-def _audited_artifact(details: dict[str, object], kind: str) -> dict[str, object]:
+def _audited_artifact(
+    details: dict[str, object],
+    kind: str,
+    *,
+    artifact_root: Path | None = None,
+) -> dict[str, object]:
     raw_path = Path(str(details["path"]))
     path = raw_path if raw_path.is_absolute() else ROOT / raw_path
     resolved = path.resolve(strict=True)
+    allowed_root = (artifact_root or (ROOT / "dist")).resolve(strict=True)
     try:
-        resolved.relative_to((ROOT / "dist").resolve(strict=True))
+        resolved.relative_to(allowed_root)
     except (OSError, ValueError) as exc:
-        raise ValueError(f"{kind} artifact must be inside the project dist directory") from exc
+        if allowed_root == (ROOT / "dist").resolve(strict=False):
+            message = f"{kind} artifact must be inside the project dist directory"
+        else:
+            message = f"{kind} artifact must be inside the configured artifact directory"
+        raise ValueError(message) from exc
     payload = resolved.read_bytes()
     actual_sha256 = hashlib.sha256(payload).hexdigest()
     if len(payload) != details.get("bytes") or actual_sha256 != details.get("sha256"):
@@ -391,14 +401,17 @@ def build_report(
     corpus_diversity_audit: Path | None = None,
     vercel_deployment_audit: Path | None = None,
     evaluation_report: Path | None = None,
+    distribution_audit: Path | None = None,
+    artifact_root: Path | None = None,
 ) -> dict[str, object]:
     tests_passed, test_evidence_bytes, test_evidence_sha256 = (
         _load_passing_test_evidence(Path(junitxml))
     )
     test_freshness = _verify_junit_freshness(Path(junitxml))
-    audit = json.loads(
-        (ROOT / "reports" / "distribution_audit.json").read_text(encoding="utf-8")
+    distribution_audit_path = distribution_audit or (
+        ROOT / "reports" / "distribution_audit.json"
     )
+    audit = json.loads(distribution_audit_path.read_text(encoding="utf-8"))
     _require_report_schema(
         audit,
         "fairpost-distribution-audit-v2",
@@ -512,8 +525,12 @@ def build_report(
         audit.get("distribution_source_fingerprint")
         == current_distribution_source_fingerprint
     )
-    wheel_artifact = _audited_artifact(audit["wheel"], "wheel")
-    sdist_artifact = _audited_artifact(audit["sdist"], "sdist")
+    wheel_artifact = _audited_artifact(
+        audit["wheel"], "wheel", artifact_root=artifact_root
+    )
+    sdist_artifact = _audited_artifact(
+        audit["sdist"], "sdist", artifact_root=artifact_root
+    )
     question_count = sum(rule["layer"] == "question" for rule in ruleset.rules)
     deployed_ruleset_version = vercel["health"].get("ruleset_version")
     deployed_matching_version = vercel["health"].get("matching_version")
@@ -777,6 +794,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Optional ISO 8601 timestamp to embed in the report.",
     )
     parser.add_argument(
+        "--distribution-audit",
+        type=Path,
+        default=ROOT / "reports" / "distribution_audit.json",
+        help="Distribution audit JSON bound to the selected artifacts.",
+    )
+    parser.add_argument(
+        "--artifact-dir",
+        type=Path,
+        default=ROOT / "dist",
+        help="Directory containing the artifacts named by the distribution audit.",
+    )
+    parser.add_argument(
         "--evidence-version-audit",
         type=Path,
         default=ROOT / "reports" / "evidence_version_audit.json",
@@ -843,6 +872,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.junitxml,
             args.output,
             (
+                args.distribution_audit,
                 args.evidence_version_audit,
                 args.corpus_diversity_audit,
                 args.vercel_deployment_audit,
@@ -852,6 +882,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         report = build_report(
             args.junitxml,
             built_at=args.built_at,
+            distribution_audit=args.distribution_audit,
+            artifact_root=args.artifact_dir,
             evidence_version_audit=args.evidence_version_audit,
             corpus_diversity_audit=args.corpus_diversity_audit,
             vercel_deployment_audit=args.vercel_deployment_audit,

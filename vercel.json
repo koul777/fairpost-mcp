@@ -3,7 +3,7 @@
   "framework": null,
   "functions": {
     "api/index.py": {
-      "maxDuration": 30,
+      "maxDuration": 60,
       "excludeFiles": "{.corpus*/**,build/**,dist/**,tmp/**,tests/**,tools/**,reports/**,docs/**,.env,.env.*,*.egg-info/**}"
     }
   },
@@ -18,6 +18,10 @@
     },
     {
       "source": "/api/health",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/assisted-review",
       "destination": "/api"
     }
   ],

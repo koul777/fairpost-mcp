@@ -1,21 +1,97 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+from dataclasses import replace
+import errno
 import hashlib
+import importlib
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 from threading import Lock
-from typing import Any
+import time
+from typing import Any, BinaryIO, Iterator
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+from core.review_packet import ReviewEvent, ReviewPacket, ReviewPacketError
 
 
 MAX_ORG_ID_CHARS = 256
 MAX_QUESTION_ID_CHARS = 128
 MAX_ANSWER_CHARS = 10_000
 MAX_UPSTASH_RESPONSE_BYTES = 1024 * 1024
+MAX_REVIEW_PACKET_BYTES = 256 * 1024
+MAX_REVIEW_PACKET_EVENTS = 256
+MAX_REVIEW_PACKETS = 256
+MAX_REVIEW_STORE_BYTES = 128 * 1024 * 1024
+_REVIEW_PACKET_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
+
+
+_THREAD_LOCKS_GUARD = Lock()
+_THREAD_LOCKS: dict[str, Lock] = {}
+
+
+def _thread_lock_for(path: Path) -> Lock:
+    try:
+        key = os.path.normcase(str(path.resolve(strict=False)))
+    except OSError:
+        key = os.path.normcase(str(path.absolute()))
+    with _THREAD_LOCKS_GUARD:
+        return _THREAD_LOCKS.setdefault(key, Lock())
+
+
+def _acquire_file_lock(handle: BinaryIO) -> None:
+    handle.seek(0)
+    if os.name == "nt":
+        import msvcrt
+
+        while True:
+            try:
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                return
+            except OSError as exc:
+                if exc.errno not in {errno.EACCES, errno.EDEADLK, errno.EAGAIN}:
+                    raise
+                time.sleep(0.05)
+    else:
+        fcntl = importlib.import_module("fcntl")
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+
+
+def _release_file_lock(handle: BinaryIO) -> None:
+    handle.seek(0)
+    if os.name == "nt":
+        import msvcrt
+
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl = importlib.import_module("fcntl")
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+@contextmanager
+def _process_file_lock(path: Path) -> Iterator[None]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        with os.fdopen(descriptor, "r+b") as handle:
+            descriptor = -1
+            if os.fstat(handle.fileno()).st_size == 0:
+                handle.write(b"\0")
+                handle.flush()
+                os.fsync(handle.fileno())
+            _acquire_file_lock(handle)
+            try:
+                yield
+            finally:
+                _release_file_lock(handle)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
 
 
 def _validate_answer_fields(
@@ -41,6 +117,13 @@ def _validate_answer_fields(
             raise ValueError(f"answer는 {MAX_ANSWER_CHARS}자를 넘을 수 없습니다")
 
 
+def _validate_review_packet_id(packet_id: str) -> None:
+    if not isinstance(packet_id, str) or not _REVIEW_PACKET_ID_RE.fullmatch(packet_id):
+        raise ValueError(
+            "packet_id must be 1-128 ASCII characters and start with a letter or digit"
+        )
+
+
 class _RejectRedirects(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -56,9 +139,16 @@ class LocalAnswerStore:
     def __init__(self, path: str | Path | None = None) -> None:
         configured = os.environ.get("FAIRPOST_ANSWERS_PATH")
         self.path = Path(path or configured or Path.home() / ".fairpost" / "answers.json")
-        self._lock = Lock()
+        self._lock_path = self.path.with_name(f".{self.path.name}.lock")
+        self._lock = _thread_lock_for(self._lock_path)
 
-    def _read(self) -> dict[str, dict[str, str]]:
+    @contextmanager
+    def _exclusive(self) -> Iterator[None]:
+        with self._lock:
+            with _process_file_lock(self._lock_path):
+                yield
+
+    def _read_unlocked(self) -> dict[str, dict[str, str]]:
         if not self.path.exists():
             return {}
         try:
@@ -78,10 +168,10 @@ class LocalAnswerStore:
 
     def get(self, org_id: str) -> dict[str, str]:
         _validate_answer_fields(org_id)
-        with self._lock:
-            return dict(self._read().get(org_id, {}))
+        with self._exclusive():
+            return dict(self._read_unlocked().get(org_id, {}))
 
-    def _write(self, payload: dict[str, dict[str, str]]) -> None:
+    def _write_unlocked(self, payload: dict[str, dict[str, str]]) -> None:
         if not payload:
             try:
                 self.path.unlink()
@@ -109,10 +199,28 @@ class LocalAnswerStore:
 
     def save(self, org_id: str, question_id: str, answer: str) -> None:
         _validate_answer_fields(org_id, question_id, answer)
-        with self._lock:
-            payload = self._read()
+        with self._exclusive():
+            payload = self._read_unlocked()
             payload.setdefault(org_id, {})[question_id] = answer
-            self._write(payload)
+            self._write_unlocked(payload)
+
+    def _purge_orphaned_temporaries_unlocked(self) -> bool:
+        if not self.path.parent.is_dir():
+            return False
+        changed = False
+        prefix = f".{self.path.name}."
+        for temporary in sorted(self.path.parent.iterdir()):
+            if not (
+                temporary.name.startswith(prefix)
+                and temporary.name.endswith(".tmp")
+            ):
+                continue
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                continue
+            changed = True
+        return changed
 
     def purge(self, org_id: str | None = None) -> bool:
         """Remove local answers, optionally limited to one organization.
@@ -124,21 +232,192 @@ class LocalAnswerStore:
 
         if org_id is not None:
             _validate_answer_fields(org_id)
-        with self._lock:
+        with self._exclusive():
+            changed = self._purge_orphaned_temporaries_unlocked()
             if not self.path.exists():
-                return False
+                return changed
             if org_id is None:
+                try:
+                    self.path.unlink()
+                except FileNotFoundError:
+                    return changed
+                return True
+
+            payload = self._read_unlocked()
+            if org_id not in payload:
+                return changed
+            del payload[org_id]
+            self._write_unlocked(payload)
+            return True
+
+
+class LocalReviewPacketStore:
+    """Local-only append store for privacy-preserving role review packets."""
+
+    def __init__(self, path: str | Path | None = None) -> None:
+        configured = os.environ.get("FAIRPOST_REVIEW_PACKETS_PATH")
+        self.path = Path(
+            path or configured or Path.home() / ".fairpost" / "review_packets.json"
+        )
+        self._lock_path = self.path.with_name(f".{self.path.name}.lock")
+        self._lock = _thread_lock_for(self._lock_path)
+
+    @contextmanager
+    def _exclusive(self) -> Iterator[None]:
+        with self._lock:
+            with _process_file_lock(self._lock_path):
+                yield
+
+    def _read_text_unlocked(self) -> str:
+        try:
+            if self.path.stat().st_size > MAX_REVIEW_STORE_BYTES:
+                raise ValueError("review packet store exceeds the byte limit")
+            return self.path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise ValueError(f"review packet store cannot be read: {self.path}") from exc
+
+    def _read_raw_unlocked(self) -> dict[str, dict[str, Any]]:
+        """Read only the top-level mapping for targeted packet operations."""
+
+        if not self.path.exists():
+            return {}
+        try:
+            payload: Any = json.loads(self._read_text_unlocked())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"review packet store cannot be read: {self.path}") from exc
+        if not isinstance(payload, dict):
+            raise ValueError(f"review packet store has invalid format: {self.path}")
+        if len(payload) > MAX_REVIEW_PACKETS:
+            raise ValueError("review packet store contains too many packets")
+        for packet_id, packet_payload in payload.items():
+            if not isinstance(packet_id, str) or not isinstance(packet_payload, dict):
+                raise ValueError("review packet store contains an invalid entry")
+        return payload
+
+    @staticmethod
+    def _packet_from_payload(
+        packet_id: str,
+        payload: dict[str, Any] | None,
+    ) -> ReviewPacket | None:
+        if payload is None:
+            return None
+        try:
+            packet = ReviewPacket.from_dict(payload)
+        except ReviewPacketError as exc:
+            raise ValueError("review packet payload is invalid") from exc
+        if packet.packet_id != packet_id:
+            raise ValueError("review packet key does not match packet_id")
+        return packet
+
+    @staticmethod
+    def _validate_packet(packet: ReviewPacket) -> None:
+        if not isinstance(packet, ReviewPacket):
+            raise ValueError("ReviewPacket 값이 필요합니다")
+        if len(packet.events) > MAX_REVIEW_PACKET_EVENTS:
+            raise ValueError(
+                f"검토 패킷 이벤트는 {MAX_REVIEW_PACKET_EVENTS}개를 넘을 수 없습니다"
+            )
+        if len(packet.to_json().encode("utf-8")) > MAX_REVIEW_PACKET_BYTES:
+            raise ValueError("검토 패킷이 너무 큽니다")
+
+    def _write_unlocked(self, payload: dict[str, dict[str, Any]]) -> None:
+        serialized = json.dumps(
+            payload, ensure_ascii=False, sort_keys=True, indent=2
+        )
+        if len((serialized + "\n").encode("utf-8")) > MAX_REVIEW_STORE_BYTES:
+            raise ValueError("review packet store exceeds the byte limit")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        handle, temporary_name = tempfile.mkstemp(
+            dir=self.path.parent,
+            prefix=f".{self.path.name}.",
+            suffix=".tmp",
+        )
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as stream:
+                stream.write(serialized)
+                stream.write("\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.path)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+
+    def save(self, packet: ReviewPacket) -> None:
+        self._validate_packet(packet)
+        with self._exclusive():
+            payload = self._read_raw_unlocked()
+            if packet.packet_id in payload:
+                raise ValueError("이미 존재하는 packet_id입니다")
+            if len(payload) >= MAX_REVIEW_PACKETS:
+                raise ValueError("review packet store contains too many packets")
+            payload[packet.packet_id] = packet.to_dict()
+            self._write_unlocked(payload)
+
+    def get(self, packet_id: str) -> ReviewPacket | None:
+        _validate_review_packet_id(packet_id)
+        with self._exclusive():
+            payload = self._read_raw_unlocked().get(packet_id)
+            if payload is None:
+                return None
+            try:
+                packet = ReviewPacket.from_dict(payload)
+                self._validate_packet(packet)
+                return packet
+            except ReviewPacketError as exc:
+                raise ValueError("검토 패킷 형식이 올바르지 않습니다") from exc
+
+    def append(self, packet_id: str, event: ReviewEvent) -> ReviewPacket:
+        _validate_review_packet_id(packet_id)
+        if not isinstance(event, ReviewEvent):
+            raise ValueError("ReviewEvent 값이 필요합니다")
+        with self._exclusive():
+            payload = self._read_raw_unlocked()
+            current_payload = payload.get(packet_id)
+            if current_payload is None:
+                raise ValueError("존재하지 않는 packet_id입니다")
+            try:
+                current = ReviewPacket.from_dict(current_payload)
+                self._validate_packet(current)
+                if (
+                    event.ruleset_version != current.ruleset_version
+                    or event.guidance_catalog_version
+                    != current.guidance_catalog_version
+                ):
+                    raise ValueError("검토 패킷 버전과 이벤트 버전이 일치하지 않습니다")
+                updated = replace(current, events=(*current.events, event))
+            except ReviewPacketError as exc:
+                raise ValueError("검토 패킷 이벤트를 추가할 수 없습니다") from exc
+            self._validate_packet(updated)
+            payload[packet_id] = updated.to_dict()
+            self._write_unlocked(payload)
+            return updated
+
+
+    def purge(self, packet_id: str | None = None) -> bool:
+        """Delete local review packets without returning their contents."""
+
+        if packet_id is not None:
+            _validate_review_packet_id(packet_id)
+        with self._exclusive():
+            if packet_id is None:
                 try:
                     self.path.unlink()
                 except FileNotFoundError:
                     return False
                 return True
-
-            payload = self._read()
-            if org_id not in payload:
+            payload = self._read_raw_unlocked()
+            if packet_id not in payload:
                 return False
-            del payload[org_id]
-            self._write(payload)
+            del payload[packet_id]
+            if payload:
+                self._write_unlocked(payload)
+            else:
+                try:
+                    self.path.unlink()
+                except FileNotFoundError:
+                    pass
             return True
 
 

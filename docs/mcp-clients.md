@@ -100,6 +100,15 @@ Bearer 토큰을 URL 쿼리에 넣지 않는다.
 로컬 `save_answer`는 같은 조직ㆍ질문에 저장된 기존 답변을 새 답변으로 교체할 수
 있으므로 MCP 도구 주석도 파괴 가능 쓰기로 표시한다.
 
+로컬 전용 `prepare_hr_review`는 결정론적 점검 결과에 전처리된 NCS 공정채용
+통제와 선택적 현행 법령 조회를 결합한다. `FAIRPOST_KOREAN_LAW_MCP_URL` 또는
+`FAIRPOST_KOREAN_LAW_MCP_COMMAND`가 설정된 경우에만 외부 법령 MCP를 호출하며,
+그때도 공고문ㆍ매칭 문구ㆍ조직 ID는 보내지 않고 법령명과 조문번호만 보낸다.
+이 도구는 외부 읽기가 가능하므로 `openWorldHint: true`지만 저장이나 변경은 하지
+않는다. stdio 자식 프로세스에는 시스템 실행용 최소 환경과
+`FAIRPOST_KOREAN_LAW_MCP_ENV_ALLOWLIST`에 명시한 이름의 값만 전달한다. 원격
+공개 FairPost MCP에는 이 도구를 노출하지 않는다.
+
 로컬 답변은 `~/.fairpost/answers.json` 또는 `FAIRPOST_ANSWERS_PATH`가 가리키는
 파일에 평문으로 저장되며 자동 만료되지 않는다. 따라서 공용 PC나 공유 OS 계정에는
 저장하지 않고 운영자가 보존 기간을 정해야 한다. 전체 로컬 답변은
@@ -137,7 +146,7 @@ npx -y @modelcontextprotocol/inspector --cli `
 지원에 관한 법률 제7조, 구조화 v1과 `[0, 3]` 원문 offset,
 `isError: false`를 반환했다. Inspector 목록은 공개
 3도구가 모두 읽기 전용임을 확인했고, SDK 프로토콜 테스트는 일반 원격 3도구와
-Claude 호환 평문 1도구, 루프백 로컬 5도구를 각각 검증한다.
+Claude 호환 평문 1도구, 루프백 로컬 6도구를 각각 검증한다.
 감사 결과는 `reports/mcp_client_audit.json`에 원문 없이 저장하고 현재 배포 ID,
 규칙ㆍ매칭ㆍ런타임 지문과 Vercel 감사 SHA-256에 결합한다. Claude Code의 프로젝트
 MCP 승인은 2026-08-31 완료했고, `fairpost` 루프백 서버에서

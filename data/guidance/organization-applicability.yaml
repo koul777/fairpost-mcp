@@ -1,0 +1,75 @@
+schema_version: fairpost-organization-applicability-v1
+as_of: '2026-09-06'
+authority: applicability_aid_not_legal_advice
+sources:
+- id: public-institutions-act-article-5
+  title: 공공기관의 운영에 관한 법률 제5조(공공기관의 구분)
+  publisher: 법제처 국가법령정보센터
+  source_url: https://law.go.kr/LSW/lsLinkCommonInfo.do?lsJoLnkSeq=1017474397
+  published_or_updated_at: '2026-01-02'
+  source_type: law
+- id: public-institutions-act-article-15
+  title: 공공기관의 운영에 관한 법률 제15조(공공기관의 혁신)
+  publisher: 법제처 국가법령정보센터
+  source_url: https://www.law.go.kr/LSW/lsLinkCommonInfo.do?chrClsCd=010202&lsJoLnkSeq=1031410711
+  published_or_updated_at: '2026-01-02'
+  source_type: law
+- id: public-institutions-act-article-50
+  title: 공공기관의 운영에 관한 법률 제50조(경영지침)
+  publisher: 법제처 국가법령정보센터
+  source_url: https://www.law.go.kr/lsLinkCommonInfo.do?lsJoLnkSeq=1031410977
+  published_or_updated_at: '2026-01-02'
+  source_type: law
+- id: public-management-guideline
+  title: 공기업·준정부기관의 경영에 관한 지침(2025.12.30. 개정)
+  publisher: 재정경제부
+  source_url: https://alio.go.kr/etc/etcLawList.do
+  published_or_updated_at: '2025-12-30'
+  source_type: guidance
+- id: public-innovation-guideline
+  title: 공공기관의 혁신에 관한 지침(2026.7.31. 개정)
+  publisher: 재정경제부
+  source_url: https://alio.go.kr/etc/etcLawList.do
+  published_or_updated_at: '2026-07-31'
+  source_type: guidance
+profiles:
+- id: public_corporation
+  sector: public
+  label: 공기업
+  applicability_label: 경영·혁신 지침 직접 검토
+  statement: 공공기관운영법상 공기업 지정 여부를 확인하고, 공기업·준정부기관의 경영에 관한 지침과 공공기관의 혁신에 관한 지침을 기관 내부규정과 함께 직접 검토한다.
+  source_ids: [public-institutions-act-article-5, public-institutions-act-article-15, public-institutions-act-article-50, public-management-guideline, public-innovation-guideline]
+- id: quasi_government
+  sector: public
+  label: 준정부기관
+  applicability_label: 경영·혁신 지침 직접 검토
+  statement: 공공기관운영법상 준정부기관 지정 여부를 확인하고, 공기업·준정부기관의 경영에 관한 지침과 공공기관의 혁신에 관한 지침을 기관 내부규정과 함께 직접 검토한다.
+  source_ids: [public-institutions-act-article-5, public-institutions-act-article-15, public-institutions-act-article-50, public-management-guideline, public-innovation-guideline]
+- id: other_public
+  sector: public
+  label: 기타공공기관
+  applicability_label: 혁신 지침 검토·기관 특성 반영
+  statement: 공공기관의 혁신에 관한 지침과 기관 고유의 설립법·주무부처 지침·내부규정을 검토한다. 공기업·준정부기관의 경영에 관한 지침을 직접 적용한다고 자동 단정하지 않는다.
+  source_ids: [public-institutions-act-article-5, public-institutions-act-article-15, public-innovation-guideline]
+- id: local_public
+  sector: public
+  label: 지방공기업·지방출자출연기관
+  applicability_label: 지방공공기관 별도 체계 확인
+  statement: 중앙 공공기관의 지정 유형과 구분해 지방공기업법, 지방출자출연법, 행정안전부·지방자치단체 지침과 내부규정을 우선 확인한다. 두 중앙 공공기관 지침을 직접 적용한다고 자동 단정하지 않는다.
+  source_ids: [public-institutions-act-article-5]
+- id: government_body
+  sector: public
+  label: 국가·지방자치단체
+  applicability_label: 공무원·행정기관 별도 체계 확인
+  statement: 국가·지방자치단체의 공무원 또는 공무직 채용 체계를 구분하고 해당 법령·인사규정·지방자치단체 규정을 우선 확인한다. 공기업·준정부기관 지침의 직접 적용 대상으로 자동 분류하지 않는다.
+  source_ids: [public-institutions-act-article-5]
+- id: other_public_sector
+  sector: public
+  label: 그 밖의 공공부문
+  applicability_label: 설립근거·지정 유형 확인 필요
+  statement: 기관의 설립근거, 공공기관 지정 여부, 주무부처와 내부규정을 먼저 확인한 뒤 적용 지침을 결정한다.
+  source_ids: [public-institutions-act-article-5]
+limitations:
+- 기관 이름이나 상시근로자 수만으로 공공기관 지정 유형 또는 지침 적용 여부를 자동 판정하지 않는다.
+- 공기업·준정부기관의 경영에 관한 지침과 공공기관의 혁신에 관한 지침은 적용 범위가 같다고 가정하지 않는다.
+- 이 카탈로그는 적용 범위 확인을 돕는 검토 자료이며 개별 기관의 법률 자문이나 준수 판정이 아니다.

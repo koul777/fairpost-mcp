@@ -19,8 +19,11 @@ def test_runtime_source_manifest_covers_engine_dependencies() -> None:
         "core/extractor.py",
         "core/loader.py",
         "core/morph.py",
+        "core/organization_guidance.py",
         "core/schema.py",
     } <= set(RUNTIME_SOURCE_FILES)
+    assert "mcp_server/assisted_review.py" in RUNTIME_SOURCE_FILES
+    assert "data/guidance/organization-applicability.yaml" in RUNTIME_SOURCE_FILES
 
 
 def test_runtime_source_manifest_covers_deployed_web() -> None:

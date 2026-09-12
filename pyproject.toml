@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=68", "packaging>=24.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -43,6 +43,10 @@ packages = ["core", "cli", "mcp_server"]
   "data/statutes/national-human-rights-act.yaml",
   "data/statutes/personal-information-act.yaml",
   "data/statutes/recruitment-procedure-act.yaml",
+]
+"share/fairpost/data/guidance" = [
+  "data/guidance/ncs-fair-hiring.yaml",
+  "data/guidance/organization-applicability.yaml",
 ]
 "share/fairpost/web" = [
   "web/app.js",

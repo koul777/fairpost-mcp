@@ -13,6 +13,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import RuleLoadError, load_ruleset  # noqa: E402
+from core.guidance import load_guidance_catalog  # noqa: E402
+from core.organization_guidance import load_organization_guidance_catalog  # noqa: E402
 
 
 OCCUPATION_CLASSES = {"office", "tech", "research", "field"}
@@ -141,6 +143,11 @@ def main() -> int:
         question_ids = {
             rule["id"] for rule in ruleset.rules if rule["layer"] == "question"
         }
+        guidance = load_guidance_catalog(
+            ROOT / "data",
+            question_ids=question_ids,
+        )
+        organization_guidance = load_organization_guidance_catalog(ROOT / "data")
         rejected_count = validate_rejected(
             ROOT / "data" / "rules" / "rejected.yaml",
             question_ids,
@@ -168,7 +175,9 @@ def main() -> int:
         return 1
     print(
         f"데이터 검증 완료: 규칙 {len(ruleset.rules)}개, "
-        f"질문 {len(question_ids)}개, 기각·유보 {rejected_count}개"
+        f"질문 {len(question_ids)}개, NCS 통제 {len(guidance.controls)}개, "
+        f"조직 적용 프로필 {len(organization_guidance.profiles)}개, "
+        f"기각·유보 {rejected_count}개"
     )
     return 0
 

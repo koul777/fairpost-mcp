@@ -23,8 +23,12 @@ playwright-report/
 test-results/
 screenshots/
 tmp/
+.tmp/
 reports/overnight_sessions/
 reports/pytest-*.xml
+# Intermediate 8-hour audit reruns; the canonical *-8h-final.json files remain tracked.
+reports/distribution_audit-8h-2026-09-12*.json
+reports/evidence_version_audit-8h-2026-09-12*.json
 .private-review/
 .tmppdf/
 output/

@@ -696,6 +696,32 @@ def test_release_report_rejects_audited_artifact_outside_dist(
         module._audited_artifact(details, "wheel")
 
 
+def test_release_report_accepts_explicit_candidate_artifact_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = load_tool("build_release_report")
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+    candidate = tmp_path / "dist-candidate"
+    candidate.mkdir()
+    wheel = candidate / "package.whl"
+    payload = b"candidate-artifact"
+    wheel.write_bytes(payload)
+    details = {
+        "path": "dist-candidate/package.whl",
+        "bytes": len(payload),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+    }
+
+    artifact = module._audited_artifact(
+        details,
+        "wheel",
+        artifact_root=candidate,
+    )
+
+    assert artifact["path"] == "dist-candidate/package.whl"
+    assert artifact["bytes"] == len(payload)
+
+
 def _write_handoff_fixture(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     records = tmp_path / "corpus" / "holdout" / "records.jsonl"
     manifest = tmp_path / "corpus" / "holdout" / "manifest.json"
@@ -1432,11 +1458,12 @@ def test_reclassifier_preserves_ids_hashes_and_fixed_membership(
 
 def test_vercel_configuration_excludes_private_inputs() -> None:
     config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
-    assert config["functions"]["api/index.py"]["maxDuration"] == 30
+    assert config["functions"]["api/index.py"]["maxDuration"] == 60
     rewrites = {
         item["source"]: item["destination"] for item in config["rewrites"]
     }
     assert rewrites == {
+        "/api/assisted-review": "/api",
         "/api/claude-mcp": "/api",
         "/api/health": "/api",
         "/api/mcp": "/api",
@@ -1673,6 +1700,27 @@ def test_distribution_audit_rejects_private_build_artifacts() -> None:
     assert "reports/private_open_candidate_batches.jsonl" in violations
 
 
+def test_distribution_source_omits_ephemeral_candidate_reports(
+    tmp_path: Path,
+) -> None:
+    module = load_tool("verify_distribution")
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    (reports / "build_artifact-8h.json").write_text("{}", encoding="utf-8")
+    (reports / "distribution_audit-8h.json").write_text("{}", encoding="utf-8")
+    (reports / "evidence_version_audit-8h.json").write_text("{}", encoding="utf-8")
+    (reports / "role-review-audit-2026-09-12.json").write_text(
+        "{}", encoding="utf-8"
+    )
+
+    source_files = module._sdist_source_files(tmp_path)
+
+    assert "reports/build_artifact-8h.json" not in source_files
+    assert "reports/distribution_audit-8h.json" not in source_files
+    assert "reports/evidence_version_audit-8h.json" not in source_files
+    assert "reports/role-review-audit-2026-09-12.json" in source_files
+
+
 def test_distribution_source_fingerprint_binds_docs_and_normalizes_line_endings(
     tmp_path: Path,
 ) -> None:
@@ -1767,6 +1815,7 @@ def test_distribution_privacy_asset_scope_covers_packaged_data() -> None:
     assert module._is_privacy_asset("docs/evidence.json") is True
     assert module._is_privacy_asset("examples/input.jsonl") is True
     assert module._is_privacy_asset("data/rules/law.yaml") is True
+    assert module._is_privacy_asset("tests/test_engine.py") is True
     assert module._is_privacy_asset("web/data.js") is True
     assert module._is_privacy_asset("tools/evaluate.py") is False
 
@@ -1784,6 +1833,39 @@ def test_distribution_privacy_allowlist_is_exact_and_asset_scoped() -> None:
     assert module._privacy_kinds(
         module._privacy_scan_payload("web/app.js", b"010-9876-5432")
     ) == ["korean_phone"]
+    assert module._privacy_kinds(
+        module._privacy_scan_payload(
+            "tests/test_engine.py", b"02-1234-5678 / recruit@example.com"
+        )
+    ) == []
+    assert module._privacy_kinds(
+        module._privacy_scan_payload(
+            "tests/test_engine.py",
+            b"010-9876-5432 / person@" + b"company.co.kr",
+        )
+    ) == ["email", "korean_phone"]
+
+
+def test_sdist_privacy_scan_rejects_unreviewed_pii_in_packaged_test(
+    tmp_path: Path,
+) -> None:
+    module = load_tool("verify_distribution")
+    archive_path = tmp_path / "package.tar.gz"
+    payload = b"contact = " + b"person@" + b"company.co.kr"
+    with tarfile.open(archive_path, "w:gz") as archive:
+        info = tarfile.TarInfo("fairpost-0.3.0/tests/test_customer_case.py")
+        info.size = len(payload)
+        archive.addfile(info, io.BytesIO(payload))
+
+    with tarfile.open(archive_path, "r:gz") as archive:
+        findings = module._tar_asset_privacy_findings(archive)
+
+    assert findings == [
+        {
+            "member": "fairpost-0.3.0/tests/test_customer_case.py",
+            "kinds": ["email"],
+        }
+    ]
 
 
 def test_sdist_privacy_scan_fails_closed_for_oversized_asset(

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; connect-src 'none'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
     >
     <meta name="color-scheme" content="light">
     <title>fairpost | 채용공고 검토 메모</title>
@@ -22,9 +22,14 @@
         </div>
       </div>
       <div class="header-actions">
-        <div class="privacy" role="status">
+        <div
+          id="privacy-status"
+          class="privacy"
+          role="status"
+          title="기본 검사는 브라우저 안에서만 처리됩니다. AI·현행 법령 보강을 켜면 안내된 외부 서비스 전송이 시작됩니다."
+        >
           <span class="privacy-dot" aria-hidden="true"></span>
-          입력ㆍ답변은 이 브라우저 밖으로 전송되지 않으며 배포ㆍ근거 링크만 새 외부 페이지를 엽니다
+          <span id="privacy-message">기본 검사는 브라우저 안에서 처리 · 역할 기록은 브라우저에만 저장</span>
         </div>
         <a
           id="deploy-button"
@@ -55,12 +60,75 @@
             </button>
           </div>
         </div>
+        <div class="organization-profile" role="group" aria-labelledby="organization-profile-title">
+          <div>
+            <strong id="organization-profile-title">조직 조건</strong>
+            <span>문항별 적용 맥락을 조정하며 판정에는 사용하지 않습니다</span>
+          </div>
+          <label>
+            공공·민간
+            <select id="organization-sector">
+              <option value="unspecified">선택 안 함</option>
+              <option value="public">공공기관</option>
+              <option value="private">민간기업</option>
+            </select>
+          </label>
+          <label>
+            공공기관 세부유형
+            <select id="organization-public-type" disabled>
+              <option value="unspecified">지정 유형 선택</option>
+              <option value="public_corporation">공기업</option>
+              <option value="quasi_government">준정부기관</option>
+              <option value="other_public">기타공공기관</option>
+              <option value="local_public">지방공기업·지방출자출연기관</option>
+              <option value="government_body">국가·지방자치단체</option>
+              <option value="other_public_sector">그 밖의 공공부문</option>
+            </select>
+          </label>
+          <label>
+            상시근로자 규모
+            <select id="organization-size">
+              <option value="unspecified">선택 안 함</option>
+              <option value="under_30">1~29명</option>
+              <option value="30_to_299">30~299명</option>
+              <option value="300_plus">300명 이상</option>
+            </select>
+          </label>
+        </div>
         <textarea
           id="posting-input"
           spellcheck="false"
           placeholder="채용공고문 원문을 여기에 붙여 넣으세요."
           aria-label="채용공고문 원문"
         ></textarea>
+        <div class="assisted-option">
+          <div class="assisted-option-row">
+            <label class="assist-switch" for="assisted-review-toggle">
+              <input
+                id="assisted-review-toggle"
+                type="checkbox"
+                role="switch"
+                aria-describedby="assisted-review-status"
+              >
+              <span>
+                <strong>AI·현행 법령 보강</strong>
+                <small>선택 기능</small>
+              </span>
+            </label>
+            <div class="assist-option-controls">
+              <label class="assist-provider" for="assisted-review-provider">
+                <span>AI</span>
+                <select id="assisted-review-provider" disabled>
+                  <option value="">자동 선택</option>
+                </select>
+              </label>
+              <span id="assisted-review-badge" class="assist-badge">꺼짐</span>
+            </div>
+          </div>
+          <p id="assisted-review-status">
+            기본 검사는 브라우저에서만 실행됩니다. 켜면 다음 검사부터 설정된 Korean Law MCP와 AI API를 함께 사용합니다.
+          </p>
+        </div>
         <div class="editor-footer">
           <span id="char-count">0자</span>
           <button id="check-button" class="button button-primary" type="button">
@@ -109,8 +177,84 @@
 
           <div class="review-progress-strip" role="status" aria-live="polite">
             <strong id="answer-progress">담당자 답변 0/0</strong>
-            <span>질문별 답변은 현재 분석 세션에만 남고, 재분석하거나 입력을 지우면 삭제됩니다. 외부로 전송되지 않습니다.</span>
+            <span>질문별 답변은 현재 분석 세션에만 남고, 역할 검토 이벤트는 이 브라우저에만 저장됩니다. 공고 원문은 저장하지 않습니다.</span>
           </div>
+
+          <section id="role-review-panel" class="role-review-panel" aria-labelledby="role-review-heading" hidden>
+            <div class="role-review-heading-row">
+              <div>
+                <p class="eyebrow">다중 역할 검토 큐</p>
+                <h3 id="role-review-heading">위원장과 함께 검토하기</h3>
+              </div>
+              <span id="role-review-status" class="assist-badge">준비 중</span>
+            </div>
+            <p id="role-review-notice" class="role-review-notice">
+              공고 fingerprint와 역할 이벤트만 이 브라우저에 저장합니다. 원문·지원자 정보는 역할 기록에 저장하지 않습니다.
+            </p>
+            <div class="role-review-controls">
+              <label>
+                역할
+                <select id="role-review-role">
+                  <option value="hr_owner">인사 운영책임자</option>
+                  <option value="job_sme">직무전문가</option>
+                  <option value="interviewer">면접위원</option>
+                  <option value="policy_reviewer">정책검토자</option>
+                  <option value="auditor">감사자</option>
+                  <option value="candidate_advocate">지원자 대변인</option>
+                </select>
+              </label>
+              <label>
+                단계
+                <select id="role-review-stage">
+                  <option value="analysis">분석</option>
+                  <option value="design">설계</option>
+                  <option value="development">개발</option>
+                  <option value="implementation">운영</option>
+                  <option value="evaluation">평가</option>
+                </select>
+              </label>
+              <label>
+                행동
+                <select id="role-review-action">
+                  <option value="note">메모</option>
+                  <option value="confirm">확인</option>
+                  <option value="edit_requested">수정 요청</option>
+                  <option value="escalate">위원장에게 이관</option>
+                  <option value="resolve">해결 기록</option>
+                </select>
+              </label>
+            </div>
+            <label id="role-review-resolve-label" class="role-review-note-label" for="role-review-resolve-event" hidden>
+              해결할 이슈
+              <select id="role-review-resolve-event">
+                <option value="">해결할 수정 요청 또는 이관을 선택하세요.</option>
+              </select>
+            </label>
+            <label class="role-review-note-label" for="role-review-note">검토 메모</label>
+            <textarea id="role-review-note" rows="3" maxlength="4000" placeholder="직무관련성, 운영상 위험, 지원자 부담 또는 추가 확인 근거를 기록하세요."></textarea>
+            <p class="role-review-help">공고 원문·지원자 개인정보·연락처는 메모에 붙여 넣지 말고 요약과 근거 ID만 남기세요.</p>
+            <label class="role-review-note-label" for="role-review-evidence">근거 ID <small>(쉼표로 구분, 선택)</small></label>
+            <input id="role-review-evidence" type="text" maxlength="1024" placeholder="예: Q-DIST-002, ncs-process">
+            <div class="role-review-actions">
+              <button id="role-review-record" class="button button-secondary" type="button">이 역할의 검토 기록</button>
+              <button id="role-review-clear" class="button button-quiet" type="button">이 공고의 역할 기록 삭제</button>
+              <strong id="role-review-progress">참여 역할 1/7 · 이벤트 1개</strong>
+            </div>
+            <p id="role-review-missing" class="role-review-missing" aria-live="polite"></p>
+            <ol id="role-review-events" class="role-review-events"></ol>
+          </section>
+
+          <section id="assisted-review-panel" class="assisted-review-panel" aria-labelledby="assisted-review-heading" hidden>
+            <div class="assisted-review-heading-row">
+              <div>
+                <p class="eyebrow">선택적 보강 검토</p>
+                <h3 id="assisted-review-heading">AI·현행 법령 검토 메모</h3>
+              </div>
+              <span id="assisted-review-result-status" class="assist-badge">대기</span>
+            </div>
+            <p id="assisted-review-notice" class="assisted-review-notice"></p>
+            <pre id="assisted-review-output" class="assisted-review-output"></pre>
+          </section>
 
           <section class="result-block" aria-labelledby="findings-heading">
             <div class="block-heading">
@@ -150,7 +294,7 @@
 
     <footer class="app-footer">
       <span>규칙 사전 <code id="ruleset-version">불러오는 중</code></span>
-      <span>로컬 규칙 엔진 · 배포는 GitHub 저장소 접근 권한 필요 · 현재 입력값은 전달하지 않음</span>
+      <span>로컬 규칙 엔진 · 배포는 GitHub 저장소 접근 권한 필요 · AI·법령 보강은 사용자가 켠 요청에서만 동작</span>
     </footer>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>

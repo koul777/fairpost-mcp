@@ -8,7 +8,7 @@
     "timing_source": "time.perf_counter (monotonic)",
     "warmup_passes": 1
   },
-  "generated_at": "2026-08-30T15:16:46.049404+00:00",
+  "generated_at": "2026-09-06T02:53:00.182166+00:00",
   "input": {
     "records": 420,
     "sha256": "8dd411d311d757a77ac09f178785ca9b6f81bae7b540f4d6f55344b1239fb7dd",
@@ -16,17 +16,17 @@
   },
   "matching_version": "match-fa5e6d7a5c7d2904",
   "metrics": {
-    "elapsed_seconds": 11.890935,
+    "elapsed_seconds": 4.981916,
     "latency_ms": {
-      "max": 38.9931,
-      "mean": 9.43725,
-      "min": 2.4416,
-      "p50": 6.0516,
-      "p95": 21.4124,
-      "p99": 25.8676,
+      "max": 17.2034,
+      "mean": 3.953902,
+      "min": 0.7202,
+      "p50": 2.2599,
+      "p95": 9.9925,
+      "p99": 12.6711,
       "samples": 1260
     },
-    "postings_per_second": 105.963
+    "postings_per_second": 252.915
   },
   "privacy": {
     "contains_organization_data": false,
