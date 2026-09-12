@@ -211,6 +211,11 @@ SYNTHETIC_PRIVACY_EXAMPLES = {
         b"900101-1234567",
         b"jincheon-jobs:private-record-1",
     ),
+    "tests/test_assisted_review.py": (
+        b"test@example.com",
+        b"010-1234-5678",
+        b"900101-1234567",
+    ),
     "tests/test_corpus_tools.py": (
         b"recruit@example.com",
         b"secret@example.test",
