@@ -213,7 +213,8 @@ def test_static_web_keeps_optional_assisted_review_off_by_default() -> None:
     engine = (ROOT / "web" / "engine.js").read_text(encoding="utf-8")
     assert "connect-src 'self'" in html
     assert '<link rel="icon" href="/favicon.svg"' in html
-    assert "AI·현행 법령 보강을 켜기 전에는" in html
+    assert "기본 검사는 브라우저 안에서 처리" in html
+    assert "역할 기록은 브라우저에만 저장" in html
     assert 'id="deploy-button"' in html
     assert "https://vercel.com/new/clone?repository-url=" in html
     assert 'target="_blank"' in html
@@ -224,6 +225,8 @@ def test_static_web_keeps_optional_assisted_review_off_by_default() -> None:
     assert "fairpost | 채용공고 검토 메모" in html
     assert "검토 메모 만들기" in html
     assert 'id="results-title" tabindex="-1"' in html
+    assert 'window.matchMedia("(max-width: 1100px)").matches' in app
+    assert 'resultsTitle.scrollIntoView({ behavior: "auto", block: "start" })' in app
     assert "개수는 검토할 작업량입니다." in html
     assert "점수·등급·합격/불합격 또는 공정성 판정" in html
     assert html.index('id="disclaimer"') < html.index('class="summary-strip"')
@@ -414,3 +417,10 @@ def test_web_css_preserves_hidden_state_and_mobile_width() -> None:
     assert ".review-answer-contenttextarea{" in compact
     assert "a:focus-visible{" in compact
     assert "@media(prefers-reduced-motion:reduce)" in compact
+    assert "grid-template-columns:minmax(0,1fr);" in compact
+    assert ".editor-pane>*{min-width:0;}" in compact
+    assert "grid-template-columns:repeat(3,minmax(0,1fr));" in compact
+    assert ".organization-profilelabel{min-width:0;" in compact
+    assert ".organization-profileselect{width:100%;min-width:0;max-width:100%;" in compact
+    assert "@media(max-width:1100px)" in compact
+    assert "@media(max-width:820px)" in compact

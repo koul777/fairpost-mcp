@@ -678,12 +678,12 @@
 
   function setLocalPrivacyNotice() {
     privacyMessage.textContent =
-      "AI·현행 법령 보강을 켜기 전에는 입력이 이 브라우저 밖으로 전송되지 않습니다 · 역할 이벤트는 브라우저에만 저장됩니다";
+      "기본 검사는 브라우저 안에서 처리 · 역할 기록은 브라우저에만 저장";
   }
 
   function setAssistedPrivacyNotice() {
     privacyMessage.textContent =
-      "AI·현행 법령 보강 켜짐: 실행 시 공고문이 FairPost 서버에서 처리되고 선별 근거가 설정된 외부 서비스로 전송됩니다";
+      "AI 보강 켜짐 · 실행 시 공고문과 선별 근거가 안내된 외부 서비스로 전송";
   }
 
   async function responseJson(response) {
@@ -1152,6 +1152,13 @@
     resetAssistedReviewPanel();
     render(window.FairpostEngine.check(input.value));
     resultsTitle.focus();
+    if (
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(max-width: 1100px)").matches &&
+      typeof resultsTitle.scrollIntoView === "function"
+    ) {
+      resultsTitle.scrollIntoView({ behavior: "auto", block: "start" });
+    }
     if (assistedToggle.checked) {
       void runAssistedReview(input.value);
     }
