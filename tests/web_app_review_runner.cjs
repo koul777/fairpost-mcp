@@ -159,6 +159,8 @@ globalThis.fetch = async (url, options = {}) => {
         return {
           ready: true,
           privacy: "선별된 근거만 외부 서비스로 전달합니다.",
+          available_providers: [{ id: "anthropic", label: "Claude", model: "claude-model" }],
+          default_provider: "anthropic",
         };
       },
     };
@@ -169,6 +171,7 @@ globalThis.fetch = async (url, options = {}) => {
       return {
         schema_version: "fairpost-assisted-review-v1",
         status: "completed",
+        ai_provider: "anthropic",
         summary: "현행 조문을 바탕으로 사람의 적용 범위 확인이 필요합니다.",
         notice: "AI 보강 메모는 법률 자문이 아닙니다.",
         current_articles_retrieved: 1,

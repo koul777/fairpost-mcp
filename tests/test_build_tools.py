@@ -1458,7 +1458,7 @@ def test_reclassifier_preserves_ids_hashes_and_fixed_membership(
 
 def test_vercel_configuration_excludes_private_inputs() -> None:
     config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
-    assert config["functions"]["api/index.py"]["maxDuration"] == 30
+    assert config["functions"]["api/index.py"]["maxDuration"] == 60
     rewrites = {
         item["source"]: item["destination"] for item in config["rewrites"]
     }

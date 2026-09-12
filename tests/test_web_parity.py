@@ -237,6 +237,7 @@ def test_static_web_keeps_optional_assisted_review_off_by_default() -> None:
     assert 'id="answer-progress"' in html
     assert "질문별 답변은 현재 분석 세션에만 남고" in html
     assert 'id="assisted-review-toggle"' in html
+    assert 'id="assisted-review-provider"' in html
     assert 'role="switch"' in html
     assert 'id="assisted-review-panel"' in html
     assert 'id="organization-sector"' in html
@@ -363,6 +364,7 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     ]
     assert assisted["postBody"] == {
         "assist_enabled": True,
+        "ai_provider": "anthropic",
         "text": "여성만 지원 가능",
         "organization_profile": {
             "sector": "public",

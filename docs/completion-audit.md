@@ -53,7 +53,7 @@
 | 외부 MCP 클라이언트 연동 | 충족 | `.mcp.json`과 Codex CLI의 `fairpost`를 루프백 기본, `fairpost-remote`를 명시 선택으로 검사한다. 운영 배포는 공식 MCP Inspector 2.4.0ㆍSDK로 검증했고, Claude Code 프로젝트 승인 후 로컬 분석 3도구의 실제 호출과 출력 SHA-256 영수증도 확인했다. |
 | Vercel 운영 MCP | 충족 | `https://fairmcp.vercel.app/api/mcp` 배포 `dpl_3BxzdYUYzsqShgdX5HW4zVudgWQX`에서 현재 규칙ㆍ매칭ㆍ런타임 지문과 파일별 소스 해시, 보안 헤더, 일반ㆍClaude 경로의 익명 401을 대조했다. 인증 후 일반 원격 읽기 전용 3도구와 Claude 호환 평문 1도구를 모두 실제 호출했다. 저장 쓰기는 수행하지 않았다. |
 | Vercel 답변 저장 | 비목표 | 공유 토큰과 임의 `org_id`로 조직 경계를 만들지 않도록 일반 원격 MCP는 인증 여부와 관계없이 읽기 전용 3도구로 고정했다. 답변 저장은 루프백 로컬 MCP에서만 제공한다. |
-| 선택형 AIㆍ외부 법령 보강 | 부분 충족 | `/api/assisted-review`와 기본 비활성 UI를 구현하고 설정 누락ㆍ법령 조회 실패 시 닫힌 방식으로 중단하며 5회/분 기본 제한을 둔다. AI API와 Korean Law MCP가 설정된 환경의 모의 통합 테스트는 통과했지만, 현재 운영 배포의 실제 키 구성과 외부 종단간 호출은 검증하지 않았다. |
+| 선택형 AIㆍ외부 법령 보강 | 부분 충족 | `/api/assisted-review`와 기본 비활성 UI를 구현하고 ClaudeㆍGPTㆍGemini를 요청별로 선택할 수 있게 했다. 설정 누락ㆍ법령 조회 실패 시 닫힌 방식으로 중단하며 5회/분 기본 제한과 네이티브 키의 공식 호스트 제한을 둔다. 세 AI API와 Korean Law MCP의 모의 통합 테스트는 통과했지만, 현재 운영 배포의 실제 키 구성과 외부 종단간 호출은 검증하지 않았다. |
 | 법령 개정 감사 자동화 | 부분 충족 | 공개 GitHub 저장소와 일일 비교 워크플로, 영향 규칙 보고는 구현됐다. 다만 `LAW_OPEN_API_OC` 저장소 비밀값이 없고 법령 감사 워크플로의 성공 실행 증거도 없다. |
 | 정적 웹 단독 실행 | 충족 | 선택형 보강을 끈 상태의 서버 없는 `file://` 실행과 데스크톱ㆍ모바일 화면 검증, HTML 표준 검사 0건, 운영 루트ㆍ`/web/` axe 위반 0건, 최종 `/web/` Lighthouse 접근성ㆍBest Practices 1.0. 보강 스위치는 서버 API가 없으면 자동으로 다시 꺼짐 |
 | 배포 패키지 소스 동등성ㆍ정보 경계 | 충족 | 2026-08-30 sdistㆍwheel 재빌드ㆍ재감사를 통과했다. 합성 사용 예시는 `synthetic_examples_only`로 표시하고, 비공개 실제 코퍼스 원문ㆍ인증정보ㆍ민간 레코드 ID가 배포본에 포함되지 않음을 `reports/distribution_audit.json`으로 재확인했다. 고정 `SOURCE_DATE_EPOCH` 이중 빌드에서 wheel은 바이트 동일했고, sdist는 파일 내용이 같지만 생성 시각 메타데이터 때문에 archive 해시가 달라 현재 산출물의 정확한 해시와 source equivalence를 보증 범위로 둔다. |

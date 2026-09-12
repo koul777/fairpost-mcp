@@ -25,7 +25,7 @@ DEPLOYMENT_EXCLUSION_POLICY = (
     "data/local_rules.yaml",
 )
 DEPLOYMENT_CONFIG_POLICY = {
-    "function_max_duration": 30,
+    "function_max_duration": 60,
     "function_exclude_files": (
         "{.corpus*/**,build/**,dist/**,tmp/**,tests/**,tools/**,reports/**,"
         "docs/**,.env,.env.*,*.egg-info/**}"

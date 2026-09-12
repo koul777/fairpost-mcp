@@ -9,12 +9,19 @@
   const assistedToggle = document.getElementById("assisted-review-toggle");
   const assistedStatus = document.getElementById("assisted-review-status");
   const assistedBadge = document.getElementById("assisted-review-badge");
+  const assistedProvider = document.getElementById("assisted-review-provider");
   const assistedPanel = document.getElementById("assisted-review-panel");
   const assistedResultStatus = document.getElementById(
     "assisted-review-result-status"
   );
   const assistedNotice = document.getElementById("assisted-review-notice");
   const assistedOutput = document.getElementById("assisted-review-output");
+  const assistedProviderLabels = {
+    anthropic: "Claude",
+    openai: "GPT",
+    gemini: "Gemini",
+    openai_compatible: "OpenAI 호환 API",
+  };
   const roleReviewPanel = document.getElementById("role-review-panel");
   const roleReviewStatus = document.getElementById("role-review-status");
   const roleReviewNotice = document.getElementById("role-review-notice");
@@ -694,6 +701,23 @@
     }
   }
 
+  function configureAssistedProviders(capability) {
+    const available = Array.isArray(capability.available_providers)
+      ? capability.available_providers
+          .map((item) => item && item.id)
+          .filter((id) => Object.prototype.hasOwnProperty.call(assistedProviderLabels, id))
+      : [];
+    assistedProvider.innerHTML = available
+      .map((id) => `<option value="${id}">${assistedProviderLabels[id]}</option>`)
+      .join("");
+    const preferred = available.includes(capability.default_provider)
+      ? capability.default_provider
+      : available[0] || "";
+    assistedProvider.value = preferred;
+    assistedProvider.disabled = available.length < 2;
+    return preferred ? assistedProviderLabels[preferred] : "설정된 AI";
+  }
+
   async function activateAssistedReview() {
     const requestId = ++assistedRequestSequence;
     assistedStatus.textContent = "서버의 AI API와 Korean Law MCP 설정을 확인하고 있습니다.";
@@ -709,8 +733,9 @@
       if (!response.ok || capability.ready !== true) {
         throw new Error(capability.reason || "보강 검토가 설정되지 않았습니다.");
       }
+      const providerLabel = configureAssistedProviders(capability);
       setAssistBadge(assistedBadge, "켜짐", "active");
-      assistedStatus.textContent = capability.privacy;
+      assistedStatus.textContent = `${capability.privacy} 현재 선택: ${providerLabel}`;
       setAssistedPrivacyNotice();
       showToast("AI·현행 법령 보강을 활성화했습니다.");
       if (latestResult && input.value.trim()) {
@@ -745,6 +770,7 @@
         cache: "no-store",
         body: JSON.stringify({
           assist_enabled: true,
+          ai_provider: assistedProvider.value || null,
           text,
           organization_profile: currentOrganizationProfile(),
         }),
@@ -755,7 +781,8 @@
         throw new Error(result.reason || result.error || "보강 검토 요청이 실패했습니다.");
       }
       latestAssistedReview = result;
-      assistedNotice.textContent = `${result.notice} 현행 조문 ${result.current_articles_retrieved || 0}건을 확인했습니다.`;
+      const providerLabel = assistedProviderLabels[result.ai_provider] || "AI";
+      assistedNotice.textContent = `${result.notice} ${providerLabel}와 현행 조문 ${result.current_articles_retrieved || 0}건을 사용했습니다.`;
       if (result.status === "completed" && result.summary) {
         assistedOutput.textContent = result.summary;
         setAssistBadge(assistedResultStatus, "완료", "active");
@@ -1181,6 +1208,12 @@
       "기본 검사는 브라우저에서만 실행됩니다. 켜면 다음 검사부터 설정된 Korean Law MCP와 AI API를 함께 사용합니다.";
     setAssistBadge(assistedBadge, "꺼짐");
     setLocalPrivacyNotice();
+  });
+  assistedProvider.addEventListener("change", () => {
+    if (!assistedToggle.checked) return;
+    const providerLabel = assistedProviderLabels[assistedProvider.value] || "설정된 AI";
+    assistedStatus.textContent = `선별된 근거만 외부 서비스로 전달합니다. 현재 선택: ${providerLabel}`;
+    if (latestResult && input.value.trim()) void runAssistedReview(input.value);
   });
   organizationSector.addEventListener("change", () => {
     const isPublic = organizationSector.value === "public";

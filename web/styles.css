@@ -399,6 +399,8 @@ a:focus-visible,
 
 .assisted-option-row,
 .assist-switch,
+.assist-option-controls,
+.assist-provider,
 .assisted-review-heading-row {
   display: flex;
   align-items: center;
@@ -413,6 +415,34 @@ a:focus-visible,
 .assist-switch {
   gap: 9px;
   cursor: pointer;
+}
+
+.assist-option-controls,
+.assist-provider {
+  gap: 8px;
+}
+
+.assist-provider span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.assist-provider select {
+  max-width: 150px;
+  min-height: 28px;
+  padding: 3px 24px 3px 8px;
+  border: 1px solid #b9c7c0;
+  border-radius: 7px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  font-size: 10px;
+}
+
+.assist-provider select:disabled {
+  color: var(--muted);
+  background: #eef2ef;
 }
 
 .assist-switch input {
@@ -1307,6 +1337,17 @@ a:focus-visible,
 
   .assisted-option {
     padding: 12px 15px;
+  }
+
+  .assisted-option-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .assist-option-controls {
+    width: 100%;
+    justify-content: space-between;
+    padding-left: 43px;
   }
 
   .role-review-controls {

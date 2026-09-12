@@ -115,7 +115,15 @@
                 <small>선택 기능</small>
               </span>
             </label>
-            <span id="assisted-review-badge" class="assist-badge">꺼짐</span>
+            <div class="assist-option-controls">
+              <label class="assist-provider" for="assisted-review-provider">
+                <span>AI</span>
+                <select id="assisted-review-provider" disabled>
+                  <option value="">자동 선택</option>
+                </select>
+              </label>
+              <span id="assisted-review-badge" class="assist-badge">꺼짐</span>
+            </div>
           </div>
           <p id="assisted-review-status">
             기본 검사는 브라우저에서만 실행됩니다. 켜면 다음 검사부터 설정된 Korean Law MCP와 AI API를 함께 사용합니다.

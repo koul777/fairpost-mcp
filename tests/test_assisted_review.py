@@ -18,11 +18,21 @@ from mcp_server.review import LawMcpRequest, LawVerificationResult
 
 
 AI_ENV = (
+    "FAIRPOST_AI_PROVIDER",
     "FAIRPOST_AI_API_URL",
     "FAIRPOST_AI_API_KEY",
     "FAIRPOST_AI_MODEL",
     "FAIRPOST_AI_TIMEOUT_SECONDS",
     "FAIRPOST_AI_REASONING_EFFORT",
+    "FAIRPOST_ANTHROPIC_API_URL",
+    "FAIRPOST_ANTHROPIC_API_KEY",
+    "FAIRPOST_ANTHROPIC_MODEL",
+    "FAIRPOST_OPENAI_API_URL",
+    "FAIRPOST_OPENAI_API_KEY",
+    "FAIRPOST_OPENAI_MODEL",
+    "FAIRPOST_GEMINI_API_URL",
+    "FAIRPOST_GEMINI_API_KEY",
+    "FAIRPOST_GEMINI_MODEL",
 )
 LAW_ENV = (
     "FAIRPOST_KOREAN_LAW_MCP_URL",
@@ -85,6 +95,36 @@ def test_ai_response_requires_a_final_answer(content):
         _response_text({"choices": [{"message": {"content": content}}]})
 
 
+def test_external_evidence_redacts_direct_identifiers() -> None:
+    from mcp_server.assisted_review import _redact_external_text
+
+    source = "담당자 test@example.com / 010-1234-5678 / 900101-1234567"
+    redacted = _redact_external_text(source)
+
+    assert "test@example.com" not in redacted
+    assert "010-1234-5678" not in redacted
+    assert "900101-1234567" not in redacted
+    assert "[이메일 마스킹]" in redacted
+
+
+def test_gemini_response_does_not_expose_thought_parts() -> None:
+    from mcp_server.assisted_review import _response_text
+
+    body = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"thought": True, "text": "비공개 추론"},
+                        {"text": "최종 메모"},
+                    ]
+                }
+            }
+        ]
+    }
+    assert _response_text(body, provider="gemini") == "최종 메모"
+
+
 def test_assisted_review_is_optional_and_disabled_without_configuration(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -135,6 +175,144 @@ def test_remote_ai_api_requires_https_and_key(
     )
     monkeypatch.setenv("FAIRPOST_AI_MODEL", "review-model")
     assert AiApiConfig.from_environment().configured is False
+
+
+def test_capability_exposes_all_configured_native_providers_without_leaking_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_environment(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_ANTHROPIC_API_KEY", "anthropic-secret")
+    monkeypatch.setenv("FAIRPOST_ANTHROPIC_MODEL", "claude-model")
+    monkeypatch.setenv("FAIRPOST_OPENAI_API_KEY", "openai-secret")
+    monkeypatch.setenv("FAIRPOST_OPENAI_MODEL", "gpt-model")
+    monkeypatch.setenv("FAIRPOST_GEMINI_API_KEY", "gemini-secret")
+    monkeypatch.setenv("FAIRPOST_GEMINI_MODEL", "gemini-model")
+    monkeypatch.setenv("FAIRPOST_KOREAN_LAW_MCP_URL", "https://law.example/mcp")
+
+    capability = assisted_review_capability()
+
+    assert capability["ready"] is True
+    assert capability["default_provider"] == "anthropic"
+    assert [item["id"] for item in capability["available_providers"]] == [
+        "anthropic",
+        "openai",
+        "gemini",
+    ]
+    assert [item["label"] for item in capability["available_providers"]] == [
+        "Claude",
+        "GPT",
+        "Gemini",
+    ]
+    serialized = json.dumps(capability, ensure_ascii=False)
+    assert "anthropic-secret" not in serialized
+    assert "openai-secret" not in serialized
+    assert "gemini-secret" not in serialized
+
+
+def test_native_provider_uses_review_ready_default_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_environment(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_OPENAI_API_KEY", "openai-secret")
+
+    config = AiApiConfig.from_provider_environment("openai")
+
+    assert config.configured is True
+    assert config.model == "gpt-5.6-terra"
+
+
+@pytest.mark.parametrize(
+    ("provider", "url", "response_body"),
+    [
+        (
+            "anthropic",
+            "https://api.anthropic.com/v1/messages",
+            {"content": [{"type": "text", "text": "Claude 검토 메모"}]},
+        ),
+        (
+            "openai",
+            "https://api.openai.com/v1/responses",
+            {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": "GPT 검토 메모"}],
+                    }
+                ]
+            },
+        ),
+        (
+            "gemini",
+            "https://generativelanguage.googleapis.com/v1beta",
+            {"candidates": [{"content": {"parts": [{"text": "Gemini 검토 메모"}]}}]},
+        ),
+    ],
+)
+def test_native_ai_provider_request_contracts(provider, url, response_body):
+    captured: list[httpx.Request] = []
+
+    async def respond(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, json=response_body)
+
+    async def exercise() -> str:
+        reviewer = AiReviewer(
+            AiApiConfig(
+                url=url,
+                api_key="provider-secret",
+                model="provider-model",
+                provider=provider,
+            ),
+            transport=httpx.MockTransport(respond),
+        )
+        result, truncated = await reviewer.review({"finding": "선별 근거"})
+        assert truncated is False
+        return result
+
+    result = anyio.run(exercise)
+    request = captured[0]
+    payload = json.loads(request.content)
+    assert "선별 근거" in json.dumps(payload, ensure_ascii=False)
+    assert "provider-secret" not in request.content.decode("utf-8")
+
+    if provider == "anthropic":
+        assert result == "Claude 검토 메모"
+        assert request.headers["x-api-key"] == "provider-secret"
+        assert request.headers["anthropic-version"] == "2023-06-01"
+        assert payload["system"]
+        assert payload["messages"][0]["role"] == "user"
+    elif provider == "openai":
+        assert result == "GPT 검토 메모"
+        assert request.headers["authorization"] == "Bearer provider-secret"
+        assert payload["instructions"]
+        assert payload["input"]
+    else:
+        assert result == "Gemini 검토 메모"
+        assert request.headers["x-goog-api-key"] == "provider-secret"
+        assert request.url.path.endswith("/models/provider-model:generateContent")
+        assert payload["systemInstruction"]
+        assert payload["contents"][0]["role"] == "user"
+
+
+@pytest.mark.parametrize(
+    ("provider", "prefix"),
+    [
+        ("anthropic", "FAIRPOST_ANTHROPIC"),
+        ("openai", "FAIRPOST_OPENAI"),
+        ("gemini", "FAIRPOST_GEMINI"),
+    ],
+)
+def test_native_provider_key_cannot_be_sent_to_an_unofficial_host(
+    monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    prefix: str,
+) -> None:
+    _clear_environment(monkeypatch)
+    monkeypatch.setenv(f"{prefix}_API_URL", "https://attacker.example/v1")
+    monkeypatch.setenv(f"{prefix}_API_KEY", "secret")
+    monkeypatch.setenv(f"{prefix}_MODEL", "model")
+    with pytest.raises(ValueError, match="official host"):
+        AiApiConfig.from_provider_environment(provider)
 
 
 def test_assisted_review_sends_only_selected_evidence_to_ai() -> None:
@@ -275,10 +453,10 @@ def test_assisted_review_http_endpoint_requires_explicit_toggle(
             "reason": "사용할 수 있습니다.",
         },
     )
-    calls: list[str] = []
+    calls: list[tuple[str, str | None]] = []
 
     async def fake_prepare(_engine, text, **_kwargs):
-        calls.append(text)
+        calls.append((text, _kwargs.get("ai_provider")))
         return SimpleNamespace(
             to_dict=lambda: {
                 "schema_version": "fairpost-assisted-review-v1",
@@ -301,7 +479,11 @@ def test_assisted_review_http_endpoint_requires_explicit_toggle(
             )
             accepted = await client.post(
                 remote.ASSISTED_REVIEW_PATH,
-                json={"assist_enabled": True, "text": "여성만 지원 가능"},
+                json={
+                    "assist_enabled": True,
+                    "ai_provider": "gemini",
+                    "text": "여성만 지원 가능",
+                },
             )
 
         assert rejected.status_code == 400
@@ -309,4 +491,4 @@ def test_assisted_review_http_endpoint_requires_explicit_toggle(
         assert accepted.json()["summary"] == "검토 메모"
 
     anyio.run(exercise)
-    assert calls == ["여성만 지원 가능"]
+    assert calls == [("여성만 지원 가능", "gemini")]

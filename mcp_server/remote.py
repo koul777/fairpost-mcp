@@ -226,11 +226,19 @@ async def assisted_review(request: Request) -> JSONResponse:
             status_code=413,
             headers={"Cache-Control": "no-store"},
         )
+    ai_provider = payload.get("ai_provider")
+    if ai_provider is not None and not isinstance(ai_provider, str):
+        return JSONResponse(
+            {"error": "AI provider must be a string"},
+            status_code=400,
+            headers={"Cache-Control": "no-store"},
+        )
     try:
         result = await prepare_assisted_review(
             engine,
             text,
             organization_profile=payload.get("organization_profile"),
+            ai_provider=ai_provider or None,
         )
     except ValueError as exc:
         return JSONResponse(

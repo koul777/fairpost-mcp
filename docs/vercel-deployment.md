@@ -28,12 +28,30 @@ Vercel Python Function은 `api/index.py`의 ASGI `app`을 로드한다. 로컬
 NCSㆍ선택적 현행법 HR 검토와 답변 저장ㆍ조회를 포함한 전체 6도구는 사용자 컴퓨터의 루프백 로컬 MCP에서만 제공한다.
 
 정적 웹의 선택형 `AI·현행 법령 보강` 스위치는 `/api/assisted-review`를
-사용한다. `FAIRPOST_AI_API_URL`, `FAIRPOST_AI_API_KEY`, `FAIRPOST_AI_MODEL`과
-Korean Law MCP가 모두 설정된 배포에서만 준비 상태가 된다. 스위치가 꺼진
+사용한다. Claude는 `FAIRPOST_ANTHROPIC_API_KEY`ㆍ`FAIRPOST_ANTHROPIC_MODEL`,
+GPT는 `FAIRPOST_OPENAI_API_KEY`ㆍ`FAIRPOST_OPENAI_MODEL`, Gemini는
+`FAIRPOST_GEMINI_API_KEY`ㆍ`FAIRPOST_GEMINI_MODEL`로 각각 설정한다. 둘 이상을
+설정하면 웹에서 요청별로 선택하며 `FAIRPOST_AI_PROVIDER`가 최초 선택값이다.
+이 중 하나와 Korean Law MCP가 모두 설정된 배포에서만 준비 상태가 된다. 스위치가 꺼진
 기본 상태에서는 이 경로를 호출하지 않는다. 호출 제한은 기본 분당 5회이며
 `FAIRPOST_ASSISTED_REVIEW_REQUESTS_PER_MINUTE`로 조정한다. 유료 AI API를
 공개 배포에 연결할 때는 이 인스턴스별 제한 외에 배포 접근제어와 전역 비용
 한도를 별도로 설정해야 한다.
+
+법령 MCP 조회 후 AI를 순차 호출하므로 Python Function의 `maxDuration`은 60초로
+설정한다. AI 호출 자체는 기본 30초에서 중단되어 함수 제한 안에 실패 응답을
+반환하도록 한다.
+
+모델 변수를 생략하면 2026-09-13 기준 기본값 `claude-sonnet-5`,
+`gpt-5.6-terra`, `gemini-3.6-flash`를 사용한다. 운영 계정에서 허용하지 않거나
+비용 정책이 다르면 해당 `*_MODEL`을 명시한다.
+
+제공자별 API URL은 기본으로 각 공식 엔드포인트를 사용한다. 선택적
+`FAIRPOST_ANTHROPIC_API_URL`, `FAIRPOST_OPENAI_API_URL`,
+`FAIRPOST_GEMINI_API_URL`을 지정해도 해당 공식 호스트와 정해진 경로만
+허용하므로 서버 키가 임의 호스트로 전송되지 않는다. 이전
+`FAIRPOST_AI_API_URL`ㆍ`FAIRPOST_AI_API_KEY`ㆍ`FAIRPOST_AI_MODEL`은 OpenAI 호환
+로컬·사내 엔드포인트용으로 유지된다.
 
 `mcp_server.remote`는 다음 보안 기본값을 적용한다.
 

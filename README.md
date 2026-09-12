@@ -199,9 +199,10 @@ stdio 자식 프로세스에는 시스템 실행에 필요한 최소 환경변�
 연결 설정은 프로젝트의 `.env.fairpost.local.json`에 저장합니다. 이 파일은
 Git·Python 배포 패키지·Vercel 업로드에서 제외됩니다. 다른 PC에서 처음 설정할
 때만 [설정 예제](examples/local-connections.example.json)를 이 이름으로 복사합니다.
-기존 설정을 덮어쓰지 마세요. 예제는 공개 Korean Law MCP 주소와 로컬 Ollama의
-`qwen3:4b`를 사용하며 API 키를 포함하지 않습니다. Ollama와 해당 모델이 실행
-가능해야 하고, 법령 조회에는 인터넷 연결이 필요합니다.
+기존 설정을 덮어쓰지 마세요. 예제는 공개 Korean Law MCP 주소와
+ClaudeㆍGPTㆍGemini용 빈 서버 설정을 제공하며 API 키를 포함하지
+않습니다. 사용할 제공자의 키와 모델 ID를 직접 채워야 하고, 법령 조회와 AI
+호출에는 인터넷 연결이 필요합니다.
 
 ```powershell
 python -m mcp_server.local_runtime web
@@ -217,7 +218,7 @@ python -m mcp_server.local_runtime web
 
 **공개 Vercel 사이트에는 이 PC 설정이 적용되지 않습니다.** Vercel의 선택형 보강에는
 그 서버에서 접근 가능한 AI API·키와 Korean Law MCP 설정이 별도로 필요합니다.
-Vercel에서 이 PC의 `127.0.0.1:11434`에 연결할 수는 없습니다.
+Vercel에서 이 PC의 루프백 주소에 연결할 수는 없습니다.
 
 #### 보강 동작과 사용자 지정 AI API
 
@@ -227,25 +228,46 @@ Vercel에서 이 PC의 `127.0.0.1:11434`에 연결할 수는 없습니다.
 AI API와 Korean Law MCP가 모두 준비된 경우에만 다음 검사부터 보강 검토를
 실행합니다.
 
-AI API는 OpenAI 호환 Chat Completions 요청 형식을 지원하는 HTTPS 엔드포인트로
-설정합니다. 로컬 루프백 API만 HTTP와 무인증을 허용합니다.
+Claude(Anthropic Messages), GPT(OpenAI Responses), Gemini(generateContent)를
+각 제공자의 네이티브 HTTPS API로 지원합니다. 서버에 둘 이상을 설정하면 웹에서
+요청마다 제공자를 고를 수 있습니다. 아래 변수는 서버에서만 읽으며 API 키와
+공고문을 브라우저 저장소에 보관하지 않습니다.
+요청 형식은 [Anthropic Messages](https://platform.claude.com/docs/en/api/messages/create),
+[OpenAI Responses](https://developers.openai.com/api/reference/resources/responses/methods/create),
+[Gemini generateContent](https://ai.google.dev/api/generate-content) 공식 계약을 따릅니다.
 
 ```powershell
-$env:FAIRPOST_AI_API_URL = "https://<AI-provider>/v1/chat/completions"
-$env:FAIRPOST_AI_API_KEY = "<server-side-key>"
-$env:FAIRPOST_AI_MODEL = "<model-name>"
+$env:FAIRPOST_AI_PROVIDER = "anthropic" # 둘 이상일 때 최초 선택: anthropic/openai/gemini
+
+$env:FAIRPOST_ANTHROPIC_API_KEY = "<server-side-key>"
+$env:FAIRPOST_ANTHROPIC_MODEL = "<Anthropic model ID>" # 생략 시 claude-sonnet-5
+
+$env:FAIRPOST_OPENAI_API_KEY = "<server-side-key>"
+$env:FAIRPOST_OPENAI_MODEL = "<OpenAI model ID>" # 생략 시 gpt-5.6-terra
+
+$env:FAIRPOST_GEMINI_API_KEY = "<server-side-key>"
+$env:FAIRPOST_GEMINI_MODEL = "<Gemini model ID>" # 생략 시 gemini-3.6-flash
 
 # 위 Korean Law MCP HTTP 또는 stdio 설정도 함께 필요합니다.
 ```
 
+네이티브 키는 각각 `api.anthropic.com`, `api.openai.com`,
+`generativelanguage.googleapis.com`에만 전송됩니다. 선택적 `*_API_URL`도 공식
+호스트와 정해진 API 경로만 허용합니다. 기존 `FAIRPOST_AI_API_URL`ㆍ
+`FAIRPOST_AI_API_KEY`ㆍ`FAIRPOST_AI_MODEL` OpenAI 호환 설정은 로컬 모델이나
+사내 게이트웨이의 이전 연동을 위해 계속 지원하며, 로컬 루프백만 HTTP와
+무인증을 허용합니다.
+
+기본 모델은 2026-09-13 기준 각 제공자의 안정형 또는 품질·비용 균형형 모델로
+고정했습니다. 운영 계정의 허용 모델과 비용 정책이 다르면 위 `*_MODEL` 값을
+명시적으로 바꾸세요.
+
 `FAIRPOST_AI_TIMEOUT_SECONDS`는 1~300초(기본 30초)로 조정할 수 있습니다.
-로컬 예제는 180초를 허용하고 `FAIRPOST_AI_REASONING_EFFORT=none`으로 설정합니다.
-이는 [Ollama가 지원하는 추론 제어 옵션](https://docs.ollama.com/api/openai-compatibility)이며,
-다른 AI 제공자에서는 지원 여부를 확인하거나 생략하세요. 클라우드 함수의 실행시간
-제한은 이 옵션으로 늘어나지 않습니다. AI 메모는 검토 초안이며 모델 선택만으로
-법률 검토 품질이 보장되지 않습니다.
-로컬 Qwen3에는 [공식 `/no_think` 지시](https://qwenlm.github.io/blog/qwen3/)도 함께
-전달하며, 응답에 추론 태그가 섞이면 추론 부분을 제거하고 최종 메모만 표시합니다.
+`FAIRPOST_AI_REASONING_EFFORT`는 OpenAI Responses 또는 기존 OpenAI 호환
+엔드포인트에서만 선택적으로 사용합니다. 클라우드 함수의 실행시간 제한은 이
+옵션으로 늘어나지 않습니다. AI 메모는 검토 초안이며 모델 선택만으로 법률 검토
+품질이 보장되지 않습니다. 기존 로컬 응답에 추론 태그가 섞이면 추론 부분을
+제거하고 최종 메모만 표시합니다.
 
 API 키는 브라우저 코드나 응답에 포함하지 않습니다. 활성화된 요청의 공고문은
 FairPost 서버에서 재검사하지만, Korean Law MCP에는 `법령명·조문번호`만 보내고

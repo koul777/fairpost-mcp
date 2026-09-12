@@ -1,7 +1,8 @@
 {
   "FAIRPOST_KOREAN_LAW_MCP_URL": "https://korean-law-mcp.fly.dev/mcp",
-  "FAIRPOST_AI_API_URL": "http://127.0.0.1:11434/v1/chat/completions",
-  "FAIRPOST_AI_MODEL": "qwen3:4b",
-  "FAIRPOST_AI_TIMEOUT_SECONDS": "180",
-  "FAIRPOST_AI_REASONING_EFFORT": "none"
+  "FAIRPOST_AI_PROVIDER": "anthropic",
+  "FAIRPOST_ANTHROPIC_MODEL": "",
+  "FAIRPOST_OPENAI_MODEL": "",
+  "FAIRPOST_GEMINI_MODEL": "",
+  "FAIRPOST_AI_TIMEOUT_SECONDS": "60"
 }
