@@ -61,6 +61,21 @@ const ids = [
   "findings-list",
   "slots-list",
   "questions-list",
+  "role-review-panel",
+  "role-review-status",
+  "role-review-notice",
+  "role-review-role",
+  "role-review-stage",
+  "role-review-action",
+  "role-review-resolve-label",
+  "role-review-resolve-event",
+  "role-review-note",
+  "role-review-evidence",
+  "role-review-record",
+  "role-review-clear",
+  "role-review-progress",
+  "role-review-missing",
+  "role-review-events",
   "finding-count",
   "missing-count",
   "question-count",
@@ -92,6 +107,32 @@ globalThis.document = {
 };
 window.setTimeout = () => 1;
 window.clearTimeout = () => {};
+
+const localReviewValues = new Map();
+globalThis.localStorage = {
+  getItem(key) { return localReviewValues.has(key) ? localReviewValues.get(key) : null; },
+  setItem(key, value) { localReviewValues.set(key, String(value)); },
+  removeItem(key) { localReviewValues.delete(key); },
+};
+Object.defineProperty(globalThis, "crypto", {
+  configurable: true,
+  value: {
+    subtle: {
+      async digest(_algorithm, bytes) {
+        let hash = 2166136261;
+        for (const byte of new Uint8Array(bytes)) {
+          hash = Math.imul(hash ^ byte, 16777619);
+        }
+        const output = new Uint8Array(32);
+        for (let index = 0; index < output.length; index += 1) {
+          hash = Math.imul(hash ^ index, 16777619);
+          output[index] = (hash >>> ((index % 4) * 8)) & 255;
+        }
+        return output.buffer;
+      },
+    },
+  },
+});
 
 let copied = "";
 let clipboardShouldFail = false;
@@ -218,6 +259,65 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     organizationMarkup: elements.get("questions-list").innerHTML,
   };
 
+  await new Promise((resolve) => setImmediate(resolve));
+  elements.get("role-review-role").value = "auditor";
+  elements.get("role-review-stage").value = "evaluation";
+  elements.get("role-review-action").value = "note";
+  elements.get("role-review-note").value = "릴리스 전 재현성 근거와 사람 검토 이력을 확인합니다.";
+  elements.get("role-review-evidence").value = "Q-DIST-002, ncs-process";
+  elements.get("role-review-record").trigger("click");
+  elements.get("role-review-note").value = "reviewer@example.com";
+  elements.get("role-review-record").trigger("click");
+  const roleReviewAfterSensitiveNote = {
+    progress: elements.get("role-review-progress").textContent,
+    eventCount: JSON.parse(localReviewValues.get("fairpost.role-review.v1")).events.length,
+  };
+  elements.get("role-review-action").value = "edit_requested";
+  elements.get("role-review-note").value = "직무 요건 근거를 보강해야 합니다.";
+  elements.get("role-review-record").trigger("click");
+  const roleReviewWithIssue = JSON.parse(
+    localReviewValues.get("fairpost.role-review.v1")
+  );
+  const issueEventId = roleReviewWithIssue.events.find(
+    (event) => event.action === "edit_requested"
+  ).event_id;
+  elements.get("role-review-role").value = "hr_owner";
+  elements.get("role-review-action").value = "resolve";
+  elements.get("role-review-action").trigger("change");
+  elements.get("role-review-resolve-event").value = issueEventId;
+  elements.get("role-review-note").value = "직무 요건 근거를 보강했습니다.";
+  elements.get("role-review-record").trigger("click");
+  const roleReviewBeforeVersionDrift = {
+    status: elements.get("role-review-status").textContent,
+    progress: elements.get("role-review-progress").textContent,
+    missingRoles: elements.get("role-review-missing").textContent,
+    eventsMarkup: elements.get("role-review-events").innerHTML,
+    storage: localReviewValues.get("fairpost.role-review.v1") || "",
+  };
+  const priorRoleReview = JSON.parse(
+    localReviewValues.get("fairpost.role-review.v1")
+  );
+  const priorPacketId = priorRoleReview.packet_id;
+  priorRoleReview.ruleset_version = "stale-ruleset";
+  localReviewValues.set(
+    "fairpost.role-review.v1",
+    JSON.stringify(priorRoleReview)
+  );
+  elements.get("check-button").trigger("click");
+  await new Promise((resolve) => setImmediate(resolve));
+  const rotatedRoleReview = JSON.parse(
+    localReviewValues.get("fairpost.role-review.v1")
+  );
+  const roleReviewAfterVersionDrift = {
+    newPacket: rotatedRoleReview.packet_id !== priorPacketId,
+    notice: elements.get("role-review-notice").textContent,
+  };
+  const roleReview = {
+    ...roleReviewBeforeVersionDrift,
+    afterSensitiveNote: roleReviewAfterSensitiveNote,
+    afterVersionDrift: roleReviewAfterVersionDrift,
+  };
+
   console.log(JSON.stringify({
     questionId,
     questionCount: result.questions.length,
@@ -230,6 +330,7 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     copyFailureToast,
     cleared,
     assisted,
+    roleReview,
   }));
 })().catch((error) => {
   console.error(error);

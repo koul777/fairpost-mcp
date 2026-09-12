@@ -164,8 +164,72 @@
 
           <div class="review-progress-strip" role="status" aria-live="polite">
             <strong id="answer-progress">담당자 답변 0/0</strong>
-            <span>질문별 답변은 현재 분석 세션에만 남고, 재분석하거나 입력을 지우면 삭제됩니다. 외부로 전송되지 않습니다.</span>
+            <span>질문별 답변은 현재 분석 세션에만 남고, 역할 검토 이벤트는 이 브라우저에만 저장됩니다. 공고 원문은 저장하지 않습니다.</span>
           </div>
+
+          <section id="role-review-panel" class="role-review-panel" aria-labelledby="role-review-heading" hidden>
+            <div class="role-review-heading-row">
+              <div>
+                <p class="eyebrow">다중 역할 검토 큐</p>
+                <h3 id="role-review-heading">위원장과 함께 검토하기</h3>
+              </div>
+              <span id="role-review-status" class="assist-badge">준비 중</span>
+            </div>
+            <p id="role-review-notice" class="role-review-notice">
+              공고 fingerprint와 역할 이벤트만 이 브라우저에 저장합니다. 원문·지원자 정보는 역할 기록에 저장하지 않습니다.
+            </p>
+            <div class="role-review-controls">
+              <label>
+                역할
+                <select id="role-review-role">
+                  <option value="hr_owner">인사 운영책임자</option>
+                  <option value="job_sme">직무전문가</option>
+                  <option value="interviewer">면접위원</option>
+                  <option value="policy_reviewer">정책검토자</option>
+                  <option value="auditor">감사자</option>
+                  <option value="candidate_advocate">지원자 대변인</option>
+                </select>
+              </label>
+              <label>
+                단계
+                <select id="role-review-stage">
+                  <option value="analysis">분석</option>
+                  <option value="design">설계</option>
+                  <option value="development">개발</option>
+                  <option value="implementation">운영</option>
+                  <option value="evaluation">평가</option>
+                </select>
+              </label>
+              <label>
+                행동
+                <select id="role-review-action">
+                  <option value="note">메모</option>
+                  <option value="confirm">확인</option>
+                  <option value="edit_requested">수정 요청</option>
+                  <option value="escalate">위원장에게 이관</option>
+                  <option value="resolve">해결 기록</option>
+                </select>
+              </label>
+            </div>
+            <label id="role-review-resolve-label" class="role-review-note-label" for="role-review-resolve-event" hidden>
+              해결할 이슈
+              <select id="role-review-resolve-event">
+                <option value="">해결할 수정 요청 또는 이관을 선택하세요.</option>
+              </select>
+            </label>
+            <label class="role-review-note-label" for="role-review-note">검토 메모</label>
+            <textarea id="role-review-note" rows="3" maxlength="4000" placeholder="직무관련성, 운영상 위험, 지원자 부담 또는 추가 확인 근거를 기록하세요."></textarea>
+            <p class="role-review-help">공고 원문·지원자 개인정보·연락처는 메모에 붙여 넣지 말고 요약과 근거 ID만 남기세요.</p>
+            <label class="role-review-note-label" for="role-review-evidence">근거 ID <small>(쉼표로 구분, 선택)</small></label>
+            <input id="role-review-evidence" type="text" maxlength="1024" placeholder="예: Q-DIST-002, ncs-process">
+            <div class="role-review-actions">
+              <button id="role-review-record" class="button button-secondary" type="button">이 역할의 검토 기록</button>
+              <button id="role-review-clear" class="button button-quiet" type="button">이 공고의 역할 기록 삭제</button>
+              <strong id="role-review-progress">참여 역할 1/7 · 이벤트 1개</strong>
+            </div>
+            <p id="role-review-missing" class="role-review-missing" aria-live="polite"></p>
+            <ol id="role-review-events" class="role-review-events"></ol>
+          </section>
 
           <section id="assisted-review-panel" class="assisted-review-panel" aria-labelledby="assisted-review-heading" hidden>
             <div class="assisted-review-heading-row">

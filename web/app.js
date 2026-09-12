@@ -15,6 +15,25 @@
   );
   const assistedNotice = document.getElementById("assisted-review-notice");
   const assistedOutput = document.getElementById("assisted-review-output");
+  const roleReviewPanel = document.getElementById("role-review-panel");
+  const roleReviewStatus = document.getElementById("role-review-status");
+  const roleReviewNotice = document.getElementById("role-review-notice");
+  const roleReviewRole = document.getElementById("role-review-role");
+  const roleReviewStage = document.getElementById("role-review-stage");
+  const roleReviewAction = document.getElementById("role-review-action");
+  const roleReviewResolveLabel = document.getElementById(
+    "role-review-resolve-label"
+  );
+  const roleReviewResolveEvent = document.getElementById(
+    "role-review-resolve-event"
+  );
+  const roleReviewNote = document.getElementById("role-review-note");
+  const roleReviewEvidence = document.getElementById("role-review-evidence");
+  const roleReviewRecord = document.getElementById("role-review-record");
+  const roleReviewClear = document.getElementById("role-review-clear");
+  const roleReviewProgress = document.getElementById("role-review-progress");
+  const roleReviewMissing = document.getElementById("role-review-missing");
+  const roleReviewEvents = document.getElementById("role-review-events");
   const privacyMessage = document.getElementById("privacy-message");
   const organizationSector = document.getElementById("organization-sector");
   const organizationPublicType = document.getElementById(
@@ -74,9 +93,44 @@
       )
       .map((rule) => rule.id)
   );
+  const ROLE_REVIEW_STORAGE_KEY = "fairpost.role-review.v1";
+  const ROLE_LABELS = Object.freeze({
+    chair: "위원장",
+    hr_owner: "인사 운영책임자",
+    job_sme: "직무전문가",
+    interviewer: "면접위원",
+    policy_reviewer: "정책검토자",
+    auditor: "감사자",
+    candidate_advocate: "지원자 대변인",
+  });
+  const STAGE_LABELS = Object.freeze({
+    analysis: "분석",
+    design: "설계",
+    development: "개발",
+    implementation: "운영",
+    evaluation: "평가",
+  });
+  const ACTION_LABELS = Object.freeze({
+    note: "메모",
+    confirm: "확인",
+    edit_requested: "수정 요청",
+    escalate: "위원장에게 이관",
+    resolve: "해결 기록",
+  });
+  const ROLE_EVENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
+  const ROLE_REVIEW_NOTE_SENSITIVE_PATTERNS = Object.freeze([
+    /[^\s@]+@[^\s@]+\.[^\s@]+/,
+    /\b01[016789][ -]?\d{3,4}[ -]?\d{4}\b/,
+    /\b\d{6}[ -]?\d{7}\b/,
+  ]);
+  const ROLE_REVIEW_STAGES = new Set(Object.keys(STAGE_LABELS));
+  const ROLE_REVIEW_ACTIONS = new Set(Object.keys(ACTION_LABELS));
+  const ROLE_REVIEW_SCHEMA_VERSION = "fairpost-browser-role-review-v1";
   let latestResult = null;
   let latestAssistedReview = null;
   let assistedRequestSequence = 0;
+  let roleReviewSequence = 0;
+  let roleReviewState = null;
   const reviewAnswers = new Map();
   let toastTimer = null;
 
@@ -110,6 +164,359 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function roleReviewStorage() {
+    try {
+      return window.localStorage || null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function validRoleReviewEvent(event, eventIds) {
+    if (!event || typeof event !== "object") return false;
+    if (
+      typeof event.event_id !== "string" ||
+      !ROLE_EVENT_ID_PATTERN.test(event.event_id) ||
+      eventIds.has(event.event_id) ||
+      !ROLE_REVIEW_STAGES.has(event.stage) ||
+      !Object.prototype.hasOwnProperty.call(ROLE_LABELS, event.role) ||
+      !ROLE_REVIEW_ACTIONS.has(event.action) ||
+      typeof event.occurred_at !== "string" ||
+      !event.occurred_at.trim() ||
+      event.occurred_at.length > 128 ||
+      typeof event.note !== "string" ||
+      event.note.length > 4000 ||
+      (event.resolves_event_id !== null &&
+        event.resolves_event_id !== undefined &&
+        (typeof event.resolves_event_id !== "string" ||
+          !ROLE_EVENT_ID_PATTERN.test(event.resolves_event_id) ||
+          event.action !== "resolve")) ||
+      ROLE_REVIEW_NOTE_SENSITIVE_PATTERNS.some((pattern) =>
+        pattern.test(event.note)
+      ) ||
+      !Array.isArray(event.evidence_refs) ||
+      event.evidence_refs.length > 32
+    ) {
+      return false;
+    }
+    if (
+      event.evidence_refs.some(
+        (item) =>
+          typeof item !== "string" || !ROLE_EVENT_ID_PATTERN.test(item)
+      )
+    ) {
+      return false;
+    }
+    eventIds.add(event.event_id);
+    return true;
+  }
+
+  async function sha256Hex(value) {
+    if (
+      !window.crypto ||
+      !window.crypto.subtle ||
+      typeof TextEncoder === "undefined"
+    ) {
+      return null;
+    }
+    const bytes = new TextEncoder().encode(value);
+    const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest), (item) =>
+      item.toString(16).padStart(2, "0")
+    ).join("");
+  }
+
+  function roleReviewId(prefix) {
+    return `${prefix}-${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+  }
+
+  function roleReviewStateFromStorage(fingerprint) {
+    const storage = roleReviewStorage();
+    if (!storage) return null;
+    try {
+      const raw = storage.getItem(ROLE_REVIEW_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (
+        !parsed ||
+        parsed.schema_version !== ROLE_REVIEW_SCHEMA_VERSION ||
+        parsed.posting_fingerprint !== fingerprint ||
+        typeof parsed.packet_id !== "string" ||
+        !Array.isArray(parsed.events) ||
+        parsed.events.length > 256
+      ) {
+        return null;
+      }
+      const eventIds = new Set();
+      if (!parsed.events.every((event) => validRoleReviewEvent(event, eventIds))) {
+        return null;
+      }
+      const eventsById = new Map(
+        parsed.events.map((event) => [event.event_id, event])
+      );
+      if (
+        parsed.events.some((event) => {
+          if (event.action === "resolve" && event.resolves_event_id == null) {
+            return true;
+          }
+          if (event.resolves_event_id == null) return false;
+          const target = eventsById.get(event.resolves_event_id);
+          return (
+            !target ||
+            !["edit_requested", "escalate"].includes(target.action)
+          );
+        })
+      ) {
+        return null;
+      }
+      return parsed;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function saveRoleReviewState() {
+    const storage = roleReviewStorage();
+    if (!storage || !roleReviewState) return false;
+    try {
+      storage.setItem(
+        ROLE_REVIEW_STORAGE_KEY,
+        JSON.stringify(roleReviewState)
+      );
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function roleReviewIssueStatuses() {
+    if (!roleReviewState) return [];
+    const resolved = new Set(
+      roleReviewState.events
+        .filter(
+          (event) => event.action === "resolve" && event.resolves_event_id
+        )
+        .map((event) => event.resolves_event_id)
+    );
+    return roleReviewState.events
+      .filter((event) => ["edit_requested", "escalate"].includes(event.action))
+      .map((event) => ({
+        event_id: event.event_id,
+        action: event.action,
+        resolved: resolved.has(event.event_id),
+      }));
+  }
+
+  function updateRoleReviewResolutionControl() {
+    const resolving = roleReviewAction.value === "resolve";
+    roleReviewResolveLabel.hidden = !resolving;
+    roleReviewResolveEvent.disabled = !resolving;
+    if (!resolving) roleReviewResolveEvent.value = "";
+  }
+
+  function renderRoleReview() {
+    if (!roleReviewState) return;
+    const roles = new Set(
+      roleReviewState.events.map((event) => event.role).filter(Boolean)
+    );
+    const issues = roleReviewIssueStatuses();
+    const missingRoles = Object.keys(ROLE_LABELS).filter(
+      (role) => !roles.has(role)
+    );
+    roleReviewProgress.textContent = `참여 역할 ${roles.size}/7 · 이벤트 ${roleReviewState.events.length}개 · 미해결 이슈 ${issues.filter((issue) => !issue.resolved).length}건`;
+    roleReviewMissing.textContent = missingRoles.length
+      ? `아직 참여하지 않은 역할: ${missingRoles
+          .map((role) => ROLE_LABELS[role])
+          .join(", ")}`
+      : "모든 역할이 참여했습니다.";
+    const issueById = new Map(issues.map((issue) => [issue.event_id, issue]));
+    const openIssues = issues.filter((issue) => !issue.resolved);
+    roleReviewResolveEvent.innerHTML =
+      '<option value="">해결할 수정 요청 또는 이관을 선택하세요.</option>' +
+      openIssues
+        .map(
+          (issue) =>
+            `<option value="${escapeHtml(issue.event_id)}">${escapeHtml(
+              issue.event_id
+            )} · ${escapeHtml(ACTION_LABELS[issue.action] || issue.action)}</option>`
+        )
+        .join("");
+    updateRoleReviewResolutionControl();
+    roleReviewEvents.innerHTML = roleReviewState.events
+      .map((event) => {
+        const evidence = Array.isArray(event.evidence_refs)
+          ? event.evidence_refs.filter(Boolean).join(", ")
+          : "";
+        const issue = issueById.get(event.event_id);
+        const issueLabel = issue
+          ? ` · ${issue.resolved ? "해결됨" : "미해결"}`
+          : event.action === "resolve" && event.resolves_event_id
+          ? ` · ${event.resolves_event_id} 해결`
+          : "";
+        return `<li><strong>${escapeHtml(
+          ROLE_LABELS[event.role] || event.role
+        )} · ${escapeHtml(STAGE_LABELS[event.stage] || event.stage)} · ${escapeHtml(
+          ACTION_LABELS[event.action] || event.action
+        )}${escapeHtml(issueLabel)}</strong><br>${escapeHtml(event.note || "메모 없음")}<small>${escapeHtml(
+          event.occurred_at || ""
+        )}${evidence ? ` · 근거 ${escapeHtml(evidence)}` : ""}</small></li>`;
+      })
+      .join("");
+  }
+
+  async function initializeRoleReview(result, text) {
+    const sequence = ++roleReviewSequence;
+    roleReviewState = null;
+    roleReviewPanel.hidden = false;
+    roleReviewNotice.textContent =
+      "공고 fingerprint를 만드는 중입니다. 원문·지원자 정보는 역할 기록에 저장하지 않습니다.";
+    setAssistBadge(roleReviewStatus, "준비 중");
+    const fingerprint = await sha256Hex(text);
+    if (
+      sequence !== roleReviewSequence ||
+      text !== input.value ||
+      !text.trim()
+    ) {
+      return;
+    }
+    if (!fingerprint) {
+      roleReviewNotice.textContent =
+        "브라우저 암호화 API를 사용할 수 없어 역할 기록을 시작하지 못했습니다.";
+      setAssistBadge(roleReviewStatus, "사용 불가", "error");
+      return;
+    }
+    const guidanceCatalogVersion = "web-guidance-v1";
+    const storedState = roleReviewStateFromStorage(fingerprint);
+    const versionMismatch =
+      storedState &&
+      (storedState.ruleset_version !== result.ruleset_version ||
+        storedState.guidance_catalog_version !== guidanceCatalogVersion);
+    roleReviewState = (versionMismatch ? null : storedState) || {
+      schema_version: ROLE_REVIEW_SCHEMA_VERSION,
+      packet_id: roleReviewId("browser-packet"),
+      posting_fingerprint: fingerprint,
+      ruleset_version: result.ruleset_version,
+      guidance_catalog_version: guidanceCatalogVersion,
+      events: [
+        {
+          event_id: roleReviewId("browser-event"),
+          stage: "analysis",
+          role: "chair",
+          action: "note",
+          occurred_at: new Date().toISOString(),
+          note: "위원장 조정 흐름이 생성되었습니다. 각 역할의 독립 검토를 추가하십시오.",
+          evidence_refs: [
+            ...new Set([
+              ...result.findings.map((finding) => finding.id),
+              ...result.questions.map((question) => question.id),
+            ]),
+          ].slice(0, 32),
+        },
+      ],
+    };
+    const persisted = saveRoleReviewState();
+    roleReviewNotice.textContent = versionMismatch
+      ? "규칙셋 버전이 바뀌어 이전 역할 기록을 새 패킷으로 분리했습니다."
+      : persisted
+      ? "fingerprint와 역할 이벤트만 이 브라우저에 저장합니다. 원문·지원자 정보는 저장하지 않습니다."
+      : "현재 세션에만 역할 이벤트를 기록합니다. 브라우저 저장소를 사용할 수 없습니다.";
+    setAssistBadge(roleReviewStatus, persisted ? "로컬 기록" : "세션 기록", "active");
+    renderRoleReview();
+  }
+
+  function recordRoleReviewEvent() {
+    if (!roleReviewState) {
+      showToast("먼저 공고를 검토해 역할 큐를 준비하세요.");
+      return;
+    }
+    if (roleReviewState.events.length >= 256) {
+      showToast("역할 이벤트는 256개까지 기록할 수 있습니다.");
+      return;
+    }
+    const note = roleReviewNote.value.trim();
+    if (!note) {
+      showToast("검토 메모를 입력하세요.");
+      roleReviewNote.focus();
+      return;
+    }
+    if (
+      note.length > 4000 ||
+      ROLE_REVIEW_NOTE_SENSITIVE_PATTERNS.some((pattern) => pattern.test(note))
+    ) {
+      showToast("원문이나 직접 식별정보를 메모에 넣지 마세요. 요약과 근거 ID를 사용하세요.");
+      return;
+    }
+    const resolvesEventId =
+      roleReviewAction.value === "resolve"
+        ? roleReviewResolveEvent.value || null
+        : null;
+    if (roleReviewAction.value === "resolve" && !resolvesEventId) {
+      showToast("해결할 수정 요청 또는 이관을 선택하세요.");
+      roleReviewResolveEvent.focus();
+      return;
+    }
+    const evidenceRefs = roleReviewEvidence.value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (
+      evidenceRefs.some(
+        (item) =>
+          item.length > 128 || !ROLE_EVENT_ID_PATTERN.test(item)
+      )
+    ) {
+      showToast("근거 ID는 영문·숫자와 . _ : -만 사용할 수 있습니다.");
+      return;
+    }
+    if (new Set(evidenceRefs).size !== evidenceRefs.length) {
+      showToast("근거 ID는 중복해서 입력할 수 없습니다.");
+      return;
+    }
+    if (evidenceRefs.length > 32) {
+      showToast("근거 ID는 최대 32개까지 입력할 수 있습니다.");
+      return;
+    }
+    roleReviewState.events.push({
+      event_id: roleReviewId("browser-event"),
+      stage: roleReviewStage.value,
+      role: roleReviewRole.value,
+      action: roleReviewAction.value,
+      occurred_at: new Date().toISOString(),
+      note: note.slice(0, 4000),
+      evidence_refs: evidenceRefs.slice(0, 32),
+      resolves_event_id: resolvesEventId,
+    });
+    const persisted = saveRoleReviewState();
+    roleReviewNotice.textContent = persisted
+      ? "fingerprint와 역할 이벤트만 이 브라우저에 저장합니다. 원문·지원자 정보는 저장하지 않습니다."
+      : "현재 세션에만 역할 이벤트를 기록합니다. 브라우저 저장소를 사용할 수 없습니다.";
+    roleReviewNote.value = "";
+    roleReviewEvidence.value = "";
+    renderRoleReview();
+    showToast("역할 검토 이벤트를 기록했습니다.");
+  }
+
+  function clearRoleReview() {
+    const storage = roleReviewStorage();
+    if (storage) {
+      try {
+        storage.removeItem(ROLE_REVIEW_STORAGE_KEY);
+      } catch (_error) {
+        // Continue clearing the in-memory session even if storage is locked.
+      }
+    }
+    roleReviewSequence += 1;
+    roleReviewState = null;
+    roleReviewPanel.hidden = true;
+    roleReviewEvents.replaceChildren();
+    roleReviewMissing.textContent = "";
+    setAssistBadge(roleReviewStatus, "삭제됨");
+    roleReviewProgress.textContent = "참여 역할 0/7 · 이벤트 0개";
+    showToast("이 공고의 역할 기록을 삭제했습니다.");
   }
 
   function showToast(message) {
@@ -271,7 +678,7 @@
 
   function setLocalPrivacyNotice() {
     privacyMessage.textContent =
-      "AI·현행 법령 보강을 켜기 전에는 입력ㆍ답변이 이 브라우저 밖으로 전송되지 않습니다";
+      "AI·현행 법령 보강을 켜기 전에는 입력이 이 브라우저 밖으로 전송되지 않습니다 · 역할 이벤트는 브라우저에만 저장됩니다";
   }
 
   function setAssistedPrivacyNotice() {
@@ -377,6 +784,12 @@
   function resetReview() {
     latestResult = null;
     resetAssistedReviewPanel();
+    roleReviewSequence += 1;
+    roleReviewState = null;
+    roleReviewPanel.hidden = true;
+    roleReviewEvents.replaceChildren();
+    setAssistBadge(roleReviewStatus, "대기");
+    roleReviewProgress.textContent = "참여 역할 0/7 · 이벤트 0개";
     reviewAnswers.clear();
     ["findings-list", "slots-list", "questions-list"].forEach((id) =>
       document.getElementById(id).replaceChildren()
@@ -602,6 +1015,7 @@
     emptyState.hidden = true;
     resultContent.hidden = false;
     copyButton.disabled = false;
+    void initializeRoleReview(result, input.value);
   }
 
   function makeReport(result) {
@@ -713,6 +1127,18 @@
         latestAssistedReview.summary
       );
     }
+    if (roleReviewState && roleReviewState.events.length) {
+      lines.push(
+        "",
+        "[다중 역할 검토 기록]",
+        `참여 역할: ${new Set(roleReviewState.events.map((event) => event.role)).size}/7 · 이벤트: ${roleReviewState.events.length}개`,
+      );
+      roleReviewState.events.forEach((event) => {
+        lines.push(
+          `- ${ROLE_LABELS[event.role] || event.role} · ${STAGE_LABELS[event.stage] || event.stage} · ${ACTION_LABELS[event.action] || event.action}: ${event.note || "메모 없음"}`
+        );
+      });
+    }
     return lines.join("\n");
   }
 
@@ -799,6 +1225,10 @@
       }
     }
   });
+
+  roleReviewRecord.addEventListener("click", recordRoleReviewEvent);
+  roleReviewClear.addEventListener("click", clearRoleReview);
+  roleReviewAction.addEventListener("change", updateRoleReviewResolutionControl);
 
   resultContent.addEventListener("input", (event) => {
     const target = event.target;

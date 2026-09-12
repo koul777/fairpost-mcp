@@ -64,6 +64,10 @@ def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
                     "check_job_posting",
                     "check_job_posting_structured",
                     "prepare_hr_review",
+                    "start_role_review",
+                    "record_review_event",
+                    "get_role_review",
+                    "purge_role_review",
                     "next_review_question",
                     "save_answer",
                     "get_saved_answers",
@@ -85,6 +89,9 @@ def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
                 get_tool = next(
                     tool for tool in tools.tools if tool.name == "get_saved_answers"
                 )
+                purge_tool = next(
+                    tool for tool in tools.tools if tool.name == "purge_role_review"
+                )
                 assert check_tool.annotations is not None
                 assert check_tool.annotations.readOnlyHint is True
                 assert check_tool.annotations.destructiveHint is False
@@ -94,6 +101,9 @@ def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
                 assert save_tool.annotations.readOnlyHint is False
                 assert save_tool.annotations.destructiveHint is True
                 assert "replaces an existing answer" in save_tool.description
+                assert purge_tool.annotations is not None
+                assert purge_tool.annotations.readOnlyHint is False
+                assert purge_tool.annotations.destructiveHint is True
                 assert check_tool.outputSchema is None
                 assert structured_tool.outputSchema is not None
                 assert set(structured_tool.outputSchema["required"]) == {
@@ -239,6 +249,10 @@ def test_streamable_http_is_default_and_calls_all_tools(tmp_path: Path) -> None:
                         "check_job_posting",
                         "check_job_posting_structured",
                         "prepare_hr_review",
+                        "start_role_review",
+                        "record_review_event",
+                        "get_role_review",
+                        "purge_role_review",
                         "next_review_question",
                         "save_answer",
                         "get_saved_answers",

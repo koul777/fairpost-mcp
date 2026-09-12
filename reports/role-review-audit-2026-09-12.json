@@ -1,0 +1,104 @@
+{
+  "schema_version": "fairpost-role-review-audit-v1",
+  "reviewed_at": "2026-09-12",
+  "claude_collaboration": {
+    "fresh_cli_review_received": true,
+    "fresh_cli_plan_received": true,
+    "pre_existing_sessions_accessed": false,
+    "reports": [
+      "reports/claude-mcp-review-2026-09-12.md",
+      "docs/claude-8h-plan-2026-09-12.md"
+    ]
+  },
+  "verification": {
+    "full_suite_command": "python -m pytest -q --junitxml=reports\\pytest-8h-2026-09-12-handoff.xml",
+    "full_suite_passed": true,
+    "collected_test_count": 961,
+    "data_validation_command": "python .\\tools\\validate_data.py",
+    "data_validation_passed": true,
+    "git_diff_check_passed": true,
+    "git_diff_check_note": "Only LF-to-CRLF working-tree warnings were emitted."
+  },
+  "team_delegation": {
+    "team_lead": "Codex/GPT-5 계열",
+    "external_critic": "Claude Sonnet (fresh CLI sessions only)",
+    "internal_roles": {
+      "Tesla": "system design and performance",
+      "Feynman": "reproducibility and tests",
+      "Darwin": "data provenance and source mapping",
+      "Hypatia": "web UX and accessibility",
+      "Rawls": "fairness and legal-policy gates",
+      "Cicero": "documentation and release communication"
+    },
+    "internal_runtime_status": "role roster fixed; direct subagent calls unavailable under current model/thread limits",
+    "charter": "docs/team-charter-2026-09-12.md"
+  },
+  "local_mcp_surface": {
+    "role_review_tools": [
+      "start_role_review",
+      "record_review_event",
+      "get_role_review",
+      "purge_role_review"
+    ],
+    "role_review_tools_exposed_on_public_or_claude_mcp": false,
+    "purge_is_destructive_annotated": true
+  },
+  "browser_role_review": {
+    "local_storage_key": "fairpost.role-review.v1",
+    "malformed_events_are_discarded": true,
+    "version_drift_creates_new_packet": true,
+    "direct_identifier_note_patterns_rejected": true,
+    "raw_posting_storage": false
+  },
+  "packet_contract": {
+    "schema_version": "fairpost-review-packet-v1",
+    "max_packet_events": 256,
+    "max_packets_in_store": 256,
+    "max_packet_bytes": 262144,
+    "raw_posting_fields_rejected": true,
+    "posting_text_stored": false,
+    "direct_identifier_note_patterns_rejected": [
+      "email",
+      "korean_mobile_phone",
+      "resident_registration_number"
+    ],
+    "semantic_raw_posting_detection": false,
+    "targeted_reads_isolate_unrelated_invalid_packet": true,
+    "new_packet_save_isolates_unrelated_invalid_packet": true,
+    "targeted_reads_reject_oversized_packet": true,
+    "oversized_packet_byte_limit_read_and_append_rejected": true,
+    "global_store_byte_limit_enforced": true,
+    "oversized_write_does_not_leave_temp_file": true,
+    "version_mismatch_event_rejected": true,
+    "packet_deletion_supported": true,
+    "issue_resolution_links_supported": true,
+    "open_issue_count_exposed": true,
+    "unlinked_resolve_events_rejected": true,
+    "missing_roles_exposed": true
+  },
+  "ncs_2026_evidence": {
+    "listing_verified": true,
+    "detail_post_verified": true,
+    "detail_url": "https://www.ncs.go.kr/blind/rh13/bbs_lib_view.do?libDstinCd=19&libSeq=20260813113144612",
+    "published_or_updated_at": "2026-08-13",
+    "attachment_presence_verified": true,
+    "attachment_binary_downloaded": false,
+    "attachment_body_parsed": false,
+    "attachment_page_citations_verified": false,
+    "unverified_source_mapped_to_controls": false,
+    "mapping_guard": "ncs-2026-guide remains catalogued but is excluded from control source_ids until attachment body evidence is verified",
+    "evidence_report": "reports/ncs-2026-guide-evidence.md",
+    "verification_plan": "docs/ncs-attachment-verification-plan.md"
+  },
+  "release_readiness": {
+    "status": "blocked",
+    "candidate_report": "generated_blocked",
+    "candidate_report_evidence": "reports/build_artifact-8h-candidate-2026-09-12.json",
+    "human_holdout_labels": "awaiting",
+    "g1_g2_human_evaluation": "unmeasured",
+    "private_corpus_diversity": "alert",
+    "work24_source_access": "unverified",
+    "release_tag": "missing",
+    "automatic_tests_alone_are_release_sufficient": false
+  }
+}

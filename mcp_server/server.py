@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 import os
 from typing import Any, Literal
+import uuid
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 
 from core import FairpostEngine
+from core.review_packet import ReviewAction, ReviewEvent, ReviewRole, ReviewStage
 from core.schema import CheckResult, Finding, Question, SlotStatus
 from .review import HrReviewPacket, prepare_hr_review_packet
 from .storage import (
     EphemeralAnswerStore,
+    LocalReviewPacketStore,
     UnavailableRemoteAnswerStore,
     UpstashAnswerStore,
     build_answer_store,
@@ -189,7 +193,9 @@ mcp = FastMCP(
         "생략하지 말고 그대로 제시하십시오. 공정성 여부 판정이나 법률 자문을 "
         "제공하지 않습니다. 기계가 근거 연결을 재사용해야 할 때는 기존 평문 도구를 "
         "바꾸지 말고 check_job_posting_structured를 사용하십시오. NCS 통제와 선택적 "
-        "현행 법령 조회까지 필요한 로컬 검토에는 prepare_hr_review를 사용하십시오."
+        "현행 법령 조회까지 필요한 로컬 검토에는 prepare_hr_review를 사용하십시오. "
+        "여러 역할의 검토 이력을 남길 때는 start_role_review와 record_review_event를 "
+        "사용하십시오."
     ),
     host=_host_from_environment(),
     port=_port_from_environment(),
@@ -236,6 +242,20 @@ answer_store = (
     UnavailableRemoteAnswerStore()
     if os.environ.get("VERCEL")
     else build_answer_store()
+)
+review_packet_store = LocalReviewPacketStore()
+
+LOCAL_REVIEW_WRITE_ANNOTATIONS = ToolAnnotations(
+    readOnlyHint=False,
+    destructiveHint=False,
+    idempotentHint=False,
+    openWorldHint=True,
+)
+LOCAL_REVIEW_PURGE_ANNOTATIONS = ToolAnnotations(
+    readOnlyHint=False,
+    destructiveHint=True,
+    idempotentHint=True,
+    openWorldHint=False,
 )
 
 
@@ -480,6 +500,142 @@ async def prepare_hr_review(
         text,
         saved_answers=answers,
     )
+
+
+@mcp.tool(
+    description=(
+        "로컬에서 다중 역할 공정채용 검토를 시작합니다. 결정론적 HR 검토 결과와 "
+        "공고 fingerprint를 연결하고, 원문은 저장하지 않습니다. 위원장 이벤트가 "
+        "있는 검토 패킷을 로컬 JSON에 저장하며, 이후 record_review_event로 "
+        "인사담당ㆍ직무전문가ㆍ면접위원ㆍ정책검토자ㆍ감사자ㆍ지원자 대변인의 "
+        "독립 검토를 추가할 수 있습니다. 법률ㆍ공정성ㆍ합격 여부를 자동 판정하지 "
+        "않습니다."
+    ),
+    annotations=LOCAL_REVIEW_WRITE_ANNOTATIONS,
+    structured_output=True,
+)
+async def start_role_review(
+    text: str,
+    packet_id: str | None = None,
+    org_id: str | None = None,
+) -> dict[str, Any]:
+    """Create and persist a local role-review packet without posting text."""
+
+    answers = _saved_answers(org_id)
+    review = await prepare_hr_review_packet(
+        engine,
+        text,
+        saved_answers=answers,
+        packet_id=packet_id,
+    )
+    review_packet_store.save(review.review_packet)
+    return {
+        "status": "stored_locally",
+        "review_packet": review.review_packet.to_dict(),
+        "hr_review": review.to_dict(),
+    }
+
+
+@mcp.tool(
+    description=(
+        "기존 로컬 검토 패킷에 한 역할의 확인ㆍ수정 요청ㆍ이슈 제기 이벤트를 "
+        "추가합니다. packet_id와 posting_fingerprint가 일치해야 하며, 공고 원문과 "
+        "지원자 정보는 받거나 저장하지 않습니다. 역할과 NCS 공정채용 5단계를 "
+        "명시하십시오."
+    ),
+    annotations=LOCAL_REVIEW_WRITE_ANNOTATIONS,
+    structured_output=True,
+)
+def record_review_event(
+    packet_id: str,
+    posting_fingerprint: str,
+    stage: ReviewStage,
+    role: ReviewRole,
+    action: ReviewAction,
+    note: str = "",
+    evidence_refs: list[str] | None = None,
+    actor_ref: str | None = None,
+    resolves_event_id: str | None = None,
+) -> dict[str, Any]:
+    """Append one independently authored role event to a local packet."""
+
+    packet = review_packet_store.get(packet_id)
+    if packet is None:
+        raise ValueError("존재하지 않는 packet_id입니다")
+    if packet.posting_fingerprint != posting_fingerprint:
+        raise ValueError("posting_fingerprint가 검토 패킷과 일치하지 않습니다")
+    if evidence_refs is None:
+        refs: tuple[str, ...] = ()
+    elif isinstance(evidence_refs, list):
+        refs = tuple(evidence_refs)
+    else:
+        raise ValueError("evidence_refs는 문자열 목록이어야 합니다")
+    now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    event = ReviewEvent(
+        event_id=f"evt-{uuid.uuid4().hex}",
+        stage=stage,
+        role=role,
+        action=action,
+        occurred_at=now,
+        note=note,
+        evidence_refs=refs,
+        actor_ref=actor_ref,
+        ruleset_version=packet.ruleset_version,
+        guidance_catalog_version=packet.guidance_catalog_version,
+        resolves_event_id=resolves_event_id,
+    )
+    if action == "resolve" and resolves_event_id is None:
+        raise ValueError("resolve action requires resolves_event_id")
+    updated = review_packet_store.append(packet_id, event)
+    return {
+        "status": "stored_locally",
+        "review_packet": updated.to_dict(),
+        "participating_roles": sorted(updated.participating_roles),
+        "missing_roles": list(updated.missing_roles),
+        "open_issue_count": updated.open_issue_count,
+    }
+
+
+@mcp.tool(
+    description=(
+        "packet_id로 로컬 다중 역할 검토 패킷과 참여 역할ㆍ이벤트를 조회합니다. "
+        "공고 원문은 저장하지 않으며, 패킷에는 fingerprint와 근거 식별자만 있습니다."
+    ),
+    annotations=READ_ONLY_ANNOTATIONS,
+    structured_output=True,
+)
+def get_role_review(packet_id: str) -> dict[str, Any]:
+    packet = review_packet_store.get(packet_id)
+    if packet is None:
+        raise ValueError("존재하지 않는 packet_id입니다")
+    return {
+        "review_packet": packet.to_dict(),
+        "participating_roles": sorted(packet.participating_roles),
+        "missing_roles": list(packet.missing_roles),
+        "event_count": len(packet.events),
+        "issue_statuses": list(packet.issue_statuses),
+        "open_issue_count": packet.open_issue_count,
+    }
+
+
+@mcp.tool(
+    description=(
+        "로컬 검토 패킷을 삭제합니다. packet_id를 생략하면 로컬에 저장된 역할별 "
+        "검토 패킷을 모두 삭제하며, 삭제된 패킷 내용은 반환하지 않습니다. "
+        "원문 공고와 지원자 정보는 이 저장소에 저장되지 않습니다."
+    ),
+    annotations=LOCAL_REVIEW_PURGE_ANNOTATIONS,
+    structured_output=True,
+)
+def purge_role_review(packet_id: str | None = None) -> dict[str, Any]:
+    """Delete one or all local role-review packets."""
+
+    deleted = review_packet_store.purge(packet_id)
+    return {
+        "status": "purged_locally" if deleted else "not_found",
+        "deleted": deleted,
+        "packet_id": packet_id,
+    }
 
 
 @public_mcp.tool(

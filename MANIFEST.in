@@ -35,6 +35,9 @@ global-exclude labeler.html
 global-exclude llm_tasks.jsonl
 global-exclude build_artifact.json
 global-exclude distribution_audit.json
+global-exclude build_artifact-*.json
+global-exclude distribution_audit-*.json
+global-exclude evidence_version_audit-*.json
 prune .corpus
 prune .corpus-*
 prune .private-review

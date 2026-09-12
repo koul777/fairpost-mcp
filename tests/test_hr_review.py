@@ -41,13 +41,17 @@ def test_ncs_guidance_catalog_is_preprocessed_and_rule_linked() -> None:
 
     assert catalog.schema_version == GUIDANCE_SCHEMA_VERSION
     assert catalog.catalog_version.startswith("guidance-")
-    assert catalog.as_of == "2026-09-06"
+    assert catalog.as_of == "2026-09-12"
     assert catalog.authority == "guidance_not_law"
-    assert len(catalog.sources) >= 7
+    assert len(catalog.sources) >= 8
     assert len(catalog.controls) >= 9
     assert all(
         source.source_url.startswith("https://www.ncs.go.kr/")
         for source in catalog.sources
+    )
+    assert all(
+        "ncs-2026-guide" not in control.source_ids
+        for control in catalog.controls
     )
 
 

@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import uuid
 from typing import Any, AsyncIterator, Literal
 from urllib.parse import urlsplit
 
@@ -18,6 +19,7 @@ from mcp.client.streamable_http import streamable_http_client
 from core import FairpostEngine
 from core.guidance import GuidanceContext, load_guidance_catalog
 from core.schema import CheckResult, Finding
+from core.review_packet import ReviewEvent, ReviewPacket, posting_fingerprint
 
 
 MAX_UPSTREAM_TEXT_CHARS = 100_000
@@ -80,6 +82,7 @@ class HrReviewPacket:
     law_mcp_transport: str
     law_verifications: list[LawVerificationResult]
     ncs_guidance: GuidanceContext
+    review_packet: ReviewPacket
     review_notice: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -501,6 +504,7 @@ async def prepare_hr_review_packet(
     *,
     saved_answers: dict[str, str] | None = None,
     verifier: LiveLawVerifier | None = None,
+    packet_id: str | None = None,
 ) -> HrReviewPacket:
     result = engine.check(text, saved_answers=saved_answers)
     question_ids = {rule["id"] for rule in engine.ruleset.rules if rule["layer"] == "question"}
@@ -511,6 +515,36 @@ async def prepare_hr_review_packet(
     verifications = await active_verifier.verify(
         result.findings, engine.ruleset.statutes
     )
+    review_packet = ReviewPacket(
+        packet_id=packet_id or f"packet-{uuid.uuid4().hex}",
+        posting_fingerprint=posting_fingerprint(text),
+        ruleset_version=result.ruleset_version,
+        guidance_catalog_version=guidance.catalog_version,
+        created_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        events=(
+            ReviewEvent(
+                event_id=f"evt-{uuid.uuid4().hex}",
+                stage="analysis",
+                role="chair",
+                action="note",
+                occurred_at=datetime.now(timezone.utc)
+                .replace(microsecond=0)
+                .isoformat(),
+                note="위원장 조정 흐름이 생성되었습니다. 각 역할의 독립 검토를 추가하십시오.",
+                evidence_refs=tuple(
+                    sorted(
+                        {
+                            *(finding.id for finding in result.findings),
+                            *(question.id for question in result.questions),
+                        }
+                    )[:32]
+                ),
+                actor_ref="system-chair",
+                ruleset_version=result.ruleset_version,
+                guidance_catalog_version=guidance.catalog_version,
+            ),
+        ),
+    )
     return HrReviewPacket(
         schema_version="fairpost-hr-review-v1",
         check_schema_version="fairpost-structured-check-v1",
@@ -518,6 +552,7 @@ async def prepare_hr_review_packet(
         law_mcp_transport=active_verifier.config.transport,
         law_verifications=verifications,
         ncs_guidance=guidance,
+        review_packet=review_packet,
         review_notice=(
             "법령 조회 결과와 NCS 자료는 사람의 채용 검토를 지원하는 근거입니다. "
             "위법ㆍ공정성 또는 지원자 합격 여부를 자동 판정하지 않습니다."

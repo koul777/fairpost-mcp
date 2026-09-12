@@ -253,8 +253,20 @@ def test_static_web_keeps_optional_assisted_review_off_by_default() -> None:
     assert "공공기관 지침 중심" in app
     assert "소규모 운영" in app
     assert "XMLHttpRequest" not in app + engine
-    assert "localStorage" not in app
+    assert "localStorage" in app
     assert "sessionStorage" not in app
+    assert 'id="role-review-panel"' in html
+    assert 'id="role-review-record"' in html
+    assert 'id="role-review-clear"' in html
+    assert 'id="role-review-resolve-event"' in html
+    assert 'id="role-review-missing"' in html
+    assert "function initializeRoleReview(result, text)" in app
+    assert "function recordRoleReviewEvent()" in app
+    assert "function roleReviewIssueStatuses()" in app
+    assert "미해결 이슈" in app
+    assert "posting_fingerprint" in app
+    assert "원문·지원자 정보는 역할 기록에 저장하지 않습니다." in html
+    assert "공고 원문·지원자 개인정보·연락처" in html
     assert "fairpost 채용공고문 검토 메모" in app
     assert "검토 메모를 복사했습니다." in app
     assert 'high: "우선 검토"' in app
@@ -366,6 +378,21 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
         "postBody",
         "organizationMarkup",
     }
+    role_review = result["roleReview"]
+    assert role_review["status"] == "로컬 기록"
+    assert role_review["progress"] == "참여 역할 3/7 · 이벤트 4개 · 미해결 이슈 0건"
+    assert "아직 참여하지 않은 역할" in role_review["missingRoles"]
+    assert "감사자 · 평가 · 메모" in role_review["eventsMarkup"]
+    assert "릴리스 전 재현성 근거" in role_review["eventsMarkup"]
+    assert "해결됨" in role_review["eventsMarkup"]
+    assert "여성만 지원 가능" not in role_review["storage"]
+    assert "posting_text" not in role_review["storage"]
+    assert role_review["afterSensitiveNote"] == {
+        "progress": "참여 역할 2/7 · 이벤트 2개 · 미해결 이슈 0건",
+        "eventCount": 2,
+    }
+    assert role_review["afterVersionDrift"]["newPacket"] is True
+    assert "규칙셋 버전이 바뀌어" in role_review["afterVersionDrift"]["notice"]
 
 
 def test_web_bundle_version_matches_core() -> None:

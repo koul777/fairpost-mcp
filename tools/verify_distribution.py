@@ -184,6 +184,11 @@ FORBIDDEN_PARTS = {
     "tmp",
 }
 MAX_SECURITY_SCAN_BYTES = 64 * 1024 * 1024
+EPHEMERAL_REPORT_PREFIXES = (
+    "build_artifact-",
+    "distribution_audit-",
+    "evidence_version_audit-",
+)
 SYNTHETIC_POSTING_MEMBERS = {
     "examples/private_monitoring_input.example.jsonl",
 }
@@ -214,6 +219,11 @@ SYNTHETIC_PRIVACY_EXAMPLES = {
         b"cleaneye:2026",
     ),
     "tests/test_engine.py": (b"recruit@example.com", b"02-1234-5678"),
+    "tests/test_review_packet.py": (
+        b"reviewer@example.com",
+        b"010-1234-5678",
+        b"900101-1234567",
+    ),
     "tests/test_private_fairness_audit.py": (
         b"secret-company@example.com",
         b"010-1234-5678",
@@ -241,6 +251,7 @@ SYNTHETIC_PRIVACY_EXAMPLES = {
         b"010-9999-8888",
     ),
     "tests/test_web_parity.py": (b"02-1234-5678",),
+    "tests/web_app_review_runner.cjs": (b"reviewer@example.com",),
 }
 REPORT_SENSITIVE_KEYS = {
     "company",
@@ -329,6 +340,11 @@ def _sdist_source_files(root_path: Path = ROOT) -> set[str]:
             if not path.is_file() or path.name.casefold() in FORBIDDEN_NAMES:
                 continue
             relative_path = path.relative_to(root_path)
+            if (
+                relative_path.parent == Path("reports")
+                and relative_path.name.startswith(EPHEMERAL_REPORT_PREFIXES)
+            ):
+                continue
             if any(
                 part.casefold() in FORBIDDEN_PARTS
                 or part.casefold().startswith(".corpus")

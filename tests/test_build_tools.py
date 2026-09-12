@@ -696,6 +696,32 @@ def test_release_report_rejects_audited_artifact_outside_dist(
         module._audited_artifact(details, "wheel")
 
 
+def test_release_report_accepts_explicit_candidate_artifact_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = load_tool("build_release_report")
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+    candidate = tmp_path / "dist-candidate"
+    candidate.mkdir()
+    wheel = candidate / "package.whl"
+    payload = b"candidate-artifact"
+    wheel.write_bytes(payload)
+    details = {
+        "path": "dist-candidate/package.whl",
+        "bytes": len(payload),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+    }
+
+    artifact = module._audited_artifact(
+        details,
+        "wheel",
+        artifact_root=candidate,
+    )
+
+    assert artifact["path"] == "dist-candidate/package.whl"
+    assert artifact["bytes"] == len(payload)
+
+
 def _write_handoff_fixture(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     records = tmp_path / "corpus" / "holdout" / "records.jsonl"
     manifest = tmp_path / "corpus" / "holdout" / "manifest.json"
@@ -1672,6 +1698,27 @@ def test_distribution_audit_rejects_private_build_artifacts() -> None:
     assert "reports/build_artifact.json" in violations
     assert "reports/distribution_audit.json" in violations
     assert "reports/private_open_candidate_batches.jsonl" in violations
+
+
+def test_distribution_source_omits_ephemeral_candidate_reports(
+    tmp_path: Path,
+) -> None:
+    module = load_tool("verify_distribution")
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    (reports / "build_artifact-8h.json").write_text("{}", encoding="utf-8")
+    (reports / "distribution_audit-8h.json").write_text("{}", encoding="utf-8")
+    (reports / "evidence_version_audit-8h.json").write_text("{}", encoding="utf-8")
+    (reports / "role-review-audit-2026-09-12.json").write_text(
+        "{}", encoding="utf-8"
+    )
+
+    source_files = module._sdist_source_files(tmp_path)
+
+    assert "reports/build_artifact-8h.json" not in source_files
+    assert "reports/distribution_audit-8h.json" not in source_files
+    assert "reports/evidence_version_audit-8h.json" not in source_files
+    assert "reports/role-review-audit-2026-09-12.json" in source_files
 
 
 def test_distribution_source_fingerprint_binds_docs_and_normalizes_line_endings(
