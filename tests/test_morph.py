@@ -48,10 +48,10 @@ def test_find_matches_on_plain_text(
     [
         ("ai 면접과 ＡＩ 평가", ["AI"], [(0, 2, "ai"), (7, 9, "ＡＩ")]),
         ("２０세 이상", ["re:\\d+세"], [(0, 3, "２０세")]),
-        ("여​성만 지원", ["여성"], [(0, 3, "여​성")]),
-        ("﻿남성만", ["남성만"], [(1, 4, "남성만")]),
-        ("남​성 만", ["남성 만"], [(0, 5, "남​성 만")]),
-        ("남​성만", ["re:남성\\s*만"], [(0, 4, "남​성만")]),
+        ("여\u200b성만 지원", ["여성"], [(0, 3, "여\u200b성")]),
+        ("\ufeff남성만", ["남성만"], [(1, 4, "남성만")]),
+        ("남\u200b성 만", ["남성 만"], [(0, 5, "남\u200b성 만")]),
+        ("남\u200b성만", ["re:남성\\s*만"], [(0, 4, "남\u200b성만")]),
     ],
     ids=[
         "nfkc-fullwidth-latin",
@@ -107,9 +107,9 @@ def test_find_first_returns_earliest_match_or_none() -> None:
 
 
 def test_source_match_exposes_only_the_whole_match() -> None:
-    match = SourceMatch("여​성만", 0, 3)
+    match = SourceMatch("여\u200b성만", 0, 3)
 
-    assert match.group() == "여​성"
+    assert match.group() == "여\u200b성"
     with pytest.raises(IndexError):
         match.group(1)
 
@@ -159,7 +159,7 @@ def test_is_excluded_overlap_candidate_requires_overlap() -> None:
 
 
 def test_is_excluded_sees_normalized_terms() -> None:
-    assert is_excluded("남성 제​외", 0, 2, [{"term": "제외", "window": 5}]) is True
+    assert is_excluded("남성 제\u200b외", 0, 2, [{"term": "제외", "window": 5}]) is True
     overlapping = [{"term": "AI 미사용", "window": 4, "overlap_candidate": True}]
     assert is_excluded("ＡＩ 미사용", 0, 2, overlapping) is True
     assert is_excluded("ＡＩ 미사", 0, 2, overlapping) is False

@@ -111,7 +111,7 @@ def test_tool_names_are_trimmed_and_returned(value: str, expected: str) -> None:
         "tool/x",
         "../tool",
         "ｓｅａｒｃｈ",
-        "search​law",
+        "search\u200blaw",
         "search_law\x00",
     ],
 )
