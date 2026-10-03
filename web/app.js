@@ -1,6 +1,62 @@
 (function () {
   "use strict";
 
+  // Direct-identifier patterns are exported from core/direct_identifiers.py
+  // into web/data.js; the browser keeps no copy of its own so role-review note
+  // checks, the Python packet contract and AI-bound masking cannot drift.
+  const bundle =
+    (window.FAIRPOST_DATA && window.FAIRPOST_DATA.direct_identifiers) || null;
+  let compiled = [];
+  try {
+    if (bundle && Array.isArray(bundle.patterns) && bundle.patterns.length) {
+      const flags = typeof bundle.flags === "string" ? bundle.flags : "u";
+      compiled = bundle.patterns.map((pattern) => ({
+        kind: pattern.kind,
+        label: pattern.label,
+        mask: pattern.mask,
+        test: new RegExp(pattern.source, flags),
+        replace: new RegExp(pattern.source, `g${flags}`),
+      }));
+    }
+  } catch (_error) {
+    compiled = [];
+  }
+
+  function kinds(text) {
+    if (typeof text !== "string" || !text) return [];
+    return compiled
+      .filter((pattern) => pattern.test.test(text))
+      .map((pattern) => pattern.kind);
+  }
+
+  function mask(text) {
+    let masked = String(text);
+    compiled.forEach((pattern) => {
+      masked = masked.replace(pattern.replace, () => pattern.mask);
+    });
+    return masked;
+  }
+
+  function labels(kindList) {
+    return kindList.map(
+      (kind) =>
+        (compiled.find((pattern) => pattern.kind === kind) || { label: kind })
+          .label
+    );
+  }
+
+  window.FairpostDirectIdentifiers = Object.freeze({
+    available: compiled.length > 0,
+    kinds,
+    contains: (text) => kinds(text).length > 0,
+    mask,
+    labels,
+  });
+})();
+
+(function () {
+  "use strict";
+
   const input = document.getElementById("posting-input");
   const checkButton = document.getElementById("check-button");
   const clearButton = document.getElementById("clear-button");
@@ -125,11 +181,7 @@
     resolve: "해결 기록",
   });
   const ROLE_EVENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
-  const ROLE_REVIEW_NOTE_SENSITIVE_PATTERNS = Object.freeze([
-    /[^\s@]+@[^\s@]+\.[^\s@]+/,
-    /\b01[016789][ -]?\d{3,4}[ -]?\d{4}\b/,
-    /\b\d{6}[ -]?\d{7}\b/,
-  ]);
+  const DIRECT_IDENTIFIERS = window.FairpostDirectIdentifiers;
   const ROLE_REVIEW_STAGES = new Set(Object.keys(STAGE_LABELS));
   const ROLE_REVIEW_ACTIONS = new Set(Object.keys(ACTION_LABELS));
   const ROLE_REVIEW_SCHEMA_VERSION = "fairpost-browser-role-review-v1";
@@ -200,9 +252,7 @@
         (typeof event.resolves_event_id !== "string" ||
           !ROLE_EVENT_ID_PATTERN.test(event.resolves_event_id) ||
           event.action !== "resolve")) ||
-      ROLE_REVIEW_NOTE_SENSITIVE_PATTERNS.some((pattern) =>
-        pattern.test(event.note)
-      ) ||
+      DIRECT_IDENTIFIERS.contains(event.note) ||
       !Array.isArray(event.evidence_refs) ||
       event.evidence_refs.length > 32
     ) {
@@ -452,7 +502,8 @@
     }
     if (
       note.length > 4000 ||
-      ROLE_REVIEW_NOTE_SENSITIVE_PATTERNS.some((pattern) => pattern.test(note))
+      !DIRECT_IDENTIFIERS.available ||
+      DIRECT_IDENTIFIERS.contains(note)
     ) {
       showToast("원문이나 직접 식별정보를 메모에 넣지 마세요. 요약과 근거 ID를 사용하세요.");
       return;
