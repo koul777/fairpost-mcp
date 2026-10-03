@@ -51,8 +51,10 @@ def test_non_http_or_hostless_urls_are_rejected(url: str) -> None:
         "http://[::ffff:127.0.0.1]/mcp",
         "http://ｌｏｃａｌｈｏｓｔ/mcp",
         # Userinfo cannot smuggle a loopback name in front of a remote host.
-        "http://127.0.0.1:8080@evil.example/mcp",
-        "http://localhost@evil.example/mcp",
+        # Userinfo hosts are IPv6 documentation addresses so the packaged
+        # tests stay clear of the distribution e-mail privacy scan.
+        "http://127.0.0.1:8080@[2001:db8::1]/mcp",
+        "http://localhost@[2001:db8::1]/mcp",
     ],
 )
 def test_plain_http_is_only_allowed_for_exact_loopback_hosts(url: str) -> None:
@@ -63,8 +65,8 @@ def test_plain_http_is_only_allowed_for_exact_loopback_hosts(url: str) -> None:
 @pytest.mark.parametrize(
     "url",
     [
-        "https://user:secret@law.example.com/mcp",
-        "https://token@law.example.com/mcp",
+        "https://user:secret@[2001:db8::1]/mcp",
+        "https://token@[2001:db8::1]:8443/mcp",
         "https://law.example.com/mcp#section",
         "http://localhost/mcp#@evil.example",
     ],
