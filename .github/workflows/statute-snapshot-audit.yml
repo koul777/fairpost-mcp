@@ -6,16 +6,95 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: statute-snapshot-audit
   cancel-in-progress: false
 
+env:
+  BLOCKED_ISSUE_TITLE: "Statute snapshot audit blocked: LAW_OPEN_API_OC secret is not configured"
+  BLOCKED_ISSUE_LABEL: statute-audit-blocked
+
 jobs:
-  refresh:
+  credential:
+    name: Check LAW_OPEN_API_OC
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    outputs:
+      available: ${{ steps.check.outputs.available }}
+    env:
+      LAW_OPEN_API_OC: ${{ secrets.LAW_OPEN_API_OC }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check credential
+        id: check
+        run: |
+          set -euo pipefail
+          if [ -n "${LAW_OPEN_API_OC//[[:space:]]/}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "available=false" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "::error title=LAW_OPEN_API_OC is not configured::The repository secret LAW_OPEN_API_OC is missing or empty, so the official statute comparison cannot run. Add it under Settings > Secrets and variables > Actions, then run this workflow again."
+            exit 1
+          fi
+          echo "::warning title=LAW_OPEN_API_OC is not configured::Scheduled audit skipped; the blocked-audit issue is updated instead of failing the run."
+      - name: Open or update the blocked-audit issue
+        if: steps.check.outputs.available == 'false' && github.event_name == 'schedule'
+        run: |
+          set -euo pipefail
+          body_file="$RUNNER_TEMP/blocked-issue-body.md"
+          cat > "$body_file" <<'EOF'
+          법령 스냅샷 정기 감사가 중단되었습니다. 저장소 시크릿 `LAW_OPEN_API_OC`(국가법령정보 공동활용 인증값)가 없어 공식 현행 조문과 비교하지 못하고 있습니다.
+
+          ## 조치
+
+          1. Settings → Secrets and variables → Actions에서 `LAW_OPEN_API_OC` 시크릿을 추가합니다.
+          2. PR 자동 생성을 위해 Settings → Actions → General → Workflow permissions에서 "Allow GitHub Actions to create and approve pull requests"를 켭니다.
+          3. Actions 탭의 "Statute snapshot audit"을 `workflow_dispatch`로 한 번 실행합니다.
+          4. 실행이 성공하면 이 이슈는 자동으로 닫힙니다.
+
+          시크릿이 설정될 때까지 매일 실행은 실패하지 않고 이 이슈의 아래 시각만 갱신합니다. 그동안 `data/statutes/`의 조문은 공식 현행 조문과 대조되지 않았습니다.
+
+          마지막 확인(UTC): __CHECKED_AT__
+          최근 실행: __RUN_URL__
+          EOF
+          checked_at="$(date -u '+%Y-%m-%d %H:%M')"
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          sed -i -e "s|__CHECKED_AT__|$checked_at|" -e "s|__RUN_URL__|$run_url|" "$body_file"
+
+          gh label create "$BLOCKED_ISSUE_LABEL" \
+            --color B60205 \
+            --description "Statute snapshot audit cannot run" \
+            --force
+          existing="$(gh issue list \
+            --label "$BLOCKED_ISSUE_LABEL" \
+            --state open \
+            --limit 100 \
+            --json number,title \
+            | jq -r --arg title "$BLOCKED_ISSUE_TITLE" \
+              '[.[] | select(.title == $title)] | sort_by(.number) | first | .number // empty')"
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file "$body_file"
+          else
+            gh issue create \
+              --title "$BLOCKED_ISSUE_TITLE" \
+              --label "$BLOCKED_ISSUE_LABEL" \
+              --body-file "$body_file"
+          fi
+
+  refresh:
+    name: Refresh official statute snapshots
+    needs: credential
+    if: needs.credential.outputs.available == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     env:
       LAW_OPEN_API_OC: ${{ secrets.LAW_OPEN_API_OC }}
     steps:
@@ -26,32 +105,58 @@ jobs:
           cache: pip
       - name: Install project
         run: python -m pip install -e ".[dev]"
-      - name: Require National Law Information credential
-        run: test -n "$LAW_OPEN_API_OC"
       - name: Refresh official statute snapshots
         run: >-
           python tools/build_statutes.py
           --refresh-official
           --report reports/statute_audit.json
+          --pr-body "$RUNNER_TEMP/statute-audit-pr-body.md"
+      - name: Detect snapshot changes
+        id: audit
+        run: |
+          set -euo pipefail
+          echo "changed=$(jq -r '.snapshot_changed' reports/statute_audit.json)" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/statute-audit-pr-body.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Refresh static web data
+        if: steps.audit.outputs.changed == 'true'
         run: python tools/export_web_bundle.py
       - name: Verify
+        if: steps.audit.outputs.changed == 'true'
         run: python -m pytest
       - uses: peter-evans/create-pull-request@v8
+        if: steps.audit.outputs.changed == 'true'
         with:
           branch: automation/statute-snapshot-refresh
           delete-branch: true
           commit-message: "chore: refresh statute snapshots"
           title: "chore: refresh statute snapshots"
-          body: |
-            Daily comparison with the National Law Information Open API.
-            Review each changed article before merging.
-
-            Human review checklist:
-            - [ ] Review `reports/statute_audit.json` affected rule IDs.
-            - [ ] Confirm the article number still applies to recruitment notices.
-            - [ ] Compare the complete official text and effective date.
-            - [ ] Review every linked law-rule message and alternative.
-            - [ ] Run the holdout regression evaluation when rule behavior changes.
-            - [ ] Confirm the static web bundle and MCP return the same ruleset version.
+          body-path: ${{ runner.temp }}/statute-audit-pr-body.md
           labels: statute-update
+
+  resolve:
+    name: Close the blocked-audit issue
+    needs: [credential, refresh]
+    if: needs.refresh.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Close the blocked-audit issue
+        run: |
+          set -euo pipefail
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          numbers="$(gh issue list \
+            --label "$BLOCKED_ISSUE_LABEL" \
+            --state open \
+            --limit 100 \
+            --json number,title \
+            | jq -r --arg title "$BLOCKED_ISSUE_TITLE" \
+              '.[] | select(.title == $title) | .number')"
+          for number in $numbers; do
+            gh issue comment "$number" \
+              --body "LAW_OPEN_API_OC 시크릿이 확인되었고 감사 실행이 성공했습니다: $run_url"
+            gh issue close "$number" --reason completed
+          done
