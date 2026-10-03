@@ -171,7 +171,7 @@ def test_empty_queue_builds_a_valid_zero_progress_ui(tmp_path: Path) -> None:
     assert "표시할 검토 항목이 없습니다." in html
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is required")
+@pytest.mark.requires_node
 def test_inline_script_is_valid_javascript(tmp_path: Path) -> None:
     input_path = tmp_path / "queue.jsonl"
     output_path = tmp_path / "review.html"

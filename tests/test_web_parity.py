@@ -15,7 +15,7 @@ from core import FairpostEngine
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
+@pytest.mark.requires_node
 @pytest.mark.parametrize(
     "text",
     [
@@ -138,7 +138,7 @@ def test_web_engine_matches_python_core(text: str) -> None:
     assert web_result == python_result
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
+@pytest.mark.requires_node
 @pytest.mark.parametrize(
     "text",
     [
@@ -167,7 +167,7 @@ def test_normalized_regex_exclusions_match_python_core(text: str) -> None:
     }
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
+@pytest.mark.requires_node
 def test_seeded_unicode_combinations_match_python_core() -> None:
     rng = random.Random(20260830)
     fragments = [
@@ -312,7 +312,7 @@ def test_static_web_keeps_optional_assisted_review_off_by_default() -> None:
     assert "const codePoints = Array.from(text)" not in engine
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
+@pytest.mark.requires_node
 def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     completed = subprocess.run(
         ["node", "tests/web_app_review_runner.cjs"],

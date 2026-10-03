@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import subprocess
 import sys
-import time
+import threading
+from typing import Callable, TextIO
 
 import anyio
 import httpx
@@ -16,6 +18,15 @@ from mcp.client.streamable_http import streamable_http_client
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SERVER_START_TIMEOUT_SECONDS = 15
+SERVER_START_ATTEMPTS = 5
+# Uvicorn logs this only after its own listener is bound, with the real port
+# even when started on port 0, so readiness cannot come from another process.
+SERVER_READY_LINE = re.compile(r"Uvicorn running on https?://127\.0\.0\.1:(\d+)\b")
+# asyncio's create_server wording on Linux, macOS and Windows.
+SERVER_BIND_FAILURE = "error while attempting to bind"
+
+ServerLauncher = Callable[[int], tuple[list[str], dict[str, str]]]
 
 
 def _unused_local_port() -> int:
@@ -24,21 +35,103 @@ def _unused_local_port() -> int:
         return int(listener.getsockname()[1])
 
 
-def _wait_for_port(process: subprocess.Popen[str], port: int) -> None:
-    deadline = time.monotonic() + 15
-    while time.monotonic() < deadline:
-        if process.poll() is not None:
-            stdout, stderr = process.communicate()
-            raise AssertionError(
-                "HTTP MCP 서버가 시작 전에 종료되었습니다.\n"
-                f"stdout={stdout}\nstderr={stderr}"
-            )
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connection:
-            connection.settimeout(0.1)
-            if connection.connect_ex(("127.0.0.1", port)) == 0:
-                return
-        time.sleep(0.05)
-    raise AssertionError("HTTP MCP 서버 시작 시간이 초과되었습니다")
+class _ServerOutput:
+    """Drain merged server output so readiness is known and pipes never fill."""
+
+    def __init__(self, stream: TextIO) -> None:
+        self._lines: list[str] = []
+        self._lock = threading.Lock()
+        self._ready = threading.Event()
+        self.port: int | None = None
+        self._thread = threading.Thread(target=self._drain, args=(stream,), daemon=True)
+        self._thread.start()
+
+    def _drain(self, stream: TextIO) -> None:
+        try:
+            for line in stream:
+                with self._lock:
+                    self._lines.append(line)
+                match = SERVER_READY_LINE.search(line)
+                if match and self.port is None:
+                    self.port = int(match.group(1))
+                    self._ready.set()
+        finally:
+            self._ready.set()
+
+    def wait_for_port(self, timeout: float) -> int | None:
+        self._ready.wait(timeout)
+        return self.port
+
+    def text(self, *, join_timeout: float = 5) -> str:
+        self._thread.join(join_timeout)
+        with self._lock:
+            return "".join(self._lines)
+
+
+def _stop_server(process: subprocess.Popen[str]) -> None:
+    process.terminate()
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=5)
+
+
+def _start_server(
+    launch: ServerLauncher, *, ephemeral_port: bool
+) -> tuple[subprocess.Popen[str], int]:
+    """Start a local HTTP server and return it with the port it really bound.
+
+    With ``ephemeral_port`` the server binds port 0 and reports the port the OS
+    chose, so no other process can take it in between. Servers that require an
+    explicit port get a fresh candidate and are retried only when that bind
+    loses a race to another process.
+    """
+
+    for _attempt in range(SERVER_START_ATTEMPTS):
+        requested = 0 if ephemeral_port else _unused_local_port()
+        command, environment = launch(requested)
+        process = subprocess.Popen(
+            command,
+            cwd=ROOT,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+        )
+        assert process.stdout is not None
+        output = _ServerOutput(process.stdout)
+        port = output.wait_for_port(SERVER_START_TIMEOUT_SECONDS)
+        if port is not None and requested in {0, port} and process.poll() is None:
+            return process, port
+        _stop_server(process)
+        log = output.text()
+        if port is None and SERVER_BIND_FAILURE in log:
+            continue
+        raise AssertionError(f"HTTP MCP 서버가 시작되지 않았습니다.\noutput={log}")
+    raise AssertionError(
+        f"HTTP MCP 서버가 {SERVER_START_ATTEMPTS}번 모두 포트 경합으로 시작되지 않았습니다"
+    )
+
+
+def _vercel_uvicorn_launcher(environment: dict[str, str]) -> ServerLauncher:
+    def launch(port: int) -> tuple[list[str], dict[str, str]]:
+        return (
+            [
+                sys.executable,
+                "-m",
+                "uvicorn",
+                "api.index:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(port),
+            ],
+            environment,
+        )
+
+    return launch
 
 
 def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
@@ -211,12 +304,10 @@ def test_stdio_mcp_protocol_lists_and_calls_all_tools(tmp_path: Path) -> None:
 
 def test_streamable_http_is_default_and_calls_all_tools(tmp_path: Path) -> None:
     answers_path = tmp_path / "http-answers.json"
-    port = _unused_local_port()
     environment = {
         **os.environ,
         "FAIRPOST_ANSWERS_PATH": str(answers_path),
         "FAIRPOST_MCP_HOST": "127.0.0.1",
-        "FAIRPOST_MCP_PORT": str(port),
         "PYTHONIOENCODING": "utf-8",
     }
     for name in (
@@ -224,17 +315,16 @@ def test_streamable_http_is_default_and_calls_all_tools(tmp_path: Path) -> None:
         "FAIRPOST_KOREAN_LAW_MCP_COMMAND",
     ):
         environment.pop(name, None)
-    process = subprocess.Popen(
-        [sys.executable, "-m", "mcp_server.server"],
-        cwd=ROOT,
-        env=environment,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
+    # mcp_server.server validates FAIRPOST_MCP_PORT as 1-65535, so it cannot
+    # bind port 0; _start_server retries if another process wins the port.
+    process, port = _start_server(
+        lambda candidate: (
+            [sys.executable, "-m", "mcp_server.server"],
+            {**environment, "FAIRPOST_MCP_PORT": str(candidate)},
+        ),
+        ephemeral_port=False,
     )
     try:
-        _wait_for_port(process, port)
 
         async def exercise() -> None:
             async with streamable_http_client(
@@ -345,12 +435,7 @@ def test_streamable_http_is_default_and_calls_all_tools(tmp_path: Path) -> None:
 
         anyio.run(exercise)
     finally:
-        process.terminate()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=5)
+        _stop_server(process)
 
     persisted = json.loads(answers_path.read_text(encoding="utf-8"))
     assert persisted["org-http"]["Q-PROC-001"] == "평가기준을 사전에 안내합니다."
@@ -443,7 +528,6 @@ def test_remote_import_ignores_partial_storage_configuration() -> None:
 def test_vercel_asgi_entrypoint_requires_bearer_and_calls_mcp(
     tmp_path: Path,
 ) -> None:
-    port = _unused_local_port()
     token = "test-vercel-bearer-token"
     environment = {
         **os.environ,
@@ -458,27 +542,10 @@ def test_vercel_asgi_entrypoint_requires_bearer_and_calls_mcp(
         "KV_REST_API_TOKEN",
     ):
         environment.pop(name, None)
-    process = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "api.index:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-        ],
-        cwd=ROOT,
-        env=environment,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
+    process, port = _start_server(
+        _vercel_uvicorn_launcher(environment), ephemeral_port=True
     )
     try:
-        _wait_for_port(process, port)
-
         unauthorized = httpx.post(
             f"http://127.0.0.1:{port}/api/mcp",
             json={
@@ -609,16 +676,10 @@ def test_vercel_asgi_entrypoint_requires_bearer_and_calls_mcp(
 
         anyio.run(exercise_claude_readonly)
     finally:
-        process.terminate()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=5)
+        _stop_server(process)
 
 
 def test_vercel_public_remote_exposes_only_read_only_analysis_tools() -> None:
-    port = _unused_local_port()
     environment = {
         **os.environ,
         "VERCEL": "1",
@@ -634,27 +695,10 @@ def test_vercel_public_remote_exposes_only_read_only_analysis_tools() -> None:
         "KV_REST_API_TOKEN",
     ):
         environment.pop(name, None)
-    process = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "api.index:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-        ],
-        cwd=ROOT,
-        env=environment,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
+    process, port = _start_server(
+        _vercel_uvicorn_launcher(environment), ephemeral_port=True
     )
     try:
-        _wait_for_port(process, port)
-
         health = httpx.get(f"http://127.0.0.1:{port}/api/health")
         assert health.status_code == 200
         assert health.json()["authentication"] == "none"
@@ -713,9 +757,80 @@ def test_vercel_public_remote_exposes_only_read_only_analysis_tools() -> None:
 
         anyio.run(exercise)
     finally:
-        process.terminate()
+        _stop_server(process)
+
+
+def _tiny_uvicorn_launcher(port: int) -> tuple[list[str], dict[str, str]]:
+    script = (
+        "import uvicorn\n"
+        "async def app(scope, receive, send):\n"
+        "    pass\n"
+        f"uvicorn.run(app, host='127.0.0.1', port={port})\n"
+    )
+    return [sys.executable, "-c", script], dict(os.environ)
+
+
+def _accepts_connections(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connection:
+        connection.settimeout(1)
+        return connection.connect_ex(("127.0.0.1", port)) == 0
+
+
+def test_server_start_reads_back_the_ephemeral_port_it_bound() -> None:
+    process, port = _start_server(_tiny_uvicorn_launcher, ephemeral_port=True)
+    try:
+        assert port > 0
+        assert process.poll() is None
+        assert _accepts_connections(port)
+    finally:
+        _stop_server(process)
+
+
+def test_server_start_retries_when_another_process_wins_the_port(
+    monkeypatch,
+) -> None:
+    real_unused_local_port = _unused_local_port
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as squatter:
+        squatter.bind(("127.0.0.1", 0))
+        squatter.listen()
+        taken = int(squatter.getsockname()[1])
+        offered: list[int] = []
+
+        def next_candidate() -> int:
+            # The first candidate is the port another process already holds.
+            offered.append(taken if not offered else real_unused_local_port())
+            return offered[-1]
+
+        monkeypatch.setattr(
+            sys.modules[__name__], "_unused_local_port", next_candidate
+        )
+
+        process, port = _start_server(_tiny_uvicorn_launcher, ephemeral_port=False)
         try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=5)
+            assert offered[0] == taken
+            assert len(offered) == 2
+            assert port == offered[1] != taken
+            assert process.poll() is None
+            assert _accepts_connections(port)
+        finally:
+            _stop_server(process)
+
+
+def test_server_start_reports_non_bind_failures_without_retrying(
+    monkeypatch,
+) -> None:
+    launches: list[int] = []
+
+    def crashing(port: int) -> tuple[list[str], dict[str, str]]:
+        launches.append(port)
+        return [sys.executable, "-c", "print('boom'); raise SystemExit(3)"], dict(
+            os.environ
+        )
+
+    try:
+        _start_server(crashing, ephemeral_port=False)
+    except AssertionError as exc:
+        assert "boom" in str(exc)
+    else:
+        raise AssertionError("a crashing server must not be reported as started")
+    assert len(launches) == 1

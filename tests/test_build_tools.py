@@ -2354,7 +2354,7 @@ def test_web_parity_auditor_rejects_holdout_path(tmp_path: Path) -> None:
         module.audit(path)
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
+@pytest.mark.requires_node
 def test_web_parity_auditor_compares_training_records(tmp_path: Path) -> None:
     module = load_tool("verify_web_parity")
     path = tmp_path / "train" / "records.jsonl"

@@ -16,6 +16,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import load_ruleset  # noqa: E402
+from mcp_server.build_identity import runtime_source_fingerprint  # noqa: E402
+from tools.release_inputs import validation_source_fingerprint  # noqa: E402
 
 
 OPERATIONAL_REPORTS = {
@@ -34,6 +36,31 @@ EXPECTED_REPORT_SCHEMAS = {
     "web_engine_parity.json": "fairpost-web-engine-parity-v1",
     "work24_access_audit.json": "fairpost-work24-access-audit-v1",
 }
+# Canonical report names whose suffixed copies (for example
+# ``build_artifact-8h-candidate-2026-09-12.json``) are point-in-time snapshots.
+# A snapshot is still checked and listed with its stale reasons, but it does not
+# claim to be current evidence, and so does not fail the audit, unless it
+# records ``"evidence_status": "current"`` explicitly.
+CANONICAL_REPORTS = frozenset(
+    {*EXPECTED_REPORT_SCHEMAS, *OPERATIONAL_REPORTS, "evidence_version_audit.json"}
+)
+# Where reports record the runtime source fingerprint they were produced for.
+# ``health`` is the deployed Vercel runtime, matching the deployed ruleset
+# check for ``vercel_deployment_audit.json``; ``local_ruleset`` is the local
+# runtime that deployment was compared against.
+RUNTIME_FINGERPRINT_PATHS = (
+    ("runtime_source_fingerprint",),
+    ("local_ruleset", "runtime_source_fingerprint"),
+    ("health", "runtime_source_fingerprint"),
+    ("verification", "vercel_runtime_source_fingerprint"),
+)
+# JUnit-bound validation inputs (code, tests, tools, data). The distribution
+# source fingerprint is deliberately not compared: it hashes reports/*.json,
+# including this audit's own committed output, so binding it here could never
+# converge. build_release_report.py checks it against the fresh distribution.
+VALIDATION_FINGERPRINT_PATHS = (
+    ("verification", "test_validation_source_fingerprint"),
+)
 
 
 def _paths_alias(left: Path, right: Path) -> bool:
@@ -67,8 +94,52 @@ def _version_pair(name: str, payload: dict[str, Any]) -> tuple[Any, Any]:
     return payload.get("ruleset_version"), payload.get("matching_version")
 
 
+def snapshot_of(name: str) -> str | None:
+    """Return the canonical report a suffixed snapshot copies, if any."""
+
+    if not name.endswith(".json"):
+        return None
+    for canonical in sorted(CANONICAL_REPORTS):
+        if name != canonical and name.startswith(canonical[: -len(".json")] + "-"):
+            return canonical
+    return None
+
+
+def _claims_current(name: str, payload: dict[str, Any]) -> bool:
+    if payload.get("evidence_status") == "current":
+        return True
+    return snapshot_of(name) is None
+
+
+def _recorded_fingerprints(
+    payload: dict[str, Any], paths: tuple[tuple[str, ...], ...]
+) -> dict[str, Any]:
+    recorded: dict[str, Any] = {}
+    for path in paths:
+        node: Any = payload
+        for key in path:
+            node = node.get(key) if isinstance(node, dict) else None
+        if node is not None:
+            recorded[".".join(path)] = node
+    return recorded
+
+
+def current_runtime_fingerprint(ruleset: Any) -> str:
+    return runtime_source_fingerprint(
+        ruleset_version=ruleset.version,
+        matching_version=ruleset.matching_version,
+        root=ROOT,
+    )
+
+
+def current_validation_fingerprint() -> str:
+    return validation_source_fingerprint(ROOT)
+
+
 def audit(reports_dir: Path, *, scope: str, output: Path) -> dict[str, Any]:
     ruleset = load_ruleset(ROOT / "data")
+    runtime_fingerprint = current_runtime_fingerprint(ruleset)
+    validation_fingerprint: str | None = None
     rows: list[dict[str, Any]] = []
     skipped_historical: list[str] = []
     for path in sorted(reports_dir.glob("*.json")):
@@ -86,6 +157,9 @@ def audit(reports_dir: Path, *, scope: str, output: Path) -> dict[str, Any]:
                     "scope": "operational" if operational else "local",
                     "status": "invalid_json",
                     "error": type(exc).__name__,
+                    "stale_reasons": ["invalid_json"],
+                    "claims_current": True,
+                    "snapshot_of": snapshot_of(path.name),
                 }
             )
             continue
@@ -101,10 +175,16 @@ def audit(reports_dir: Path, *, scope: str, output: Path) -> dict[str, Any]:
             if expected_schema is not None
             else None
         )
+        runtime_recorded = _recorded_fingerprints(payload, RUNTIME_FINGERPRINT_PATHS)
+        validation_recorded = _recorded_fingerprints(
+            payload, VALIDATION_FINGERPRINT_PATHS
+        )
         if (
             version is None
             and matching_version is None
             and expected_schema is None
+            and not runtime_recorded
+            and not validation_recorded
         ):
             continue
         ruleset_matches = version == ruleset.version if version is not None else None
@@ -113,20 +193,40 @@ def audit(reports_dir: Path, *, scope: str, output: Path) -> dict[str, Any]:
             if matching_version is not None
             else None
         )
-        current = (
-            ruleset_matches is not False
-            and matching_matches is not False
-            and schema_matches is not False
+        runtime_matches = (
+            all(value == runtime_fingerprint for value in runtime_recorded.values())
+            if runtime_recorded
+            else None
         )
+        if validation_recorded and validation_fingerprint is None:
+            validation_fingerprint = current_validation_fingerprint()
+        validation_matches = (
+            all(
+                value == validation_fingerprint
+                for value in validation_recorded.values()
+            )
+            if validation_recorded
+            else None
+        )
+        stale_reasons = [
+            reason
+            for reason, matches in (
+                ("ruleset_version_mismatch", ruleset_matches),
+                ("matching_version_mismatch", matching_matches),
+                ("schema_version_mismatch", schema_matches),
+                ("runtime_source_fingerprint_mismatch", runtime_matches),
+                ("validation_source_fingerprint_mismatch", validation_matches),
+            )
+            if matches is False
+        ]
         rows.append(
             {
                 "path": path.relative_to(ROOT).as_posix(),
                 "scope": "operational" if operational else "local",
-                "status": (
-                    "current"
-                    if current
-                    else "stale"
-                ),
+                "status": "stale" if stale_reasons else "current",
+                "stale_reasons": stale_reasons,
+                "claims_current": _claims_current(path.name, payload),
+                "snapshot_of": snapshot_of(path.name),
                 "schema_version": payload.get("schema_version"),
                 "expected_schema_version": expected_schema,
                 "schema_version_matches": schema_matches,
@@ -134,9 +234,30 @@ def audit(reports_dir: Path, *, scope: str, output: Path) -> dict[str, Any]:
                 "matching_version": matching_version,
                 "ruleset_version_matches": ruleset_matches,
                 "matching_version_matches": matching_matches,
+                "runtime_source_fingerprints": runtime_recorded,
+                "expected_runtime_source_fingerprint": (
+                    runtime_fingerprint if runtime_recorded else None
+                ),
+                "runtime_source_fingerprint_matches": runtime_matches,
+                "validation_source_fingerprints": validation_recorded,
+                "expected_validation_source_fingerprint": (
+                    validation_fingerprint if validation_recorded else None
+                ),
+                "validation_source_fingerprint_matches": validation_matches,
             }
         )
-    stale = [row["path"] for row in rows if row["status"] != "current"]
+    # Only reports that claim to be current evidence gate the audit. Stale
+    # snapshots stay visible with their reasons but do not fail it.
+    stale = [
+        row["path"]
+        for row in rows
+        if row["status"] != "current" and row["claims_current"]
+    ]
+    stale_snapshots = [
+        row["path"]
+        for row in rows
+        if row["status"] != "current" and not row["claims_current"]
+    ]
     return {
         "schema_version": "fairpost-evidence-version-audit-v1",
         "checked_at": datetime.now(KST).isoformat(
@@ -145,10 +266,13 @@ def audit(reports_dir: Path, *, scope: str, output: Path) -> dict[str, Any]:
         "scope": scope,
         "ruleset_version": ruleset.version,
         "matching_version": ruleset.matching_version,
+        "runtime_source_fingerprint": runtime_fingerprint,
         "reports_checked": len(rows),
-        "reports_current": len(rows) - len(stale),
+        "reports_current": sum(row["status"] == "current" for row in rows),
         "reports_stale": len(stale),
+        "reports_snapshot_stale": len(stale_snapshots),
         "stale_paths": stale,
+        "stale_snapshot_paths": stale_snapshots,
         "historical_paths_skipped": skipped_historical,
         "reports": rows,
         "passed": not stale and bool(rows),
@@ -175,7 +299,8 @@ def _atomic_write(path: Path, payload: str) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "reports/*.json의 규칙셋ㆍ매칭 버전이 현재 엔진과 같은지 검사합니다."
+            "reports/*.json의 규칙셋ㆍ매칭ㆍ스키마 버전과 런타임ㆍ검증 입력 "
+            "지문이 현재 엔진과 같은지 검사합니다."
         )
     )
     parser.add_argument("--reports-dir", type=Path, default=ROOT / "reports")
@@ -197,8 +322,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(str(exc))
     print(
         f"증거 버전 {report['reports_checked']}개 검사: "
-        f"현재 {report['reports_current']}개, stale {report['reports_stale']}개"
+        f"현재 {report['reports_current']}개, stale {report['reports_stale']}개, "
+        f"stale 스냅샷 {report['reports_snapshot_stale']}개"
     )
+    for row in report["reports"]:
+        if row["status"] != "current":
+            label = "stale" if row["claims_current"] else "stale 스냅샷"
+            print(f"  {label}: {row['path']} ({', '.join(row['stale_reasons'])})")
     return 0 if report["passed"] else 1
 
 
