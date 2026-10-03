@@ -85,3 +85,4 @@ strict readiness blocked)이다. 현재 소스의 테스트 수는 `python -m py
 2. `tools/evaluate.py --enforce-targets` 통과 보고서
 3. PRD에 지정된 Work24 민간 공고 출처를 충족할 기업회원 API 권한 또는 출처 변경 승인
 4. Git 저장소ㆍ법령 감사 Actions 성공 실행(현재 0회)ㆍ릴리스 태그
+5. 현재 커밋 기준 운영 배포 감사와 외부 MCP 클라이언트 증거의 재생성
