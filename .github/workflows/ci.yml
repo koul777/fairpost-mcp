@@ -10,17 +10,23 @@ permissions:
 jobs:
   # Linux owns the full evidence pipeline. Windows independently proves that
   # Korean console output, package member paths, and installed-wheel lookup work.
+  # Every pytest job installs Node.js and sets FAIRPOST_REQUIRE_NODE so the
+  # Python/JS parity tests fail instead of skipping when node is missing.
   test-windows:
     runs-on: windows-latest
     env:
       PYTHONUTF8: "1"
       PYTHONIOENCODING: "utf-8"
+      FAIRPOST_REQUIRE_NODE: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
       - name: Install
         run: |
           $ErrorActionPreference = "Stop"
@@ -60,12 +66,17 @@ jobs:
 
   test-python-latest:
     runs-on: ubuntu-latest
+    env:
+      FAIRPOST_REQUIRE_NODE: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
           cache: pip
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
       - name: Install
         run: |
           python -m pip install --upgrade "pip==26.2.1" "setuptools==84.0.0"
@@ -79,12 +90,17 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    env:
+      FAIRPOST_REQUIRE_NODE: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
       - name: Install
         run: |
           python -m pip install --upgrade "pip==26.2.1" "setuptools==84.0.0"
