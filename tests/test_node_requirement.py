@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 
 import pytest
+import yaml
 
 import conftest
 
@@ -57,14 +58,24 @@ def test_node_tests_use_the_required_marker_instead_of_silent_skips() -> None:
     assert offenders == []
 
 
-def test_every_ci_pytest_job_requires_node() -> None:
-    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
-        encoding="utf-8"
+def test_every_ci_pytest_step_requires_node() -> None:
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     )
-    jobs = re.split(r"\n  (?=[A-Za-z0-9_-]+:\n)", workflow.split("\njobs:\n", 1)[1])
-    pytest_jobs = [job for job in jobs if "python -m pytest" in job]
+    pytest_jobs = {
+        name: job
+        for name, job in workflow["jobs"].items()
+        if any("python -m pytest" in step.get("run", "") for step in job["steps"])
+    }
 
-    assert len(pytest_jobs) == 3
-    for job in pytest_jobs:
-        assert "actions/setup-node@" in job
-        assert 'FAIRPOST_REQUIRE_NODE: "1"' in job
+    assert set(pytest_jobs) == {"test", "test-python-latest", "test-windows"}
+    for job in pytest_jobs.values():
+        uses = [step.get("uses", "") for step in job["steps"]]
+        node_index = next(
+            index for index, used in enumerate(uses) if used.startswith("actions/setup-node@")
+        )
+        for index, step in enumerate(job["steps"]):
+            if "python -m pytest" in step.get("run", ""):
+                assert index > node_index
+                env = {**job.get("env", {}), **step.get("env", {})}
+                assert env.get("FAIRPOST_REQUIRE_NODE") == "1"

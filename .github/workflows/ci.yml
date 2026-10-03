@@ -10,14 +10,13 @@ permissions:
 jobs:
   # Linux owns the full evidence pipeline. Windows independently proves that
   # Korean console output, package member paths, and installed-wheel lookup work.
-  # Every pytest job installs Node.js and sets FAIRPOST_REQUIRE_NODE so the
+  # Every pytest step installs Node.js and sets FAIRPOST_REQUIRE_NODE so the
   # Python/JS parity tests fail instead of skipping when node is missing.
   test-windows:
     runs-on: windows-latest
     env:
       PYTHONUTF8: "1"
       PYTHONIOENCODING: "utf-8"
-      FAIRPOST_REQUIRE_NODE: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -40,6 +39,8 @@ jobs:
           python tools/validate_data.py
           python tools/export_web_bundle.py --check
       - name: Test
+        env:
+          FAIRPOST_REQUIRE_NODE: "1"
         run: python -m pytest
       - name: Build and inspect Windows package
         shell: pwsh
@@ -66,8 +67,6 @@ jobs:
 
   test-python-latest:
     runs-on: ubuntu-latest
-    env:
-      FAIRPOST_REQUIRE_NODE: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -86,12 +85,12 @@ jobs:
           python tools/validate_data.py
           python tools/export_web_bundle.py --check
       - name: Test declared latest Python compatibility
+        env:
+          FAIRPOST_REQUIRE_NODE: "1"
         run: python -m pytest
 
   test:
     runs-on: ubuntu-latest
-    env:
-      FAIRPOST_REQUIRE_NODE: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -231,6 +230,8 @@ jobs:
           assert review_summary["aggregate"]["precision"] is None
           PY
       - name: Test
+        env:
+          FAIRPOST_REQUIRE_NODE: "1"
         run: python -m pytest --junitxml="$RUNNER_TEMP/pytest.xml"
       - name: Build and verify candidate evidence
         run: |
