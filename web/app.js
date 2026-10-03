@@ -72,6 +72,12 @@
   );
   const assistedNotice = document.getElementById("assisted-review-notice");
   const assistedOutput = document.getElementById("assisted-review-output");
+  const assistedConsent = document.getElementById("assisted-review-consent");
+  const assistedRun = document.getElementById("assisted-review-run");
+  const assistedRunHint = document.getElementById("assisted-review-run-hint");
+  const assistedLive = document.getElementById("assisted-review-live");
+  const resultsNote = document.getElementById("results-note");
+  const postingInputError = document.getElementById("posting-input-error");
   const assistedProviderLabels = {
     anthropic: "Claude",
     openai: "GPT",
@@ -215,6 +221,11 @@
   let latestCheckedText = null;
   let latestAssistedReview = null;
   let assistedRequestSequence = 0;
+  let assistedAvailable = false;
+  let assistedInFlight = false;
+  let assistedResultSignature = null;
+  let assistedResultView = null;
+  let assistedResultViewCurrent = false;
   let roleReviewSequence = 0;
   let roleReviewState = null;
   let roleReviewPersistent = false;
@@ -1203,13 +1214,53 @@
     if (state) element.classList.add(state);
   }
 
+  function announceAssisted(message) {
+    // Polite live region for AI progress, results and toggle changes.
+    assistedLive.textContent = "";
+    assistedLive.textContent = message;
+  }
+
+  function updateResultsNote() {
+    if (latestAssistedReview || !assistedPanel.hidden) {
+      resultsNote.textContent =
+        "판정이 아니라 수정·확인 질문을 정리한 검토 메모입니다. 기본 결과는 브라우저에서 만들었고, AI·현행 법령 보강 메모는 FairPost 서버와 선택한 AI 제공자를 거친 초안입니다.";
+      return;
+    }
+    resultsNote.textContent = assistedToggle.checked
+      ? "판정이 아니라 수정·확인 질문을 정리한 로컬 검토 메모입니다. AI 보강은 '보강 실행'을 누를 때만 전송합니다."
+      : "판정이 아니라 수정·확인 질문을 정리한 로컬 검토 메모입니다.";
+  }
+
+  // Everything that changes what an AI request would contain. A result is
+  // current only while this matches the request that produced it.
+  function assistedRequestSignature() {
+    return JSON.stringify([
+      input.value,
+      assistedProvider.value || "",
+      currentOrganizationProfile(),
+    ]);
+  }
+
+  function assistedResultIsCurrent() {
+    return Boolean(
+      latestAssistedReview &&
+        assistedResultSignature !== null &&
+        assistedResultSignature === assistedRequestSignature()
+    );
+  }
+
   function resetAssistedReviewPanel() {
     assistedRequestSequence += 1;
+    assistedInFlight = false;
     latestAssistedReview = null;
+    assistedResultSignature = null;
+    assistedResultView = null;
     assistedPanel.hidden = true;
     assistedNotice.textContent = "";
     assistedOutput.textContent = "";
     setAssistBadge(assistedResultStatus, "대기");
+    updateResultsNote();
+    updateAssistedRunState();
   }
 
   function setLocalPrivacyNotice() {
@@ -1219,7 +1270,7 @@
 
   function setAssistedPrivacyNotice() {
     privacyMessage.textContent =
-      "AI 보강 켜짐 · 실행 시 공고문과 선별 근거가 안내된 외부 서비스로 전송";
+      "AI 보강 켜짐 · '보강 실행'을 누를 때만 공고문을 FairPost 서버로 전송(AI 제공자에게는 마스킹된 탐지 표현과 근거만)";
   }
 
   async function responseJson(response) {
@@ -1230,12 +1281,16 @@
     }
   }
 
-  function configureAssistedProviders(capability) {
-    const available = Array.isArray(capability.available_providers)
+  function availableAssistedProviders(capability) {
+    return Array.isArray(capability.available_providers)
       ? capability.available_providers
           .map((item) => item && item.id)
           .filter((id) => Object.prototype.hasOwnProperty.call(assistedProviderLabels, id))
       : [];
+  }
+
+  function configureAssistedProviders(capability) {
+    const available = availableAssistedProviders(capability);
     assistedProvider.innerHTML = available
       .map((id) => `<option value="${id}">${assistedProviderLabels[id]}</option>`)
       .join("");
@@ -1247,9 +1302,39 @@
     return preferred ? assistedProviderLabels[preferred] : "설정된 AI";
   }
 
-  async function activateAssistedReview() {
-    const requestId = ++assistedRequestSequence;
-    assistedStatus.textContent = "서버의 AI API와 Korean Law MCP 설정을 확인하고 있습니다.";
+  function selectedProviderLabel() {
+    return assistedProviderLabels[assistedProvider.value] || "설정된 AI";
+  }
+
+  function setAssistedUnavailable(reason, { announce = false } = {}) {
+    assistedAvailable = false;
+    assistedToggle.checked = false;
+    assistedToggle.disabled = true;
+    assistedProvider.disabled = true;
+    assistedConsent.hidden = true;
+    setAssistBadge(assistedBadge, "사용 불가", "error");
+    assistedStatus.textContent = reason;
+    setLocalPrivacyNotice();
+    updateAssistedRunState();
+    updateResultsNote();
+    if (announce) announceAssisted(`AI·현행 법령 보강이 자동으로 꺼졌습니다. ${reason}`);
+  }
+
+  // Only asks whether the server offers assisted review; no posting content
+  // is sent. Without a server (file://) the toggle stays disabled.
+  async function checkAssistedAvailability() {
+    const protocol = window.location && window.location.protocol;
+    if (protocol !== "http:" && protocol !== "https:") {
+      setAssistedUnavailable(
+        "사용할 수 없음: 파일로 연 화면에는 FairPost 서버가 없어 AI·현행 법령 보강을 쓸 수 없습니다. 기본 검사는 그대로 사용할 수 있습니다."
+      );
+      return;
+    }
+    if (typeof fetch !== "function") {
+      setAssistedUnavailable("사용할 수 없음: 이 브라우저에서 서버 요청을 보낼 수 없습니다.");
+      return;
+    }
+    assistedToggle.disabled = true;
     setAssistBadge(assistedBadge, "확인 중");
     try {
       const response = await fetch("/api/assisted-review", {
@@ -1258,37 +1343,102 @@
         cache: "no-store",
       });
       const capability = await responseJson(response);
-      if (requestId !== assistedRequestSequence || !assistedToggle.checked) return;
-      if (!response.ok || capability.ready !== true) {
-        throw new Error(capability.reason || "보강 검토가 설정되지 않았습니다.");
+      if (!response.ok) {
+        throw new Error(
+          capability.reason ||
+            capability.error ||
+            `이 서버에는 보강 검토 API가 없습니다(응답 ${response.status}).`
+        );
       }
-      const providerLabel = configureAssistedProviders(capability);
-      setAssistBadge(assistedBadge, "켜짐", "active");
-      assistedStatus.textContent = `${capability.privacy} 현재 선택: ${providerLabel}`;
-      setAssistedPrivacyNotice();
-      showToast("AI·현행 법령 보강을 활성화했습니다.");
-      if (latestResult && input.value.trim()) {
-        void runAssistedReview(input.value);
+      if (capability.ready !== true || !availableAssistedProviders(capability).length) {
+        throw new Error(
+          capability.reason || "서버에 사용할 수 있는 AI 제공자가 설정되지 않았습니다."
+        );
       }
+      assistedAvailable = true;
+      configureAssistedProviders(capability);
+      assistedProvider.disabled = true;
+      assistedToggle.disabled = false;
+      setAssistBadge(assistedBadge, "꺼짐");
+      assistedStatus.textContent =
+        "사용할 수 있습니다. 켜도 바로 전송하지 않으며, 전송 범위를 확인한 뒤 '보강 실행'을 눌러야 요청합니다.";
     } catch (error) {
-      if (requestId !== assistedRequestSequence) return;
-      assistedToggle.checked = false;
-      const message = error instanceof Error ? error.message : "연결을 확인하지 못했습니다.";
-      assistedStatus.textContent = `사용할 수 없음: ${message}`;
-      setAssistBadge(assistedBadge, "미설정", "error");
-      setLocalPrivacyNotice();
-      showToast("AI·현행 법령 보강 설정이 필요합니다.");
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "서버 설정을 확인하지 못했습니다.";
+      setAssistedUnavailable(`사용할 수 없음: ${message}`);
+    }
+  }
+
+  function updateAssistedRunState() {
+    const enabled = assistedAvailable && assistedToggle.checked;
+    let hint = "";
+    if (!enabled) {
+      hint = "";
+    } else if (assistedInFlight) {
+      hint = "요청 중입니다. 결과를 기다리고 있습니다.";
+    } else if (!latestResult || !input.value.trim()) {
+      hint = "먼저 '검토 메모 만들기'로 기본 검토를 실행하세요.";
+    } else if (latestCheckedText !== input.value) {
+      hint = "공고문이 바뀌었습니다. 기본 검토를 다시 실행한 뒤 보강을 실행하세요.";
+    } else {
+      hint = `누르면 현재 공고문과 설정(${selectedProviderLabel()})으로 한 번 요청합니다.`;
+    }
+    assistedRun.disabled =
+      !enabled ||
+      assistedInFlight ||
+      !latestResult ||
+      !input.value.trim() ||
+      latestCheckedText !== input.value;
+    assistedRunHint.textContent = hint;
+  }
+
+  function showAssistedResultView() {
+    if (!assistedResultView) return;
+    if (assistedResultIsCurrent()) {
+      setAssistBadge(
+        assistedResultStatus,
+        assistedResultView.badge,
+        assistedResultView.state
+      );
+      assistedNotice.textContent = assistedResultView.notice;
+      return;
+    }
+    setAssistBadge(assistedResultStatus, "이전 입력 기준", "error");
+    assistedNotice.textContent =
+      "공고문·AI 제공자·조직 조건 중 하나가 바뀌어 아래 AI 메모는 현재 내용과 다를 수 있습니다. 새 결과가 필요하면 '보강 실행'을 다시 누르세요. 메모 복사에는 포함하지 않습니다.";
+  }
+
+  function markAssistedSettingsChanged(reason) {
+    updateAssistedRunState();
+    if (!assistedResultView) return;
+    const wasCurrent = assistedResultViewCurrent;
+    showAssistedResultView();
+    assistedResultViewCurrent = assistedResultIsCurrent();
+    if (wasCurrent && !assistedResultViewCurrent) {
+      announceAssisted(`${reason} 이전 AI 보강 메모는 현재 내용과 다를 수 있습니다.`);
     }
   }
 
   async function runAssistedReview(text) {
     const requestId = ++assistedRequestSequence;
+    const signature = assistedRequestSignature();
+    const providerLabel = selectedProviderLabel();
+    assistedInFlight = true;
     latestAssistedReview = null;
+    assistedResultSignature = null;
+    assistedResultView = null;
     assistedPanel.hidden = false;
     assistedNotice.textContent =
       "Korean Law MCP에서 현행 조문을 확인한 뒤 AI 검토 메모를 작성하고 있습니다.";
     assistedOutput.textContent = "";
     setAssistBadge(assistedResultStatus, "검토 중", "active");
+    setAssistBadge(assistedBadge, "켜짐", "active");
+    assistedStatus.textContent = `${providerLabel}로 요청했습니다. 설정을 바꾸면 이 결과는 '이전 입력 기준'으로 표시되며 자동으로 다시 보내지 않습니다.`;
+    updateResultsNote();
+    updateAssistedRunState();
+    announceAssisted(`${providerLabel}로 AI·현행 법령 보강을 요청했습니다. 결과를 기다리는 중입니다.`);
     try {
       const response = await fetch("/api/assisted-review", {
         method: "POST",
@@ -1306,34 +1456,64 @@
       });
       const result = await responseJson(response);
       if (requestId !== assistedRequestSequence || !assistedToggle.checked) return;
+      if (response.status === 503 || (result && result.ready === false)) {
+        assistedInFlight = false;
+        assistedOutput.textContent =
+          "서버에서 AI·현행 법령 보강을 사용할 수 없어 요청을 처리하지 않았습니다. 로컬 검토 결과는 그대로 사용할 수 있습니다.";
+        assistedNotice.textContent = "";
+        setAssistBadge(assistedResultStatus, "사용 불가", "error");
+        setAssistedUnavailable(
+          `사용할 수 없음: ${result.reason || "서버 설정이 바뀌었습니다."}`,
+          { announce: true }
+        );
+        return;
+      }
       if (!response.ok) {
         throw new Error(result.reason || result.error || "보강 검토 요청이 실패했습니다.");
       }
-      latestAssistedReview = result;
-      const providerLabel = assistedProviderLabels[result.ai_provider] || "AI";
-      assistedNotice.textContent = `${result.notice} ${providerLabel}와 현행 조문 ${result.current_articles_retrieved || 0}건을 사용했습니다.`;
+      const resultProvider = assistedProviderLabels[result.ai_provider] || "AI";
+      let view;
       if (result.status === "completed" && result.summary) {
         assistedOutput.textContent = result.summary;
-        setAssistBadge(assistedResultStatus, "완료", "active");
+        view = { badge: "완료", state: "active" };
         showToast("AI·현행 법령 보강 검토를 완료했습니다.");
       } else if (result.status === "no_findings") {
         assistedOutput.textContent =
           "로컬 규칙에서 현행 법령을 추가 조회할 표현 후보가 확인되지 않아 AI API를 호출하지 않았습니다.";
-        setAssistBadge(assistedResultStatus, "호출 안 함");
+        view = { badge: "호출 안 함", state: "" };
       } else if (result.status === "law_lookup_unavailable") {
         assistedOutput.textContent =
           "Korean Law MCP에서 현행 조문을 확보하지 못해 AI API를 호출하지 않았습니다.";
-        setAssistBadge(assistedResultStatus, "법령 확인 실패", "error");
+        view = { badge: "법령 확인 실패", state: "error" };
       } else {
         assistedOutput.textContent = result.notice || "보강 검토를 완료하지 못했습니다.";
-        setAssistBadge(assistedResultStatus, "AI 확인 실패", "error");
+        view = { badge: "AI 확인 실패", state: "error" };
       }
+      latestAssistedReview = result;
+      assistedResultSignature = signature;
+      assistedResultView = {
+        ...view,
+        notice: `${result.notice || ""} ${resultProvider}와 현행 조문 ${result.current_articles_retrieved || 0}건을 사용했습니다.`.trim(),
+      };
+      assistedInFlight = false;
+      showAssistedResultView();
+      assistedResultViewCurrent = assistedResultIsCurrent();
+      updateResultsNote();
+      updateAssistedRunState();
+      announceAssisted(
+        assistedResultViewCurrent
+          ? `AI·현행 법령 보강 결과: ${view.badge}.`
+          : `AI·현행 법령 보강 결과가 도착했지만 그사이 공고문이나 설정이 바뀌어 이전 입력 기준으로 표시합니다.`
+      );
     } catch (error) {
       if (requestId !== assistedRequestSequence) return;
+      assistedInFlight = false;
       const message = error instanceof Error ? error.message : "보강 검토를 완료하지 못했습니다.";
       assistedNotice.textContent = "로컬 검토 결과는 그대로 사용할 수 있습니다.";
       assistedOutput.textContent = message;
       setAssistBadge(assistedResultStatus, "연결 실패", "error");
+      updateAssistedRunState();
+      announceAssisted(`AI·현행 법령 보강 요청이 실패했습니다. ${message}`);
     }
   }
 
@@ -1677,12 +1857,20 @@
     lines.push("", `[공통 기본 체크리스트 ${commonQuestions.length}건]`);
     commonQuestions.forEach((question) => appendQuestion(question));
     if (latestAssistedReview && latestAssistedReview.summary) {
-      lines.push(
-        "",
-        "[AI·현행 법령 보강 검토]",
-        latestAssistedReview.notice,
-        latestAssistedReview.summary
-      );
+      if (assistedResultIsCurrent()) {
+        lines.push(
+          "",
+          "[AI·현행 법령 보강 검토 — FairPost 서버와 선택한 AI 제공자를 거친 초안]",
+          latestAssistedReview.notice,
+          latestAssistedReview.summary
+        );
+      } else {
+        lines.push(
+          "",
+          "[AI·현행 법령 보강 검토]",
+          "이전 공고문·설정으로 받은 AI 메모라 포함하지 않았습니다. 필요하면 '보강 실행'을 다시 누르세요."
+        );
+      }
     }
     if (roleReviewState && roleReviewUserEvents().length) {
       const summary = roleReviewProgressSummary();
@@ -1706,12 +1894,14 @@
 
   function runCheck() {
     if (!input.value.trim()) {
+      setFieldError(input, postingInputError, "검토할 공고문을 입력하세요.");
       showToast("검토할 공고문을 입력하세요.");
       input.focus();
       return;
     }
+    setFieldError(input, postingInputError, "");
     reviewAnswers.clear();
-    resetAssistedReviewPanel();
+    latestCheckedText = input.value;
     render(window.FairpostEngine.check(input.value));
     resultsTitle.focus();
     if (
@@ -1721,34 +1911,58 @@
     ) {
       resultsTitle.scrollIntoView({ behavior: "auto", block: "start" });
     }
-    if (assistedToggle.checked) {
-      void runAssistedReview(input.value);
-    }
+    // No automatic AI request: the user presses "보강 실행" explicitly.
+    markAssistedSettingsChanged("공고문을 다시 검토했습니다.");
   }
 
   input.addEventListener("input", () => {
     charCount.textContent = `${Array.from(input.value).length.toLocaleString("ko-KR")}자`;
+    if (input.value.trim()) setFieldError(input, postingInputError, "");
     if (!input.value.trim()) {
       resetReview();
     }
+    markAssistedSettingsChanged("공고문이 바뀌었습니다.");
   });
   checkButton.addEventListener("click", runCheck);
   assistedToggle.addEventListener("change", () => {
     if (assistedToggle.checked) {
-      void activateAssistedReview();
+      if (!assistedAvailable) {
+        assistedToggle.checked = false;
+        return;
+      }
+      assistedConsent.hidden = false;
+      assistedProvider.disabled = assistedProvider.options
+        ? assistedProvider.options.length < 2
+        : false;
+      setAssistBadge(assistedBadge, "켜짐 · 전송 전", "active");
+      assistedStatus.textContent =
+        "켜졌지만 아직 아무것도 전송하지 않았습니다. 아래 전송 범위를 확인하고 '보강 실행'을 누르면 현재 공고문과 설정으로 한 번 요청합니다.";
+      setAssistedPrivacyNotice();
+      updateAssistedRunState();
+      updateResultsNote();
+      announceAssisted(
+        "AI·현행 법령 보강을 켰습니다. 보강 실행을 누르기 전에는 아무것도 전송하지 않습니다."
+      );
       return;
     }
     resetAssistedReviewPanel();
+    assistedConsent.hidden = true;
+    assistedProvider.disabled = true;
     assistedStatus.textContent =
-      "기본 검사는 브라우저에서만 실행됩니다. 켜면 다음 검사부터 설정된 Korean Law MCP와 AI API를 함께 사용합니다.";
+      "꺼짐 · 기본 검사는 브라우저에서만 실행됩니다. 켜도 '보강 실행'을 누르기 전에는 전송하지 않습니다.";
     setAssistBadge(assistedBadge, "꺼짐");
     setLocalPrivacyNotice();
+    announceAssisted("AI·현행 법령 보강을 껐습니다.");
   });
   assistedProvider.addEventListener("change", () => {
     if (!assistedToggle.checked) return;
-    const providerLabel = assistedProviderLabels[assistedProvider.value] || "설정된 AI";
-    assistedStatus.textContent = `선별된 근거만 외부 서비스로 전달합니다. 현재 선택: ${providerLabel}`;
-    if (latestResult && input.value.trim()) void runAssistedReview(input.value);
+    assistedStatus.textContent = `AI 제공자를 ${selectedProviderLabel()}(으)로 바꿨습니다. 아직 전송하지 않았습니다. '보강 실행'을 눌러야 이 설정으로 요청합니다.`;
+    markAssistedSettingsChanged("AI 제공자가 바뀌었습니다.");
+  });
+  assistedRun.addEventListener("click", () => {
+    updateAssistedRunState();
+    if (assistedRun.disabled) return;
+    void runAssistedReview(input.value);
   });
   organizationSector.addEventListener("change", () => {
     const isPublic = organizationSector.value === "public";
@@ -1757,13 +1971,12 @@
   });
   [organizationSector, organizationPublicType, organizationSize].forEach((control) => {
     control.addEventListener("change", () => {
-      if (!latestResult) return;
-      renderSlots(latestResult.slots, latestResult.questions);
-      renderQuestions(latestResult.questions);
-      if (assistedToggle.checked) {
-        resetAssistedReviewPanel();
-        void runAssistedReview(input.value);
+      if (latestResult) {
+        renderSlots(latestResult.slots, latestResult.questions);
+        renderQuestions(latestResult.questions);
       }
+      // Never re-sends: an earlier AI result is only marked as outdated.
+      markAssistedSettingsChanged("조직 조건이 바뀌었습니다.");
     });
   });
   clearButton.addEventListener("click", () => {
@@ -1825,4 +2038,6 @@
 
   document.getElementById("ruleset-version").textContent =
     window.FAIRPOST_DATA.version;
+  updateAssistedRunState();
+  void checkAssistedAvailability();
 })();

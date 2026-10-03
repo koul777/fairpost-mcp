@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import functools
 import json
 from pathlib import Path
 import re
@@ -128,8 +129,8 @@ def test_fixture_does_not_trip_release_privacy_scan() -> None:
         assert module._privacy_kinds(payload) == [], relative
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
-def test_browser_detection_and_masking_match_python() -> None:
+@functools.lru_cache(maxsize=1)
+def _browser_output() -> dict:
     completed = subprocess.run(
         ["node", "tests/web_identifier_runner.cjs", str(FIXTURE)],
         cwd=ROOT,
@@ -138,7 +139,12 @@ def test_browser_detection_and_masking_match_python() -> None:
         text=True,
         encoding="utf-8",
     )
-    output = json.loads(completed.stdout)
+    return json.loads(completed.stdout)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
+def test_browser_detection_and_masking_match_python() -> None:
+    output = _browser_output()
     assert output["available"] is True
     for case in CASES:
         text = _text(case)
@@ -146,6 +152,23 @@ def test_browser_detection_and_masking_match_python() -> None:
             "kinds": list(direct_identifier_kinds(text)),
             "masked": mask_direct_identifiers(text),
         }, case["id"]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
+def test_browser_ai_toggle_stays_disabled_without_available_server() -> None:
+    availability = _browser_output()["assistedAvailability"]
+    # Without a server (file://) nothing is fetched and the toggle is disabled.
+    assert availability["file"]["toggleDisabled"] is True
+    assert availability["file"]["fetches"] == []
+    assert "파일로 연 화면" in availability["file"]["status"]
+    for scenario in ("notReady", "noApi"):
+        state = availability[scenario]
+        assert state["toggleDisabled"] is True
+        assert state["toggleChecked"] is False
+        assert state["badge"] == "사용 불가"
+        assert state["fetches"] == [{"url": "/api/assisted-review", "method": "GET"}]
+    assert "설정 필요: AI API" in availability["notReady"]["status"]
+    assert "응답 404" in availability["noApi"]["status"]
 
 
 def test_long_unspaced_text_is_linear_enough() -> None:

@@ -171,8 +171,23 @@ Object.defineProperty(globalThis, "navigator", {
     },
   },
 });
+let assistedPostMode = "ok";
+globalThis.location = { protocol: "https:" };
 globalThis.fetch = async (url, options = {}) => {
   assistedFetchCalls.push({ url, options });
+  if ((options.method || "GET") === "POST" && assistedPostMode === "unavailable") {
+    return {
+      ok: false,
+      status: 503,
+      async json() {
+        return {
+          error: "Assisted review is not configured",
+          ready: false,
+          reason: "설정 필요: AI API",
+        };
+      },
+    };
+  }
   if ((options.method || "GET") === "GET") {
     return {
       ok: true,
@@ -265,15 +280,46 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
   elements.get("organization-public-type").trigger("change");
   elements.get("organization-size").value = "300_plus";
   elements.get("organization-size").trigger("change");
+  const posts = () =>
+    assistedFetchCalls.filter((call) => call.options.method === "POST");
   const assistedToggle = elements.get("assisted-review-toggle");
+  const runButton = elements.get("assisted-review-run");
+  const live = () => elements.get("assisted-review-live").textContent;
+  const availability = {
+    gets: assistedFetchCalls.filter((call) => (call.options.method || "GET") === "GET")
+      .map((call) => ({ url: call.url, body: call.options.body || null })),
+    toggleDisabled: assistedToggle.disabled,
+    badge: elements.get("assisted-review-badge").textContent,
+  };
   assistedToggle.checked = true;
   assistedToggle.trigger("change");
-  await new Promise((resolve) => setImmediate(resolve));
+  await tick();
+  const afterToggle = {
+    posts: posts().length,
+    badge: elements.get("assisted-review-badge").textContent,
+    consentHidden: elements.get("assisted-review-consent").hidden,
+    runDisabled: runButton.disabled,
+    hint: elements.get("assisted-review-run-hint").textContent,
+    live: live(),
+    privacy: elements.get("privacy-message").textContent,
+  };
   elements.get("check-button").trigger("click");
-  await new Promise((resolve) => setImmediate(resolve));
-  const assistedPost = assistedFetchCalls.find(
-    (call) => call.options.method === "POST"
-  );
+  await tick();
+  const afterCheck = {
+    posts: posts().length,
+    runDisabled: runButton.disabled,
+    hint: elements.get("assisted-review-run-hint").textContent,
+    panelHidden: elements.get("assisted-review-panel").hidden,
+  };
+  runButton.trigger("click");
+  const whileRunning = {
+    live: live(),
+    runDisabled: runButton.disabled,
+    resultsNote: elements.get("results-note").textContent,
+  };
+  await tick();
+  await tick();
+  const assistedPost = posts()[0];
   const assisted = {
     badge: elements.get("assisted-review-badge").textContent,
     resultStatus: elements.get("assisted-review-result-status").textContent,
@@ -281,6 +327,93 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     panelHidden: elements.get("assisted-review-panel").hidden,
     postBody: assistedPost ? JSON.parse(assistedPost.options.body) : null,
     organizationMarkup: elements.get("questions-list").innerHTML,
+  };
+  const afterResult = {
+    posts: posts().length,
+    live: live(),
+    resultsNote: elements.get("results-note").textContent,
+  };
+  await elements.get("copy-button").trigger("click");
+  const memoWithCurrentAi = copied;
+
+  // Changing the provider or organization conditions never re-sends.
+  const providerSelect = elements.get("assisted-review-provider");
+  providerSelect.value = "openai";
+  providerSelect.trigger("change");
+  const afterProviderChange = {
+    posts: posts().length,
+    resultStatus: elements.get("assisted-review-result-status").textContent,
+    notice: elements.get("assisted-review-notice").textContent,
+    live: live(),
+    status: elements.get("assisted-review-status").textContent,
+  };
+  providerSelect.value = "anthropic";
+  providerSelect.trigger("change");
+  const afterProviderRevert = elements.get("assisted-review-result-status").textContent;
+  elements.get("organization-size").value = "30_to_299";
+  elements.get("organization-size").trigger("change");
+  await elements.get("copy-button").trigger("click");
+  const afterOrganizationChange = {
+    posts: posts().length,
+    resultStatus: elements.get("assisted-review-result-status").textContent,
+    memo: copied,
+  };
+  elements.get("organization-size").value = "300_plus";
+  elements.get("organization-size").trigger("change");
+
+  // Turning the toggle off and on again sends nothing either.
+  assistedToggle.checked = false;
+  assistedToggle.trigger("change");
+  const afterOff = {
+    panelHidden: elements.get("assisted-review-panel").hidden,
+    consentHidden: elements.get("assisted-review-consent").hidden,
+    live: live(),
+  };
+  assistedToggle.checked = true;
+  assistedToggle.trigger("change");
+  const postsBeforeUnavailable = posts().length;
+
+  // The server reporting "not configured" disables the toggle with a reason.
+  assistedPostMode = "unavailable";
+  runButton.trigger("click");
+  await tick();
+  await tick();
+  const autoDisabled = {
+    posts: posts().length - postsBeforeUnavailable,
+    toggleChecked: assistedToggle.checked,
+    toggleDisabled: assistedToggle.disabled,
+    badge: elements.get("assisted-review-badge").textContent,
+    status: elements.get("assisted-review-status").textContent,
+    live: live(),
+    runDisabled: runButton.disabled,
+  };
+  assistedPostMode = "ok";
+
+  // Empty input shows an inline error next to the field.
+  posting.value = "  ";
+  elements.get("check-button").trigger("click");
+  const emptyInput = {
+    error: elements.get("posting-input-error").textContent,
+    errorHidden: elements.get("posting-input-error").hidden,
+    invalid: posting.getAttribute("aria-invalid"),
+  };
+  posting.value = "여성만 지원 가능";
+  posting.dispatchEvent(new Event("input"));
+  emptyInput.clearedOnInput = posting.getAttribute("aria-invalid") === null;
+  elements.get("check-button").trigger("click");
+  const assistedFlow = {
+    availability,
+    afterToggle,
+    afterCheck,
+    whileRunning,
+    afterResult,
+    memoWithCurrentAi,
+    afterProviderChange,
+    afterProviderRevert,
+    afterOrganizationChange,
+    afterOff,
+    autoDisabled,
+    emptyInput,
   };
 
   await tick();
@@ -554,6 +687,7 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     copyFailureToast,
     cleared,
     assisted,
+    assistedFlow,
     roleReview,
   }));
 })().catch((error) => {

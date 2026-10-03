@@ -495,8 +495,74 @@ a:focus-visible,
 #assisted-review-status {
   margin: 7px 0 0 43px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.5;
+}
+
+.assist-consent {
+  margin: 10px 0 0 43px;
+  padding: 10px 12px;
+  border: 1px solid #b9c7c0;
+  border-radius: 6px;
+  background: white;
+}
+
+.assist-disclosure {
+  margin: 0;
+  color: #34413b;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.assist-disclosure strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--ink);
+}
+
+.assist-run-row {
+  margin-top: 9px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.assist-run-hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+}
+
+.field-error {
+  margin: 6px 0 0;
+  color: #8b2d24;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+#posting-input-error {
+  margin: 0;
+  padding: 8px 20px;
+  border-top: 1px solid #e3c2bd;
+  background: #fff4f2;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .editor-footer {
@@ -1360,7 +1426,8 @@ a:focus-visible,
     flex-direction: column;
   }
 
-  #assisted-review-status {
+  #assisted-review-status,
+  .assist-consent {
     margin-left: 0;
   }
 

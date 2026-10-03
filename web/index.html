@@ -26,7 +26,7 @@
           id="privacy-status"
           class="privacy"
           role="status"
-          title="기본 검사는 브라우저 안에서만 처리됩니다. AI·현행 법령 보강을 켜면 안내된 외부 서비스 전송이 시작됩니다."
+          title="기본 검사는 브라우저 안에서만 처리됩니다. AI·현행 법령 보강은 '보강 실행'을 누를 때만 공고문을 FairPost 서버로 보냅니다."
         >
           <span class="privacy-dot" aria-hidden="true"></span>
           <span id="privacy-message">기본 검사는 브라우저 안에서 처리 · 역할 기록은 브라우저에만 저장</span>
@@ -100,7 +100,9 @@
           spellcheck="false"
           placeholder="채용공고문 원문을 여기에 붙여 넣으세요."
           aria-label="채용공고문 원문"
+          aria-describedby="posting-input-error"
         ></textarea>
+        <p id="posting-input-error" class="field-error" hidden></p>
         <div class="assisted-option">
           <div class="assisted-option-row">
             <label class="assist-switch" for="assisted-review-toggle">
@@ -108,11 +110,12 @@
                 id="assisted-review-toggle"
                 type="checkbox"
                 role="switch"
-                aria-describedby="assisted-review-status"
+                disabled
+                aria-describedby="assisted-review-status assisted-review-disclosure"
               >
               <span>
                 <strong>AI·현행 법령 보강</strong>
-                <small>선택 기능</small>
+                <small>선택 기능 · 실행 버튼을 눌러야 전송</small>
               </span>
             </label>
             <div class="assist-option-controls">
@@ -122,12 +125,28 @@
                   <option value="">자동 선택</option>
                 </select>
               </label>
-              <span id="assisted-review-badge" class="assist-badge">꺼짐</span>
+              <span id="assisted-review-badge" class="assist-badge">확인 중</span>
             </div>
           </div>
           <p id="assisted-review-status">
-            기본 검사는 브라우저에서만 실행됩니다. 켜면 다음 검사부터 설정된 Korean Law MCP와 AI API를 함께 사용합니다.
+            AI·현행 법령 보강을 사용할 수 있는지 확인하고 있습니다. 기본 검사는 브라우저에서만 실행됩니다.
           </p>
+          <div id="assisted-review-consent" class="assist-consent" hidden>
+            <p id="assisted-review-disclosure" class="assist-disclosure">
+              <strong>보강 실행을 누를 때만 전송합니다.</strong>
+              ① 공고문 전문 → 이 FairPost 서버(FairPost는 원문을 저장하지 않음).
+              ② 서버 → 선택한 AI 제공자: 탐지된 표현(이메일·전화번호·주민등록번호 형식은 마스킹, 항목당 최대 1,000자), 규칙 설명·대안 표현, 현행 조문, 관련 NCS 지침, 조직 조건(공공·민간, 세부유형, 규모). 공고문 전문은 AI 제공자에게 보내지 않습니다.
+              ③ 서버 → Korean Law MCP: 법령명과 조문번호만.
+              탐지 표현이 없거나 현행 조문을 확인하지 못하면 AI를 호출하지 않습니다.
+            </p>
+            <div class="assist-run-row">
+              <button id="assisted-review-run" class="button button-secondary" type="button" disabled aria-describedby="assisted-review-run-hint assisted-review-disclosure">
+                보강 실행
+              </button>
+              <span id="assisted-review-run-hint" class="assist-run-hint">먼저 검토 메모를 만드세요.</span>
+            </div>
+          </div>
+          <p id="assisted-review-live" class="visually-hidden" role="status" aria-live="polite"></p>
         </div>
         <div class="editor-footer">
           <span id="char-count">0자</span>
@@ -142,7 +161,7 @@
           <div>
             <p class="eyebrow">사람 검토용 메모</p>
             <h2 id="results-title" tabindex="-1">검토 메모</h2>
-            <p class="results-note">판정이 아니라 수정·확인 질문을 정리한 로컬 검토 메모입니다.</p>
+            <p id="results-note" class="results-note">판정이 아니라 수정·확인 질문을 정리한 로컬 검토 메모입니다.</p>
           </div>
           <button id="copy-button" class="button button-secondary" type="button" disabled>
             <span aria-hidden="true">⧉</span>
@@ -260,7 +279,7 @@
               <span id="assisted-review-result-status" class="assist-badge">대기</span>
             </div>
             <p id="assisted-review-notice" class="assisted-review-notice"></p>
-            <pre id="assisted-review-output" class="assisted-review-output"></pre>
+            <pre id="assisted-review-output" class="assisted-review-output" tabindex="0" aria-labelledby="assisted-review-heading"></pre>
           </section>
 
           <section class="result-block" aria-labelledby="findings-heading">
@@ -301,7 +320,7 @@
 
     <footer class="app-footer">
       <span>규칙 사전 <code id="ruleset-version">불러오는 중</code></span>
-      <span>로컬 규칙 엔진 · 배포는 GitHub 저장소 접근 권한 필요 · AI·법령 보강은 사용자가 켠 요청에서만 동작</span>
+      <span>로컬 규칙 엔진 · 배포는 GitHub 저장소 접근 권한 필요 · AI·법령 보강은 사용자가 '보강 실행'을 누른 요청에서만 동작</span>
     </footer>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
