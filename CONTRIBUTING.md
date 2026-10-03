@@ -11,6 +11,16 @@
 기관 규칙은 `data/local_rules.example.yaml`을 복사해 로컬에서 관리하며
 `basis.type: consensus`만 사용합니다.
 
+## 개발 환경
+
+Python 3.11 이상이 필요합니다. 저장소를 내려받아 개발용 의존성까지 설치합니다.
+
+```powershell
+git clone https://github.com/koul777/fairpost-mcp.git
+cd fairpost-mcp
+python -m pip install -e ".[dev]"
+```
+
 ## 품질 기준
 
 ```powershell
