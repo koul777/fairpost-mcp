@@ -48,18 +48,19 @@ _EMAIL = (
 _RESIDENT_REGISTRATION_NUMBER = (
     # YYMMDD with a plausible month/day, optional space or hyphen, then a
     # 1-8 gender/century digit and six digits. Letters may precede the value
-    # ("ID9001011234567"); digits may not.
+    # ("ID" + YYMMDD + seven digits); digits may not.
     r"(?<![0-9])[0-9]{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01])"
     r"[ -]?[1-8][0-9]{6}(?![0-9])"
 )
 _PHONE = (
     r"(?<![0-9])(?:"
-    # Mobile numbers may omit separators: 010-1234-5678, 01012345678.
+    # Mobile numbers may omit separators: 010-NNNN-NNNN or 010NNNNNNNN.
     r"01[016789][ .-]?[0-9]{3,4}[ .-]?[0-9]{4}"
     r"|"
     # Landline, internet, toll-free and personal numbers need a separator
-    # after the area code so 10-digit NCS codes (0202010101_17v2) never match:
-    # 02-1234-5678, 031-123-4567, (02) 123-4567, 02)1234-5678, 070-1234-5678.
+    # after the area code so 10-digit NCS unit codes ("02" + eight digits +
+    # "_17v2") never match: 02-NNNN-NNNN, 031-NNN-NNNN, (02) NNN-NNNN,
+    # 02)NNNN-NNNN, 070-NNNN-NNNN.
     r"\(?0(?:2|3[1-3]|4[1-4]|5[1-5]|6[1-4]|70|80|50[2-8])"
     r"(?:\) ?|[ .-])[0-9]{3,4}[ .-][0-9]{4}"
     r")(?![0-9_])"
