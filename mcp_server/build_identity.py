@@ -58,6 +58,7 @@ RUNTIME_SOURCE_FILES = (
     "cli/__init__.py",
     "cli/main.py",
     "core/__init__.py",
+    "core/direct_identifiers.py",
     "core/engine.py",
     "core/extractor.py",
     "core/guidance.py",

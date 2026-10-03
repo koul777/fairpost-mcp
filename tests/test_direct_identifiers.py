@@ -5,7 +5,6 @@ import functools
 import json
 from pathlib import Path
 import re
-import shutil
 import subprocess
 
 import pytest
@@ -142,7 +141,7 @@ def _browser_output() -> dict:
     return json.loads(completed.stdout)
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
+@pytest.mark.requires_node
 def test_browser_detection_and_masking_match_python() -> None:
     output = _browser_output()
     assert output["available"] is True
@@ -154,7 +153,7 @@ def test_browser_detection_and_masking_match_python() -> None:
         }, case["id"]
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js가 필요합니다")
+@pytest.mark.requires_node
 def test_browser_ai_toggle_stays_disabled_without_available_server() -> None:
     availability = _browser_output()["assistedAvailability"]
     # Without a server (file://) nothing is fetched and the toggle is disabled.
