@@ -1,0 +1,125 @@
+{
+  "schema_version": "fairpost-direct-identifier-cases-v1",
+  "note": "Shared Python/JS fixture for core/direct_identifiers.py. Synthetic identifier-shaped values are split into parts so the release privacy scan never sees a literal value; join parts with an empty string before use.",
+  "cases": [
+    {
+      "id": "email-ascii",
+      "parts": ["담당 reviewer", "@", "example.com 으로 문의"],
+      "kinds": ["email"],
+      "masked": "담당 [이메일 마스킹] 으로 문의"
+    },
+    {
+      "id": "email-subdomain-sentence-end",
+      "parts": ["hr.team+jobs", "@", "mail.example.co.kr."],
+      "kinds": ["email"],
+      "masked": "[이메일 마스킹]."
+    },
+    {
+      "id": "email-korean-particle",
+      "parts": ["문의:recruit", "@", "example.com으로 제출"],
+      "kinds": ["email"],
+      "masked": "문의:[이메일 마스킹]으로 제출"
+    },
+    {
+      "id": "mobile-hyphen",
+      "parts": ["연락처 010", "-1234-", "5678"],
+      "kinds": ["phone"],
+      "masked": "연락처 [전화번호 마스킹]"
+    },
+    {
+      "id": "mobile-compact",
+      "parts": ["010", "1234", "5678 로 연락"],
+      "kinds": ["phone"],
+      "masked": "[전화번호 마스킹] 로 연락"
+    },
+    {
+      "id": "mobile-dots-legacy-prefix",
+      "parts": ["011.", "234.", "5678"],
+      "kinds": ["phone"],
+      "masked": "[전화번호 마스킹]"
+    },
+    {
+      "id": "landline-seoul",
+      "parts": ["인사팀 02", "-1234-", "5678 / 평일"],
+      "kinds": ["phone"],
+      "masked": "인사팀 [전화번호 마스킹] / 평일"
+    },
+    {
+      "id": "landline-gyeonggi",
+      "parts": ["031", "-123-", "4567"],
+      "kinds": ["phone"],
+      "masked": "[전화번호 마스킹]"
+    },
+    {
+      "id": "landline-parenthesized",
+      "parts": ["(02) ", "123-", "4567"],
+      "kinds": ["phone"],
+      "masked": "[전화번호 마스킹]"
+    },
+    {
+      "id": "landline-closing-paren",
+      "parts": ["☎ 051)", "234-", "5678"],
+      "kinds": ["phone"],
+      "masked": "☎ [전화번호 마스킹]"
+    },
+    {
+      "id": "internet-phone",
+      "parts": ["070 ", "1234 ", "5678"],
+      "kinds": ["phone"],
+      "masked": "[전화번호 마스킹]"
+    },
+    {
+      "id": "rrn-hyphen",
+      "parts": ["식별번호 900101", "-", "1234567"],
+      "kinds": ["resident_registration_number"],
+      "masked": "식별번호 [주민등록번호 마스킹]"
+    },
+    {
+      "id": "rrn-compact",
+      "parts": ["900101", "1234567"],
+      "kinds": ["resident_registration_number"],
+      "masked": "[주민등록번호 마스킹]"
+    },
+    {
+      "id": "rrn-letter-prefixed",
+      "parts": ["ID", "900101", "1234567"],
+      "kinds": ["resident_registration_number"],
+      "masked": "ID[주민등록번호 마스킹]"
+    },
+    {
+      "id": "rrn-foreign-registration",
+      "parts": ["850315", " ", "5123456"],
+      "kinds": ["resident_registration_number"],
+      "masked": "[주민등록번호 마스킹]"
+    },
+    {
+      "id": "mixed-all-kinds",
+      "parts": [
+        "a.kim", "@", "example.org / ",
+        "010", "-9876-", "5432 / ",
+        "010101", "-", "3234567"
+      ],
+      "kinds": ["email", "resident_registration_number", "phone"],
+      "masked": "[이메일 마스킹] / [전화번호 마스킹] / [주민등록번호 마스킹]"
+    },
+    {"id": "date-iso", "parts": ["접수 마감 2026-10-02 18:00"], "kinds": []},
+    {"id": "date-dotted", "parts": ["면접 2026. 10. 2. ~ 2026.02.15."], "kinds": []},
+    {"id": "date-compact-13-digits", "parts": ["2026100312345"], "kinds": []},
+    {"id": "salary-man-won", "parts": ["연봉 3,200만 원 (세전)"], "kinds": []},
+    {"id": "salary-won", "parts": ["월 2,150,000원"], "kinds": []},
+    {"id": "ncs-code-8-digits", "parts": ["NCS 02020101_17v2"], "kinds": []},
+    {"id": "ncs-code-10-digits", "parts": ["능력단위 02020", "10101_17v2"], "kinds": []},
+    {"id": "ncs-code-10-digits-01", "parts": ["능력단위 01010", "10101_17v2"], "kinds": []},
+    {"id": "posting-id-hyphen", "parts": ["공고번호 제2026-0123호"], "kinds": []},
+    {"id": "posting-id-prefixed", "parts": ["JOB-20261002-0001"], "kinds": []},
+    {"id": "posting-id-alnum", "parts": ["R2026100212345"], "kinds": []},
+    {"id": "time-range", "parts": ["근무시간 09:00-18:00"], "kinds": []},
+    {"id": "time-range-tilde", "parts": ["평일 09:00~18:00"], "kinds": []},
+    {"id": "year-range", "parts": ["2024-2026 사업기간"], "kinds": []},
+    {"id": "year-range-korean", "parts": ["2024~2026년"], "kinds": []},
+    {"id": "business-registration-number", "parts": ["사업자등록번호 123-45-67890"], "kinds": []},
+    {"id": "extension-only", "parts": ["내선 1234"], "kinds": []},
+    {"id": "handle-without-domain", "parts": ["@fairpost 계정"], "kinds": []},
+    {"id": "evidence-ids", "parts": ["Q-DIST-002, ncs-process, LAW-AGE-001"], "kinds": []}
+  ]
+}

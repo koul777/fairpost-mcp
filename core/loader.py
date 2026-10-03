@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sys
 from typing import Any
 
@@ -124,6 +125,47 @@ def _parse_date(value: Any, *, context: str) -> date:
         raise RuleLoadError(f"{context}: 날짜 형식은 YYYY-MM-DD여야 합니다") from exc
 
 
+def _validate_optional_statute_metadata(
+    statute_id: str,
+    statute: dict[str, Any],
+    snapshot_date: date,
+) -> None:
+    """Check the optional official-version identifiers when a snapshot has them.
+
+    Absent fields are valid. The refresh path in tools/build_statutes.py fills
+    them from the official API response.
+    """
+    for field in ("law_number", "mst"):
+        if field not in statute:
+            continue
+        value = statute[field]
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9]+", value):
+            raise RuleLoadError(
+                f"{statute_id}/{field}: 숫자로만 된 문자열이어야 합니다"
+            )
+    if "promulgation_date" in statute:
+        promulgated = _parse_date(
+            statute["promulgation_date"], context=f"{statute_id}/promulgation_date"
+        )
+        if promulgated > snapshot_date:
+            raise RuleLoadError(
+                f"{statute_id}/promulgation_date: 수집 기준일보다 늦을 수 없습니다"
+            )
+    if "versioned_source_url" in statute:
+        url = statute["versioned_source_url"]
+        if not isinstance(url, str) or not url.startswith("https://www.law.go.kr/"):
+            raise RuleLoadError(
+                f"{statute_id}/versioned_source_url: "
+                "https://www.law.go.kr/ 로 시작하는 URL이어야 합니다"
+            )
+        if "mst" in statute and not re.search(
+            rf"lsiSeq={re.escape(str(statute['mst']))}(?:[&#]|$)", url
+        ):
+            raise RuleLoadError(
+                f"{statute_id}/versioned_source_url: mst와 일치하지 않습니다"
+            )
+
+
 def _validate_statutes(statutes: dict[str, Any]) -> None:
     missing_statutes = sorted(REQUIRED_STATUTE_ARTICLES.keys() - statutes.keys())
     if missing_statutes:
@@ -148,6 +190,7 @@ def _validate_statutes(statutes: dict[str, Any]) -> None:
         snapshot_date = _parse_date(
             statute["snapshot_date"], context=f"{statute_id}/snapshot_date"
         )
+        _validate_optional_statute_metadata(statute_id, statute, snapshot_date)
         for article, payload in statute["articles"].items():
             if not isinstance(payload, dict):
                 raise RuleLoadError(f"{statute_id}/{article}: 조문은 객체여야 합니다")

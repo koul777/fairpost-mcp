@@ -250,7 +250,6 @@ SYNTHETIC_PRIVACY_EXAMPLES = {
         b"010-9876-5432",
     ),
     "tests/test_private_review_ui.py": (b"private.person@example.com",),
-    "tests/test_storage_and_mcp.py": (b"pass@redis.example",),
     "tests/test_summarize_private_review.py": (
         b"candidate.name@example.invalid",
         b"010-9999-8888",

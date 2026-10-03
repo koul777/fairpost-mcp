@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
+import ast
+from fnmatch import fnmatch
+from pathlib import Path, PurePosixPath
 import json
 
 from mcp_server.build_identity import (
@@ -13,6 +15,17 @@ from mcp_server.build_identity import (
 )
 
 
+ROOT = Path(__file__).resolve().parents[1]
+RUNTIME_PACKAGES = ("api", "cli", "core", "mcp_server")
+# Vercel function, console scripts in pyproject.toml, and the local launcher.
+RUNTIME_ENTRYPOINTS = (
+    "api.index",
+    "cli.main",
+    "mcp_server.server",
+    "mcp_server.local_runtime",
+)
+
+
 def test_runtime_source_manifest_covers_engine_dependencies() -> None:
     assert {
         "core/engine.py",
@@ -20,10 +33,143 @@ def test_runtime_source_manifest_covers_engine_dependencies() -> None:
         "core/loader.py",
         "core/morph.py",
         "core/organization_guidance.py",
+        "core/review_packet.py",
         "core/schema.py",
     } <= set(RUNTIME_SOURCE_FILES)
     assert "mcp_server/assisted_review.py" in RUNTIME_SOURCE_FILES
     assert "data/guidance/organization-applicability.yaml" in RUNTIME_SOURCE_FILES
+
+
+def _module_source(module: str) -> str | None:
+    parts = module.split(".")
+    if parts[0] not in RUNTIME_PACKAGES:
+        return None
+    base = ROOT.joinpath(*parts)
+    for candidate in (base.with_suffix(".py"), base / "__init__.py"):
+        if candidate.is_file():
+            return candidate.relative_to(ROOT).as_posix()
+    return None
+
+
+def _imported_modules(relative: str) -> set[str]:
+    path = PurePosixPath(relative)
+    package = list(path.parent.parts)
+    tree = ast.parse((ROOT / relative).read_text(encoding="utf-8"))
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                base = package[: len(package) - (node.level - 1)]
+                module = ".".join([*base, *([node.module] if node.module else [])])
+            else:
+                module = node.module or ""
+            modules.add(module)
+            # ``from package import name`` may import a submodule.
+            modules.update(f"{module}.{alias.name}" for alias in node.names)
+    return modules
+
+
+def _module_chain(module: str) -> list[str]:
+    # Importing a.b.c runs every package __init__ on the way down.
+    parts = module.split(".")
+    sources = (
+        _module_source(".".join(parts[:depth])) for depth in range(1, len(parts) + 1)
+    )
+    return [source for source in sources if source is not None]
+
+
+def _runtime_import_closure() -> set[str]:
+    pending = [
+        source for module in RUNTIME_ENTRYPOINTS for source in _module_chain(module)
+    ]
+    seen: set[str] = set()
+    while pending:
+        relative = pending.pop()
+        if relative in seen:
+            continue
+        seen.add(relative)
+        for module in _imported_modules(relative):
+            pending.extend(
+                source for source in _module_chain(module) if source not in seen
+            )
+    return seen
+
+
+def test_runtime_source_files_cover_runtime_import_closure() -> None:
+    closure = _runtime_import_closure()
+
+    assert {
+        "api/__init__.py",
+        "cli/__init__.py",
+        "core/review_packet.py",
+        "mcp_server/storage.py",
+    } <= closure
+    assert sorted(closure - set(RUNTIME_SOURCE_FILES)) == []
+
+
+def test_runtime_source_files_exist_in_checkout() -> None:
+    manifest = runtime_source_manifest(root=ROOT)
+
+    assert sorted(path for path, digest in manifest.items() if digest == "missing") == []
+
+
+def _excluded_by_vercelignore(relative: str, pattern: str) -> bool:
+    parts = PurePosixPath(relative).parts
+    if pattern.endswith("/"):
+        directory = pattern.rstrip("/")
+        if "/" in directory:
+            return relative.startswith(f"{directory}/")
+        return any(fnmatch(part, directory) for part in parts[:-1])
+    if "/" in pattern:
+        return fnmatch(relative, pattern)
+    return any(fnmatch(part, pattern) for part in parts)
+
+
+def _excluded_by_function_glob(relative: str, pattern: str) -> bool:
+    if pattern.endswith("/**"):
+        return fnmatch(relative.split("/", 1)[0], pattern[: -len("/**")]) and (
+            "/" in relative
+        )
+    return fnmatch(relative, pattern) or fnmatch(
+        PurePosixPath(relative).name, pattern
+    )
+
+
+def test_runtime_source_files_are_shipped_to_the_vercel_function() -> None:
+    ignore_patterns = [
+        line.strip()
+        for line in (ROOT / ".vercelignore").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+        and not line.lstrip().startswith("#")
+        and not line.lstrip().startswith("!")
+    ]
+    config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
+    exclude_files = config["functions"]["api/index.py"]["excludeFiles"]
+    function_globs = exclude_files.strip("{}").split(",")
+
+    # Guard the helpers against vacuous matching.
+    assert _excluded_by_vercelignore("tools/x.py", "tools/")
+    assert _excluded_by_vercelignore("core/__pycache__/x.pyc", "__pycache__/")
+    assert _excluded_by_vercelignore("run.bat", "*.bat")
+    assert _excluded_by_function_glob("tests/x.py", "tests/**")
+
+    shipped_elsewhere = {
+        relative: [
+            pattern
+            for pattern in ignore_patterns
+            if _excluded_by_vercelignore(relative, pattern)
+        ]
+        + [
+            pattern
+            for pattern in function_globs
+            if _excluded_by_function_glob(relative, pattern)
+        ]
+        for relative in RUNTIME_SOURCE_FILES
+    }
+
+    assert {path: hits for path, hits in shipped_elsewhere.items() if hits} == {}
 
 
 def test_runtime_source_manifest_covers_deployed_web() -> None:

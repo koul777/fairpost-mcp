@@ -3,7 +3,6 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import replace
 import errno
-import hashlib
 import importlib
 import json
 import os
@@ -13,9 +12,6 @@ import tempfile
 from threading import Lock
 import time
 from typing import Any, BinaryIO, Iterator
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from core.review_packet import ReviewEvent, ReviewPacket, ReviewPacketError
 
@@ -23,7 +19,6 @@ from core.review_packet import ReviewEvent, ReviewPacket, ReviewPacketError
 MAX_ORG_ID_CHARS = 256
 MAX_QUESTION_ID_CHARS = 128
 MAX_ANSWER_CHARS = 10_000
-MAX_UPSTASH_RESPONSE_BYTES = 1024 * 1024
 MAX_REVIEW_PACKET_BYTES = 256 * 1024
 MAX_REVIEW_PACKET_EVENTS = 256
 MAX_REVIEW_PACKETS = 256
@@ -122,15 +117,6 @@ def _validate_review_packet_id(packet_id: str) -> None:
         raise ValueError(
             "packet_id must be 1-128 ASCII characters and start with a letter or digit"
         )
-
-
-class _RejectRedirects(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-
-def _open_upstash(request: Request, *, timeout: float):
-    return build_opener(_RejectRedirects()).open(request, timeout=timeout)
 
 
 class LocalAnswerStore:
@@ -421,98 +407,6 @@ class LocalReviewPacketStore:
             return True
 
 
-class UpstashAnswerStore:
-    """Durable answer storage for stateless remote deployments."""
-
-    def __init__(
-        self,
-        url: str | None = None,
-        token: str | None = None,
-    ) -> None:
-        self.url = (
-            url
-            or os.environ.get("UPSTASH_REDIS_REST_URL")
-            or os.environ.get("KV_REST_API_URL")
-            or ""
-        ).rstrip("/")
-        self.token = (
-            token
-            or os.environ.get("UPSTASH_REDIS_REST_TOKEN")
-            or os.environ.get("KV_REST_API_TOKEN")
-            or ""
-        )
-        if not self.url or not self.token:
-            raise ValueError("Upstash REST URL과 토큰이 모두 필요합니다")
-        parsed = urlsplit(self.url)
-        if (
-            parsed.scheme.casefold() != "https"
-            or not parsed.hostname
-            or parsed.username is not None
-            or parsed.password is not None
-            or parsed.query
-            or parsed.fragment
-        ):
-            raise ValueError(
-                "Upstash REST URL은 자격정보ㆍ쿼리ㆍfragment가 없는 HTTPS URL이어야 합니다"
-            )
-
-    @staticmethod
-    def _key(org_id: str) -> str:
-        digest = hashlib.sha256(org_id.strip().encode("utf-8")).hexdigest()
-        return f"fairpost:answers:{digest}"
-
-    def _command(self, *parts: str) -> Any:
-        payload = json.dumps(list(parts), ensure_ascii=False).encode("utf-8")
-        request = Request(
-            self.url,
-            data=payload,
-            headers={
-                "Authorization": f"Bearer {self.token}",
-                "Content-Type": "application/json",
-                "User-Agent": "fairpost/0.3",
-            },
-            method="POST",
-        )
-        try:
-            with _open_upstash(request, timeout=10) as response:
-                payload = response.read(MAX_UPSTASH_RESPONSE_BYTES + 1)
-                if len(payload) > MAX_UPSTASH_RESPONSE_BYTES:
-                    raise ValueError("원격 답변 저장소 응답이 너무 큽니다")
-                body = json.loads(payload.decode("utf-8"))
-        except (HTTPError, URLError, OSError, json.JSONDecodeError) as exc:
-            raise ValueError("원격 답변 저장소 요청에 실패했습니다") from exc
-        if not isinstance(body, dict):
-            raise ValueError("원격 답변 저장소 응답 형식이 올바르지 않습니다")
-        if body.get("error"):
-            raise ValueError("원격 답변 저장소가 요청을 거부했습니다")
-        return body.get("result")
-
-    def get(self, org_id: str) -> dict[str, str]:
-        _validate_answer_fields(org_id)
-        result = self._command("HGETALL", self._key(org_id))
-        if result is None:
-            return {}
-        if isinstance(result, dict):
-            return {str(key): str(value) for key, value in result.items()}
-        if isinstance(result, list) and len(result) % 2 == 0:
-            return {
-                str(result[index]): str(result[index + 1])
-                for index in range(0, len(result), 2)
-            }
-        raise ValueError("원격 답변 저장소의 HGETALL 응답 형식이 올바르지 않습니다")
-
-    def save(self, org_id: str, question_id: str, answer: str) -> None:
-        _validate_answer_fields(org_id, question_id, answer)
-        result = self._command(
-            "HSET",
-            self._key(org_id),
-            question_id,
-            answer,
-        )
-        if not isinstance(result, int):
-            raise ValueError("원격 답변 저장소의 HSET 응답 형식이 올바르지 않습니다")
-
-
 class UnavailableRemoteAnswerStore:
     """Fail explicitly instead of pretending serverless files are durable."""
 
@@ -530,25 +424,7 @@ class UnavailableRemoteAnswerStore:
         raise ValueError(self.MESSAGE)
 
 
-class EphemeralAnswerStore:
-    """Best-effort in-memory answers for remote deployments without Redis."""
-
-    def __init__(self) -> None:
-        self._answers: dict[str, dict[str, str]] = {}
-        self._lock = Lock()
-
-    def get(self, org_id: str) -> dict[str, str]:
-        _validate_answer_fields(org_id)
-        with self._lock:
-            return dict(self._answers.get(org_id, {}))
-
-    def save(self, org_id: str, question_id: str, answer: str) -> None:
-        _validate_answer_fields(org_id, question_id, answer)
-        with self._lock:
-            self._answers.setdefault(org_id, {})[question_id] = answer
-
-
-def build_answer_store() -> LocalAnswerStore | UpstashAnswerStore | UnavailableRemoteAnswerStore:
+def build_answer_store() -> LocalAnswerStore | UnavailableRemoteAnswerStore:
     if os.environ.get("VERCEL"):
         return UnavailableRemoteAnswerStore()
     # Product policy is on-device first. Merely inheriting cloud-storage

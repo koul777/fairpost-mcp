@@ -12,7 +12,12 @@ license = "MIT"
 dependencies = [
   "defusedxml>=0.7.1,<1",
   "PyYAML>=6.0,<7",
-  "mcp>=1.0,<2",
+  # 1.24.0 is the first release with mcp.client.streamable_http.streamable_http_client.
+  "mcp>=1.24,<2",
+  # Imported directly by mcp_server; floors match what mcp 1.24 itself requires.
+  "httpx>=0.27.1,<1",
+  "starlette>=0.27,<2",
+  "uvicorn>=0.31.1,<1",
 ]
 
 [project.optional-dependencies]

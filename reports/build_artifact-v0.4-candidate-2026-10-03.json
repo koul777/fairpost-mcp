@@ -1,0 +1,115 @@
+{
+  "schema_version": "fairpost-build-artifact-v2",
+  "built_at": "2026-10-03T11:23:36+09:00",
+  "package": "fairpost",
+  "version": "0.3.0",
+  "wheel": {
+    "path": "dist/fairpost-0.3.0-py3-none-any.whl",
+    "bytes": 176059,
+    "sha256": "50eddacb100336571eb701fa9ebf3405ba173dc9c12a1884cc1e04711936d3c4"
+  },
+  "sdist": {
+    "path": "dist/fairpost-0.3.0.tar.gz",
+    "bytes": 559953,
+    "sha256": "323a1d106ffdabc407b7e93b83ed739da06d666443eee456f2421ab6f8caa227"
+  },
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+  "matching_version": "match-fa5e6d7a5c7d2904",
+  "verification": {
+    "tests_passed": 1220,
+    "test_evidence_bytes": 213999,
+    "test_evidence_sha256": "efed920af9a2bdbfadea4649013dbc5ffcc705127c9b357065531380e73426ae",
+    "test_evidence_fresh_for_current_inputs": true,
+    "test_validation_source_fingerprint": "validation-02ea3504cb8b253de6805227a0b50385297b3b017992d8c6e4ef942e986e4a28",
+    "test_validation_inputs_checked": 122,
+    "data_rules": 71,
+    "question_cards": 52,
+    "statute_snapshots": 6,
+    "web_parity_training_records": 2310,
+    "web_parity_mismatches": 0,
+    "prd_corpus_total": 600,
+    "prd_corpus_train": 420,
+    "prd_corpus_holdout": 180,
+    "prd_corpus_hash_overlap": 0,
+    "human_labeling_status": "awaiting_human_annotations",
+    "human_labeling_holdout_records": 180,
+    "human_final_evaluation_passed": false,
+    "human_evaluation_evaluator_fingerprint_matches_current": false,
+    "evidence_versions_passed": true,
+    "evidence_versions_reports_checked": 17,
+    "corpus_diversity_status": "alert",
+    "corpus_diversity_release_blocking": false,
+    "distribution_audit_passed": true,
+    "distribution_matches_current_runtime": true,
+    "distribution_matches_current_source": true,
+    "sdist_members": 237,
+    "wheel_members": 45,
+    "claude_project_http_registered": true,
+    "mcp_project_config": {
+      "valid": true,
+      "default_server": "fairpost",
+      "remote_server": "fairpost-remote",
+      "local_first": true,
+      "remote_url": "https://fairmcp.vercel.app/api/mcp",
+      "local_url": "http://127.0.0.1:8000/mcp",
+      "authorization_uses_environment_reference": true
+    },
+    "official_mcp_inspector_evidence_status": "historical",
+    "current_external_client_evidence_passed": false,
+    "vercel_asgi_protocol_test_passed": true,
+    "vercel_production_deployed": true,
+    "vercel_production_url": "https://fairmcp.vercel.app",
+    "vercel_deployed_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+    "vercel_deployed_matching_version": "match-fa5e6d7a5c7d2904",
+    "vercel_deployment_matches_current_ruleset": true,
+    "vercel_runtime_source_fingerprint": "runtime-e31bb133414b6a3769ff7475a23cfa02ada690a8bc30be7cdf614faeb3a44689",
+    "vercel_runtime_source_fingerprint_matches_local": false,
+    "vercel_verification_context_complete": true,
+    "vercel_verification_context": {
+      "source_commit": "fc4d731e5a3fb331928835c0b7051a8d0baf6249",
+      "verified_by": "codex-agent",
+      "approval_ref": "user-approved-poc-2026-08-31"
+    },
+    "vercel_contract_checks_passed": true,
+    "vercel_remote_tool_call_passed": true,
+    "work24_live_recheck": "api_business_error"
+  },
+  "release_tag": null,
+  "release_tag_note": "The repository is available, but the current HEAD has no release tag.",
+  "release_readiness": {
+    "status": "blocked",
+    "strict_ready": false,
+    "blockers": [
+      {
+        "id": "human_holdout_labels",
+        "reason": "봉인 홀드아웃 사람 라벨과 G1/G2 최종 평가가 없습니다."
+      },
+      {
+        "id": "private_corpus_diversity",
+        "reason": "민간 코퍼스 다양성 감사가 pass가 아닙니다."
+      },
+      {
+        "id": "current_production_deployment",
+        "reason": "운영 배포 증거가 현재 규칙·매칭·런타임 소스와 일치하지 않습니다. 또한 소스 커밋·검증 담당·승인 참조가 모두 기록되어야 합니다."
+      },
+      {
+        "id": "current_external_client_evidence",
+        "reason": "현재 커밋의 외부 MCP 클라이언트 증거가 없습니다."
+      },
+      {
+        "id": "work24_source_access",
+        "reason": "PRD Work24 출처 접근 증거가 충족되지 않았습니다."
+      },
+      {
+        "id": "release_tag",
+        "reason": "현재 HEAD에 단일 릴리스 태그가 없습니다."
+      }
+    ]
+  },
+  "historical_references": {
+    "official_mcp_inspector": {
+      "evidence_status": "historical",
+      "tool_call_passed": true
+    }
+  }
+}
