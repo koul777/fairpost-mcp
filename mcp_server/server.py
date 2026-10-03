@@ -15,10 +15,8 @@ from core.review_packet import ReviewAction, ReviewEvent, ReviewRole, ReviewStag
 from core.schema import CheckResult, Finding, Question, SlotStatus
 from .review import HrReviewPacket, prepare_hr_review_packet
 from .storage import (
-    EphemeralAnswerStore,
     LocalReviewPacketStore,
     UnavailableRemoteAnswerStore,
-    UpstashAnswerStore,
     build_answer_store,
 )
 
@@ -274,7 +272,7 @@ def _saved_answers(org_id: str | None) -> dict[str, str]:
     save_answer (a write claiming persistence it can't provide), but here
     it's only an optional enrichment for check_job_posting/next_review_question.
     Letting it raise would take down the entire fairness check over a
-    missing Upstash connection unrelated to the check itself.
+    disabled remote answer store unrelated to the check itself.
     """
     if not org_id or isinstance(answer_store, UnavailableRemoteAnswerStore):
         return {}
@@ -715,9 +713,9 @@ def next_review_question_public(text: str) -> dict[str, Any]:
 
 @mcp.tool(
     description=(
-        "조직의 검토 질문 답변을 사용자 컴퓨터의 로컬 JSON에만 저장합니다. "
-        "같은 조직ㆍ질문의 기존 답변이 있으면 새 답변으로 교체합니다. "
-        "채용공고문 원문은 저장하지 않습니다."
+        "Persist an organization's review-question answer in the configured "
+        "answer store. A new answer replaces an existing answer for the same "
+        "organization and question. The raw job posting text is never stored."
     ),
     annotations=LOCAL_ANSWER_WRITE_ANNOTATIONS,
 )
@@ -725,42 +723,18 @@ def save_answer(org_id: str, question_id: str, answer: str) -> dict[str, str]:
     if question_id not in _question_ids():
         raise ValueError("현재 사전에 없는 question_id입니다")
     answer_store.save(org_id, question_id, answer)
-    if isinstance(answer_store, UpstashAnswerStore):
-        status = "stored_remotely"
-    elif isinstance(answer_store, EphemeralAnswerStore):
-        status = "stored_ephemerally"
-    else:
-        status = "stored_locally"
-    return {"org_id": org_id, "question_id": question_id, "status": status}
+    return {"org_id": org_id, "question_id": question_id, "status": "stored_locally"}
 
 
 @mcp.tool(
-    description="조직별로 로컬 JSON에 저장된 검토 질문 답변을 그대로 반환합니다.",
+    description=(
+        "Return previously saved review-question answers for one organization "
+        "from the configured answer store."
+    ),
     annotations=READ_ONLY_ANNOTATIONS,
 )
 def get_saved_answers(org_id: str) -> dict[str, str]:
     return answer_store.get(org_id)
-
-
-def _set_tool_description(server_instance: FastMCP, name: str, description: str) -> None:
-    tool = server_instance._tool_manager.get_tool(name)
-    if tool is not None:
-        tool.description = description
-
-
-_set_tool_description(
-    mcp,
-    "save_answer",
-    "Persist an organization's review-question answer in the configured "
-    "answer store. A new answer replaces an existing answer for the same "
-    "organization and question. The raw job posting text is never stored.",
-)
-_set_tool_description(
-    mcp,
-    "get_saved_answers",
-    "Return previously saved review-question answers for one organization "
-    "from the configured answer store.",
-)
 
 
 def main() -> None:
