@@ -26,6 +26,19 @@ ARTICLE_TEXT_TAGS = {
     "목내용",
     "조문참고자료",
 }
+ARTICLE_FIELDS = ("title", "text", "effective_date", "hash")
+STATUTE_FIELDS = ("official_id", "source", "source_url", "retrieved_via")
+# Optional statute-level identifiers of the official version that was retrieved.
+# They are filled only when the official response carries them; data/statutes
+# files that lack them stay valid. core/loader.py validates the same names.
+OPTIONAL_STATUTE_FIELDS = (
+    "law_number",
+    "promulgation_date",
+    "mst",
+    "versioned_source_url",
+)
+CONTENT_CHANGED = "content_changed"
+METADATA_ONLY = "metadata_only"
 
 
 def article_hash(text: str) -> str:
@@ -155,6 +168,81 @@ def official_articles(
     return result, official_id
 
 
+def official_law_metadata(root: Any) -> dict[str, str]:
+    """Return the optional version identifiers present in the official response.
+
+    lawService.do documents 공포번호 and 공포일자 under 기본정보. MST (법령일련번호)
+    is a request parameter there, so it is read only if the response happens to
+    carry it. Absent or malformed values are skipped, never invented.
+    """
+    metadata: dict[str, str] = {}
+    number = (root.findtext("./기본정보/공포번호") or "").strip()
+    if re.fullmatch(r"[0-9]+", number):
+        metadata["law_number"] = number
+    promulgated = (root.findtext("./기본정보/공포일자") or "").strip()
+    if re.fullmatch(r"[0-9]{8}", promulgated):
+        metadata["promulgation_date"] = (
+            f"{promulgated[:4]}-{promulgated[4:6]}-{promulgated[6:]}"
+        )
+    for candidate in (
+        root.findtext("./기본정보/법령일련번호"),
+        root.findtext("./기본정보/MST"),
+        root.get("법령일련번호"),
+        root.get("MST"),
+    ):
+        mst = (candidate or "").strip()
+        if re.fullmatch(r"[0-9]+", mst):
+            metadata["mst"] = mst
+            metadata["versioned_source_url"] = (
+                f"https://www.law.go.kr/lsInfoP.do?lsiSeq={mst}"
+            )
+            break
+    return metadata
+
+
+def diff_snapshots(stored: dict[str, Any], refreshed: dict[str, Any]) -> list[dict[str, Any]]:
+    """List field-level differences, classified per article.
+
+    An article is `content_changed` when the SHA-256 of its text differs (the
+    stored hash field is not trusted; it is recomputed from the stored text).
+    Otherwise every differing field of that article, and every statute-level
+    field, is `metadata_only`.
+    """
+    statute_id = str(stored["id"])
+    changes: list[dict[str, Any]] = []
+    for article, official_item in refreshed["articles"].items():
+        stored_item = stored["articles"][article]
+        classification = (
+            CONTENT_CHANGED
+            if article_hash(str(stored_item.get("text", "")))
+            != article_hash(str(official_item["text"]))
+            else METADATA_ONLY
+        )
+        for field in ARTICLE_FIELDS:
+            if str(stored_item.get(field, "")) != str(official_item[field]):
+                changes.append(
+                    {
+                        "statute_id": statute_id,
+                        "article": article,
+                        "field": field,
+                        "classification": classification,
+                    }
+                )
+    for field in (*STATUTE_FIELDS, *OPTIONAL_STATUTE_FIELDS):
+        if field not in refreshed:
+            continue
+        if str(stored.get(field, "")) != str(refreshed[field]):
+            changes.append(
+                {
+                    "statute_id": statute_id,
+                    "article": "",
+                    "field": field,
+                    "classification": METADATA_ONLY,
+                }
+            )
+    return changes
+
+
 def compare_official_snapshot(
     path: Path,
     *,
@@ -178,28 +266,9 @@ def compare_official_snapshot(
         or f"https://www.law.go.kr/법령/{stored['name'].replace(' ', '')}"
     )
     refreshed["retrieved_via"] = "national-law-open-api"
+    refreshed.update(official_law_metadata(root))
 
-    changes: list[dict[str, Any]] = []
-    for article, official_item in refreshed["articles"].items():
-        stored_item = stored["articles"][article]
-        for field in ("title", "text", "effective_date", "hash"):
-            if str(stored_item.get(field, "")) != str(official_item[field]):
-                changes.append(
-                    {
-                        "statute_id": str(stored["id"]),
-                        "article": article,
-                        "field": field,
-                    }
-                )
-    for field in ("official_id", "source", "source_url", "retrieved_via"):
-        if str(stored.get(field, "")) != str(refreshed[field]):
-            changes.append(
-                {
-                    "statute_id": str(stored["id"]),
-                    "article": "",
-                    "field": field,
-                }
-            )
+    changes = diff_snapshots(stored, refreshed)
     return stored, refreshed, changes
 
 
@@ -241,14 +310,148 @@ def _rule_impact(
     return {key: sorted(rule_ids) for key, rule_ids in impact.items()}
 
 
-def audit_official(
+def _group_changes(
+    changes: list[dict[str, Any]],
+    classification: str,
+) -> list[dict[str, Any]]:
+    """Collapse field-level changes into one entry per statute article."""
+    grouped: dict[tuple[str, str], list[str]] = {}
+    for change in changes:
+        if change["classification"] != classification:
+            continue
+        key = (change["statute_id"], change["article"])
+        grouped.setdefault(key, []).append(change["field"])
+    return [
+        {"statute_id": statute_id, "article": article, "fields": fields}
+        for (statute_id, article), fields in grouped.items()
+    ]
+
+
+def build_audit_report(
+    changes: list[dict[str, Any]],
+    *,
+    statutes: int,
+    snapshot_date: str,
+    rule_impact: dict[tuple[str, str], list[str]],
+) -> dict[str, Any]:
+    """Build the audit report. Only content changes list rules to review."""
+    for change in changes:
+        if change["classification"] == CONTENT_CHANGED:
+            change["rule_ids"] = rule_impact.get(
+                (change["statute_id"], change["article"]),
+                [],
+            )
+    content_changed = _group_changes(changes, CONTENT_CHANGED)
+    for entry in content_changed:
+        entry["rule_ids"] = rule_impact.get(
+            (entry["statute_id"], entry["article"]),
+            [],
+        )
+    metadata_only = _group_changes(changes, METADATA_ONLY)
+    affected_rule_ids = sorted(
+        {
+            rule_id
+            for entry in content_changed
+            for rule_id in entry["rule_ids"]
+            if rule_id
+        }
+    )
+    return {
+        "checked_at": snapshot_date,
+        "statutes": statutes,
+        "changed_statutes": sorted({change["statute_id"] for change in changes}),
+        "content_changed": content_changed,
+        "metadata_only": metadata_only,
+        "affected_rule_ids": affected_rule_ids,
+        # Rule review is needed only when an article's text changed.
+        "review_required": bool(content_changed),
+        # Any difference (including metadata only) refreshes the snapshot files.
+        "snapshot_changed": bool(changes),
+        "changes": changes,
+        "contains_statute_text": False,
+    }
+
+
+def _describe_group(entry: dict[str, Any]) -> str:
+    label = f"`{entry['statute_id']}`"
+    if entry["article"]:
+        label += f" {entry['article']}"
+    else:
+        label += " (statute level)"
+    return f"{label}: {', '.join(entry['fields'])}"
+
+
+def render_pr_body(report: dict[str, Any]) -> str:
+    """Markdown body for the refresh PR, with both change groups."""
+    content = report["content_changed"]
+    metadata = report["metadata_only"]
+    lines = [
+        "Daily comparison with the National Law Information Open API "
+        f"(checked {report['checked_at']}).",
+        "",
+        "Details: `reports/statute_audit.json` (contains no statute text).",
+        "",
+        f"## Content changed: rule review required ({len(content)})",
+        "",
+    ]
+    if content:
+        for entry in content:
+            rules = ", ".join(f"`{rule_id}`" for rule_id in entry["rule_ids"])
+            lines.append(
+                f"- {_describe_group(entry)} | rules: {rules or 'none linked'}"
+            )
+    else:
+        lines.append("None. No article text changed.")
+    lines += [
+        "",
+        f"## Metadata only: article text identical ({len(metadata)})",
+        "",
+    ]
+    if metadata:
+        lines.extend(f"- {_describe_group(entry)}" for entry in metadata)
+    else:
+        lines.append("None.")
+    lines += ["", "## Human review checklist", ""]
+    if content:
+        lines += [
+            "Content changed:",
+            "- [ ] Review the affected rule IDs listed above and in "
+            "`affected_rule_ids`.",
+            "- [ ] Confirm the article number still applies to recruitment notices.",
+            "- [ ] Compare the complete official text and effective date.",
+            "- [ ] Review every linked law-rule message and alternative.",
+            "- [ ] Run the holdout regression evaluation when rule behavior changes.",
+        ]
+    else:
+        lines.append(
+            "Content changed: none, so rule review is not required for this refresh."
+        )
+    if metadata:
+        lines += [
+            "",
+            "Metadata only:",
+            "- [ ] Spot-check effective dates and version identifiers "
+            "(law number, promulgation date) against the official page.",
+            "- [ ] Confirm the report lists no content change for these articles.",
+        ]
+    lines += [
+        "",
+        "All changes:",
+        "- [ ] Confirm the static web bundle and MCP return the same ruleset version.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def run_official_audit(
     statutes_dir: Path,
     *,
     oc: str,
     refresh: bool,
     snapshot_date: str,
     report_path: Path | None,
-) -> bool:
+    pr_body_path: Path | None = None,
+) -> dict[str, Any]:
     files = sorted(statutes_dir.glob("*.yaml"))
     changes: list[dict[str, Any]] = []
     changed_statutes: set[str] = set()
@@ -264,40 +467,47 @@ def audit_official(
             refreshed_payloads.append((path, official))
             changes.extend(statute_changes)
 
-    for change in changes:
-        change["rule_ids"] = rule_impact.get(
-            (change["statute_id"], change["article"]),
-            [],
-        )
-    affected_rule_ids = sorted(
-        {
-            rule_id
-            for change in changes
-            for rule_id in change["rule_ids"]
-            if rule_id
-        }
+    report = build_audit_report(
+        changes,
+        statutes=len(files),
+        snapshot_date=snapshot_date,
+        rule_impact=rule_impact,
     )
-    report = {
-        "checked_at": snapshot_date,
-        "statutes": len(files),
-        "changed_statutes": sorted(changed_statutes),
-        "affected_rule_ids": affected_rule_ids,
-        "review_required": bool(changes),
-        "changes": changes,
-        "contains_statute_text": False,
-    }
     if report_path:
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(
             json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
             encoding="utf-8",
         )
+    if pr_body_path:
+        pr_body_path.parent.mkdir(parents=True, exist_ok=True)
+        pr_body_path.write_text(render_pr_body(report), encoding="utf-8")
 
     if changes and refresh:
         for path, payload in refreshed_payloads:
             _write_yaml(path, payload)
         _update_rule_snapshot_dates(rules_path, changed_statutes, snapshot_date)
-    return bool(changes)
+    return report
+
+
+def audit_official(
+    statutes_dir: Path,
+    *,
+    oc: str,
+    refresh: bool,
+    snapshot_date: str,
+    report_path: Path | None,
+    pr_body_path: Path | None = None,
+) -> bool:
+    report = run_official_audit(
+        statutes_dir,
+        oc=oc,
+        refresh=refresh,
+        snapshot_date=snapshot_date,
+        report_path=report_path,
+        pr_body_path=pr_body_path,
+    )
+    return bool(report["snapshot_changed"])
 
 
 def main() -> int:
@@ -339,6 +549,11 @@ def main() -> int:
         help="공식 조회 기준일(YYYY-MM-DD)",
     )
     parser.add_argument("--report", type=Path)
+    parser.add_argument(
+        "--pr-body",
+        type=Path,
+        help="공식 비교 결과로 갱신 PR 본문(Markdown)을 이 경로에 씁니다.",
+    )
     args = parser.parse_args()
 
     files = sorted(args.statutes_dir.glob("*.yaml"))
@@ -350,18 +565,27 @@ def main() -> int:
         date.fromisoformat(args.snapshot_date)
         if args.check_official or args.refresh_official:
             oc = args.oc or os.environ.get("LAW_OPEN_API_OC", "")
-            changed = audit_official(
+            report = run_official_audit(
                 args.statutes_dir,
                 oc=oc,
                 refresh=args.refresh_official,
                 snapshot_date=args.snapshot_date,
                 report_path=args.report,
+                pr_body_path=args.pr_body,
+            )
+            changed = report["snapshot_changed"]
+            summary = (
+                f"조문 본문 변경 {len(report['content_changed'])}건, "
+                f"메타데이터만 변경 {len(report['metadata_only'])}건"
             )
             if changed and args.check_official:
-                print("공식 현행 조문과 다른 스냅샷이 있습니다", file=sys.stderr)
+                print(
+                    f"공식 현행 조문과 다른 스냅샷이 있습니다 ({summary})",
+                    file=sys.stderr,
+                )
                 return 1
             if changed:
-                print(f"{len(files)}개 법령 스냅샷 공식 원문 갱신 완료")
+                print(f"{len(files)}개 법령 스냅샷 공식 원문 갱신 완료 ({summary})")
             else:
                 print(f"{len(files)}개 법령 스냅샷이 공식 현행 조문과 일치합니다")
             return 0
