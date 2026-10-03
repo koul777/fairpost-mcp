@@ -1,6 +1,7 @@
 # PRD v0.3 추적표
 
-기준 문서: `fairpost-PRD (2).md`, 2026-07-26.
+기준 문서: `fairpost-PRD (2).md`, 2026-07-26.<br>
+최종 갱신: 2026-10-03 (도구 수ㆍ운영 증거ㆍ법령 감사 상태의 표기 불일치를 바로잡았으며, 모든 항목을 다시 감사한 것은 아님)
 
 상태 정의:
 
@@ -28,9 +29,9 @@
 | 3블록 CheckResult와 고정 면책문 | 충족 | `core/schema.py`, `core/engine.py` |
 | 공백ㆍ특수문자ㆍ어미 정규화와 원문 offsetㆍsection | 충족 | NFKCㆍ비표준 공백ㆍ제로폭ㆍ한국어 어미 및 CRLFㆍUnicode 패리티 테스트 |
 | 로컬 규칙 확장 | 충족 | `FAIRPOST_LOCAL_RULES_PATH`, statute 근거 거부 테스트 |
-| MCP 도구와 HR 검토 확장 | 충족 | 루프백 로컬은 평문ㆍ구조화 점검, NCSㆍ선택적 현행법 HR 검토, 다음 질문, 답변 저장ㆍ조회 6도구를 제공한다. 인증ㆍ익명 일반 원격은 저장ㆍ외부 프록시 없는 읽기 전용 3도구, Claude 호환 전용 경로는 기존 평문 점검 1도구로 고정하는 프로토콜 테스트 |
+| MCP 도구와 HR 검토 확장 | 충족 | 루프백 로컬은 평문ㆍ구조화 점검, NCSㆍ선택적 현행법 HR 검토, 다음 질문, 답변 저장ㆍ조회와 역할 검토 시작ㆍ이벤트 기록ㆍ조회ㆍ삭제를 합쳐 10도구를 제공한다. 인증ㆍ익명 일반 원격은 저장ㆍ외부 프록시 없는 읽기 전용 3도구, Claude 호환 전용 경로는 기존 평문 점검 1도구로 고정하는 프로토콜 테스트 |
 | 기본 MCP Streamable HTTP | 충족 | `fairpost-mcp`, `test_streamable_http_is_default_and_calls_all_tools` |
-| Claude 계열 클라이언트 HTTP 설정 | 충족 | `.mcp.json`의 `fairpost`는 루프백 기본이고 Vercel은 `fairpost-remote` 명시 선택이다. SDKㆍInspector 원격 호출과 Claude Code 프로젝트 승인ㆍ로컬 두 도구 실제 호출을 확인 |
+| Claude 계열 클라이언트 HTTP 설정 | 충족 | `.mcp.json`의 `fairpost`는 루프백 기본이고 Vercel은 `fairpost-remote` 명시 선택이다. 설정은 현재 저장소에서 검사한다. SDKㆍInspector 원격 호출과 Claude Code 프로젝트 승인ㆍ로컬 3도구 실제 호출은 2026-08-31 증거이며, 현재 커밋 기준 재검증은 [완료 감사](completion-audit.md)에서 별도로 추적한다 |
 | 사용자 로컬 답변 저장 | 충족 | `LocalAnswerStore`, 격리 경로 및 HTTP 왕복 테스트. Vercel 원격은 저장 도구 자체를 노출하지 않음 |
 | 정적 웹ㆍMCP 결과 동등성 | 충족 | Python/JavaScript 패리티 테스트 |
 
@@ -50,7 +51,7 @@ PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 �
 | 6개 대상 법령 스냅샷 | 충족 | `data/statutes/*.yaml` |
 | 원문ㆍ시행일ㆍ해시 검증 | 충족 | 공식 법령 API 대조 보고서, 스냅샷 테스트 |
 | Korean Law MCP 수집 경로 | 부분 충족 | 연결된 규정 MCP는 기관 내부규정 범위여서 국가법령을 반환하지 않음. 법제처 국가법령정보 Open API 직접 조회로 대체했으며 `retrieved_via: national-law-open-api`로 차이를 보존 |
-| 월별 개정 확인 CI | 충족 | 최소 기준보다 강화한 매일 대조, 영향 규칙 ID 보고, 사람 검토 후 병합 |
+| 월별 개정 확인 CI | 부분 충족 | 매일 대조, 영향 규칙 ID 보고, 사람 검토 후 병합 워크플로는 구현됐다. 그러나 `LAW_OPEN_API_OC` 저장소 비밀값이 없어 2026-10-02 조회 기준 2026-07-27~2026-10-01 예약 실행 67회가 모두 실패했고 성공 실행은 0회다. `reports/statute_audit.json`은 2026-07-26 기준이다 |
 | 능력중심 채용 가이드 추적성 | 충족 | research 근거 메타데이터와 `ability-based-hiring-guide-map.md` |
 
 ## 코퍼스와 평가
@@ -58,7 +59,7 @@ PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 �
 | 요구사항 | 상태 | 현재 증거 |
 |---|---|---|
 | 공공 300건 | 충족 | 잡알리오ㆍ클린아이ㆍ나라일터 각 100건 집계 |
-| 민간 300건 | 충족 | 진천군 공개 민간 구인정보 3,000건 중 고정 분할 안에서 300건을 결정론적으로 선택 |
+| 민간 300건 | 부분 충족 | 건수는 진천군 공개 민간 구인정보 3,000건 중 고정 분할 안에서 300건을 결정론적으로 선택해 채웠다. 다만 단일 출처이고 PRD 지정 출처인 Work24는 현재 키로 사용할 수 없으며(`reports/work24_access_audit.json`, 2026-08-04), 민간 코퍼스 다양성 감사는 `alert`다 |
 | 부문×직군×고용형태 층화 | 충족 | PRD 정식 600건은 현장 239ㆍ사무 306ㆍ기술 38ㆍ연구 17건. 확장 3,300건은 현장 2,173ㆍ사무 915ㆍ기술 167ㆍ연구 45건 |
 | 70/30 고정 분할 | 충족 | PRD 정식 학습 420건/홀드아웃 180건, 확장 학습 2,310건/홀드아웃 990건, 해시 중복 0 |
 | 수집 중 비식별화 | 충족 | 이메일ㆍ전화ㆍ담당자ㆍ조직명 비식별화 테스트 |
@@ -66,13 +67,16 @@ PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 �
 | 후보 추출ㆍ정규화 도구 | 충족 | `mine_candidates.py`, `normalize_candidates.py` |
 | 질문 관련성 감사 | 충족 | train-only 420건 익명 집계, 공통 체크리스트와 누락 슬롯 중복 분리, 명백한 문맥 오발동 104개 감소. `docs/question-relevance-audit.md` |
 | 민간 반복 공정성 감사 자동화 | 충족 | `tools/run_private_fairness_cycle.py`의 train-only snapshot→익명 audit→기준선 drift→로컬 review queue 단일 실행, 경로 충돌ㆍrollbackㆍ익명 출력ㆍ버전 호환성 검증 |
-| 민간 사람 검토 성능 게이트 | 부분 충족 | queue, 오프라인 검토 UI와 summary 도구, 규칙별 최소 검토 수ㆍ정밀도 임계값ㆍ누락 규칙 경보, 원본 snapshot 해시ㆍ외부 기대 규칙 결합을 구현. 현재 232건 미라벨로 summary `alert`, precision `null`이며 G1ㆍG2 증거가 아님 |
-| 봉인 홀드아웃 평가 | 부분 충족 | 오염 차단, 정식 180건 로컬 라벨링 화면과 완전 라벨 강제는 구현. `reports/human_labeling_handoff.json` 생성, 사람 정답 데이터 없음 |
+| 민간 사람 검토 성능 게이트 | 미충족 | 도구는 구현됐으나 사람 라벨이 없다. queue, 오프라인 검토 UI와 summary 도구, 규칙별 최소 검토 수ㆍ정밀도 임계값ㆍ누락 규칙 경보, 원본 snapshot 해시ㆍ외부 기대 규칙 결합을 구현. 현재 232건 미라벨로 summary `alert`, precision `null`이며 G1ㆍG2 증거가 아님 |
+| 봉인 홀드아웃 평가 | 미충족 | 오염 차단, 정식 180건 로컬 라벨링 화면과 완전 라벨 강제는 구현. `reports/human_labeling_handoff.json` 생성, 사람 정답 데이터 없음 |
 
 ## 수용 기준
 
-AC-1~AC-20의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. 현재 전수
-테스트 893개가 통과했고 JUnit 해시는 `reports/build_artifact.json`에 고정한다.
+AC-1~AC-22의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. 전수 테스트
+수와 JUnit 해시는 릴리스 보고서에 고정한다. `reports/build_artifact.json`은
+2026-08-31 기준선(893개)이고, 가장 최근 후보 보고서는
+`reports/build_artifact-8h-candidate-2026-09-12.json`(2026-09-12, 961개,
+strict readiness blocked)이다. 현재 소스의 테스트 수는 `python -m pytest`로 확인한다.
 다만 수용 기준 통과가 G1ㆍG2 성능 목표를 대신 증명하지는 않는다.
 
 ## 완료를 위해 남은 증거
@@ -80,4 +84,4 @@ AC-1~AC-20의 자동화 증거는 `docs/acceptance.md`에 연결되어 있다. �
 1. 봉인한 최종 홀드아웃의 사람 라벨
 2. `tools/evaluate.py --enforce-targets` 통과 보고서
 3. PRD에 지정된 Work24 민간 공고 출처를 충족할 기업회원 API 권한 또는 출처 변경 승인
-4. Git 저장소ㆍ법령 감사 Actions 성공 실행ㆍ릴리스 태그
+4. Git 저장소ㆍ법령 감사 Actions 성공 실행(현재 0회)ㆍ릴리스 태그

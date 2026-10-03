@@ -25,7 +25,7 @@ Vercel Python Function은 `api/index.py`의 ASGI `app`을 로드한다. 로컬
 
 공유 Bearer 토큰만으로는 호출자가 제출한 `org_id`의 소유권을 증명할 수 없다.
 따라서 네트워크 배포에는 `save_answer`, `get_saved_answers`를 노출하지 않는다.
-NCSㆍ선택적 현행법 HR 검토와 답변 저장ㆍ조회를 포함한 전체 6도구는 사용자 컴퓨터의 루프백 로컬 MCP에서만 제공한다.
+NCSㆍ선택적 현행법 HR 검토, 답변 저장ㆍ조회와 역할 검토 기록을 포함한 전체 10도구는 사용자 컴퓨터의 루프백 로컬 MCP에서만 제공한다.
 
 정적 웹의 선택형 `AI·현행 법령 보강` 스위치는 `/api/assisted-review`를
 사용한다. Claude는 `FAIRPOST_ANTHROPIC_API_KEY`ㆍ`FAIRPOST_ANTHROPIC_MODEL`,

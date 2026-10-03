@@ -146,7 +146,7 @@ npx -y @modelcontextprotocol/inspector --cli `
 지원에 관한 법률 제7조, 구조화 v1과 `[0, 3]` 원문 offset,
 `isError: false`를 반환했다. Inspector 목록은 공개
 3도구가 모두 읽기 전용임을 확인했고, SDK 프로토콜 테스트는 일반 원격 3도구와
-Claude 호환 평문 1도구, 루프백 로컬 6도구를 각각 검증한다.
+Claude 호환 평문 1도구, 루프백 로컬 10도구를 각각 검증한다.
 감사 결과는 `reports/mcp_client_audit.json`에 원문 없이 저장하고 현재 배포 ID,
 규칙ㆍ매칭ㆍ런타임 지문과 Vercel 감사 SHA-256에 결합한다. Claude Code의 프로젝트
 MCP 승인은 2026-08-31 완료했고, `fairpost` 루프백 서버에서
