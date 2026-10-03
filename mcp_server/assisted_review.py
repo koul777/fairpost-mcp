@@ -3,13 +3,13 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import json
 import os
-import re
 from typing import Any, Literal
 from urllib.parse import quote, urlsplit
 
 import httpx
 
 from core import FairpostEngine
+from core.direct_identifiers import mask_direct_identifiers
 from core.organization_guidance import load_organization_guidance_catalog
 from .review import LiveLawVerifier, prepare_hr_review_packet
 
@@ -60,22 +60,6 @@ AI_SYSTEM_PROMPT = (
     "만들어 넣지 마세요. 각 탐지 항목은 확인 이유·조회 근거·수정 제안·"
     "담당자 확인 사항의 네 항목으로 간결하게 정리하세요."
 )
-
-EXTERNAL_TEXT_REDACTIONS = (
-    (
-        re.compile(r"(?i)(?<![\w.+-])[\w.+-]+@[\w.-]+\.[a-z]{2,}(?![\w.-])"),
-        "[이메일 마스킹]",
-    ),
-    (
-        re.compile(r"(?<!\d)(?:01[016789]|0\d{1,2})[-.\s]?\d{3,4}[-.\s]?\d{4}(?!\d)"),
-        "[전화번호 마스킹]",
-    ),
-    (
-        re.compile(r"(?<!\d)\d{6}[-\s]?[1-4]\d{6}(?!\d)"),
-        "[주민등록번호 마스킹]",
-    ),
-)
-
 
 @dataclass(frozen=True)
 class AiApiConfig:
@@ -510,10 +494,8 @@ def _organization_profile(value: Any) -> dict[str, str]:
 
 
 def _redact_external_text(value: str) -> str:
-    redacted = value
-    for pattern, replacement in EXTERNAL_TEXT_REDACTIONS:
-        redacted = pattern.sub(replacement, redacted)
-    return redacted
+    # Same patterns that reject role-review notes (core.direct_identifiers).
+    return mask_direct_identifiers(value)
 
 
 def _ai_evidence(

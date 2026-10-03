@@ -15,6 +15,8 @@ import json
 import re
 from typing import Any, Literal
 
+from .direct_identifiers import contains_direct_identifier
+
 
 REVIEW_PACKET_SCHEMA_VERSION = "fairpost-review-packet-v1"
 
@@ -72,11 +74,6 @@ _ACTIONS = frozenset(
 )
 _MAX_NOTE_LENGTH = 4000
 _MAX_EVIDENCE_REFS = 32
-_SENSITIVE_NOTE_PATTERNS = (
-    re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+"),
-    re.compile(r"(?<!\d)01[016789][ -]?\d{3,4}[ -]?\d{4}(?!\d)"),
-    re.compile(r"(?<!\d)\d{6}[ -]?\d{7}(?!\d)"),
-)
 
 
 class ReviewPacketError(ValueError):
@@ -135,7 +132,8 @@ def _evidence_refs(value: Any) -> tuple[str, ...]:
 def _validate_note(value: Any) -> None:
     if not isinstance(value, str) or len(value) > _MAX_NOTE_LENGTH:
         raise ReviewPacketError("note must be a string of at most 4000 characters")
-    if any(pattern.search(value) for pattern in _SENSITIVE_NOTE_PATTERNS):
+    # Shared with mcp_server.assisted_review and web/app.js (via web/data.js).
+    if contains_direct_identifier(value):
         raise ReviewPacketError(
             "note must not contain direct personal identifiers; use evidence_refs instead"
         )
