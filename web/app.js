@@ -1560,7 +1560,7 @@
             <div class="item-meta">
               <span class="id-tag">${escapeHtml(finding.id)}</span>
               <span class="dimension-tag">${escapeHtml(finding.dimension)}</span>
-              <span class="severity-tag severity-${escapeHtml(finding.severity)}" aria-label="검토 우선도 ${escapeHtml(reviewPriorityLabel(finding.severity))}">${escapeHtml(reviewPriorityLabel(finding.severity))}</span>
+              <span class="severity-tag severity-${escapeHtml(finding.severity)}"><span class="visually-hidden">검토 우선도 </span>${escapeHtml(reviewPriorityLabel(finding.severity))}</span>
               <span>${escapeHtml(finding.section)} · ${finding.offset[0]}–${finding.offset[1]}</span>
             </div>
             <p class="item-title">${escapeHtml(finding.message)}</p>
@@ -1572,7 +1572,7 @@
             <div class="basis-content">
               <strong>${escapeHtml(finding.basis.law)} ${escapeHtml(finding.basis.article)}</strong>
               <span>${escapeHtml(finding.basis.title)} · 시행 ${escapeHtml(finding.basis.effective_date)} · 스냅샷 ${escapeHtml(finding.basis.snapshot_date)}</span>
-              <pre>${escapeHtml(finding.basis.text)}</pre>
+              <pre tabindex="0">${escapeHtml(finding.basis.text)}</pre>
             </div>
           </details>
         </article>`;

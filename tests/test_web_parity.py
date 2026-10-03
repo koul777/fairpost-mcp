@@ -283,7 +283,8 @@ def test_static_web_keeps_optional_assisted_review_off_by_default() -> None:
     assert "검토 메모를 복사했습니다." in app
     assert 'high: "우선 검토"' in app
     assert 'medium: "검토"' in app
-    assert 'aria-label="검토 우선도' in app
+    assert '<span class="visually-hidden">검토 우선도 </span>' in app
+    assert 'aria-label="검토 우선도' not in app
     assert "개수는 검토할 작업량이며 점수·등급·합격/불합격 또는 공정성 판정이 아닙니다." in app
     assert 'id="common-checklist"' in app
     assert "<details" in app
@@ -592,3 +593,19 @@ def test_web_css_preserves_hidden_state_and_mobile_width() -> None:
     assert ".organization-profileselect{width:100%;min-width:0;max-width:100%;" in compact
     assert "@media(max-width:1100px)" in compact
     assert "@media(max-width:820px)" in compact
+
+
+def test_web_css_focus_and_text_size_are_accessible() -> None:
+    css = (ROOT / "web" / "styles.css").read_text(encoding="utf-8")
+    compact = "".join(css.split())
+    focus_rule = re.search(r"button:focus-visible,([^{]*)\{([^}]*)\}", compact)
+    assert focus_rule is not None
+    for selector in ("select:focus-visible", "input:focus-visible", "textarea:focus-visible"):
+        assert selector in focus_rule.group(1)
+    assert "outline:3pxsolid#1d5c80;" in focus_rule.group(2)
+    assert "rgba(53,106,138,0.3)" not in compact
+    # Information-bearing text is at least 12px; nothing is 9-10px any more.
+    assert not re.search(r"font-size:\s*(?:[0-9]|10)px", css)
+    assert ".visually-hidden{" in compact
+    assert ".field-error{" in compact
+    assert '[aria-invalid="true"]{' in compact
