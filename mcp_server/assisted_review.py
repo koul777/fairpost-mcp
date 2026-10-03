@@ -276,9 +276,10 @@ def assisted_review_capability() -> dict[str, Any]:
             else f"설정 필요: {', '.join(missing)}"
         ),
         "privacy": (
-            "활성화한 요청에서 공고문은 FairPost 서버가 처리하고, AI API에는 "
-            "탐지 문구ㆍ현행 조문ㆍ활성 NCS 통제만 전달합니다. Korean Law MCP에는 "
-            "법령명ㆍ조문번호만 전달합니다."
+            "'보강 실행'으로 요청한 경우에만 공고문을 FairPost 서버가 처리하며 "
+            "저장하지 않습니다. AI API에는 마스킹한 탐지 문구(항목당 최대 1,000자)ㆍ"
+            "규칙 설명ㆍ현행 조문ㆍ관련 NCS 통제ㆍ조직 조건만 전달하고 공고문 전문은 "
+            "보내지 않습니다. Korean Law MCP에는 법령명ㆍ조문번호만 전달합니다."
         ),
     }
 
