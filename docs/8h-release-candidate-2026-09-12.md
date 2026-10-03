@@ -12,6 +12,13 @@
 | 후보 배포 감사 | sdist/wheel pass, source-equivalent | `reports/distribution_audit-8h-final.json` |
 | 후보 릴리스 보고서 | 생성됨; strict readiness blocked | `reports/build_artifact-8h-candidate-2026-09-12.json` |
 
+> **보관 범위 보충 (2026-10-03)**: 위 표의 JUnit XML(`reports/pytest-8h-2026-09-12-handoff.xml`)은
+> `.gitignore`의 `reports/pytest-*.xml` 규칙으로, 후보 sdist/wheel이 있던
+> `.tmp/dist-candidate-8h-final`은 `.tmp/` 규칙으로 저장소에 포함되지 않는다. 저장소에 남은 것은
+> 해시와 크기뿐이며 `reports/build_artifact-8h-candidate-2026-09-12.json`에 기록되어 있다
+> (JUnit SHA-256 `c2127153…`, wheel `8a56632c…`, sdist `b1c579c8…`). 따라서 961개 통과는
+> 저장소의 파일만으로 다시 확인할 수 없고, 같은 입력에서 `python -m pytest`를 다시 실행해야 한다.
+
 ## 확인된 blocker
 
 1. 기존 `dist/fairpost-0.3.0` 파일은 현재 런타임 fingerprint보다 오래된 배포본이다. 따라서 기존 `distribution_audit.json`을 현재 변경의 릴리스 증거로 재사용하지 않는다. 현재 후보는 `.tmp/dist-candidate-8h-final`에서 별도 생성·감사했다.
