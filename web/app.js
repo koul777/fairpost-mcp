@@ -91,7 +91,14 @@
     "role-review-resolve-event"
   );
   const roleReviewNote = document.getElementById("role-review-note");
+  const roleReviewNoteError = document.getElementById("role-review-note-error");
   const roleReviewEvidence = document.getElementById("role-review-evidence");
+  const roleReviewEvidenceError = document.getElementById(
+    "role-review-evidence-error"
+  );
+  const roleReviewResolveError = document.getElementById(
+    "role-review-resolve-error"
+  );
   const roleReviewRecord = document.getElementById("role-review-record");
   const roleReviewClear = document.getElementById("role-review-clear");
   const roleReviewProgress = document.getElementById("role-review-progress");
@@ -156,7 +163,25 @@
       )
       .map((rule) => rule.id)
   );
-  const ROLE_REVIEW_STORAGE_KEY = "fairpost.role-review.v1";
+  // Role-review packets live under one versioned key, one entry per posting
+  // fingerprint + ruleset version + guidance catalog version. Older packets
+  // are kept (bounded) instead of being overwritten by the next review.
+  const ROLE_REVIEW_STORE_KEY = "fairpost.role-review.v2";
+  const ROLE_REVIEW_LEGACY_KEY = "fairpost.role-review.v1";
+  const ROLE_REVIEW_STORE_SCHEMA_VERSION = "fairpost-browser-role-review-store-v2";
+  const ROLE_REVIEW_MAX_PACKETS = 20;
+  const ROLE_REVIEW_MAX_EVENTS = 256;
+  const ROLE_REVIEW_SYSTEM_ACTOR = "system-chair";
+  const ROLE_REVIEW_SYSTEM_NOTE =
+    "위원장 조정 흐름이 생성되었습니다. 각 역할의 독립 검토를 추가하십시오.";
+  const ROLE_REVIEW_SELF_REPORT = "이 브라우저의 자기 기록 · 결재 아님";
+  const ROLE_REVIEW_PRIVACY_LINE =
+    "fingerprint와 역할 이벤트만 이 브라우저에 저장합니다. 원문·지원자 정보는 저장하지 않습니다.";
+  const GUIDANCE_CATALOG_VERSION =
+    typeof window.FAIRPOST_DATA.guidance_catalog_version === "string" &&
+    window.FAIRPOST_DATA.guidance_catalog_version
+      ? window.FAIRPOST_DATA.guidance_catalog_version
+      : "guidance-unknown";
   const ROLE_LABELS = Object.freeze({
     chair: "위원장",
     hr_owner: "인사 운영책임자",
@@ -181,15 +206,18 @@
     resolve: "해결 기록",
   });
   const ROLE_EVENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
+  const FINGERPRINT_PATTERN = /^[0-9a-f]{64}$/;
   const DIRECT_IDENTIFIERS = window.FairpostDirectIdentifiers;
   const ROLE_REVIEW_STAGES = new Set(Object.keys(STAGE_LABELS));
   const ROLE_REVIEW_ACTIONS = new Set(Object.keys(ACTION_LABELS));
   const ROLE_REVIEW_SCHEMA_VERSION = "fairpost-browser-role-review-v1";
   let latestResult = null;
+  let latestCheckedText = null;
   let latestAssistedReview = null;
   let assistedRequestSequence = 0;
   let roleReviewSequence = 0;
   let roleReviewState = null;
+  let roleReviewPersistent = false;
   const reviewAnswers = new Map();
   let toastTimer = null;
 
@@ -225,12 +253,43 @@
       .replaceAll("'", "&#039;");
   }
 
+  function setFieldError(field, errorElement, message) {
+    if (!field || !errorElement) return;
+    if (message) {
+      errorElement.textContent = message;
+      errorElement.hidden = false;
+      field.setAttribute("aria-invalid", "true");
+      return;
+    }
+    errorElement.textContent = "";
+    errorElement.hidden = true;
+    field.removeAttribute("aria-invalid");
+  }
+
   function roleReviewStorage() {
     try {
       return window.localStorage || null;
     } catch (_error) {
       return null;
     }
+  }
+
+  function isSystemRoleReviewEvent(event) {
+    return Boolean(event) && event.actor_ref === ROLE_REVIEW_SYSTEM_ACTOR;
+  }
+
+  function roleReviewUserEvents(packet = roleReviewState) {
+    return packet
+      ? packet.events.filter((event) => !isSystemRoleReviewEvent(event))
+      : [];
+  }
+
+  function roleReviewPacketKey(packet) {
+    return [
+      packet.posting_fingerprint,
+      packet.ruleset_version,
+      packet.guidance_catalog_version,
+    ].join("|");
   }
 
   function validRoleReviewEvent(event, eventIds) {
@@ -252,6 +311,10 @@
         (typeof event.resolves_event_id !== "string" ||
           !ROLE_EVENT_ID_PATTERN.test(event.resolves_event_id) ||
           event.action !== "resolve")) ||
+      (event.actor_ref !== null &&
+        event.actor_ref !== undefined &&
+        (typeof event.actor_ref !== "string" ||
+          !ROLE_EVENT_ID_PATTERN.test(event.actor_ref))) ||
       DIRECT_IDENTIFIERS.contains(event.note) ||
       !Array.isArray(event.evidence_refs) ||
       event.evidence_refs.length > 32
@@ -268,6 +331,337 @@
     }
     eventIds.add(event.event_id);
     return true;
+  }
+
+  // Keeps every valid event and reports how many stored events were dropped,
+  // instead of discarding the whole packet because one event is malformed.
+  function sanitizeRoleReviewEvents(rawEvents) {
+    const eventIds = new Set();
+    const candidates = [];
+    let dropped = 0;
+    rawEvents.forEach((rawEvent, index) => {
+      if (index >= ROLE_REVIEW_MAX_EVENTS || !validRoleReviewEvent(rawEvent, eventIds)) {
+        dropped += 1;
+        return;
+      }
+      const event = { ...rawEvent };
+      if (
+        !event.actor_ref &&
+        event.role === "chair" &&
+        event.action === "note" &&
+        event.note === ROLE_REVIEW_SYSTEM_NOTE
+      ) {
+        // v1 packets created this chair note automatically without marking it.
+        event.actor_ref = ROLE_REVIEW_SYSTEM_ACTOR;
+      }
+      candidates.push(event);
+    });
+    const eventsById = new Map(candidates.map((event) => [event.event_id, event]));
+    const events = candidates.filter((event) => {
+      if (event.resolves_event_id == null) return event.action !== "resolve";
+      const target = eventsById.get(event.resolves_event_id);
+      return Boolean(target) && ["edit_requested", "escalate"].includes(target.action);
+    });
+    return { events, dropped: dropped + candidates.length - events.length };
+  }
+
+  function sanitizeRoleReviewPacket(raw) {
+    if (
+      !raw ||
+      typeof raw !== "object" ||
+      raw.schema_version !== ROLE_REVIEW_SCHEMA_VERSION ||
+      typeof raw.packet_id !== "string" ||
+      !ROLE_EVENT_ID_PATTERN.test(raw.packet_id) ||
+      typeof raw.posting_fingerprint !== "string" ||
+      !FINGERPRINT_PATTERN.test(raw.posting_fingerprint) ||
+      typeof raw.ruleset_version !== "string" ||
+      raw.ruleset_version.length > 128 ||
+      typeof raw.guidance_catalog_version !== "string" ||
+      raw.guidance_catalog_version.length > 128 ||
+      !Array.isArray(raw.events)
+    ) {
+      return null;
+    }
+    const { events, dropped } = sanitizeRoleReviewEvents(raw.events);
+    const lastEvent = events[events.length - 1];
+    const timestamp = (value, fallback) =>
+      typeof value === "string" && value.length <= 128 ? value : fallback;
+    return {
+      packet: {
+        schema_version: ROLE_REVIEW_SCHEMA_VERSION,
+        packet_id: raw.packet_id,
+        posting_fingerprint: raw.posting_fingerprint,
+        ruleset_version: raw.ruleset_version,
+        guidance_catalog_version: raw.guidance_catalog_version,
+        created_at: timestamp(raw.created_at, events[0] ? events[0].occurred_at : ""),
+        updated_at: timestamp(raw.updated_at, lastEvent ? lastEvent.occurred_at : ""),
+        events,
+      },
+      dropped,
+    };
+  }
+
+  // Reads the packet store fresh from localStorage. A store that cannot be
+  // parsed is never overwritten: the page falls back to session-only records.
+  function readRoleReviewStore() {
+    const store = {
+      writable: false,
+      problem: "",
+      packets: [],
+      unreadable: [],
+      dropped: new Map(),
+      legacyPending: false,
+      legacyUnreadable: false,
+    };
+    const storage = roleReviewStorage();
+    if (!storage) {
+      store.problem = "unavailable";
+      return store;
+    }
+    let raw;
+    let legacyRaw;
+    try {
+      raw = storage.getItem(ROLE_REVIEW_STORE_KEY);
+      legacyRaw = storage.getItem(ROLE_REVIEW_LEGACY_KEY);
+    } catch (_error) {
+      store.problem = "unavailable";
+      return store;
+    }
+    const addPacket = (sanitized) => {
+      const key = roleReviewPacketKey(sanitized.packet);
+      if (store.packets.some((packet) => roleReviewPacketKey(packet) === key)) {
+        return false;
+      }
+      store.packets.push(sanitized.packet);
+      if (sanitized.dropped) store.dropped.set(key, sanitized.dropped);
+      return true;
+    };
+    if (raw) {
+      let parsed = null;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (_error) {
+        parsed = null;
+      }
+      if (
+        !parsed ||
+        parsed.schema_version !== ROLE_REVIEW_STORE_SCHEMA_VERSION ||
+        !Array.isArray(parsed.packets)
+      ) {
+        store.problem = "corrupt";
+        return store;
+      }
+      parsed.packets.forEach((item) => {
+        const sanitized = sanitizeRoleReviewPacket(item);
+        if (!sanitized || !addPacket(sanitized)) store.unreadable.push(item);
+      });
+    }
+    if (legacyRaw) {
+      let legacy = null;
+      try {
+        legacy = JSON.parse(legacyRaw);
+      } catch (_error) {
+        legacy = null;
+      }
+      const sanitized = sanitizeRoleReviewPacket(legacy);
+      if (sanitized) {
+        addPacket(sanitized);
+        // The v1 key is removed only after the v2 store is written.
+        store.legacyPending = true;
+      } else {
+        store.legacyUnreadable = true;
+      }
+    }
+    store.writable = true;
+    return store;
+  }
+
+  function quotaExceeded(error) {
+    return Boolean(
+      error &&
+        (error.name === "QuotaExceededError" ||
+          error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+          error.code === 22 ||
+          error.code === 1014)
+    );
+  }
+
+  function evictOldestRoleReviewPacket(store, protectedKey, evicted) {
+    if (store.unreadable.length) {
+      store.unreadable.shift();
+      evicted.push(null);
+      return true;
+    }
+    const candidates = store.packets
+      .filter((packet) => roleReviewPacketKey(packet) !== protectedKey)
+      .sort((left, right) =>
+        String(left.updated_at).localeCompare(String(right.updated_at))
+      );
+    if (!candidates.length) return false;
+    store.packets = store.packets.filter((packet) => packet !== candidates[0]);
+    evicted.push(candidates[0]);
+    return true;
+  }
+
+  // Writes the store; `mutate` edits the freshly read store first so packets
+  // saved by another tab are merged instead of overwritten.
+  function writeRoleReviewStore(mutate, protectedKey) {
+    const outcome = { ok: false, problem: "", evicted: [], storedCount: 0, store: null };
+    const store = readRoleReviewStore();
+    outcome.store = store;
+    if (!store.writable) {
+      outcome.problem = store.problem;
+      return outcome;
+    }
+    mutate(store);
+    const snapshot = { packets: store.packets.slice(), unreadable: store.unreadable.slice() };
+    while (store.packets.length + store.unreadable.length > ROLE_REVIEW_MAX_PACKETS) {
+      if (!evictOldestRoleReviewPacket(store, protectedKey, outcome.evicted)) break;
+    }
+    const storage = roleReviewStorage();
+    for (let attempt = 0; storage && attempt <= ROLE_REVIEW_MAX_PACKETS; attempt += 1) {
+      const ordered = store.packets
+        .slice()
+        .sort((left, right) =>
+          String(right.updated_at).localeCompare(String(left.updated_at))
+        );
+      try {
+        storage.setItem(
+          ROLE_REVIEW_STORE_KEY,
+          JSON.stringify({
+            schema_version: ROLE_REVIEW_STORE_SCHEMA_VERSION,
+            packets: [...ordered, ...store.unreadable],
+          })
+        );
+        outcome.ok = true;
+        break;
+      } catch (error) {
+        if (
+          !quotaExceeded(error) ||
+          !evictOldestRoleReviewPacket(store, protectedKey, outcome.evicted)
+        ) {
+          break;
+        }
+      }
+    }
+    if (!outcome.ok) {
+      store.packets = snapshot.packets;
+      store.unreadable = snapshot.unreadable;
+      outcome.evicted = [];
+      outcome.problem = "write_failed";
+      return outcome;
+    }
+    if (store.legacyPending) {
+      try {
+        storage.removeItem(ROLE_REVIEW_LEGACY_KEY);
+        store.legacyPending = false;
+      } catch (_error) {
+        // The v1 copy stays; it is merged again (not duplicated) next time.
+      }
+    }
+    outcome.storedCount = store.packets.length + store.unreadable.length;
+    return outcome;
+  }
+
+  function mergeRoleReviewPacket(store, packet) {
+    const key = roleReviewPacketKey(packet);
+    const existing = store.packets.find(
+      (candidate) => roleReviewPacketKey(candidate) === key
+    );
+    if (existing) {
+      const knownIds = new Set(packet.events.map((event) => event.event_id));
+      const additions = existing.events.filter((event) => !knownIds.has(event.event_id));
+      if (additions.length) {
+        const merged = sanitizeRoleReviewEvents(
+          [...packet.events, ...additions]
+            .slice()
+            .sort((left, right) =>
+              String(left.occurred_at).localeCompare(String(right.occurred_at))
+            )
+        );
+        packet.events = merged.events;
+      }
+      store.packets = store.packets.filter((candidate) => candidate !== existing);
+    }
+    store.packets.push(packet);
+  }
+
+  function roleReviewTimeLabel(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value || "");
+    const pad = (number) => String(number).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  function roleReviewEvictionMessage(evicted) {
+    if (!evicted.length) return "";
+    const packets = evicted.filter(Boolean);
+    const unreadable = evicted.length - packets.length;
+    const parts = [];
+    if (packets.length) {
+      const newest = packets
+        .map((packet) => packet.updated_at)
+        .sort()
+        .slice(-1)[0];
+      parts.push(
+        `가장 오래된 역할 기록 패킷 ${packets.length}개(마지막 기록 ${roleReviewTimeLabel(
+          newest
+        )}${packets.length > 1 ? " 이하" : ""})`
+      );
+    }
+    if (unreadable) parts.push(`읽을 수 없던 패킷 ${unreadable}개`);
+    return `보관 한도 ${ROLE_REVIEW_MAX_PACKETS}개 또는 저장 공간을 넘어 ${parts.join(
+      "와 "
+    )}를 이 브라우저에서 삭제했습니다.`;
+  }
+
+  function roleReviewStorageMessage(outcome) {
+    if (outcome.ok) {
+      const messages = [];
+      const eviction = roleReviewEvictionMessage(outcome.evicted);
+      if (eviction) messages.push(eviction);
+      messages.push(
+        `${ROLE_REVIEW_PRIVACY_LINE} 이 브라우저에 패킷 ${outcome.storedCount}/${ROLE_REVIEW_MAX_PACKETS}개 보관 중입니다.`
+      );
+      if (outcome.store && outcome.store.unreadable.length) {
+        messages.push(
+          `형식을 읽을 수 없는 패킷 ${outcome.store.unreadable.length}개는 지우지 않고 그대로 두었습니다.`
+        );
+      }
+      if (outcome.store && outcome.store.legacyUnreadable) {
+        messages.push("이전 형식(v1) 역할 기록은 읽을 수 없어 그대로 두었습니다.");
+      }
+      return messages.join(" ");
+    }
+    if (outcome.problem === "corrupt") {
+      return "브라우저에 저장된 역할 기록을 읽을 수 없어 덮어쓰지 않고 현재 세션에만 기록합니다. 페이지를 닫으면 이번 기록은 사라집니다.";
+    }
+    if (outcome.problem === "write_failed") {
+      return "브라우저 저장소에 쓰지 못해 현재 세션에만 기록합니다. 페이지를 닫으면 이번 기록은 사라집니다.";
+    }
+    return "브라우저 저장소를 사용할 수 없어 현재 세션에만 기록합니다. 페이지를 닫으면 이번 기록은 사라집니다.";
+  }
+
+  function persistRoleReviewState(leadMessages = []) {
+    if (!roleReviewState) return null;
+    const key = roleReviewPacketKey(roleReviewState);
+    const outcome = writeRoleReviewStore(
+      (store) => mergeRoleReviewPacket(store, roleReviewState),
+      key
+    );
+    roleReviewPersistent = outcome.ok;
+    roleReviewNotice.textContent = [...leadMessages, roleReviewStorageMessage(outcome)]
+      .filter(Boolean)
+      .join(" ");
+    setAssistBadge(
+      roleReviewStatus,
+      outcome.ok ? "로컬 기록" : "세션 기록",
+      outcome.ok ? "active" : "error"
+    );
+    if (outcome.evicted.length) showToast(roleReviewEvictionMessage(outcome.evicted));
+    return outcome;
   }
 
   async function sha256Hex(value) {
@@ -291,65 +685,6 @@
       .slice(2, 10)}`;
   }
 
-  function roleReviewStateFromStorage(fingerprint) {
-    const storage = roleReviewStorage();
-    if (!storage) return null;
-    try {
-      const raw = storage.getItem(ROLE_REVIEW_STORAGE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (
-        !parsed ||
-        parsed.schema_version !== ROLE_REVIEW_SCHEMA_VERSION ||
-        parsed.posting_fingerprint !== fingerprint ||
-        typeof parsed.packet_id !== "string" ||
-        !Array.isArray(parsed.events) ||
-        parsed.events.length > 256
-      ) {
-        return null;
-      }
-      const eventIds = new Set();
-      if (!parsed.events.every((event) => validRoleReviewEvent(event, eventIds))) {
-        return null;
-      }
-      const eventsById = new Map(
-        parsed.events.map((event) => [event.event_id, event])
-      );
-      if (
-        parsed.events.some((event) => {
-          if (event.action === "resolve" && event.resolves_event_id == null) {
-            return true;
-          }
-          if (event.resolves_event_id == null) return false;
-          const target = eventsById.get(event.resolves_event_id);
-          return (
-            !target ||
-            !["edit_requested", "escalate"].includes(target.action)
-          );
-        })
-      ) {
-        return null;
-      }
-      return parsed;
-    } catch (_error) {
-      return null;
-    }
-  }
-
-  function saveRoleReviewState() {
-    const storage = roleReviewStorage();
-    if (!storage || !roleReviewState) return false;
-    try {
-      storage.setItem(
-        ROLE_REVIEW_STORAGE_KEY,
-        JSON.stringify(roleReviewState)
-      );
-      return true;
-    } catch (_error) {
-      return false;
-    }
-  }
-
   function roleReviewIssueStatuses() {
     if (!roleReviewState) return [];
     const resolved = new Set(
@@ -368,38 +703,67 @@
       }));
   }
 
+  function roleReviewEventNumber(eventId) {
+    if (!roleReviewState) return 0;
+    return roleReviewState.events.findIndex((event) => event.event_id === eventId) + 1;
+  }
+
+  function roleReviewIssueLabel(event) {
+    const note = event.note.length > 40 ? `${event.note.slice(0, 40)}…` : event.note;
+    return `${roleReviewEventNumber(event.event_id)}번 · ${
+      ROLE_LABELS[event.role] || event.role
+    } · ${ACTION_LABELS[event.action] || event.action} · ${roleReviewTimeLabel(
+      event.occurred_at
+    )} — ${note || "메모 없음"}`;
+  }
+
+  function roleReviewProgressSummary() {
+    const userEvents = roleReviewUserEvents();
+    const roles = new Set(userEvents.map((event) => event.role));
+    const openIssues = roleReviewIssueStatuses().filter((issue) => !issue.resolved);
+    return {
+      roles,
+      userEvents,
+      openIssues,
+      text: `자기 기록 역할 ${roles.size}/7 · 이벤트 ${userEvents.length}개 · 미해결 이슈 ${openIssues.length}건 (${ROLE_REVIEW_SELF_REPORT})`,
+    };
+  }
+
   function updateRoleReviewResolutionControl() {
     const resolving = roleReviewAction.value === "resolve";
     roleReviewResolveLabel.hidden = !resolving;
     roleReviewResolveEvent.disabled = !resolving;
-    if (!resolving) roleReviewResolveEvent.value = "";
+    if (!resolving) {
+      roleReviewResolveEvent.value = "";
+      setFieldError(roleReviewResolveEvent, roleReviewResolveError, "");
+    }
   }
 
   function renderRoleReview() {
     if (!roleReviewState) return;
-    const roles = new Set(
-      roleReviewState.events.map((event) => event.role).filter(Boolean)
-    );
-    const issues = roleReviewIssueStatuses();
+    const summary = roleReviewProgressSummary();
     const missingRoles = Object.keys(ROLE_LABELS).filter(
-      (role) => !roles.has(role)
+      (role) => !summary.roles.has(role)
     );
-    roleReviewProgress.textContent = `참여 역할 ${roles.size}/7 · 이벤트 ${roleReviewState.events.length}개 · 미해결 이슈 ${issues.filter((issue) => !issue.resolved).length}건`;
+    roleReviewProgress.textContent = summary.text;
     roleReviewMissing.textContent = missingRoles.length
-      ? `아직 참여하지 않은 역할: ${missingRoles
+      ? `아직 기록이 없는 역할: ${missingRoles
           .map((role) => ROLE_LABELS[role])
           .join(", ")}`
-      : "모든 역할이 참여했습니다.";
+      : "7개 역할 모두 이 브라우저에 자기 기록을 남겼습니다. 본인 확인·위원회 승인·결재를 뜻하지 않습니다.";
+    const issues = roleReviewIssueStatuses();
     const issueById = new Map(issues.map((issue) => [issue.event_id, issue]));
-    const openIssues = issues.filter((issue) => !issue.resolved);
+    const eventsById = new Map(
+      roleReviewState.events.map((event) => [event.event_id, event])
+    );
     roleReviewResolveEvent.innerHTML =
       '<option value="">해결할 수정 요청 또는 이관을 선택하세요.</option>' +
-      openIssues
+      summary.openIssues
         .map(
           (issue) =>
             `<option value="${escapeHtml(issue.event_id)}">${escapeHtml(
-              issue.event_id
-            )} · ${escapeHtml(ACTION_LABELS[issue.action] || issue.action)}</option>`
+              roleReviewIssueLabel(eventsById.get(issue.event_id))
+            )}</option>`
         )
         .join("");
     updateRoleReviewResolutionControl();
@@ -408,19 +772,28 @@
         const evidence = Array.isArray(event.evidence_refs)
           ? event.evidence_refs.filter(Boolean).join(", ")
           : "";
+        if (isSystemRoleReviewEvent(event)) {
+          return `<li class="role-review-system-event"><strong>시스템 · ${escapeHtml(
+            STAGE_LABELS[event.stage] || event.stage
+          )} · 검토 흐름 생성 (참여로 세지 않음)</strong><br>${escapeHtml(
+            event.note || ""
+          )}<small>${escapeHtml(roleReviewTimeLabel(event.occurred_at))}${
+            evidence ? ` · 근거 ${escapeHtml(evidence)}` : ""
+          }</small></li>`;
+        }
         const issue = issueById.get(event.event_id);
         const issueLabel = issue
           ? ` · ${issue.resolved ? "해결됨" : "미해결"}`
           : event.action === "resolve" && event.resolves_event_id
-          ? ` · ${event.resolves_event_id} 해결`
+          ? ` · ${roleReviewEventNumber(event.resolves_event_id)}번 이슈 해결`
           : "";
         return `<li><strong>${escapeHtml(
           ROLE_LABELS[event.role] || event.role
         )} · ${escapeHtml(STAGE_LABELS[event.stage] || event.stage)} · ${escapeHtml(
           ACTION_LABELS[event.action] || event.action
         )}${escapeHtml(issueLabel)}</strong><br>${escapeHtml(event.note || "메모 없음")}<small>${escapeHtml(
-          event.occurred_at || ""
-        )}${evidence ? ` · 근거 ${escapeHtml(evidence)}` : ""}</small></li>`;
+          roleReviewTimeLabel(event.occurred_at)
+        )} · 자기 기록${evidence ? ` · 근거 ${escapeHtml(evidence)}` : ""}</small></li>`;
       })
       .join("");
   }
@@ -446,66 +819,130 @@
       setAssistBadge(roleReviewStatus, "사용 불가", "error");
       return;
     }
-    const guidanceCatalogVersion = "web-guidance-v1";
-    const storedState = roleReviewStateFromStorage(fingerprint);
-    const versionMismatch =
-      storedState &&
-      (storedState.ruleset_version !== result.ruleset_version ||
-        storedState.guidance_catalog_version !== guidanceCatalogVersion);
-    roleReviewState = (versionMismatch ? null : storedState) || {
-      schema_version: ROLE_REVIEW_SCHEMA_VERSION,
-      packet_id: roleReviewId("browser-packet"),
-      posting_fingerprint: fingerprint,
-      ruleset_version: result.ruleset_version,
-      guidance_catalog_version: guidanceCatalogVersion,
-      events: [
-        {
-          event_id: roleReviewId("browser-event"),
-          stage: "analysis",
-          role: "chair",
-          action: "note",
-          occurred_at: new Date().toISOString(),
-          note: "위원장 조정 흐름이 생성되었습니다. 각 역할의 독립 검토를 추가하십시오.",
-          evidence_refs: [
-            ...new Set([
-              ...result.findings.map((finding) => finding.id),
-              ...result.questions.map((question) => question.id),
-            ]),
-          ].slice(0, 32),
-        },
-      ],
-    };
-    const persisted = saveRoleReviewState();
-    roleReviewNotice.textContent = versionMismatch
-      ? "규칙셋 버전이 바뀌어 이전 역할 기록을 새 패킷으로 분리했습니다."
-      : persisted
-      ? "fingerprint와 역할 이벤트만 이 브라우저에 저장합니다. 원문·지원자 정보는 저장하지 않습니다."
-      : "현재 세션에만 역할 이벤트를 기록합니다. 브라우저 저장소를 사용할 수 없습니다.";
-    setAssistBadge(roleReviewStatus, persisted ? "로컬 기록" : "세션 기록", "active");
+    const store = readRoleReviewStore();
+    const key = [fingerprint, result.ruleset_version, GUIDANCE_CATALOG_VERSION].join("|");
+    const existing = store.packets.find(
+      (packet) => roleReviewPacketKey(packet) === key
+    );
+    const lead = [];
+    if (existing) {
+      roleReviewState = existing;
+      const userEvents = roleReviewUserEvents(existing).length;
+      lead.push(`같은 공고문·규칙셋·지침 버전의 역할 기록(이벤트 ${userEvents}개)을 불러왔습니다.`);
+      const dropped = store.dropped.get(key) || 0;
+      if (dropped) {
+        lead.push(
+          `저장된 이벤트 ${dropped}개는 형식 검사(직접 식별정보 포함 여부 등)를 통과하지 못해 제외했습니다. 나머지 이벤트는 그대로 유지합니다.`
+        );
+      }
+    } else {
+      const now = new Date().toISOString();
+      roleReviewState = {
+        schema_version: ROLE_REVIEW_SCHEMA_VERSION,
+        packet_id: roleReviewId("browser-packet"),
+        posting_fingerprint: fingerprint,
+        ruleset_version: result.ruleset_version,
+        guidance_catalog_version: GUIDANCE_CATALOG_VERSION,
+        created_at: now,
+        updated_at: now,
+        events: [
+          {
+            event_id: roleReviewId("browser-event"),
+            stage: "analysis",
+            role: "chair",
+            action: "note",
+            occurred_at: now,
+            note: ROLE_REVIEW_SYSTEM_NOTE,
+            evidence_refs: [
+              ...new Set([
+                ...result.findings.map((finding) => finding.id),
+                ...result.questions.map((question) => question.id),
+              ]),
+            ].slice(0, 32),
+            actor_ref: ROLE_REVIEW_SYSTEM_ACTOR,
+            resolves_event_id: null,
+          },
+        ],
+      };
+      const olderVersions = store.packets.filter(
+        (packet) => packet.posting_fingerprint === fingerprint
+      ).length;
+      lead.push(
+        olderVersions
+          ? `규칙셋 또는 지침 버전이 바뀌어 새 패킷을 시작했습니다. 같은 공고문의 이전 버전 패킷 ${olderVersions}개는 이 브라우저에 그대로 보관합니다.`
+          : "이 공고문의 새 역할 기록 패킷을 시작했습니다. 원문이 한 글자라도 다르면 별도 패킷으로 보관하며 이전 패킷은 지우지 않습니다."
+      );
+    }
+    if (!existing || store.legacyPending) {
+      persistRoleReviewState(lead);
+    } else {
+      roleReviewPersistent = store.writable;
+      roleReviewNotice.textContent = [
+        ...lead,
+        roleReviewStorageMessage({
+          ok: store.writable,
+          problem: store.problem,
+          evicted: [],
+          storedCount: store.packets.length + store.unreadable.length,
+          store,
+        }),
+      ].join(" ");
+      setAssistBadge(
+        roleReviewStatus,
+        store.writable ? "로컬 기록" : "세션 기록",
+        store.writable ? "active" : "error"
+      );
+    }
     renderRoleReview();
   }
 
   function recordRoleReviewEvent() {
+    setFieldError(roleReviewNote, roleReviewNoteError, "");
+    setFieldError(roleReviewEvidence, roleReviewEvidenceError, "");
+    setFieldError(roleReviewResolveEvent, roleReviewResolveError, "");
     if (!roleReviewState) {
       showToast("먼저 공고를 검토해 역할 큐를 준비하세요.");
       return;
     }
-    if (roleReviewState.events.length >= 256) {
+    if (roleReviewState.events.length >= ROLE_REVIEW_MAX_EVENTS) {
       showToast("역할 이벤트는 256개까지 기록할 수 있습니다.");
       return;
     }
+    const failField = (field, errorElement, message) => {
+      setFieldError(field, errorElement, message);
+      showToast(message);
+      field.focus();
+    };
     const note = roleReviewNote.value.trim();
     if (!note) {
-      showToast("검토 메모를 입력하세요.");
-      roleReviewNote.focus();
+      failField(roleReviewNote, roleReviewNoteError, "검토 메모를 입력하세요.");
       return;
     }
-    if (
-      note.length > 4000 ||
-      !DIRECT_IDENTIFIERS.available ||
-      DIRECT_IDENTIFIERS.contains(note)
-    ) {
-      showToast("원문이나 직접 식별정보를 메모에 넣지 마세요. 요약과 근거 ID를 사용하세요.");
+    if (note.length > 4000) {
+      failField(
+        roleReviewNote,
+        roleReviewNoteError,
+        "검토 메모는 4,000자 이내로 입력하세요."
+      );
+      return;
+    }
+    if (!DIRECT_IDENTIFIERS.available) {
+      failField(
+        roleReviewNote,
+        roleReviewNoteError,
+        "직접 식별정보 검사 규칙을 불러오지 못해 메모를 기록하지 않았습니다. 페이지를 새로 고치세요."
+      );
+      return;
+    }
+    const identifierKinds = DIRECT_IDENTIFIERS.kinds(note);
+    if (identifierKinds.length) {
+      failField(
+        roleReviewNote,
+        roleReviewNoteError,
+        `메모에 ${DIRECT_IDENTIFIERS.labels(identifierKinds).join(
+          "·"
+        )} 형식이 있어 기록하지 않았습니다. 원문이나 직접 식별정보 대신 요약과 근거 ID를 사용하세요.`
+      );
       return;
     }
     const resolvesEventId =
@@ -513,8 +950,11 @@
         ? roleReviewResolveEvent.value || null
         : null;
     if (roleReviewAction.value === "resolve" && !resolvesEventId) {
-      showToast("해결할 수정 요청 또는 이관을 선택하세요.");
-      roleReviewResolveEvent.focus();
+      failField(
+        roleReviewResolveEvent,
+        roleReviewResolveError,
+        "해결할 수정 요청 또는 이관을 선택하세요."
+      );
       return;
     }
     const evidenceRefs = roleReviewEvidence.value
@@ -527,61 +967,99 @@
           item.length > 128 || !ROLE_EVENT_ID_PATTERN.test(item)
       )
     ) {
-      showToast("근거 ID는 영문·숫자와 . _ : -만 사용할 수 있습니다.");
+      failField(
+        roleReviewEvidence,
+        roleReviewEvidenceError,
+        "근거 ID는 영문·숫자로 시작하고 영문·숫자와 . _ : -만 사용할 수 있습니다."
+      );
       return;
     }
     if (new Set(evidenceRefs).size !== evidenceRefs.length) {
-      showToast("근거 ID는 중복해서 입력할 수 없습니다.");
+      failField(
+        roleReviewEvidence,
+        roleReviewEvidenceError,
+        "근거 ID는 중복해서 입력할 수 없습니다."
+      );
       return;
     }
     if (evidenceRefs.length > 32) {
-      showToast("근거 ID는 최대 32개까지 입력할 수 있습니다.");
+      failField(
+        roleReviewEvidence,
+        roleReviewEvidenceError,
+        "근거 ID는 최대 32개까지 입력할 수 있습니다."
+      );
       return;
     }
+    const now = new Date().toISOString();
     roleReviewState.events.push({
       event_id: roleReviewId("browser-event"),
       stage: roleReviewStage.value,
       role: roleReviewRole.value,
       action: roleReviewAction.value,
-      occurred_at: new Date().toISOString(),
+      occurred_at: now,
       note: note.slice(0, 4000),
       evidence_refs: evidenceRefs.slice(0, 32),
+      actor_ref: null,
       resolves_event_id: resolvesEventId,
     });
-    const persisted = saveRoleReviewState();
-    roleReviewNotice.textContent = persisted
-      ? "fingerprint와 역할 이벤트만 이 브라우저에 저장합니다. 원문·지원자 정보는 저장하지 않습니다."
-      : "현재 세션에만 역할 이벤트를 기록합니다. 브라우저 저장소를 사용할 수 없습니다.";
+    roleReviewState.updated_at = now;
+    persistRoleReviewState();
     roleReviewNote.value = "";
     roleReviewEvidence.value = "";
     renderRoleReview();
-    showToast("역할 검토 이벤트를 기록했습니다.");
+    showToast("역할 검토 이벤트를 기록했습니다(자기 기록).");
   }
 
   function clearRoleReview() {
-    const storage = roleReviewStorage();
-    if (storage) {
-      try {
-        storage.removeItem(ROLE_REVIEW_STORAGE_KEY);
-      } catch (_error) {
-        // Continue clearing the in-memory session even if storage is locked.
-      }
+    if (!roleReviewState) return;
+    const count = roleReviewUserEvents().length;
+    let confirmed = false;
+    try {
+      confirmed =
+        typeof window.confirm === "function" &&
+        window.confirm(
+          `이 공고의 역할 기록(이벤트 ${count}개)을 이 브라우저에서 삭제할까요? 되돌릴 수 없습니다. 다른 공고의 패킷은 유지됩니다.`
+        ) === true;
+    } catch (_error) {
+      confirmed = false;
+    }
+    if (!confirmed) {
+      roleReviewNotice.textContent =
+        "삭제를 취소했습니다. 이 공고의 역할 기록은 그대로 있습니다.";
+      return;
+    }
+    const key = roleReviewPacketKey(roleReviewState);
+    let removedFromStorage = false;
+    let storedCount = 0;
+    if (roleReviewPersistent) {
+      const outcome = writeRoleReviewStore((store) => {
+        store.packets = store.packets.filter(
+          (packet) => roleReviewPacketKey(packet) !== key
+        );
+      }, null);
+      removedFromStorage = outcome.ok;
+      storedCount = outcome.storedCount;
     }
     roleReviewSequence += 1;
     roleReviewState = null;
+    roleReviewPersistent = false;
     roleReviewPanel.hidden = true;
     roleReviewEvents.replaceChildren();
     roleReviewMissing.textContent = "";
     setAssistBadge(roleReviewStatus, "삭제됨");
-    roleReviewProgress.textContent = "참여 역할 0/7 · 이벤트 0개";
-    showToast("이 공고의 역할 기록을 삭제했습니다.");
+    roleReviewProgress.textContent = `자기 기록 역할 0/7 · 이벤트 0개 (${ROLE_REVIEW_SELF_REPORT})`;
+    showToast(
+      removedFromStorage
+        ? `이 공고의 역할 기록을 삭제했습니다. 다른 패킷 ${storedCount}개는 유지됩니다.`
+        : "이 공고의 현재 세션 역할 기록을 지웠습니다."
+    );
   }
 
   function showToast(message) {
     toast.textContent = message;
     toast.classList.add("visible");
     window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => toast.classList.remove("visible"), 1800);
+    toastTimer = window.setTimeout(() => toast.classList.remove("visible"), 4000);
   }
 
   function reviewPriorityLabel(value) {
@@ -867,7 +1345,8 @@
     roleReviewPanel.hidden = true;
     roleReviewEvents.replaceChildren();
     setAssistBadge(roleReviewStatus, "대기");
-    roleReviewProgress.textContent = "참여 역할 0/7 · 이벤트 0개";
+    roleReviewProgress.textContent = `자기 기록 역할 0/7 · 이벤트 0개 (${ROLE_REVIEW_SELF_REPORT})`;
+    roleReviewMissing.textContent = "";
     reviewAnswers.clear();
     ["findings-list", "slots-list", "questions-list"].forEach((id) =>
       document.getElementById(id).replaceChildren()
@@ -1205,15 +1684,20 @@
         latestAssistedReview.summary
       );
     }
-    if (roleReviewState && roleReviewState.events.length) {
+    if (roleReviewState && roleReviewUserEvents().length) {
+      const summary = roleReviewProgressSummary();
       lines.push(
         "",
-        "[다중 역할 검토 기록]",
-        `참여 역할: ${new Set(roleReviewState.events.map((event) => event.role)).size}/7 · 이벤트: ${roleReviewState.events.length}개`,
+        `[다중 역할 검토 기록 — ${ROLE_REVIEW_SELF_REPORT}]`,
+        `자기 기록 역할: ${summary.roles.size}/7 · 이벤트: ${summary.userEvents.length}개 · 미해결 이슈: ${summary.openIssues.length}건`,
+        "이 기록은 이 브라우저에서 입력한 자기 기록이며 본인 확인·위원회 승인·결재가 아닙니다."
       );
-      roleReviewState.events.forEach((event) => {
+      summary.userEvents.forEach((event) => {
+        const resolves = event.resolves_event_id
+          ? ` (${roleReviewEventNumber(event.resolves_event_id)}번 이슈 해결)`
+          : "";
         lines.push(
-          `- ${ROLE_LABELS[event.role] || event.role} · ${STAGE_LABELS[event.stage] || event.stage} · ${ACTION_LABELS[event.action] || event.action}: ${event.note || "메모 없음"}`
+          `- ${roleReviewEventNumber(event.event_id)}번 ${ROLE_LABELS[event.role] || event.role} · ${STAGE_LABELS[event.stage] || event.stage} · ${ACTION_LABELS[event.action] || event.action}${resolves}: ${event.note || "메모 없음"}`
         );
       });
     }
@@ -1320,6 +1804,15 @@
   roleReviewRecord.addEventListener("click", recordRoleReviewEvent);
   roleReviewClear.addEventListener("click", clearRoleReview);
   roleReviewAction.addEventListener("change", updateRoleReviewResolutionControl);
+  roleReviewNote.addEventListener("input", () =>
+    setFieldError(roleReviewNote, roleReviewNoteError, "")
+  );
+  roleReviewEvidence.addEventListener("input", () =>
+    setFieldError(roleReviewEvidence, roleReviewEvidenceError, "")
+  );
+  roleReviewResolveEvent.addEventListener("change", () =>
+    setFieldError(roleReviewResolveEvent, roleReviewResolveError, "")
+  );
 
   resultContent.addEventListener("input", (event) => {
     const target = event.target;

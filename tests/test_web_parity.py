@@ -4,6 +4,7 @@ import base64
 import json
 from pathlib import Path
 import random
+import re
 import shutil
 import subprocess
 
@@ -384,20 +385,90 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
         "organizationMarkup",
     }
     role_review = result["roleReview"]
+    self_report = "(이 브라우저의 자기 기록 · 결재 아님)"
     assert role_review["status"] == "로컬 기록"
-    assert role_review["progress"] == "참여 역할 3/7 · 이벤트 4개 · 미해결 이슈 0건"
-    assert "아직 참여하지 않은 역할" in role_review["missingRoles"]
+    # The auto-created chair event is not participation.
+    assert role_review["initialProgress"] == (
+        f"자기 기록 역할 0/7 · 이벤트 0개 · 미해결 이슈 0건 {self_report}"
+    )
+    assert role_review["progress"] == (
+        f"자기 기록 역할 2/7 · 이벤트 3개 · 미해결 이슈 0건 {self_report}"
+    )
+    assert "위원장" in role_review["missingRoles"]
+    assert "아직 기록이 없는 역할" in role_review["missingRoles"]
+    assert "참여로 세지 않음" in role_review["eventsMarkup"]
     assert "감사자 · 평가 · 메모" in role_review["eventsMarkup"]
     assert "릴리스 전 재현성 근거" in role_review["eventsMarkup"]
     assert "해결됨" in role_review["eventsMarkup"]
+    assert "3번 이슈 해결" in role_review["eventsMarkup"]
     assert "여성만 지원 가능" not in role_review["storage"]
     assert "posting_text" not in role_review["storage"]
+    memo = role_review["copiedMemo"]
+    assert "[다중 역할 검토 기록 — 이 브라우저의 자기 기록 · 결재 아님]" in memo
+    assert "자기 기록 역할: 2/7 · 이벤트: 3개 · 미해결 이슈: 0건" in memo
+    assert "위원회 승인·결재가 아닙니다" in memo
+    assert "/7 · 이벤트: 4개" not in memo
     assert role_review["afterSensitiveNote"] == {
-        "progress": "참여 역할 2/7 · 이벤트 2개 · 미해결 이슈 0건",
+        "progress": f"자기 기록 역할 1/7 · 이벤트 1개 · 미해결 이슈 0건 {self_report}",
         "eventCount": 2,
+        "noteError": (
+            "메모에 이메일 형식이 있어 기록하지 않았습니다. "
+            "원문이나 직접 식별정보 대신 요약과 근거 ID를 사용하세요."
+        ),
+        "noteErrorHidden": False,
+        "noteInvalid": "true",
     }
-    assert role_review["afterVersionDrift"]["newPacket"] is True
-    assert "규칙셋 버전이 바뀌어" in role_review["afterVersionDrift"]["notice"]
+    assert role_review["noteErrorClearedOnInput"] == {"hidden": True, "invalid": None}
+    assert role_review["evidenceError"]["invalid"] == "true"
+    assert "근거 ID는" in role_review["evidenceError"]["message"]
+    assert role_review["resolveError"] == "해결할 수정 요청 또는 이관을 선택하세요."
+    visible_options = re.sub(r'value="[^"]*"', "", role_review["resolveOptions"])
+    assert "browser-event" not in visible_options
+    assert "3번 · 감사자 · 수정 요청 · " in visible_options
+    assert "직무 요건 근거를 보강해야 합니다." in visible_options
+    assert role_review["reloaded"]["packetCount"] == 1
+    assert role_review["reloaded"]["progress"] == role_review["progress"]
+    assert "역할 기록(이벤트 3개)을 불러왔습니다" in role_review["reloaded"]["notice"]
+    drift = role_review["afterVersionDrift"]
+    assert drift["newPacket"] is True
+    assert drift["oldPacketKept"] is True
+    assert drift["packetCount"] == 2
+    assert "규칙셋 또는 지침 버전이 바뀌어 새 패킷을 시작했습니다" in drift["notice"]
+    assert "그대로 보관합니다" in drift["notice"]
+    assert "분리했습니다" not in drift["notice"]
+    assert role_review["otherPosting"]["packetCount"] == 3
+    assert "이전 패킷은 지우지 않습니다" in role_review["otherPosting"]["notice"]
+    assert "저장된 이벤트 1개는 형식 검사" in role_review["invalidEvent"]["notice"]
+    assert role_review["invalidEvent"]["progress"] == role_review["progress"]
+    assert role_review["migration"] == {
+        "legacyRemoved": True,
+        "migratedEvents": 4,
+        "systemMarked": "system-chair",
+        "progress": role_review["progress"],
+    }
+    assert role_review["cancelledDelete"] == {
+        "packetCount": 2,
+        "notice": "삭제를 취소했습니다. 이 공고의 역할 기록은 그대로 있습니다.",
+        "panelHidden": False,
+    }
+    assert role_review["confirmedDelete"] == {
+        "prompts": 2,
+        "packetCount": 1,
+        "currentRemoved": True,
+        "panelHidden": True,
+    }
+    retention = role_review["retention"]
+    assert retention["packetsBefore"] == 20
+    assert retention["packetCount"] == 20
+    assert retention["oldestEvicted"] is True
+    assert "보관 한도 20개" in retention["notice"]
+    assert "가장 오래된 역할 기록 패킷 1개" in retention["notice"]
+    assert role_review["corrupt"]["untouched"] is True
+    assert role_review["corrupt"]["status"] == "세션 기록"
+    assert "덮어쓰지 않고 현재 세션에만 기록합니다" in role_review["corrupt"]["notice"]
+    assert role_review["unavailable"]["status"] == "세션 기록"
+    assert "브라우저 저장소를 사용할 수 없어" in role_review["unavailable"]["notice"]
+    assert role_review["unavailable"]["progress"].startswith("자기 기록 역할 1/7 · 이벤트 1개")
 
 
 def test_web_bundle_version_matches_core() -> None:

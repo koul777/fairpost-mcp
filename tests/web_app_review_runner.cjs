@@ -17,7 +17,12 @@ class FakeElement {
     this.classList = { add() {}, remove() {} };
     this.replaced = false;
     this.focused = false;
+    this.attributes = new Map();
   }
+
+  setAttribute(name, value) { this.attributes.set(name, String(value)); }
+  removeAttribute(name) { this.attributes.delete(name); }
+  getAttribute(name) { return this.attributes.has(name) ? this.attributes.get(name) : null; }
 
   addEventListener(type, handler) {
     this.handlers.set(type, handler);
@@ -109,11 +114,27 @@ window.setTimeout = () => 1;
 window.clearTimeout = () => {};
 
 const localReviewValues = new Map();
-globalThis.localStorage = {
+const workingStorage = {
   getItem(key) { return localReviewValues.has(key) ? localReviewValues.get(key) : null; },
   setItem(key, value) { localReviewValues.set(key, String(value)); },
   removeItem(key) { localReviewValues.delete(key); },
 };
+const lockedStorage = {
+  getItem() { throw new Error("SecurityError: storage disabled"); },
+  setItem() { throw new Error("SecurityError: storage disabled"); },
+  removeItem() { throw new Error("SecurityError: storage disabled"); },
+};
+globalThis.localStorage = workingStorage;
+let confirmAnswer = true;
+const confirmPrompts = [];
+window.confirm = (message) => {
+  confirmPrompts.push(message);
+  return confirmAnswer;
+};
+const STORE_KEY = "fairpost.role-review.v2";
+const LEGACY_KEY = "fairpost.role-review.v1";
+const readStore = () => JSON.parse(localReviewValues.get(STORE_KEY) || "null");
+const tick = () => new Promise((resolve) => setImmediate(resolve));
 Object.defineProperty(globalThis, "crypto", {
   configurable: true,
   value: {
@@ -262,7 +283,13 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     organizationMarkup: elements.get("questions-list").innerHTML,
   };
 
-  await new Promise((resolve) => setImmediate(resolve));
+  await tick();
+  const roleFingerprint = readStore().packets[0].posting_fingerprint;
+  const currentPacket = () =>
+    readStore().packets.find(
+      (packet) => packet.posting_fingerprint === roleFingerprint
+    );
+  const initialRoleProgress = elements.get("role-review-progress").textContent;
   elements.get("role-review-role").value = "auditor";
   elements.get("role-review-stage").value = "evaluation";
   elements.get("role-review-action").value = "note";
@@ -273,52 +300,246 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
   elements.get("role-review-record").trigger("click");
   const roleReviewAfterSensitiveNote = {
     progress: elements.get("role-review-progress").textContent,
-    eventCount: JSON.parse(localReviewValues.get("fairpost.role-review.v1")).events.length,
+    eventCount: currentPacket().events.length,
+    noteError: elements.get("role-review-note-error").textContent,
+    noteErrorHidden: elements.get("role-review-note-error").hidden,
+    noteInvalid: elements.get("role-review-note").getAttribute("aria-invalid"),
   };
+  elements.get("role-review-note").trigger("input");
+  const noteErrorClearedOnInput = {
+    hidden: elements.get("role-review-note-error").hidden,
+    invalid: elements.get("role-review-note").getAttribute("aria-invalid"),
+  };
+  elements.get("role-review-note").value = "근거 ID 형식 확인";
+  elements.get("role-review-evidence").value = "근거 1";
+  elements.get("role-review-record").trigger("click");
+  const evidenceError = {
+    message: elements.get("role-review-evidence-error").textContent,
+    invalid: elements.get("role-review-evidence").getAttribute("aria-invalid"),
+  };
+  elements.get("role-review-evidence").value = "";
   elements.get("role-review-action").value = "edit_requested";
   elements.get("role-review-note").value = "직무 요건 근거를 보강해야 합니다.";
   elements.get("role-review-record").trigger("click");
-  const roleReviewWithIssue = JSON.parse(
-    localReviewValues.get("fairpost.role-review.v1")
-  );
-  const issueEventId = roleReviewWithIssue.events.find(
+  const issueEventId = currentPacket().events.find(
     (event) => event.action === "edit_requested"
   ).event_id;
+  const resolveOptions = elements.get("role-review-resolve-event").innerHTML;
   elements.get("role-review-role").value = "hr_owner";
   elements.get("role-review-action").value = "resolve";
   elements.get("role-review-action").trigger("change");
+  elements.get("role-review-resolve-event").value = "";
+  elements.get("role-review-note").value = "직무 요건 근거를 보강했습니다.";
+  elements.get("role-review-record").trigger("click");
+  const resolveError = elements.get("role-review-resolve-error").textContent;
   elements.get("role-review-resolve-event").value = issueEventId;
   elements.get("role-review-note").value = "직무 요건 근거를 보강했습니다.";
   elements.get("role-review-record").trigger("click");
+  await elements.get("copy-button").trigger("click");
   const roleReviewBeforeVersionDrift = {
     status: elements.get("role-review-status").textContent,
     progress: elements.get("role-review-progress").textContent,
     missingRoles: elements.get("role-review-missing").textContent,
     eventsMarkup: elements.get("role-review-events").innerHTML,
-    storage: localReviewValues.get("fairpost.role-review.v1") || "",
+    storage: localReviewValues.get(STORE_KEY) || "",
+    copiedMemo: copied,
   };
-  const priorRoleReview = JSON.parse(
-    localReviewValues.get("fairpost.role-review.v1")
-  );
-  const priorPacketId = priorRoleReview.packet_id;
-  priorRoleReview.ruleset_version = "stale-ruleset";
-  localReviewValues.set(
-    "fairpost.role-review.v1",
-    JSON.stringify(priorRoleReview)
-  );
+
+  // Same posting, re-checked: the stored packet is loaded, not replaced.
   elements.get("check-button").trigger("click");
-  await new Promise((resolve) => setImmediate(resolve));
-  const rotatedRoleReview = JSON.parse(
-    localReviewValues.get("fairpost.role-review.v1")
-  );
+  await tick();
+  const reloaded = {
+    progress: elements.get("role-review-progress").textContent,
+    notice: elements.get("role-review-notice").textContent,
+    packetCount: readStore().packets.length,
+  };
+
+  // A ruleset change keeps the old packet and starts a new one.
+  const driftStore = readStore();
+  const priorPacketId = driftStore.packets[0].packet_id;
+  const currentRuleset = driftStore.packets[0].ruleset_version;
+  driftStore.packets[0].ruleset_version = "stale-ruleset";
+  localReviewValues.set(STORE_KEY, JSON.stringify(driftStore));
+  elements.get("check-button").trigger("click");
+  await tick();
+  const afterDrift = readStore();
   const roleReviewAfterVersionDrift = {
-    newPacket: rotatedRoleReview.packet_id !== priorPacketId,
+    newPacket: afterDrift.packets.some(
+      (packet) => packet.packet_id !== priorPacketId
+    ),
+    oldPacketKept: afterDrift.packets.some(
+      (packet) => packet.packet_id === priorPacketId && packet.events.length === 4
+    ),
+    packetCount: afterDrift.packets.length,
+    notice: elements.get("role-review-notice").textContent,
+    progress: elements.get("role-review-progress").textContent,
+  };
+
+  // A different posting (one character changed) gets its own packet.
+  posting.value = "여성만 지원 가능.";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  await tick();
+  const otherPosting = {
+    packetCount: readStore().packets.length,
     notice: elements.get("role-review-notice").textContent,
   };
+
+  // One invalid stored event is dropped with a warning; valid ones stay.
+  posting.value = "여성만 지원 가능";
+  posting.dispatchEvent(new Event("input"));
+  const invalidStore = readStore();
+  invalidStore.packets = invalidStore.packets.filter(
+    (packet) =>
+      packet.posting_fingerprint !== roleFingerprint ||
+      packet.packet_id === priorPacketId
+  );
+  const original = invalidStore.packets.find(
+    (packet) => packet.packet_id === priorPacketId
+  );
+  original.ruleset_version = currentRuleset;
+  original.events.push({
+    event_id: "broken event id",
+    stage: "analysis",
+    role: "auditor",
+    action: "note",
+  });
+  localReviewValues.set(STORE_KEY, JSON.stringify(invalidStore));
+  elements.get("check-button").trigger("click");
+  await tick();
+  const invalidEvent = {
+    notice: elements.get("role-review-notice").textContent,
+    progress: elements.get("role-review-progress").textContent,
+  };
+
+  // v1 single-key data migrates into the v2 store without loss.
+  const migrateStore = readStore();
+  const legacyPacket = migrateStore.packets.find(
+    (packet) => packet.packet_id === priorPacketId
+  );
+  delete legacyPacket.created_at;
+  delete legacyPacket.updated_at;
+  legacyPacket.events = legacyPacket.events
+    .filter((event) => event.event_id !== "broken event id")
+    .map((event) => {
+      const copy = { ...event };
+      delete copy.actor_ref;
+      return copy;
+    });
+  migrateStore.packets = migrateStore.packets.filter(
+    (packet) => packet.packet_id !== priorPacketId
+  );
+  localReviewValues.set(STORE_KEY, JSON.stringify(migrateStore));
+  localReviewValues.set(LEGACY_KEY, JSON.stringify(legacyPacket));
+  elements.get("check-button").trigger("click");
+  await tick();
+  const migrated = readStore().packets.find(
+    (packet) => packet.packet_id === priorPacketId
+  );
+  const migration = {
+    legacyRemoved: !localReviewValues.has(LEGACY_KEY),
+    migratedEvents: migrated ? migrated.events.length : 0,
+    systemMarked: migrated ? migrated.events[0].actor_ref : null,
+    progress: elements.get("role-review-progress").textContent,
+  };
+
+  // Deleting asks first and removes only this posting's packet.
+  confirmAnswer = false;
+  elements.get("role-review-clear").trigger("click");
+  const cancelledDelete = {
+    packetCount: readStore().packets.length,
+    notice: elements.get("role-review-notice").textContent,
+    panelHidden: elements.get("role-review-panel").hidden,
+  };
+  confirmAnswer = true;
+  elements.get("role-review-clear").trigger("click");
+  const confirmedDelete = {
+    prompts: confirmPrompts.length,
+    packetCount: readStore().packets.length,
+    currentRemoved: !readStore().packets.some(
+      (packet) => packet.packet_id === priorPacketId
+    ),
+    panelHidden: elements.get("role-review-panel").hidden,
+  };
+
+  // Retention: at most 20 packets, the least recently updated is evicted.
+  const fullStore = readStore();
+  for (let index = fullStore.packets.length; index < 20; index += 1) {
+    const second = String(index).padStart(2, "0");
+    fullStore.packets.push({
+      schema_version: "fairpost-browser-role-review-v1",
+      packet_id: `browser-packet-filler-${index}`,
+      posting_fingerprint: index.toString(16).padStart(64, "0"),
+      ruleset_version: "filler",
+      guidance_catalog_version: "filler",
+      created_at: `2020-01-01T00:00:${second}.000Z`,
+      updated_at: `2020-01-01T00:00:${second}.000Z`,
+      events: [],
+    });
+  }
+  const oldestFiller = fullStore.packets
+    .filter((packet) => packet.ruleset_version === "filler")
+    .sort((left, right) => left.updated_at.localeCompare(right.updated_at))[0]
+    .packet_id;
+  localReviewValues.set(STORE_KEY, JSON.stringify(fullStore));
+  elements.get("check-button").trigger("click");
+  await tick();
+  const retention = {
+    packetsBefore: fullStore.packets.length,
+    packetCount: readStore().packets.length,
+    oldestEvicted: !readStore().packets.some(
+      (packet) => packet.packet_id === oldestFiller
+    ),
+    notice: elements.get("role-review-notice").textContent,
+  };
+
+  // Corrupt stored data is never overwritten.
+  localReviewValues.set(STORE_KEY, "{not json");
+  elements.get("check-button").trigger("click");
+  await tick();
+  elements.get("role-review-role").value = "job_sme";
+  elements.get("role-review-action").value = "note";
+  elements.get("role-review-action").trigger("change");
+  elements.get("role-review-note").value = "세션 기록 확인";
+  elements.get("role-review-record").trigger("click");
+  const corrupt = {
+    untouched: localReviewValues.get(STORE_KEY) === "{not json",
+    status: elements.get("role-review-status").textContent,
+    notice: elements.get("role-review-notice").textContent,
+    progress: elements.get("role-review-progress").textContent,
+  };
+
+  // Storage that throws keeps the page working in session-only mode.
+  globalThis.localStorage = lockedStorage;
+  elements.get("check-button").trigger("click");
+  await tick();
+  elements.get("role-review-note").value = "저장소 없이 기록";
+  elements.get("role-review-record").trigger("click");
+  const unavailable = {
+    status: elements.get("role-review-status").textContent,
+    notice: elements.get("role-review-notice").textContent,
+    progress: elements.get("role-review-progress").textContent,
+  };
+  globalThis.localStorage = workingStorage;
+
   const roleReview = {
     ...roleReviewBeforeVersionDrift,
+    initialProgress: initialRoleProgress,
     afterSensitiveNote: roleReviewAfterSensitiveNote,
+    noteErrorClearedOnInput,
+    evidenceError,
+    resolveError,
+    resolveOptions,
+    reloaded,
     afterVersionDrift: roleReviewAfterVersionDrift,
+    otherPosting,
+    invalidEvent,
+    migration,
+    cancelledDelete,
+    confirmedDelete,
+    retention,
+    corrupt,
+    unavailable,
   };
 
   console.log(JSON.stringify({

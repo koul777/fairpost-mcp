@@ -188,14 +188,18 @@
               </div>
               <span id="role-review-status" class="assist-badge">준비 중</span>
             </div>
-            <p id="role-review-notice" class="role-review-notice">
+            <p id="role-review-notice" class="role-review-notice" role="status" aria-live="polite">
               공고 fingerprint와 역할 이벤트만 이 브라우저에 저장합니다. 원문·지원자 정보는 역할 기록에 저장하지 않습니다.
+            </p>
+            <p class="role-review-boundary">
+              역할 기록은 이 브라우저에서 입력한 <strong>자기 기록</strong>입니다. 본인 확인·위원회 승인·결재를 뜻하지 않습니다.
             </p>
             <div class="role-review-controls">
               <label>
                 역할
                 <select id="role-review-role">
-                  <option value="hr_owner">인사 운영책임자</option>
+                  <option value="chair">위원장</option>
+                  <option value="hr_owner" selected>인사 운영책임자</option>
                   <option value="job_sme">직무전문가</option>
                   <option value="interviewer">면접위원</option>
                   <option value="policy_reviewer">정책검토자</option>
@@ -226,19 +230,22 @@
             </div>
             <label id="role-review-resolve-label" class="role-review-note-label" for="role-review-resolve-event" hidden>
               해결할 이슈
-              <select id="role-review-resolve-event">
+              <select id="role-review-resolve-event" aria-describedby="role-review-resolve-error">
                 <option value="">해결할 수정 요청 또는 이관을 선택하세요.</option>
               </select>
             </label>
+            <p id="role-review-resolve-error" class="field-error" hidden></p>
             <label class="role-review-note-label" for="role-review-note">검토 메모</label>
-            <textarea id="role-review-note" rows="3" maxlength="4000" placeholder="직무관련성, 운영상 위험, 지원자 부담 또는 추가 확인 근거를 기록하세요."></textarea>
-            <p class="role-review-help">공고 원문·지원자 개인정보·연락처는 메모에 붙여 넣지 말고 요약과 근거 ID만 남기세요.</p>
+            <textarea id="role-review-note" rows="3" maxlength="4000" aria-describedby="role-review-note-error role-review-help" placeholder="직무관련성, 운영상 위험, 지원자 부담 또는 추가 확인 근거를 기록하세요."></textarea>
+            <p id="role-review-note-error" class="field-error" hidden></p>
+            <p id="role-review-help" class="role-review-help">공고 원문·지원자 개인정보·연락처(이메일·전화번호·주민등록번호)는 메모에 붙여 넣지 말고 요약과 근거 ID만 남기세요.</p>
             <label class="role-review-note-label" for="role-review-evidence">근거 ID <small>(쉼표로 구분, 선택)</small></label>
-            <input id="role-review-evidence" type="text" maxlength="1024" placeholder="예: Q-DIST-002, ncs-process">
+            <input id="role-review-evidence" type="text" maxlength="1024" aria-describedby="role-review-evidence-error" placeholder="예: Q-DIST-002, ncs-process">
+            <p id="role-review-evidence-error" class="field-error" hidden></p>
             <div class="role-review-actions">
               <button id="role-review-record" class="button button-secondary" type="button">이 역할의 검토 기록</button>
               <button id="role-review-clear" class="button button-quiet" type="button">이 공고의 역할 기록 삭제</button>
-              <strong id="role-review-progress">참여 역할 1/7 · 이벤트 1개</strong>
+              <strong id="role-review-progress">자기 기록 역할 0/7 · 이벤트 0개</strong>
             </div>
             <p id="role-review-missing" class="role-review-missing" aria-live="polite"></p>
             <ol id="role-review-events" class="role-review-events"></ol>
