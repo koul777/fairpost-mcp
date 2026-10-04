@@ -195,6 +195,19 @@ python tools/verify_vercel_deployment.py --allow-write-check
 이전 지문 `runtime-e31bb133…`을 기록하고 있어 현재 배포에 대해서는 다시 생성되지 않았다.
 같은 시점에 `/api/health`의 `assisted_review`는 `ready: false`, `available_providers: []`였다.
 
+### 2026-10-04 수정 전후 비교 배포
+
+소스 `2b228897e977635cfc58c6022e173de60078c17b`를 배포한
+`dpl_FVpndNcd5gofWCQZxbPoW9ea7UhG`가 `https://fairmcp.vercel.app`에 연결됐다.
+공개 health의 규칙ㆍ매칭ㆍ소스 지문은 로컬과 일치하고, 운영 웹에서 수정 전후 비교의
+데스크톱ㆍ태블릿ㆍ모바일 동작과 axe 점검을 통과했다.
+
+인증 후 MCP 호출은 로컬 `FAIRPOST_MCP_TOKEN`으로 401이 반환되어 보류했다.
+Vercel의 민감 환경변수는 pull 시 `[SENSITIVE]` 자리표시자만 반환하므로 이것을 토큰으로
+사용하거나 기존 운영 토큰을 임의 교체하지 않는다. 올바른 토큰으로 위 검증기를 다시
+실행하기 전까지 `reports/vercel_deployment_audit.json`은 과거 증거로 유지한다.
+이번 공개 상태ㆍ웹 검증과 인증 차단은 `reports/production_rollout.json`에 분리해 기록한다.
+
 ## 개인정보 처리 경계
 
 - 정적 웹과 CLI는 입력이 기기 밖으로 나가지 않는다.

@@ -1,0 +1,91 @@
+{
+  "schema_version": "fairpost-production-rollout-v1",
+  "checked_at": "2026-10-04T06:06:45.997079+00:00",
+  "evidence_status": "current",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-da8f450a87f4",
+  "matching_version": "match-8cc4dbbcae8c00fa",
+  "runtime_source_fingerprint": "runtime-de4fda98b279d6ecc6c26532fcb07240cdc441d4013c596935764d9034fe6246",
+  "source_commit": "2b228897e977635cfc58c6022e173de60078c17b",
+  "deployment_id": "dpl_FVpndNcd5gofWCQZxbPoW9ea7UhG",
+  "production_url": "https://fairmcp.vercel.app",
+  "checks": {
+    "health_ok": true,
+    "ruleset_matches": true,
+    "matching_version_matches": true,
+    "runtime_matches": true,
+    "comparison_web_passed": true,
+    "anonymous_mcp_rejected": true
+  },
+  "authenticated_mcp": {
+    "initialize_http_status": 401,
+    "tool_calls_verified": false,
+    "status": "blocked_local_token_rejected"
+  },
+  "assisted_review_ready": false,
+  "statute_audit": {
+    "status": "blocked_missing_credential",
+    "credential_name": "LAW_OPEN_API_OC",
+    "last_checked_failed_run": "https://github.com/koul777/fairpost-mcp/actions/runs/37103644214"
+  },
+  "human_review": {
+    "status": "awaiting_reviewers",
+    "primary_rows": 232,
+    "double_review_rows": 78,
+    "labels_created": false,
+    "sealed_holdout_opened": false
+  },
+  "pilot": {
+    "status": "awaiting_teams",
+    "target_teams": 3,
+    "target_cases": 20
+  },
+  "production_browser": {
+    "checked_at": "2026-10-04T06:04:40.736Z",
+    "cases": [
+      {
+        "name": "desktop",
+        "width": 1440,
+        "height": 900,
+        "violations": [],
+        "overflow": false,
+        "storedPosting": false,
+        "posting_requests": 0,
+        "page_errors": []
+      },
+      {
+        "name": "tablet",
+        "width": 820,
+        "height": 1180,
+        "violations": [],
+        "overflow": false,
+        "storedPosting": false,
+        "posting_requests": 0,
+        "page_errors": []
+      },
+      {
+        "name": "mobile",
+        "width": 390,
+        "height": 844,
+        "violations": [],
+        "overflow": false,
+        "storedPosting": false,
+        "posting_requests": 0,
+        "page_errors": []
+      }
+    ],
+    "passed": true
+  },
+  "contains_posting_text": false,
+  "secret_recorded": false,
+  "release_ready": false,
+  "validation_source_fingerprint": "validation-d50045a44090d0df3740f850807aadf6ec86b6c227adf470e361a751eb2cfc25",
+  "local_validation": {
+    "pytest_passed": 1282,
+    "pytest_skipped": 8,
+    "skipped_reason": "jq unavailable on this machine",
+    "web_parity_records": 2310,
+    "web_parity_mismatches": 0,
+    "statute_snapshot_hashes_verified": 6,
+    "official_statute_comparison_performed": false
+  }
+}
