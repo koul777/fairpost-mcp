@@ -45,8 +45,11 @@ Vercel 운영 주소는 Bearer 인증 뒤에 원문을 저장하지 않는 읽�
 정적 웹의 2026-07-26 기준선은 Chrome CDP로 예시 공고를 입력하고 점검한 뒤
 1440×1000과 390×844 뷰포트에서 검증했습니다. 당시 두 화면 모두 문서 너비가 뷰포트와
 일치했고, 입력ㆍ복사 버튼이 화면 안에 있으며, 결과 표시 후 빈 상태가
-숨겨짐을 확인했습니다. 수치와 캡처 경로는
-`reports/web_visual_audit.json`에 `historical`로 기록했습니다.
+숨겨짐을 확인했습니다. 2026-10-04에는 쉬운 모드ㆍ전문가 모드 화면을 Playwright
+headless Chromium으로 1440×900, 820×1180, 390×844에서 다시 검증했습니다. 세 화면
+모두 가로 넘침이 없고, 이모지가 섞인 공고에서도 강조 표시와 원문 선택 위치가
+일치하며, axe-core WCAG 2 A/AA 위반이 0건입니다. 수치는
+`reports/web_visual_audit.json`에 `current`로 기록했습니다.
 서버 없이 `web/index.html`을 직접 연 `file://` 실행도 같은 보고서에
 기록했고, 전수 엔진 비교 결과는 `reports/web_engine_parity.json`에
 원문 없이 저장했습니다.

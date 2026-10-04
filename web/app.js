@@ -628,7 +628,7 @@
       ? `<section class="easy-section" aria-labelledby="easy-findings-heading">
           <h3 id="easy-findings-heading">1. 다시 살펴볼 표현</h3>
           <p class="easy-hint">노란색 표시는 법 조항과 함께 다시 볼 만한 표현입니다. 고쳐야 한다는 판정이 아니라, 직무에 꼭 필요한 조건인지 확인해 보라는 뜻입니다.</p>
-          <pre class="easy-posting">${highlightedPosting(text, orderedFindings)}</pre>
+          <pre class="easy-posting" tabindex="0" role="region" aria-label="표시된 공고문">${highlightedPosting(text, orderedFindings)}</pre>
           <ol class="easy-findings">${findingCards}</ol>
         </section>`
       : "";

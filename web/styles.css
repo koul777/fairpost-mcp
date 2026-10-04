@@ -6,7 +6,7 @@
   font-synthesis: none;
   letter-spacing: 0;
   --ink: #17211d;
-  --muted: #66716c;
+  --muted: #5d6863;
   --line: #d5ddd8;
   --panel: #ffffff;
   --soft: #f5f7f5;
@@ -1124,7 +1124,7 @@ a:focus-visible,
 
 .role-review-events li small {
   display: block;
-  color: #768394;
+  color: #5f6b7a;
   font-size: 9px;
 }
 
