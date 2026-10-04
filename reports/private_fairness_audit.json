@@ -12,13 +12,13 @@
   "law_rules": [
     {
       "id": "AGE-001",
-      "rate": 0.0,
-      "records": 0
+      "rate": 0.008571,
+      "records": 18
     },
     {
       "id": "AGE-002",
-      "rate": 0.091429,
-      "records": 192
+      "rate": 0.093333,
+      "records": 196
     },
     {
       "id": "AI-001",
@@ -106,7 +106,7 @@
       "records": 0
     }
   ],
-  "matching_version": "match-fa5e6d7a5c7d2904",
+  "matching_version": "match-e7a6520cb324e679",
   "privacy_boundary": {
     "contains_organization_identifiers": false,
     "contains_personal_identifiers": false,
@@ -376,7 +376,7 @@
       "records": 0
     }
   ],
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-3cc0d52d9470",
   "schema_version": "private-fairness-audit-v1",
   "slots_found": [
     {
@@ -599,7 +599,6 @@
     ],
     "high_frequency_threshold": 0.8,
     "law_rules_never_observed": [
-      "AGE-001",
       "AI-001",
       "ASSET-001",
       "BODY-001",
@@ -631,7 +630,7 @@
       "Q-PROC-010",
       "Q-PROC-014"
     ],
-    "records_with_law_findings": 773,
-    "records_with_law_findings_rate": 0.368095
+    "records_with_law_findings": 776,
+    "records_with_law_findings_rate": 0.369524
   }
 }
