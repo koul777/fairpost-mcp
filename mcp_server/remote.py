@@ -23,6 +23,7 @@ from .assisted_review import (
 from .server import (
     CLAUDE_MCP_PATH,
     MCP_PATH,
+    _transport_security_from_environment,
     claude_mcp,
     engine,
     public_mcp,
@@ -34,6 +35,21 @@ DEFAULT_ASSISTED_REVIEW_REQUESTS_PER_MINUTE = 5
 MAX_RATE_LIMIT_CLIENTS = 2048
 ASSISTED_REVIEW_PATH = "/api/assisted-review"
 MAX_ASSISTED_POSTING_CHARS = 100_000
+ASSISTED_REVIEW_AUTH_NOT_CONFIGURED = (
+    "보강 실행 인증이 설정되지 않았습니다. 서버 운영자가 사내 클라이언트 토큰 "
+    "또는 허용된 웹 출처를 설정해야 합니다."
+)
+ASSISTED_REVIEW_TOKEN_REQUIRED = (
+    "이 배포의 보강 실행은 사내 클라이언트 인증이 필요해 웹 화면에서는 "
+    "사용할 수 없습니다."
+)
+ASSISTED_REVIEW_BROWSER_ORIGIN_REQUIRED = (
+    "보강 실행은 허용된 FairPost 웹 화면(동일 출처)에서만 요청할 수 있습니다."
+)
+ASSISTED_REVIEW_ORIGIN_OR_TOKEN_REQUIRED = (
+    "보강 실행은 허용된 FairPost 웹 화면(동일 출처) 또는 사내 클라이언트 "
+    "인증으로만 요청할 수 있습니다."
+)
 
 
 def _public_requests_per_minute() -> int:
@@ -64,6 +80,123 @@ def _assisted_review_requests_per_minute() -> int:
     if not 1 <= value <= 1_000:
         raise ValueError("invalid assisted review rate limit")
     return value
+
+
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().casefold() in {"1", "true", "yes"}
+
+
+def _assisted_review_token() -> str:
+    return os.environ.get("FAIRPOST_ASSISTED_REVIEW_TOKEN", "").strip()
+
+
+def _assisted_review_allowed_origins() -> tuple[str, ...]:
+    """Exact browser origins allowed to spend the server's AI provider keys.
+
+    Without an explicit list the MCP transport origin settings are reused.
+    Wildcard entries (such as the loopback ``http://127.0.0.1:*`` defaults)
+    can never match exactly, so they are dropped rather than expanded.
+    """
+
+    raw = os.environ.get("FAIRPOST_ASSISTED_REVIEW_ALLOWED_ORIGINS", "")
+    values = [value.strip() for value in raw.split(",") if value.strip()]
+    if not values:
+        values = list(_transport_security_from_environment().allowed_origins)
+    return tuple(
+        dict.fromkeys(
+            value.rstrip("/")
+            for value in values
+            if "*" not in value and value.casefold() != "null"
+        )
+    )
+
+
+def _assisted_review_browser_access_enabled() -> bool:
+    return _env_flag("FAIRPOST_ASSISTED_REVIEW_ALLOW_BROWSER") and bool(
+        _assisted_review_allowed_origins()
+    )
+
+
+def _single_header(scope_headers: Any, name: bytes) -> bytes | None:
+    values = [value for key, value in scope_headers if key.lower() == name]
+    return values[0] if len(values) == 1 else None
+
+
+def _assisted_review_bearer_matches(scope_headers: Any) -> bool:
+    token = _assisted_review_token()
+    if not token:
+        return False
+    supplied = _single_header(scope_headers, b"authorization") or b""
+    expected = f"Bearer {token}".encode("utf-8")
+    return hmac.compare_digest(supplied, expected)
+
+
+def _assisted_review_browser_request_allowed(scope_headers: Any) -> bool:
+    origin = _single_header(scope_headers, b"origin")
+    fetch_site = _single_header(scope_headers, b"sec-fetch-site")
+    if origin is None or fetch_site != b"same-origin":
+        return False
+    try:
+        origin_text = origin.decode("ascii")
+    except UnicodeDecodeError:
+        return False
+    return origin_text in _assisted_review_allowed_origins()
+
+
+def _assisted_review_access_denial(scope_headers: Any) -> str | None:
+    """Return a reason when a request may not spend AI provider keys.
+
+    Fail closed: with neither control configured every request is denied.
+    The reason never echoes supplied credentials or configured secrets.
+    """
+
+    token_configured = bool(_assisted_review_token())
+    browser_enabled = _assisted_review_browser_access_enabled()
+    if not token_configured and not browser_enabled:
+        return ASSISTED_REVIEW_AUTH_NOT_CONFIGURED
+    if _assisted_review_bearer_matches(scope_headers):
+        return None
+    if browser_enabled:
+        if _assisted_review_browser_request_allowed(scope_headers):
+            return None
+        return (
+            ASSISTED_REVIEW_ORIGIN_OR_TOKEN_REQUIRED
+            if token_configured
+            else ASSISTED_REVIEW_BROWSER_ORIGIN_REQUIRED
+        )
+    return ASSISTED_REVIEW_TOKEN_REQUIRED
+
+
+def _gated_assisted_review_capability(scope_headers: Any) -> dict[str, Any]:
+    """Assisted review capability as seen by a network caller.
+
+    With an AI provider configured the deployment reports ``ready: false``
+    until an access control is configured. A token-only deployment also
+    reports ``ready: false`` to callers without the token, because a browser
+    page cannot hold that secret. Browsers omit ``Origin`` on same-origin GET,
+    so the origin itself is enforced on POST.
+    """
+
+    capability = dict(assisted_review_capability())
+    token_configured = bool(_assisted_review_token())
+    browser_enabled = _assisted_review_browser_access_enabled()
+    capability["access_control"] = {
+        "bearer_token": token_configured,
+        "browser_same_origin": browser_enabled,
+    }
+    if not capability.get("ai_configured"):
+        return capability
+    reason: str | None = None
+    if not token_configured and not browser_enabled:
+        reason = ASSISTED_REVIEW_AUTH_NOT_CONFIGURED
+    elif not browser_enabled and not _assisted_review_bearer_matches(
+        scope_headers
+    ):
+        reason = ASSISTED_REVIEW_TOKEN_REQUIRED
+    if reason is not None:
+        capability["ready"] = False
+        capability["reason"] = reason
+    return capability
 
 
 def _is_endpoint_path(path: str, endpoint: str) -> bool:
@@ -176,16 +309,52 @@ async def health(_request: Any) -> JSONResponse:
                 "공고문은 이 Vercel 배포의 서버 함수에서 처리되며 "
                 "FairPost는 공고문 원문을 영속 저장하지 않습니다."
             ),
-            "assisted_review": assisted_review_capability(),
+            "assisted_review": _gated_assisted_review_capability(
+                getattr(_request, "scope", {}).get("headers", [])
+            ),
         },
         headers={"Cache-Control": "no-store"},
     )
 
 
 async def assisted_review(request: Request) -> JSONResponse:
+    """Network endpoint: AI provider keys are spent only by authorized callers."""
+
+    headers = request.scope.get("headers", [])
+    if request.method == "GET":
+        return JSONResponse(
+            _gated_assisted_review_capability(headers),
+            headers={"Cache-Control": "no-store"},
+        )
+    capability = assisted_review_capability()
+    if capability.get("ai_configured"):
+        denial = _assisted_review_access_denial(headers)
+        if denial is not None:
+            return JSONResponse(
+                {
+                    "error": "Assisted review access denied",
+                    "ready": False,
+                    "reason": denial,
+                },
+                status_code=403,
+                headers={"Cache-Control": "no-store"},
+            )
+    return await _run_assisted_review(request, capability)
+
+
+async def local_assisted_review(request: Request) -> JSONResponse:
+    """Loopback launcher endpoint; its same-origin guard lives in local_runtime."""
+
     capability = assisted_review_capability()
     if request.method == "GET":
         return JSONResponse(capability, headers={"Cache-Control": "no-store"})
+    return await _run_assisted_review(request, capability)
+
+
+async def _run_assisted_review(
+    request: Request,
+    capability: dict[str, Any],
+) -> JSONResponse:
     if not capability.get("ready"):
         return JSONResponse(
             {"error": "Assisted review is not configured", **capability},
