@@ -38,6 +38,13 @@ GPT는 `FAIRPOST_OPENAI_API_KEY`ㆍ`FAIRPOST_OPENAI_MODEL`, Gemini는
 공개 배포에 연결할 때는 이 인스턴스별 제한 외에 배포 접근제어와 전역 비용
 한도를 별도로 설정해야 한다.
 
+**배포 게이트:** `/api/assisted-review`에는 아직 Bearer 인증이나 출처 허용 목록이
+없다. 이 경로에 인증 또는 출처 제한을 구현하고 회귀 테스트로 확인하기 전에는 운영
+Production 환경에 AI 제공자 키를 설정하지 않는다. 2026-10-04 운영 확인 결과
+`ai_configured:false`로 키가 없어 현재 비용 노출은 없다. 키를 추가하기 전에 이 게이트,
+제공자 계정의 지출 상한, Vercel에서 실제 클라이언트 IP가 호출 제한 키로 들어오는지를
+함께 확인한다.
+
 법령 MCP 조회 후 AI를 순차 호출하므로 Python Function의 `maxDuration`은 60초로
 설정한다. AI 호출 자체는 기본 30초에서 중단되어 함수 제한 안에 실패 응답을
 반환하도록 한다.
