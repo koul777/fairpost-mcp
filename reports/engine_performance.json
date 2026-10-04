@@ -1,32 +1,32 @@
 {
   "configuration": {
     "engine_initialization_timed": false,
-    "max_records": null,
-    "measured_postings": 1260,
+    "max_records": 500,
+    "measured_postings": 2500,
     "percentile_method": "nearest_rank",
-    "repeats": 3,
+    "repeats": 5,
     "timing_source": "time.perf_counter (monotonic)",
     "warmup_passes": 1
   },
-  "generated_at": "2026-09-06T02:53:00.182166+00:00",
+  "generated_at": "2026-10-04T03:06:53.886341+00:00",
   "input": {
-    "records": 420,
-    "sha256": "8dd411d311d757a77ac09f178785ca9b6f81bae7b540f4d6f55344b1239fb7dd",
+    "records": 500,
+    "sha256": "551cd8997556d05520a2e47b224b2aecae96fa0ea52bb3b48d507d6a72faeb2e",
     "split": "train_only"
   },
-  "matching_version": "match-fa5e6d7a5c7d2904",
+  "matching_version": "match-e7a6520cb324e679",
   "metrics": {
-    "elapsed_seconds": 4.981916,
+    "elapsed_seconds": 7.845184,
     "latency_ms": {
-      "max": 17.2034,
-      "mean": 3.953902,
-      "min": 0.7202,
-      "p50": 2.2599,
-      "p95": 9.9925,
-      "p99": 12.6711,
-      "samples": 1260
+      "max": 15.3955,
+      "mean": 3.138074,
+      "min": 0.7599,
+      "p50": 1.905,
+      "p95": 9.6181,
+      "p99": 11.5198,
+      "samples": 2500
     },
-    "postings_per_second": 252.915
+    "postings_per_second": 318.667
   },
   "privacy": {
     "contains_organization_data": false,
@@ -35,7 +35,7 @@
     "contains_record_ids": false
   },
   "production_sla_claim": false,
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-3cc0d52d9470",
   "runtime": {
     "machine": "AMD64",
     "operating_system": "Windows",

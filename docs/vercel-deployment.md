@@ -1,6 +1,7 @@
 # Vercel 원격 MCP 배포
 
-검증 기준일: 2026-08-30
+검증 기준일: 2026-08-30 (운영 배포 검증 기록은 2026-08-31)<br>
+최종 갱신: 2026-10-03 (도구 수 표기와 운영 증거 상태를 바로잡았으며 배포를 다시 검증한 것은 아님)
 
 ## 엔드포인트
 
@@ -25,7 +26,7 @@ Vercel Python Function은 `api/index.py`의 ASGI `app`을 로드한다. 로컬
 
 공유 Bearer 토큰만으로는 호출자가 제출한 `org_id`의 소유권을 증명할 수 없다.
 따라서 네트워크 배포에는 `save_answer`, `get_saved_answers`를 노출하지 않는다.
-NCSㆍ선택적 현행법 HR 검토와 답변 저장ㆍ조회를 포함한 전체 6도구는 사용자 컴퓨터의 루프백 로컬 MCP에서만 제공한다.
+NCSㆍ선택적 현행법 HR 검토, 답변 저장ㆍ조회와 역할 검토 기록을 포함한 전체 10도구는 사용자 컴퓨터의 루프백 로컬 MCP에서만 제공한다.
 
 정적 웹의 선택형 `AI·현행 법령 보강` 스위치는 `/api/assisted-review`를
 사용한다. Claude는 `FAIRPOST_ANTHROPIC_API_KEY`ㆍ`FAIRPOST_ANTHROPIC_MODEL`,
@@ -158,6 +159,11 @@ python tools/verify_vercel_deployment.py --allow-write-check
 1도구의 실제 호출, 규칙ㆍ매칭 버전, 런타임 지문과 파일별 소스 해시, 보안 헤더
 검증을 통과했다. 검증기는 저장 쓰기를 수행하지 않았으며 결과는
 `reports/vercel_deployment_audit.json`에 원문ㆍ비밀값 없이 기록한다.
+
+이 기록은 2026-08-31 배포 기준이다. 2026-10-02에 확인한 운영 `/api/health`의 런타임 지문
+`runtime-4b2fc967…`은 이 저장소 `main`(5c6a968)의 지문과 일치하지만, 커밋된 감사 보고서는
+이전 지문 `runtime-e31bb133…`을 기록하고 있어 현재 배포에 대해서는 다시 생성되지 않았다.
+같은 시점에 `/api/health`의 `assisted_review`는 `ready: false`, `available_providers: []`였다.
 
 ## 개인정보 처리 경계
 

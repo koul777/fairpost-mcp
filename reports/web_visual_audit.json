@@ -108,5 +108,5 @@
     }
   ],
   "contains_posting_text": false,
-  "note": "Sample posting is the built-in example; screenshots are local and not committed."
+  "note": "Re-run after merging origin/main (PR #2 v0.4-hygiene). Sample posting is the built-in example; screenshots are local and not committed."
 }

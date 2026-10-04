@@ -11,8 +11,12 @@ python tools\check_evidence_versions.py --scope local
 ```
 
 이 명령은 `reports/*.json` 중 로컬 후보 증거를 현재 `ruleset_version`,
-`matching_version`, 스키마 기준으로 점검한다. 하나라도 stale이면 종료 코드 `1`을
-반환한다.
+`matching_version`, 스키마 기준으로 점검한다. 2026-10-03부터는 보고서가 기록한
+`runtime_source_fingerprint`와 검증 입력 지문도 현재 값과 비교하므로, 규칙이 그대로여도
+코드가 바뀌면 그 보고서는 stale로 판정된다. 하나라도 stale이면 종료 코드 `1`을
+반환한다. 파일명에 날짜ㆍ용도 접미사가 붙은 스냅샷 사본(예:
+`build_artifact-8h-candidate-2026-09-12.json`)은 stale이어도 표시만 하고 실패시키지
+않는다.
 
 릴리스 판단에 직접 쓰는 보고서는 이름별 스키마를 강제한다.
 
@@ -54,19 +58,22 @@ LFㆍCRLF 차이는 정규화하므로 같은 Git 내용은 Windows와 Vercel Li
 
 ## 후보 릴리스 재생성 순서
 
-2026-08-31 기준으로 후보 릴리스 증거를 다시 묶을 때 권장 순서는 다음과 같다.
+2026-10-03 기준으로 후보 릴리스 증거를 다시 묶을 때 권장 순서는 다음과 같다.
 
-1. `python tools\check_evidence_versions.py --scope local`
-2. `python -m build --outdir dist`
-3. `python tools\verify_distribution.py`
-4. `python tools\build_release_report.py --junitxml reports\pytest-full.xml --candidate-report`
-5. `python tools\check_evidence_versions.py --scope all`
+1. `python -m build --outdir dist`
+2. `python tools\verify_distribution.py` — `reports/distribution_audit.json`을 현재
+   런타임 지문으로 갱신한다.
+3. `python -m pytest --junitxml <임시 경로>\pytest.xml`
+4. `python tools\check_evidence_versions.py --scope local --output <임시 경로>\evidence.json`
+5. `python tools\build_release_report.py --junitxml <임시 경로>\pytest.xml --evidence-version-audit <임시 경로>\evidence.json --candidate-report --allow-stale-deployment --output <출력 경로>`
+6. 운영 재배포 후 `tools/verify_vercel_deployment.py`로 배포 감사를 갱신하고
+   `python tools\check_evidence_versions.py --scope all`
 
-핵심 이유는 `reports/evidence_version_audit.json`이
-`distribution_source_fingerprint`에 포함되기 때문이다. 따라서
-`verify_distribution.py` 뒤에 local evidence audit를 다시 쓰면
-`distribution_audit.json`이 즉시 stale가 된다. local evidence audit를 먼저
-고정한 뒤 패키지를 다시 빌드해야 한다.
+`reports/evidence_version_audit.json`은 `distribution_source_fingerprint`에 포함된다.
+따라서 2번 뒤에 그 파일을 다시 쓰면 `distribution_audit.json`이 즉시 stale가 된다.
+새 점검기는 배포본 감사의 런타임 지문도 보므로 패키지 감사를 먼저 갱신하고, 로컬
+증거 점검 결과는 임시 경로에 쓴다. 외부 MCP 클라이언트 감사처럼 이전 런타임에서
+수행한 감사는 다시 수행하기 전까지 `"evidence_status": "historical"`로 둔다.
 
 ## strict 릴리스
 

@@ -9,6 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from core.direct_identifiers import direct_identifier_web_bundle  # noqa: E402
+from core.guidance import load_guidance_catalog  # noqa: E402
 from core.loader import load_ruleset  # noqa: E402
 from core.organization_guidance import (  # noqa: E402
     load_organization_guidance_catalog,
@@ -38,12 +40,22 @@ def main() -> int:
 
     ruleset = load_ruleset(args.data_dir)
     organization_guidance = load_organization_guidance_catalog(args.data_dir)
+    guidance = load_guidance_catalog(
+        args.data_dir,
+        question_ids={
+            rule["id"] for rule in ruleset.rules if rule["layer"] == "question"
+        },
+    )
     payload = {
         "rules": list(ruleset.rules),
         "slots": ruleset.slots,
         "statutes": ruleset.statutes,
         "version": ruleset.version,
         "organization_guidance": organization_guidance.to_web_dict(),
+        # Same catalog version the Python review packet records.
+        "guidance_catalog_version": guidance.catalog_version,
+        # Single source shared with core.review_packet and assisted review.
+        "direct_identifiers": direct_identifier_web_bundle(),
     }
     serialized = json.dumps(
         payload,

@@ -44,18 +44,28 @@ DEPLOYMENT_CONFIG_POLICY = {
     ),
 }
 
+# Every module imported by the api/, cli/ and mcp_server/ entrypoints, the
+# deployed static assets, and runtime data that is not already content-hashed
+# into ruleset_version/matching_version. Rule, slot and statute YAML files are
+# bound through those versions; the guidance catalogs are loaded separately.
+# tests/test_build_identity.py derives the import closure to keep this complete.
 RUNTIME_SOURCE_FILES = (
     "favicon.svg",
     "index.html",
     "pyproject.toml",
+    "api/__init__.py",
     "api/index.py",
+    "cli/__init__.py",
+    "cli/main.py",
     "core/__init__.py",
+    "core/direct_identifiers.py",
     "core/engine.py",
     "core/extractor.py",
     "core/guidance.py",
     "core/organization_guidance.py",
     "core/loader.py",
     "core/morph.py",
+    "core/review_packet.py",
     "core/schema.py",
     "mcp_server/__init__.py",
     "mcp_server/assisted_review.py",

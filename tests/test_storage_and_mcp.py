@@ -14,7 +14,6 @@ import mcp_server.storage as storage
 from mcp_server.storage import (
     LocalAnswerStore,
     UnavailableRemoteAnswerStore,
-    UpstashAnswerStore,
 )
 
 
@@ -428,86 +427,6 @@ def test_local_store_does_not_auto_select_cloud_from_environment(
     store.save("org-a", "Q-INFO-001", "로컬 답변")
     assert store.get("org-a") == {"Q-INFO-001": "로컬 답변"}
     assert answers_path.is_file()
-
-
-def test_upstash_store_hashes_org_id_and_uses_request_body(
-    monkeypatch,
-) -> None:
-    calls: list[dict[str, object]] = []
-    responses = iter(
-        [
-            {"result": 1},
-            {"result": ["Q-INFO-001", "인사팀에서 검토"]},
-        ]
-    )
-
-    class Response:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return None
-
-        def read(self, _limit: int = -1) -> bytes:
-            return json.dumps(next(responses), ensure_ascii=False).encode("utf-8")
-
-    def fake_urlopen(request, *, timeout):
-        calls.append(
-            {
-                "url": request.full_url,
-                "body": json.loads(request.data.decode("utf-8")),
-                "authorization": request.headers["Authorization"],
-                "timeout": timeout,
-            }
-        )
-        return Response()
-
-    monkeypatch.setattr(storage, "_open_upstash", fake_urlopen)
-    store = UpstashAnswerStore("https://redis.example", "secret")
-    store.save("실제 기관명", "Q-INFO-001", "인사팀에서 검토")
-    assert store.get("실제 기관명") == {"Q-INFO-001": "인사팀에서 검토"}
-
-    assert calls[0]["url"] == "https://redis.example"
-    assert "실제 기관명" not in json.dumps(calls, ensure_ascii=False)
-    assert calls[0]["body"][0] == "HSET"
-    assert calls[1]["body"][0] == "HGETALL"
-    assert calls[0]["authorization"] == "Bearer secret"
-
-
-def test_upstash_store_requires_safe_https_endpoint() -> None:
-    with pytest.raises(ValueError, match="HTTPS URL"):
-        UpstashAnswerStore("http://redis.example", "secret")
-    with pytest.raises(ValueError, match="HTTPS URL"):
-        UpstashAnswerStore("https://user:pass@redis.example", "secret")
-    with pytest.raises(ValueError, match="HTTPS URL"):
-        UpstashAnswerStore("https://redis.example?token=leak", "secret")
-
-
-def test_upstash_store_rejects_oversized_response(monkeypatch) -> None:
-    class Response:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return None
-
-        def read(self, _limit: int = -1) -> bytes:
-            return b"x" * (storage.MAX_UPSTASH_RESPONSE_BYTES + 1)
-
-    monkeypatch.setattr(
-        storage,
-        "_open_upstash",
-        lambda _request, *, timeout: Response(),
-    )
-    store = UpstashAnswerStore("https://redis.example", "secret")
-
-    with pytest.raises(ValueError, match="응답이 너무 큽니다"):
-        store.get("org-a")
-
-
-def test_upstash_redirect_handler_refuses_redirects() -> None:
-    handler = storage._RejectRedirects()
-    assert handler.redirect_request(None, None, 307, "redirect", {}, None) is None
 
 
 def test_answer_store_rejects_unbounded_values(tmp_path: Path) -> None:

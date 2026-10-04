@@ -3,13 +3,13 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import json
 import os
-import re
 from typing import Any, Literal
 from urllib.parse import quote, urlsplit
 
 import httpx
 
 from core import FairpostEngine
+from core.direct_identifiers import mask_direct_identifiers
 from core.organization_guidance import load_organization_guidance_catalog
 from .review import LiveLawVerifier, prepare_hr_review_packet
 
@@ -60,22 +60,6 @@ AI_SYSTEM_PROMPT = (
     "만들어 넣지 마세요. 각 탐지 항목은 확인 이유·조회 근거·수정 제안·"
     "담당자 확인 사항의 네 항목으로 간결하게 정리하세요."
 )
-
-EXTERNAL_TEXT_REDACTIONS = (
-    (
-        re.compile(r"(?i)(?<![\w.+-])[\w.+-]+@[\w.-]+\.[a-z]{2,}(?![\w.-])"),
-        "[이메일 마스킹]",
-    ),
-    (
-        re.compile(r"(?<!\d)(?:01[016789]|0\d{1,2})[-.\s]?\d{3,4}[-.\s]?\d{4}(?!\d)"),
-        "[전화번호 마스킹]",
-    ),
-    (
-        re.compile(r"(?<!\d)\d{6}[-\s]?[1-4]\d{6}(?!\d)"),
-        "[주민등록번호 마스킹]",
-    ),
-)
-
 
 @dataclass(frozen=True)
 class AiApiConfig:
@@ -292,9 +276,10 @@ def assisted_review_capability() -> dict[str, Any]:
             else f"설정 필요: {', '.join(missing)}"
         ),
         "privacy": (
-            "활성화한 요청에서 공고문은 FairPost 서버가 처리하고, AI API에는 "
-            "탐지 문구ㆍ현행 조문ㆍ활성 NCS 통제만 전달합니다. Korean Law MCP에는 "
-            "법령명ㆍ조문번호만 전달합니다."
+            "'보강 실행'으로 요청한 경우에만 공고문을 FairPost 서버가 처리하며 "
+            "저장하지 않습니다. AI API에는 마스킹한 탐지 문구(항목당 최대 1,000자)ㆍ"
+            "규칙 설명ㆍ현행 조문ㆍ관련 NCS 통제ㆍ조직 조건만 전달하고 공고문 전문은 "
+            "보내지 않습니다. Korean Law MCP에는 법령명ㆍ조문번호만 전달합니다."
         ),
     }
 
@@ -510,10 +495,8 @@ def _organization_profile(value: Any) -> dict[str, str]:
 
 
 def _redact_external_text(value: str) -> str:
-    redacted = value
-    for pattern, replacement in EXTERNAL_TEXT_REDACTIONS:
-        redacted = pattern.sub(replacement, redacted)
-    return redacted
+    # Same patterns that reject role-review notes (core.direct_identifiers).
+    return mask_direct_identifiers(value)
 
 
 def _ai_evidence(
