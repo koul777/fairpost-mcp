@@ -1201,6 +1201,234 @@ a:focus-visible,
   transform: translateY(0);
 }
 
+/* 쉬운 모드 / 전문가 모드: 같은 결과를 두 가지 밀도로 보여 준다. */
+body[data-mode="easy"] .advanced-only,
+body[data-mode="easy"] .summary-strip,
+body[data-mode="easy"] .next-step-strip,
+body[data-mode="expert"] .easy-only {
+  display: none !important;
+}
+
+body[data-mode="easy"] .editor-pane {
+  grid-template-rows: auto 1fr auto;
+}
+
+.mode-switch {
+  flex: 0 0 auto;
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+}
+
+.mode-option {
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #4c5852;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mode-option[aria-pressed="true"] {
+  background: white;
+  color: var(--green-dark);
+  box-shadow: 0 1px 2px rgba(23, 33, 29, 0.15);
+}
+
+.easy-steps {
+  max-width: 380px;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  counter-reset: easy-step;
+  text-align: left;
+}
+
+.easy-steps li {
+  position: relative;
+  padding-left: 34px;
+  color: #4c5852;
+  font-size: 13px;
+  line-height: 1.55;
+  counter-increment: easy-step;
+}
+
+.easy-steps li::before {
+  content: counter(easy-step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--green);
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.easy-steps strong {
+  display: block;
+  color: var(--ink);
+}
+
+.easy-result {
+  padding: 20px 22px 4px;
+}
+
+.easy-headline {
+  margin: 0 0 18px;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.easy-section {
+  margin-bottom: 22px;
+}
+
+.easy-section h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.easy-hint {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.easy-posting {
+  max-height: 320px;
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fbfcfb;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.easy-mark {
+  padding: 1px 3px;
+  border-bottom: 2px solid var(--yellow);
+  border-radius: 3px;
+  background: #fff3c4;
+  color: #3d3520;
+}
+
+.easy-mark sup {
+  margin-left: 2px;
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.easy-findings,
+.easy-missing {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  list-style: none;
+}
+
+.easy-finding {
+  padding: 14px 15px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: white;
+}
+
+.easy-finding-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.easy-number {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f8e9e7;
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.easy-quote {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.easy-why,
+.easy-fix {
+  margin: 8px 0 0;
+  color: #3f4b45;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.easy-fix ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.easy-finding-foot {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.easy-missing li {
+  padding: 10px 12px;
+  border: 1px dashed #b9c7c0;
+  border-radius: 7px;
+  background: #f8faf9;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.easy-expert-pointer {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-radius: 7px;
+  background: #f1f7f3;
+  color: #405249;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .button,
   .icon-button,
@@ -1329,6 +1557,10 @@ a:focus-visible,
 
   .result-block {
     padding: 20px 15px 2px;
+  }
+
+  .easy-result {
+    padding: 16px 15px 2px;
   }
 
   .editor-footer {
