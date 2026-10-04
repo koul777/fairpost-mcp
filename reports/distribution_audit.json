@@ -3,14 +3,14 @@
   "contains_posting_text": true,
   "contains_real_posting_text": false,
   "contains_sensitive_packaged_data": false,
-  "distribution_source_fingerprint": "distribution-b1eb3497f87dbff555869f73fb04ea0db07566067f8db55d23750e92e3563c72",
+  "distribution_source_fingerprint": "distribution-79122cc5466e99336e6194e09be85f8fe0e6e0a6cf2f5ff4d7e3996aae1141f0",
   "passed": true,
   "posting_text_scope": "synthetic_examples_only",
-  "runtime_source_fingerprint": "runtime-554f0799e552ac9aee9bb12fc71e09a141618f8407d70369c4290dcef5c4a425",
+  "runtime_source_fingerprint": "runtime-f335e86aae188fd0deda9e3c246b50b2b87cdac5c7c17542adf423658a0a9fa3",
   "schema_version": "fairpost-distribution-audit-v2",
   "sdist": {
     "asset_privacy_findings": [],
-    "bytes": 520334,
+    "bytes": 521240,
     "credential_findings": [],
     "forbidden_members": [],
     "members": 227,
@@ -18,7 +18,7 @@
     "passed": true,
     "path": "C:/workspace/fairmcp/dist/fairpost-0.3.0.tar.gz",
     "report_privacy_findings": [],
-    "sha256": "b29102454b6eb61b3b089a343d47eab6668336652d21994a2ea004db9f4fef07",
+    "sha256": "722758c9eef7a34598e14b6b48cd38bb7c80b4b1360e7a6b7d68b382ed614c47",
     "source_equivalent": true,
     "source_mismatches": [],
     "synthetic_posting_members": [
@@ -27,14 +27,14 @@
   },
   "wheel": {
     "asset_privacy_findings": [],
-    "bytes": 169343,
+    "bytes": 169421,
     "credential_findings": [],
     "forbidden_members": [],
     "members": 44,
     "missing_required": [],
     "passed": true,
     "path": "C:/workspace/fairmcp/dist/fairpost-0.3.0-py3-none-any.whl",
-    "sha256": "07c8540faf376cc327fdbda7106205fd4af8a7d1d0a6ad987d788bd970c9ced0",
+    "sha256": "a5a2f688dfd664fe38e1013f17c2bab51abd7ab43eb989f6dadb047ed6fe0697",
     "source_equivalent": true,
     "source_mismatches": []
   }

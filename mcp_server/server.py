@@ -130,13 +130,6 @@ MCP_PATH = _mcp_path_from_environment()
 CLAUDE_MCP_PATH = _claude_mcp_path_from_environment()
 
 
-# Questions whose matched_text is one of these near-universal words fire on
-# almost any posting regardless of whether anything is actually wrong; they
-# are demoted to the "참고용" tier in _format_check_result_text unless also
-# linked to a real finding.
-_GENERIC_QUESTION_MATCHES = frozenset({"채용", "모집"})
-
-
 @dataclass(frozen=True)
 class StructuredCheckResult:
     """Versioned machine-readable evidence contract for human-review clients."""
@@ -348,25 +341,35 @@ def _format_check_result_text(result: CheckResult) -> str:
 
         def question_line(question: Question) -> str:
             suffixes = []
+            if question.linked_findings:
+                suffixes.append(f"관련 발견: {', '.join(question.linked_findings)}")
             if question.matched_text:
                 suffixes.append(f'매칭 문구: "{question.matched_text}"')
-            elif question.linked_findings:
-                suffixes.append(f"관련 발견: {', '.join(question.linked_findings)}")
             if question.saved_answer:
                 suffixes.append(f"저장된 답변: {question.saved_answer}")
             suffix = f" ({', '.join(suffixes)})" if suffixes else ""
             return f"- [{question.id}] {question.question}{suffix}"
 
-        def is_core(question: Question) -> bool:
-            return bool(question.linked_findings) or bool(
-                question.matched_text
-                and question.matched_text not in _GENERIC_QUESTION_MATCHES
-            )
+        # Group by the engine's own metadata rather than by matched wording:
+        # common checklist questions fire on generic words such as "구인" or
+        # "지원자", so a matched phrase alone does not make them posting-specific.
+        def question_group(question: Question) -> str:
+            if question.linked_findings:
+                return "core"
+            if question.review_scope == "common":
+                return "common"
+            if question.trigger_reason == "absence":
+                return "missing"
+            return "wording"
 
-        core_questions = [item for item in result.questions if is_core(item)]
-        general_questions = [
-            item for item in result.questions if not is_core(item)
-        ]
+        grouped: dict[str, list[Question]] = {
+            "core": [],
+            "wording": [],
+            "missing": [],
+            "common": [],
+        }
+        for item in result.questions:
+            grouped[question_group(item)].append(item)
 
         def append_by_dimension(questions: list[Question]) -> None:
             for dimension in ("분배", "절차", "정보", "대인"):
@@ -376,20 +379,21 @@ def _format_check_result_text(result: CheckResult) -> str:
                 lines.append(f"**{dimension} ({len(group)}건)**")
                 lines.extend(question_line(item) for item in group)
 
-        if core_questions:
+        group_headings = (
+            ("core", "### 핵심 질문 — 이 공고문의 findings와 직접 연결됨"),
+            ("wording", "### 공고 문구 확인 질문 — 이 공고문의 구체적 표현에서 발동"),
+            (
+                "missing",
+                "### 누락 안내 확인 질문 — 공고문에서 찾지 못한 안내 항목에서 발동",
+            ),
+            ("common", "### 공통 체크리스트 — 대부분의 공고에 반복되는 기본 점검 질문"),
+        )
+        for key, heading in group_headings:
+            if not grouped[key]:
+                continue
             lines.append("")
-            lines.append(
-                "### 핵심 질문 — 이 공고문의 findings·구체적 문구와 직접 연결됨 "
-                f"({len(core_questions)}건)"
-            )
-            append_by_dimension(core_questions)
-        if general_questions:
-            lines.append("")
-            lines.append(
-                "### 참고용 — 특정 finding과 무관한 일반 절차 점검 질문 "
-                f"({len(general_questions)}건)"
-            )
-            append_by_dimension(general_questions)
+            lines.append(f"{heading} ({len(grouped[key])}건)")
+            append_by_dimension(grouped[key])
     lines.append("")
 
     lines.append(f"규칙셋 버전: {result.ruleset_version}")
