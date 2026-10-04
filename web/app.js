@@ -121,6 +121,12 @@
   const resultContent = document.getElementById("result-content");
   const resultsTitle = document.getElementById("results-title");
   const toast = document.getElementById("toast");
+  const appBody = document.getElementById("app-body");
+  const modeEasyButton = document.getElementById("mode-easy");
+  const modeExpertButton = document.getElementById("mode-expert");
+  const easyResult = document.getElementById("easy-result");
+  const VIEW_MODE_STORAGE_KEY = "fairpost.view-mode.v1";
+  const VIEW_MODES = new Set(["easy", "expert"]);
   const SLOT_EMBEDDED_QUESTION_ALLOWLIST = new Set(
     ["Q-INFO-001", "Q-INFO-004", "Q-PROC-002"]
   );
@@ -1066,6 +1072,130 @@
     );
   }
 
+  function storedViewMode() {
+    const storage = roleReviewStorage();
+    if (!storage) return null;
+    try {
+      const value = storage.getItem(VIEW_MODE_STORAGE_KEY);
+      return VIEW_MODES.has(value) ? value : null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function setViewMode(mode, persist) {
+    const nextMode = VIEW_MODES.has(mode) ? mode : "easy";
+    appBody.dataset.mode = nextMode;
+    // Easy mode hides the assist controls, so assist must not stay on unseen.
+    if (nextMode === "easy" && assistedToggle.checked) {
+      deactivateAssistedReview();
+      if (persist) showToast("쉬운 모드에서는 AI·현행 법령 보강을 끕니다.");
+    }
+    [
+      [modeEasyButton, nextMode === "easy"],
+      [modeExpertButton, nextMode === "expert"],
+    ].forEach(([button, pressed]) => {
+      if (typeof button.setAttribute === "function") {
+        button.setAttribute("aria-pressed", String(pressed));
+      }
+    });
+    if (!persist) return;
+    const storage = roleReviewStorage();
+    if (!storage) return;
+    try {
+      storage.setItem(VIEW_MODE_STORAGE_KEY, nextMode);
+    } catch (_error) {
+      // The mode still applies for this page view without storage.
+    }
+  }
+
+  function codePointsToCodeUnits(text, codePointOffset) {
+    return Array.from(text).slice(0, codePointOffset).join("").length;
+  }
+
+  function highlightedPosting(text, orderedFindings) {
+    const codePoints = Array.from(text);
+    let cursor = 0;
+    let markup = "";
+    orderedFindings.forEach((finding, index) => {
+      const [start, end] = finding.offset;
+      // Overlapping candidates keep the first highlight; the card still lists both.
+      if (start < cursor) return;
+      markup += escapeHtml(codePoints.slice(cursor, start).join(""));
+      markup += `<mark class="easy-mark">${escapeHtml(
+        codePoints.slice(start, end).join("")
+      )}<sup>${index + 1}</sup></mark>`;
+      cursor = end;
+    });
+    return markup + escapeHtml(codePoints.slice(cursor).join(""));
+  }
+
+  function renderEasy(result, text) {
+    const orderedFindings = [...result.findings].sort(
+      (left, right) =>
+        left.offset[0] - right.offset[0] || left.offset[1] - right.offset[1]
+    );
+    const missing = result.slots.filter((slot) => !slot.found);
+    const questionCount = result.questions.length;
+    const headline = orderedFindings.length
+      ? `다시 살펴볼 표현 <strong>${orderedFindings.length}개</strong>, 공고문에서 찾지 못한 안내 <strong>${missing.length}개</strong>가 있습니다.`
+      : missing.length
+      ? `법 조항과 연결된 표현은 발견되지 않았습니다. 공고문에서 찾지 못한 안내 <strong>${missing.length}개</strong>를 확인해 보세요.`
+      : "법 조항과 연결된 표현은 발견되지 않았고, 점검하는 안내 항목도 공고문에서 모두 찾았습니다.";
+    const findingCards = orderedFindings
+      .map((finding, index) => {
+        const alternatives = finding.alternatives.length
+          ? `<div class="easy-fix"><strong>이렇게 바꿔 보세요</strong><ul>${finding.alternatives
+              .map((alternative) => `<li>${escapeHtml(alternative)}</li>`)
+              .join("")}</ul></div>`
+          : "";
+        return `<li class="easy-finding">
+          <div class="easy-finding-head">
+            <span class="easy-number" aria-hidden="true">${index + 1}</span>
+            <q class="easy-quote">${escapeHtml(finding.matched_text)}</q>
+            <span class="severity-tag severity-${escapeHtml(finding.severity)}">${escapeHtml(reviewPriorityLabel(finding.severity))}</span>
+          </div>
+          <p class="easy-why"><strong>왜 다시 볼까요?</strong> ${escapeHtml(finding.message)}</p>
+          ${alternatives}
+          <div class="easy-finding-foot">
+            <span>관련 법: ${escapeHtml(finding.basis.law)} ${escapeHtml(finding.basis.article)}</span>
+            <button type="button" class="button button-quiet" data-select-start="${codePointsToCodeUnits(text, finding.offset[0])}" data-select-end="${codePointsToCodeUnits(text, finding.offset[1])}">공고문에서 이 부분 선택</button>
+          </div>
+        </li>`;
+      })
+      .join("");
+    const findingsSection = orderedFindings.length
+      ? `<section class="easy-section" aria-labelledby="easy-findings-heading">
+          <h3 id="easy-findings-heading">1. 다시 살펴볼 표현</h3>
+          <p class="easy-hint">노란색 표시는 법 조항과 함께 다시 볼 만한 표현입니다. 고쳐야 한다는 판정이 아니라, 직무에 꼭 필요한 조건인지 확인해 보라는 뜻입니다.</p>
+          <pre class="easy-posting" tabindex="0" role="region" aria-label="표시된 공고문">${highlightedPosting(text, orderedFindings)}</pre>
+          <ol class="easy-findings">${findingCards}</ol>
+        </section>`
+      : "";
+    const missingSection = missing.length
+      ? `<section class="easy-section" aria-labelledby="easy-missing-heading">
+          <h3 id="easy-missing-heading">${orderedFindings.length ? "2" : "1"}. 공고문에 추가하면 좋은 안내</h3>
+          <p class="easy-hint">공고문에서 아래 안내를 찾지 못했습니다. 절차가 없다는 뜻이 아니므로, 실제로 운영 중이면 공고문에 적어 주세요.</p>
+          <ul class="easy-missing">${missing
+            .map((slot) => `<li>${escapeHtml(slot.label)}</li>`)
+            .join("")}</ul>
+        </section>`
+      : `<section class="easy-section"><p class="easy-hint">점검하는 안내 항목 ${result.slots.length}개를 공고문에서 모두 찾았습니다.</p></section>`;
+    const expertPointer = questionCount
+      ? `<div class="easy-expert-pointer">
+          <span>담당자가 함께 확인할 질문 ${questionCount}개와 법 조항 원문은 전문가 모드에 있습니다.</span>
+          <button type="button" class="button button-secondary" data-switch-mode="expert">전문가 모드로 보기</button>
+        </div>`
+      : "";
+    easyResult.innerHTML = `
+      <p class="easy-headline">${headline}</p>
+      ${findingsSection}
+      ${missingSection}
+      <p class="easy-hint easy-rerun">공고문을 고친 뒤 '검토 메모 만들기'를 다시 누르면 결과가 새로 나옵니다.</p>
+      ${expertPointer}
+    `;
+  }
+
   function showToast(message) {
     toast.textContent = message;
     toast.classList.add("visible");
@@ -1261,6 +1391,18 @@
     setAssistBadge(assistedResultStatus, "대기");
     updateResultsNote();
     updateAssistedRunState();
+  }
+
+  function deactivateAssistedReview() {
+    assistedToggle.checked = false;
+    resetAssistedReviewPanel();
+    assistedConsent.hidden = true;
+    assistedProvider.disabled = true;
+    assistedStatus.textContent =
+      "꺼짐 · 기본 검사는 브라우저에서만 실행됩니다. 켜도 '보강 실행'을 누르기 전에는 전송하지 않습니다.";
+    setAssistBadge(assistedBadge, "꺼짐");
+    setLocalPrivacyNotice();
+    announceAssisted("AI·현행 법령 보강을 껐습니다.");
   }
 
   function setLocalPrivacyNotice() {
@@ -1531,6 +1673,7 @@
     ["findings-list", "slots-list", "questions-list"].forEach((id) =>
       document.getElementById(id).replaceChildren()
     );
+    easyResult.replaceChildren();
     document.getElementById("disclaimer").textContent = "";
     document.getElementById("finding-count").textContent = "0";
     document.getElementById("missing-count").textContent = "0";
@@ -1748,6 +1891,7 @@
     renderFindings(result.findings);
     renderSlots(result.slots, result.questions);
     renderQuestions(result.questions);
+    renderEasy(result, input.value);
     updateAnswerProgress();
     emptyState.hidden = true;
     resultContent.hidden = false;
@@ -1945,14 +2089,7 @@
       );
       return;
     }
-    resetAssistedReviewPanel();
-    assistedConsent.hidden = true;
-    assistedProvider.disabled = true;
-    assistedStatus.textContent =
-      "꺼짐 · 기본 검사는 브라우저에서만 실행됩니다. 켜도 '보강 실행'을 누르기 전에는 전송하지 않습니다.";
-    setAssistBadge(assistedBadge, "꺼짐");
-    setLocalPrivacyNotice();
-    announceAssisted("AI·현행 법령 보강을 껐습니다.");
+    deactivateAssistedReview();
   });
   assistedProvider.addEventListener("change", () => {
     if (!assistedToggle.checked) return;
@@ -2014,6 +2151,32 @@
     }
   });
 
+  modeEasyButton.addEventListener("click", () => setViewMode("easy", true));
+  modeExpertButton.addEventListener("click", () => setViewMode("expert", true));
+  easyResult.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!target || typeof target.closest !== "function") return;
+    const modeButton = target.closest("[data-switch-mode]");
+    if (modeButton) {
+      setViewMode(modeButton.dataset.switchMode, true);
+      resultsTitle.focus();
+      return;
+    }
+    const selectButton = target.closest("[data-select-start]");
+    if (!selectButton) return;
+    // Offsets belong to the checked text; after an edit they point elsewhere.
+    if (latestCheckedText !== input.value) {
+      showToast("공고문이 바뀌었습니다. '검토 메모 만들기'를 다시 누르면 위치가 새로 계산됩니다.");
+      return;
+    }
+    const start = Number(selectButton.dataset.selectStart);
+    const end = Number(selectButton.dataset.selectEnd);
+    input.focus();
+    if (typeof input.setSelectionRange === "function") {
+      input.setSelectionRange(start, end);
+    }
+  });
+
   roleReviewRecord.addEventListener("click", recordRoleReviewEvent);
   roleReviewClear.addEventListener("click", clearRoleReview);
   roleReviewAction.addEventListener("change", updateRoleReviewResolutionControl);
@@ -2040,4 +2203,5 @@
     window.FAIRPOST_DATA.version;
   updateAssistedRunState();
   void checkAssistedAvailability();
+  setViewMode(storedViewMode() || "easy", false);
 })();

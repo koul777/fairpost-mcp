@@ -1,11 +1,11 @@
 {
   "candidate_summary": {
-    "any_law_rule": 773,
+    "any_law_rule": 776,
     "by_dimension": {
-      "분배": 771,
+      "분배": 774,
       "정보": 72
     },
-    "multiple_law_rules": 119
+    "multiple_law_rules": 138
   },
   "contains_organization_identifiers": false,
   "contains_posting_text": false,
@@ -21,8 +21,8 @@
     "split": "train_only"
   },
   "law_rule_posting_hits": {
-    "AGE-001": 0,
-    "AGE-002": 192,
+    "AGE-001": 18,
+    "AGE-002": 196,
     "AI-001": 0,
     "ASSET-001": 0,
     "BODY-001": 0,
@@ -41,7 +41,7 @@
     "SEX-001": 629,
     "SEX-002": 0
   },
-  "matching_version": "match-fa5e6d7a5c7d2904",
+  "matching_version": "match-8cc4dbbcae8c00fa",
   "question_posting_hits": {
     "Q-DIST-001": 765,
     "Q-DIST-002": 2082,
@@ -96,7 +96,7 @@
     "Q-PROC-013": 2100,
     "Q-PROC-014": 0
   },
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-da8f450a87f4",
   "slot_found_posting_hits": {
     "ai_disclosure": 0,
     "appeal_channel": 0,

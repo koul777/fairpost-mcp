@@ -1,68 +1,112 @@
 {
-  "audit_date": "2026-07-26",
-  "evidence_status": "historical",
-  "historical_reason": "캡처 이후 질문 표시 계층과 현재 규칙셋이 변경되었으며 2026-08-30 앱 내 브라우저 연결을 사용할 수 없어 현재 시각 증거로 재검증하지 못했습니다.",
-  "source_ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
-  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
-  "current_matching_version": "match-fa5e6d7a5c7d2904",
+  "audit_date": "2026-10-04",
+  "evidence_status": "current",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-da8f450a87f4",
+  "matching_version": "match-8cc4dbbcae8c00fa",
   "browser": {
-    "name": "Google Chrome",
-    "version": "150.0.7871.184",
-    "mode": "Playwright headless with system Chrome"
+    "name": "Chromium headless shell",
+    "version": "153.0.8010.12",
+    "mode": "Playwright 1.63.0 headless, bypassCSP only for axe-core 4.13.0 injection"
   },
+  "fixes_applied_during_audit": [
+    "easy-posting scrollable region made keyboard focusable (axe scrollable-region-focusable)",
+    "--muted #66716c -> #5d6863 and role-review timestamp #768394 -> #5f6b7a (axe color-contrast)"
+  ],
   "scenarios": [
     {
-      "name": "desktop-result",
+      "name": "desktop-easy-and-expert",
+      "launch_url": "file:///C:/workspace/fairmcp/web/index.html",
       "viewport": {
         "width": 1440,
-        "height": 1000
+        "height": 900
       },
-      "document_scroll_width": 1440,
-      "horizontal_overflow": false,
-      "empty_state_display": "none",
-      "result_visible": true,
-      "finding_count": 2,
-      "question_count": 10,
-      "out_of_viewport_controls": 0,
-      "screenshot": "tmp/visual-qa/desktop-final.png"
+      "initial_mode": "easy",
+      "horizontal_overflow": {
+        "empty": false,
+        "easy_result": false,
+        "expert_result": false
+      },
+      "easy_highlights": 2,
+      "easy_finding_cards": 2,
+      "advanced_controls_hidden_in_easy": true,
+      "easy_result_hidden_in_expert": true,
+      "emoji_offset_selection_matches": true,
+      "emoji_findings_checked": 3,
+      "mode_persisted_after_reload": true,
+      "axe_wcag2a_aa_violations": {
+        "easy": 0,
+        "expert": 0
+      },
+      "screenshots": [
+        "tmp/visual-qa/2026-10-04/desktop-0-empty.png",
+        "tmp/visual-qa/2026-10-04/desktop-1-easy-result.png",
+        "tmp/visual-qa/2026-10-04/desktop-2-emoji.png",
+        "tmp/visual-qa/2026-10-04/desktop-3-expert.png"
+      ]
     },
     {
-      "name": "mobile-result",
+      "name": "tablet-easy-and-expert",
+      "launch_url": "file:///C:/workspace/fairmcp/web/index.html",
+      "viewport": {
+        "width": 820,
+        "height": 1180
+      },
+      "initial_mode": "easy",
+      "horizontal_overflow": {
+        "empty": false,
+        "easy_result": false,
+        "expert_result": false
+      },
+      "easy_highlights": 2,
+      "easy_finding_cards": 2,
+      "advanced_controls_hidden_in_easy": true,
+      "easy_result_hidden_in_expert": true,
+      "emoji_offset_selection_matches": true,
+      "emoji_findings_checked": 3,
+      "mode_persisted_after_reload": true,
+      "axe_wcag2a_aa_violations": {
+        "easy": 0,
+        "expert": 0
+      },
+      "screenshots": [
+        "tmp/visual-qa/2026-10-04/tablet-0-empty.png",
+        "tmp/visual-qa/2026-10-04/tablet-1-easy-result.png",
+        "tmp/visual-qa/2026-10-04/tablet-2-emoji.png",
+        "tmp/visual-qa/2026-10-04/tablet-3-expert.png"
+      ]
+    },
+    {
+      "name": "mobile-easy-and-expert",
+      "launch_url": "file:///C:/workspace/fairmcp/web/index.html",
       "viewport": {
         "width": 390,
         "height": 844
       },
-      "document_scroll_width": 390,
-      "horizontal_overflow": false,
-      "empty_state_display": "none",
-      "result_visible": true,
-      "finding_count": 2,
-      "question_count": 10,
-      "out_of_viewport_controls": 0,
-      "rightmost_toolbar_control": 362,
-      "screenshot": "tmp/visual-qa/mobile-final.png"
-    },
-    {
-      "name": "standalone-file-result",
-      "launch_url": "file:///C:/workspace/fairmcp/web/index.html",
-      "viewport": {
-        "width": 1280,
-        "height": 900
+      "initial_mode": "easy",
+      "horizontal_overflow": {
+        "empty": false,
+        "easy_result": false,
+        "expert_result": false
       },
-      "document_scroll_width": 1280,
-      "horizontal_overflow": false,
-      "empty_state_display": "none",
-      "result_visible": true,
-      "finding_count": 2,
-      "question_count": 10,
-      "console_errors": 0,
-      "ruleset_version": "2026.07-local-v4-nfkc-whitespace-zero-width-source-offset-41f78d6a899d",
-      "screenshot": "tmp/visual-qa/standalone-final.png"
+      "easy_highlights": 2,
+      "easy_finding_cards": 2,
+      "advanced_controls_hidden_in_easy": true,
+      "easy_result_hidden_in_expert": true,
+      "emoji_offset_selection_matches": true,
+      "emoji_findings_checked": 3,
+      "mode_persisted_after_reload": true,
+      "axe_wcag2a_aa_violations": {
+        "easy": 0,
+        "expert": 0
+      },
+      "screenshots": [
+        "tmp/visual-qa/2026-10-04/mobile-0-empty.png",
+        "tmp/visual-qa/2026-10-04/mobile-1-easy-result.png",
+        "tmp/visual-qa/2026-10-04/mobile-2-emoji.png",
+        "tmp/visual-qa/2026-10-04/mobile-3-expert.png"
+      ]
     }
   ],
-  "visual_review": {
-    "text_clipping": false,
-    "control_overlap": false,
-    "result_empty_state_overlap": false
-  }
+  "contains_posting_text": false,
+  "note": "Re-run after merging origin/main (PR #2 v0.4-hygiene). Sample posting is the built-in example; screenshots are local and not committed."
 }

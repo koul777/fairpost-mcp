@@ -276,6 +276,65 @@ def test_check_output_leads_with_human_review_boundary_and_keeps_priority() -> N
     assert "| 심각도 |" not in checked
 
 
+def test_check_output_groups_questions_by_engine_metadata() -> None:
+    text = "구인 공고\n지원자격: 여성만 지원 가능\n지원자는 이력서를 제출하세요."
+    result = server.engine.check(text)
+    checked = server._format_check_result_text(result)
+    headings = {
+        "core": "### 핵심 질문",
+        "wording": "### 공고 문구 확인 질문",
+        "missing": "### 누락 안내 확인 질문",
+        "common": "### 공통 체크리스트",
+    }
+
+    def section(key: str) -> str:
+        start = checked.index(headings[key])
+        later = [
+            checked.index(other)
+            for other in headings.values()
+            if other in checked and checked.index(other) > start
+        ]
+        end = min(later, default=checked.index("규칙셋 버전:"))
+        return checked[start:end]
+
+    for question in result.questions:
+        if question.linked_findings:
+            key = "core"
+        elif question.review_scope == "common":
+            key = "common"
+        elif question.trigger_reason == "absence":
+            key = "missing"
+        else:
+            key = "wording"
+        assert f"[{question.id}]" in section(key)
+
+    common = [q for q in result.questions if q.review_scope == "common"]
+    # Generic trigger words such as "구인" must not promote checklist items.
+    assert any(q.matched_text == "구인" for q in common)
+    assert all(f"[{q.id}]" not in section("core") for q in common if not q.linked_findings)
+    assert sum(
+        checked.count(f"- [{q.id}] ") for q in result.questions
+    ) == len(result.questions) == result.counts["questions"]
+
+
+def test_check_output_shows_both_finding_link_and_matched_wording() -> None:
+    result = server.engine.check("제출된 서류는 반환하지 않으며 채용 종료 후 파기합니다.")
+    checked = server._format_check_result_text(result)
+    both = [
+        question
+        for question in result.questions
+        if question.linked_findings and question.matched_text
+    ]
+
+    assert both
+    for question in both:
+        line = next(
+            item for item in checked.splitlines() if item.startswith(f"- [{question.id}]")
+        )
+        assert f"관련 발견: {', '.join(question.linked_findings)}" in line
+        assert f'매칭 문구: "{question.matched_text}"' in line
+
+
 def test_next_question_payload_is_traceable_and_json_serializable() -> None:
     text = "지원자격: 외국인 제외"
     result = server.engine.check(text)

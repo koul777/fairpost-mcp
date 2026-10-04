@@ -371,6 +371,25 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
   };
   assistedToggle.checked = true;
   assistedToggle.trigger("change");
+
+  // Easy mode hides every assist control, so switching to it turns assist off.
+  elements.get("mode-expert").trigger("click");
+  const assistOnInExpert = assistedToggle.checked;
+  const postsBeforeEasy = posts().length;
+  elements.get("mode-easy").trigger("click");
+  elements.get("check-button").trigger("click");
+  await tick();
+  const easyModeAssist = {
+    assistOnInExpert,
+    toggleChecked: assistedToggle.checked,
+    badge: elements.get("assisted-review-badge").textContent,
+    privacy: elements.get("privacy-message").textContent,
+    runDisabled: runButton.disabled,
+    postsAfterEasyCheck: posts().length - postsBeforeEasy,
+  };
+  elements.get("mode-expert").trigger("click");
+  assistedToggle.checked = true;
+  assistedToggle.trigger("change");
   const postsBeforeUnavailable = posts().length;
 
   // The server reporting "not configured" disables the toggle with a reason.
@@ -675,7 +694,28 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     unavailable,
   };
 
+  // Easy-mode "select in posting" uses offsets of the checked text only.
+  posting.value = "여직원 모집";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  await tick();
+  const selections = [];
+  posting.setSelectionRange = (start, end) => selections.push([start, end]);
+  const selectTarget = {
+    dataset: { selectStart: "0", selectEnd: "6" },
+    closest: (selector) => (selector === "[data-select-start]" ? selectTarget : null),
+  };
+  elements.get("easy-result").trigger("click", { target: selectTarget });
+  posting.value = "📋 여직원 모집";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("easy-result").trigger("click", { target: selectTarget });
+  const easySelection = {
+    selections,
+    toast: elements.get("toast").textContent,
+  };
+
   console.log(JSON.stringify({
+    easySelection,
     questionId,
     questionCount: result.questions.length,
     resultsTitleFocused,
@@ -688,6 +728,7 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     cleared,
     assisted,
     assistedFlow,
+    easyModeAssist,
     roleReview,
   }));
 })().catch((error) => {
