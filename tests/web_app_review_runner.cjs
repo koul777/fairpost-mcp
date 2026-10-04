@@ -262,6 +262,26 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     organizationMarkup: elements.get("questions-list").innerHTML,
   };
 
+  elements.get("mode-expert").trigger("click");
+  const assistStillOnInExpert = assistedToggle.checked;
+  elements.get("mode-easy").trigger("click");
+  const postsBeforeEasyCheck = assistedFetchCalls.filter(
+    (call) => call.options.method === "POST"
+  ).length;
+  elements.get("check-button").trigger("click");
+  await new Promise((resolve) => setImmediate(resolve));
+  const easyModeAssist = {
+    assistStillOnInExpert,
+    toggleChecked: assistedToggle.checked,
+    badge: elements.get("assisted-review-badge").textContent,
+    privacy: elements.get("privacy-message").textContent,
+    panelHidden: elements.get("assisted-review-panel").hidden,
+    postsAfterEasyCheck:
+      assistedFetchCalls.filter((call) => call.options.method === "POST").length -
+      postsBeforeEasyCheck,
+  };
+  elements.get("mode-expert").trigger("click");
+
   await new Promise((resolve) => setImmediate(resolve));
   elements.get("role-review-role").value = "auditor";
   elements.get("role-review-stage").value = "evaluation";
@@ -333,6 +353,7 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     copyFailureToast,
     cleared,
     assisted,
+    easyModeAssist,
     roleReview,
   }));
 })().catch((error) => {

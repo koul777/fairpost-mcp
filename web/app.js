@@ -546,6 +546,11 @@
   function setViewMode(mode, persist) {
     const nextMode = VIEW_MODES.has(mode) ? mode : "easy";
     appBody.dataset.mode = nextMode;
+    // Easy mode hides the assist switch, so it must not keep sending postings.
+    if (nextMode === "easy" && assistedToggle.checked) {
+      deactivateAssistedReview();
+      if (persist) showToast("쉬운 모드에서는 AI·현행 법령 보강을 끕니다.");
+    }
     [
       [modeEasyButton, nextMode === "easy"],
       [modeExpertButton, nextMode === "expert"],
@@ -806,6 +811,15 @@
     assistedNotice.textContent = "";
     assistedOutput.textContent = "";
     setAssistBadge(assistedResultStatus, "대기");
+  }
+
+  function deactivateAssistedReview() {
+    assistedToggle.checked = false;
+    resetAssistedReviewPanel();
+    assistedStatus.textContent =
+      "기본 검사는 브라우저에서만 실행됩니다. 켜면 다음 검사부터 설정된 Korean Law MCP와 AI API를 함께 사용합니다.";
+    setAssistBadge(assistedBadge, "꺼짐");
+    setLocalPrivacyNotice();
   }
 
   function setLocalPrivacyNotice() {
@@ -1330,11 +1344,7 @@
       void activateAssistedReview();
       return;
     }
-    resetAssistedReviewPanel();
-    assistedStatus.textContent =
-      "기본 검사는 브라우저에서만 실행됩니다. 켜면 다음 검사부터 설정된 Korean Law MCP와 AI API를 함께 사용합니다.";
-    setAssistBadge(assistedBadge, "꺼짐");
-    setLocalPrivacyNotice();
+    deactivateAssistedReview();
   });
   assistedProvider.addEventListener("change", () => {
     if (!assistedToggle.checked) return;

@@ -351,6 +351,14 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
         "copyDisabled": True,
         "dynamicContainersCleared": True,
     }
+    assert result["easyModeAssist"] == {
+        "assistStillOnInExpert": True,
+        "toggleChecked": False,
+        "badge": "꺼짐",
+        "privacy": "기본 검사는 브라우저 안에서 처리 · 역할 기록은 브라우저에만 저장",
+        "panelHidden": True,
+        "postsAfterEasyCheck": 0,
+    }
     assisted = result["assisted"]
     assert assisted["badge"] == "켜짐"
     assert assisted["resultStatus"] == "완료"
