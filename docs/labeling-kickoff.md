@@ -35,10 +35,23 @@
 
 | 1차 검토자 | 규칙(행 수, 표기 없으면 20) | 이중 검토 |
 |---|---|---|
-| reviewer-A (124행) | `SEX-001`, `AGE-002`, `PHOTO-001`(4), `RETURN-001`(11), `Q-DIST-004`, `Q-DIST-006`(10), `Q-DIST-007`(17), `Q-DIST-012`(1), `Q-DIST-016`(1) | 37행 (reviewer-B) |
-| reviewer-B (108행) | `Q-DIST-010`, `Q-DIST-013`(14), `Q-DIST-015`, `Q-DIST-017`(2), `Q-INFO-011`, `Q-INFO-013`(12), `Q-INFO-014`, `Q-PROC-006` | 41행 (reviewer-A) |
+| reviewer-A (104행) | `SEX-001`, `AGE-002`, `PHOTO-001`(4), `RETURN-001`(11), `Q-DIST-004`, `Q-DIST-006`(10), `Q-DIST-007`(17), `Q-DIST-012`(1), `Q-DIST-016`(1) | 37행 (reviewer-B) |
+| reviewer-B (128행) | `Q-DIST-010`, `Q-DIST-013`(14), `Q-DIST-015`, `Q-DIST-017`(2), `Q-INFO-011`, `Q-INFO-013`(12), `Q-INFO-014`, `Q-PROC-006` | 41행 (reviewer-A) |
 
 합계 232행 중 78행(33.6%)을 이중 검토한다.
+
+2026-10-04에 실제 큐와 버전ㆍ불변 행 해시를 대조한 뒤 로컬 인계 묶음을 준비했다.
+기존 표의 124/108행은 합산 오류였으며 규칙별 배정은 그대로 두고 104/128행으로 바로잡았다.
+
+- 로컬 위치: `.private-review/kickoff-2026-10-04/`
+- `reviewer-A/primary.html`: 1차 104행, `secondary.html`: 독립 재검토 41행
+- `reviewer-B/primary.html`: 1차 128행, `secondary.html`: 독립 재검토 37행
+- 각 폴더의 `사용안내.txt`에 결과 다운로드ㆍ파일명ㆍ보관 방법을 적었다.
+- 원본 큐 해시와 사전 배정 ID는 `assignments.private.json`에 보관한다.
+
+모든 라벨은 `unreviewed`이며 실제 검토자는 아직 미배정이다. 이 묶음은 학습용 큐만
+사용했고 봉인 홀드아웃을 열지 않았다. 실제 공고 문맥이 포함되므로 Gitㆍ배포ㆍ외부
+메신저에 첨부하지 않는다. 담당자는 승인된 로컬 기기에서 자기 묶음만 검토한다.
 
 ### 불일치 조정
 

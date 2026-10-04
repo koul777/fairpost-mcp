@@ -74,6 +74,37 @@ a:focus-visible,
   box-shadow: 0 0 0 1px #b3443a;
 }
 
+.comparison-panel {
+  margin: 18px clamp(15px, 2vw, 24px) 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+
+.comparison-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.comparison-heading h3 { margin: 0; font-size: 17px; }
+.comparison-heading button { min-height: 44px; white-space: normal; text-align: left; }
+.comparison-status { font-size: 14px; line-height: 1.7; }
+.comparison-help { margin-bottom: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.comparison-groups { display: grid; gap: 8px; }
+.comparison-group { min-width: 0; border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 6px; background: var(--panel); }
+.comparison-removed { border-left-color: var(--green); }
+.comparison-added { border-left-color: var(--blue); }
+.comparison-group summary { display: list-item; min-height: 44px; padding: 12px; cursor: pointer; font-size: 14px; overflow-wrap: anywhere; }
+.comparison-group strong { margin-left: 6px; }
+.comparison-group ul { margin: 0; padding: 0 16px 12px 32px; }
+.comparison-group li { margin: 8px 0; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.comparison-group q { display: block; color: var(--muted); }
+.comparison-empty { margin: 0; padding: 0 16px 12px; color: var(--muted); font-size: 14px; }
+
 .app-header {
   min-height: 72px;
   padding: 14px clamp(18px, 3vw, 44px);

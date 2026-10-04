@@ -62,6 +62,10 @@
   const clearButton = document.getElementById("clear-button");
   const sampleButton = document.getElementById("sample-button");
   const copyButton = document.getElementById("copy-button");
+  const comparisonPanel = document.getElementById("comparison-panel");
+  const comparisonStatus = document.getElementById("comparison-status");
+  const comparisonGroups = document.getElementById("comparison-groups");
+  const comparisonReset = document.getElementById("comparison-reset");
   const assistedToggle = document.getElementById("assisted-review-toggle");
   const assistedStatus = document.getElementById("assisted-review-status");
   const assistedBadge = document.getElementById("assisted-review-badge");
@@ -225,6 +229,9 @@
   const ROLE_REVIEW_SCHEMA_VERSION = "fairpost-browser-role-review-v1";
   let latestResult = null;
   let latestCheckedText = null;
+  // Session memory only: never persist a posting or its comparison snapshot.
+  let comparisonBaseline = null;
+  let comparison = null;
   let latestAssistedReview = null;
   let assistedRequestSequence = 0;
   let assistedAvailable = false;
@@ -1661,6 +1668,13 @@
 
   function resetReview() {
     latestResult = null;
+    latestCheckedText = null;
+    comparisonBaseline = null;
+    comparison = null;
+    comparisonPanel.hidden = true;
+    comparisonStatus.textContent = "";
+    comparisonGroups.replaceChildren();
+    comparisonReset.disabled = true;
     resetAssistedReviewPanel();
     roleReviewSequence += 1;
     roleReviewState = null;
@@ -1876,6 +1890,75 @@
     `;
   }
 
+  function comparisonItems(result) {
+    const items = new Map();
+    result.findings.forEach((finding) => items.set(`finding:${finding.id}`, {
+      label: `표현 · ${finding.message}`,
+      evidence: finding.matched_text,
+      id: finding.id,
+    }));
+    result.slots.filter((slot) => !slot.found).forEach((slot) =>
+      items.set(`slot:${slot.slot}`, {
+        label: `누락 안내 · ${slot.label}`, evidence: "", id: slot.slot,
+      })
+    );
+    result.questions.forEach((question) => {
+      // A missing slot and its embedded question are one review task.
+      if (SLOT_EMBEDDED_QUESTION_IDS.has(question.id) &&
+          Object.entries(SLOT_QUESTION_IDS).some(([slot, id]) =>
+            id === question.id && items.has(`slot:${slot}`))) return;
+      items.set(`question:${question.id}`, {
+        label: `질문 · ${question.question}`,
+        evidence: question.matched_text || "",
+        id: question.id,
+      });
+    });
+    return items;
+  }
+
+  function updateComparison(result, text) {
+    const changedVersion = comparisonBaseline &&
+      comparisonBaseline.result.ruleset_version !== result.ruleset_version;
+    if (!comparisonBaseline || changedVersion) {
+      comparisonBaseline = { result, text };
+      comparison = null;
+      renderComparison(changedVersion
+        ? "검토 기준 버전이 바뀌어 현재 결과를 새 비교 기준으로 삼았습니다."
+        : "첫 검토를 비교 기준으로 삼았습니다. 공고문을 고친 뒤 다시 검토해 보세요.");
+      return;
+    }
+    const before = comparisonItems(comparisonBaseline.result);
+    const after = comparisonItems(result);
+    comparison = [
+      { key: "removed", label: "이번에 표시되지 않음", items: [...before].filter(([key]) => !after.has(key)).map(([, item]) => item) },
+      { key: "remaining", label: "계속 확인", items: [...after].filter(([key]) => before.has(key)).map(([, item]) => item) },
+      { key: "added", label: "새로 표시", items: [...after].filter(([key]) => !before.has(key)).map(([, item]) => item) },
+    ];
+    renderComparison(text === comparisonBaseline.text
+      ? "비교 기준과 같은 공고문입니다. 항목 변화가 없습니다."
+      : "비교 기준 이후 항목 변화입니다. 같은 항목의 문구나 위치가 바뀐 경우에는 ‘계속 확인’에 포함됩니다.");
+  }
+
+  function renderComparison(message) {
+    comparisonPanel.hidden = !comparisonBaseline;
+    const stale = latestCheckedText !== input.value;
+    comparisonReset.disabled = stale || !comparison ||
+      comparisonBaseline.text === latestCheckedText;
+    comparisonStatus.textContent = message;
+    if (!comparison) {
+      comparisonGroups.replaceChildren();
+      return;
+    }
+    comparisonGroups.innerHTML = comparison.map((group) => `
+      <details class="comparison-group comparison-${group.key}">
+        <summary>${group.label} <strong>${group.items.length}개</strong></summary>
+        ${group.items.length ? `<ul>${group.items.map((item) => `
+          <li><span>${escapeHtml(item.label)}</span>
+            ${item.evidence ? `<q>${escapeHtml(item.evidence)}</q>` : ""}
+          </li>`).join("")}</ul>` : '<p class="comparison-empty">해당 항목이 없습니다.</p>'}
+      </details>`).join("");
+  }
+
   function render(result) {
     latestResult = result;
     document.getElementById("finding-count").textContent = result.counts.findings;
@@ -1896,6 +1979,7 @@
     emptyState.hidden = true;
     resultContent.hidden = false;
     copyButton.disabled = false;
+    updateComparison(result, input.value);
     void initializeRoleReview(result, input.value);
   }
 
@@ -2033,6 +2117,14 @@
         );
       });
     }
+    if (comparison) {
+      lines.push("", "[수정 전후 비교]", "같은 검토 기준에서 항목별로 비교합니다. 표시가 사라져도 검토 완료를 뜻하지 않습니다.",
+        `비교 기준 버전: ${comparisonBaseline.result.ruleset_version}`);
+      comparison.forEach((group) => {
+        lines.push(`${group.label}: ${group.items.length}개`);
+        group.items.forEach((item) => lines.push(`- ${item.id} ${item.label}`));
+      });
+    }
     return lines.join("\n");
   }
 
@@ -2064,6 +2156,12 @@
     if (input.value.trim()) setFieldError(input, postingInputError, "");
     if (!input.value.trim()) {
       resetReview();
+    } else if (latestResult) {
+      const stale = latestCheckedText !== input.value;
+      copyButton.disabled = stale;
+      renderComparison(stale
+        ? "공고문이 바뀌었습니다. 다시 검토하면 비교 결과와 메모가 갱신됩니다."
+        : "마지막으로 검토한 공고문입니다. 아래 결과와 메모를 사용할 수 있습니다.");
     }
     markAssistedSettingsChanged("공고문이 바뀌었습니다.");
   });
@@ -2122,12 +2220,13 @@
     input.focus();
   });
   sampleButton.addEventListener("click", () => {
+    resetReview();
     input.value = sample;
     input.dispatchEvent(new Event("input"));
     input.focus();
   });
   copyButton.addEventListener("click", async () => {
-    if (!latestResult) return;
+    if (!latestResult || latestCheckedText !== input.value) return;
     try {
       await navigator.clipboard.writeText(makeReport(latestResult));
       showToast("검토 메모를 복사했습니다.");
@@ -2149,6 +2248,13 @@
         temporary.remove();
       }
     }
+  });
+
+  comparisonReset.addEventListener("click", () => {
+    if (!latestResult || latestCheckedText !== input.value) return;
+    comparisonBaseline = { result: latestResult, text: latestCheckedText };
+    comparison = null;
+    renderComparison("현재 검토 결과를 새 비교 기준으로 삼았습니다. 다음 수정부터 이 결과와 비교합니다.");
   });
 
   modeEasyButton.addEventListener("click", () => setViewMode("easy", true));

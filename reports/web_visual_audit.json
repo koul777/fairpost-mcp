@@ -15,7 +15,7 @@
   "scenarios": [
     {
       "name": "desktop-easy-and-expert",
-      "launch_url": "file:///C:/workspace/fairmcp/web/index.html",
+      "launch_url": "http://127.0.0.1:8127/web/",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -38,15 +38,16 @@
         "expert": 0
       },
       "screenshots": [
-        "tmp/visual-qa/2026-10-04/desktop-0-empty.png",
-        "tmp/visual-qa/2026-10-04/desktop-1-easy-result.png",
-        "tmp/visual-qa/2026-10-04/desktop-2-emoji.png",
-        "tmp/visual-qa/2026-10-04/desktop-3-expert.png"
-      ]
+        ".tmp/browser-review/desktop-0-empty.png",
+        ".tmp/browser-review/desktop-1-easy-result.png",
+        ".tmp/browser-review/desktop-2-emoji.png",
+        ".tmp/browser-review/desktop-3-expert.png"
+      ],
+      "static_server_api_404_count": 2
     },
     {
       "name": "tablet-easy-and-expert",
-      "launch_url": "file:///C:/workspace/fairmcp/web/index.html",
+      "launch_url": "http://127.0.0.1:8127/web/",
       "viewport": {
         "width": 820,
         "height": 1180
@@ -69,15 +70,16 @@
         "expert": 0
       },
       "screenshots": [
-        "tmp/visual-qa/2026-10-04/tablet-0-empty.png",
-        "tmp/visual-qa/2026-10-04/tablet-1-easy-result.png",
-        "tmp/visual-qa/2026-10-04/tablet-2-emoji.png",
-        "tmp/visual-qa/2026-10-04/tablet-3-expert.png"
-      ]
+        ".tmp/browser-review/tablet-0-empty.png",
+        ".tmp/browser-review/tablet-1-easy-result.png",
+        ".tmp/browser-review/tablet-2-emoji.png",
+        ".tmp/browser-review/tablet-3-expert.png"
+      ],
+      "static_server_api_404_count": 2
     },
     {
       "name": "mobile-easy-and-expert",
-      "launch_url": "file:///C:/workspace/fairmcp/web/index.html",
+      "launch_url": "http://127.0.0.1:8127/web/",
       "viewport": {
         "width": 390,
         "height": 844
@@ -100,13 +102,48 @@
         "expert": 0
       },
       "screenshots": [
-        "tmp/visual-qa/2026-10-04/mobile-0-empty.png",
-        "tmp/visual-qa/2026-10-04/mobile-1-easy-result.png",
-        "tmp/visual-qa/2026-10-04/mobile-2-emoji.png",
-        "tmp/visual-qa/2026-10-04/mobile-3-expert.png"
-      ]
+        ".tmp/browser-review/mobile-0-empty.png",
+        ".tmp/browser-review/mobile-1-easy-result.png",
+        ".tmp/browser-review/mobile-2-emoji.png",
+        ".tmp/browser-review/mobile-3-expert.png"
+      ],
+      "static_server_api_404_count": 2
     }
   ],
   "contains_posting_text": false,
-  "note": "Re-run after merging origin/main (PR #2 v0.4-hygiene). Sample posting is the built-in example; screenshots are local and not committed."
+  "note": "Easy/expert and emoji selections checked via a static loopback HTTP server; its optional assisted-review capability endpoint returned 404 as expected. Comparison checked via standalone file mode. Synthetic inputs only; screenshots remain local. Comparison sent no postings and stored no posting text. Full-page axe checks used HTTP to avoid file-mode stylesheet-fetch restrictions.",
+  "runtime_source_fingerprint": "runtime-200fc7e929f5d1718b7862e75eab58d0fd09305ea1272f33feeacfe9d601b8a9",
+  "comparison_checked_at": "2026-10-04T05:52:39.190Z",
+  "comparison_scenarios": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900,
+      "violations": [],
+      "overflow": false,
+      "storedPosting": false,
+      "console_errors": [],
+      "posting_requests": 0
+    },
+    {
+      "name": "tablet",
+      "width": 820,
+      "height": 1180,
+      "violations": [],
+      "overflow": false,
+      "storedPosting": false,
+      "console_errors": [],
+      "posting_requests": 0
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844,
+      "violations": [],
+      "overflow": false,
+      "storedPosting": false,
+      "console_errors": [],
+      "posting_requests": 0
+    }
+  ]
 }

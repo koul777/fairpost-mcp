@@ -333,6 +333,34 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     )
     result = json.loads(completed.stdout)
     assert result["resultsTitleFocused"] is True
+    comparison = result["comparisonFlow"]
+    assert comparison["firstComparison"]["hidden"] is False
+    assert comparison["firstComparison"]["groups"] == ""
+    assert "첫 검토" in comparison["firstComparison"]["status"]
+    assert comparison["staleComparison"]["copyDisabled"] is True
+    assert comparison["staleComparison"]["resetDisabled"] is True
+    assert comparison["staleComparison"]["copyUnchanged"] is True
+    assert "공고문이 바뀌었습니다" in comparison["staleComparison"]["status"]
+
+    def group(markup: str, name: str) -> str:
+        return markup.split(f'comparison-{name}">', 1)[1].split("</details>", 1)[0]
+
+    assert "여성만" in group(comparison["changedComparison"], "removed")
+    assert "30세" in group(comparison["changedComparison"], "added")
+    assert "여성만" in group(comparison["thirdComparison"], "removed")
+    assert comparison["unchangedComparison"] == comparison["thirdComparison"]
+    assert "[수정 전후 비교]" in comparison["comparisonReport"]
+    assert "표시가 사라져도 검토 완료를 뜻하지 않습니다" in comparison["comparisonReport"]
+    assert "SEX-001" in comparison["comparisonReport"]
+    assert comparison["resetComparison"] == ""
+    assert "여성만" in group(comparison["rebasedComparison"], "added")
+    assert comparison["versionComparison"]["groups"] == ""
+    assert "버전이 바뀌어" in comparison["versionComparison"]["status"]
+    assert comparison["comparisonStored"] is False
+    assert comparison["postsAdded"] == 0
+    assert comparison["sampleComparisonHidden"] is True
+    assert comparison["sampleComparisonGroups"] == ""
+    assert comparison["clearedComparisonHidden"] is True
     assert result["progressAfterAnswer"] == (
         f"담당자 답변 1/{result['questionCount']}"
     )

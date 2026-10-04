@@ -714,7 +714,72 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     toast: elements.get("toast").textContent,
   };
 
+  // A baseline survives repeated edits, but never clearing or version changes.
+  elements.get("clear-button").trigger("click");
+  const comparisonPostsBefore = posts().length;
+  posting.value = "비교원문-PRIVATE-SESSION\n여성만 지원 가능";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  await tick();
+  const firstComparison = {
+    status: elements.get("comparison-status").textContent,
+    groups: elements.get("comparison-groups").innerHTML,
+    hidden: elements.get("comparison-panel").hidden,
+  };
+  posting.value = "비교원문-PRIVATE-SESSION\n성별 무관\n만 30세 이하";
+  posting.dispatchEvent(new Event("input"));
+  const staleComparison = {
+    copyDisabled: elements.get("copy-button").disabled,
+    resetDisabled: elements.get("comparison-reset").disabled,
+    status: elements.get("comparison-status").textContent,
+  };
+  const previousCopy = copied;
+  await elements.get("copy-button").trigger("click");
+  staleComparison.copyUnchanged = copied === previousCopy;
+  elements.get("check-button").trigger("click");
+  const changedComparison = elements.get("comparison-groups").innerHTML;
+  await elements.get("copy-button").trigger("click");
+  const comparisonReport = copied;
+  posting.value += "\n모집인원: 2명";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  const thirdComparison = elements.get("comparison-groups").innerHTML;
+  elements.get("check-button").trigger("click");
+  const unchangedComparison = elements.get("comparison-groups").innerHTML;
+  elements.get("comparison-reset").trigger("click");
+  const resetComparison = elements.get("comparison-groups").innerHTML;
+  posting.value += "\n여성만 지원 가능";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  const rebasedComparison = elements.get("comparison-groups").innerHTML;
+  const comparisonVersion = window.FAIRPOST_DATA.version;
+  window.FAIRPOST_DATA.version = `${comparisonVersion}-comparison-change`;
+  elements.get("check-button").trigger("click");
+  const versionComparison = {
+    status: elements.get("comparison-status").textContent,
+    groups: elements.get("comparison-groups").innerHTML,
+  };
+  window.FAIRPOST_DATA.version = comparisonVersion;
+  await tick();
+  const comparisonStored = [...localReviewValues.values()].some((value) =>
+    value.includes("비교원문-PRIVATE-SESSION"));
+  elements.get("sample-button").trigger("click");
+  const sampleComparisonHidden = elements.get("comparison-panel").hidden;
+  elements.get("check-button").trigger("click");
+  const sampleComparisonGroups = elements.get("comparison-groups").innerHTML;
+  posting.value = "";
+  posting.dispatchEvent(new Event("input"));
+  const clearedComparisonHidden = elements.get("comparison-panel").hidden;
+  const comparisonFlow = {
+    firstComparison, staleComparison, changedComparison, comparisonReport,
+    thirdComparison, unchangedComparison, resetComparison, rebasedComparison,
+    versionComparison, comparisonStored, sampleComparisonHidden,
+    sampleComparisonGroups, clearedComparisonHidden,
+    postsAdded: posts().length - comparisonPostsBefore,
+  };
+
   console.log(JSON.stringify({
+    comparisonFlow,
     easySelection,
     questionId,
     questionCount: result.questions.length,

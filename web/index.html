@@ -191,6 +191,16 @@
             점수·등급·합격/불합격 또는 공정성 판정으로 해석하지 않고, 담당자가 원문과 근거를 확인해 수정 여부를 결정합니다.
           </div>
 
+          <section id="comparison-panel" class="comparison-panel" aria-labelledby="comparison-title" hidden>
+            <div class="comparison-heading">
+              <h3 id="comparison-title">수정 전후 비교</h3>
+              <button id="comparison-reset" class="button button-quiet" type="button" disabled>현재 결과를 새 기준으로</button>
+            </div>
+            <p id="comparison-status" class="comparison-status" role="status" aria-live="polite" aria-atomic="true"></p>
+            <div id="comparison-groups" class="comparison-groups"></div>
+            <p class="comparison-help">표현·누락 안내·질문을 항목별로 비교합니다. 표시가 사라져도 검토 완료를 뜻하지 않습니다. 비교 기준은 이 탭에서만 유지되며, 지우기·예시 입력·새로고침으로 초기화됩니다.</p>
+          </section>
+
           <section id="easy-result" class="easy-result easy-only" aria-label="쉬운 모드 검토 결과"></section>
 
           <div class="summary-strip" role="group" aria-label="검토 작업 개수">
