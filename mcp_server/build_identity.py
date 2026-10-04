@@ -18,6 +18,7 @@ DEPLOYMENT_EXCLUSION_POLICY = (
     ".mypy_cache/",
     ".private-review/",
     ".ruff_cache/",
+    ".tmp/",
     ".vercel/",
     ".coverage",
     "*.log",

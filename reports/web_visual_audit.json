@@ -112,7 +112,7 @@
   ],
   "contains_posting_text": false,
   "note": "Easy/expert and emoji selections checked via a static loopback HTTP server; its optional assisted-review capability endpoint returned 404 as expected. Comparison checked via standalone file mode. Synthetic inputs only; screenshots remain local. Comparison sent no postings and stored no posting text. Full-page axe checks used HTTP to avoid file-mode stylesheet-fetch restrictions.",
-  "runtime_source_fingerprint": "runtime-200fc7e929f5d1718b7862e75eab58d0fd09305ea1272f33feeacfe9d601b8a9",
+  "runtime_source_fingerprint": "runtime-de4fda98b279d6ecc6c26532fcb07240cdc441d4013c596935764d9034fe6246",
   "comparison_checked_at": "2026-10-04T05:52:39.190Z",
   "comparison_scenarios": [
     {
