@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -415,3 +416,347 @@ def test_non_ascii_bearer_token_is_compared_as_raw_utf8_bytes(monkeypatch) -> No
     monkeypatch.setenv("FAIRPOST_MCP_TOKEN", token)
     anyio.run(exercise)
     assert called is True
+
+
+# --- /api/assisted-review access gate -------------------------------------
+# Fake values only; real tokens never belong in tests, argv, or logs.
+FAKE_ASSIST_TOKEN = "fake-assist-token-0000"
+ASSIST_ORIGIN = "https://fairmcp.vercel.app"
+ASSIST_GATE_ENV = (
+    "FAIRPOST_ASSISTED_REVIEW_TOKEN",
+    "FAIRPOST_ASSISTED_REVIEW_ALLOW_BROWSER",
+    "FAIRPOST_ASSISTED_REVIEW_ALLOWED_ORIGINS",
+    "FAIRPOST_MCP_ALLOWED_ORIGINS",
+    "FAIRPOST_MCP_TOKEN",
+)
+
+
+def _assist_gate_setup(monkeypatch, *, ai_configured: bool = True) -> list[str]:
+    from mcp_server import remote
+
+    for name in ASSIST_GATE_ENV:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_REQUESTS_PER_MINUTE", "1000")
+    monkeypatch.setattr(
+        remote,
+        "assisted_review_capability",
+        lambda: {
+            "schema_version": "fairpost-assisted-review-capability-v1",
+            "ready": ai_configured,
+            "ai_configured": ai_configured,
+            "available_providers": (
+                [{"id": "openai", "label": "GPT", "model": "m"}]
+                if ai_configured
+                else []
+            ),
+            "law_mcp_configured": True,
+            "law_mcp_transport": "http",
+            "reason": "사용할 수 있습니다." if ai_configured else "설정 필요: AI API",
+        },
+    )
+    calls: list[str] = []
+
+    async def fake_prepare(_engine, text, **_kwargs):
+        calls.append(text)
+        return SimpleNamespace(
+            to_dict=lambda: {"status": "completed", "summary": "메모"}
+        )
+
+    monkeypatch.setattr(remote, "prepare_assisted_review", fake_prepare)
+    return calls
+
+
+def _assist_request(method: str, headers: dict[str, str] | None = None):
+    from mcp_server import remote
+
+    async def exercise():
+        transport = httpx.ASGITransport(app=remote.app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url=ASSIST_ORIGIN
+        ) as client:
+            if method == "GET":
+                return await client.get(
+                    remote.ASSISTED_REVIEW_PATH, headers=headers or {}
+                )
+            return await client.post(
+                remote.ASSISTED_REVIEW_PATH,
+                headers=headers or {},
+                json={"assist_enabled": True, "text": "여성만 지원 가능"},
+            )
+
+    return anyio.run(exercise)
+
+
+def _assert_no_token_echo(response) -> None:
+    assert FAKE_ASSIST_TOKEN not in response.text
+    assert FAKE_ASSIST_TOKEN not in repr(dict(response.headers))
+
+
+def test_assisted_review_fails_closed_without_access_control(monkeypatch) -> None:
+    calls = _assist_gate_setup(monkeypatch)
+
+    capability = _assist_request("GET")
+    rejected = _assist_request(
+        "POST",
+        {"Origin": ASSIST_ORIGIN, "Sec-Fetch-Site": "same-origin"},
+    )
+
+    assert capability.status_code == 200
+    assert capability.json()["ready"] is False
+    assert "인증이 설정되지 않았습니다" in capability.json()["reason"]
+    assert capability.json()["access_control"] == {
+        "bearer_token": False,
+        "browser_same_origin": False,
+    }
+    assert rejected.status_code == 403
+    assert rejected.json()["ready"] is False
+    assert "인증이 설정되지 않았습니다" in rejected.json()["reason"]
+    assert calls == []
+
+
+def test_health_reports_assisted_review_not_ready_without_access_control(
+    monkeypatch,
+) -> None:
+    _assist_gate_setup(monkeypatch)
+
+    payload = json.loads(anyio.run(health, None).body)
+
+    assert payload["assisted_review"]["ready"] is False
+    assert "인증이 설정되지 않았습니다" in payload["assisted_review"]["reason"]
+
+
+def test_assisted_review_without_ai_keeps_existing_not_configured_response(
+    monkeypatch,
+) -> None:
+    calls = _assist_gate_setup(monkeypatch, ai_configured=False)
+
+    capability = _assist_request("GET")
+    response = _assist_request("POST")
+
+    assert capability.json()["reason"] == "설정 필요: AI API"
+    assert response.status_code == 503
+    assert calls == []
+
+
+@pytest.mark.parametrize(
+    ("authorization", "expected_status"),
+    [
+        (f"Bearer {FAKE_ASSIST_TOKEN}", 200),
+        ("Bearer wrong-token", 403),
+        (FAKE_ASSIST_TOKEN, 403),
+        (None, 403),
+    ],
+    ids=["match", "mismatch", "missing-scheme", "missing"],
+)
+def test_assisted_review_bearer_token(
+    monkeypatch, authorization, expected_status
+) -> None:
+    calls = _assist_gate_setup(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_TOKEN", FAKE_ASSIST_TOKEN)
+    headers = {"Authorization": authorization} if authorization else {}
+
+    response = _assist_request("POST", headers)
+
+    assert response.status_code == expected_status
+    _assert_no_token_echo(response)
+    if expected_status == 200:
+        assert calls == ["여성만 지원 가능"]
+    else:
+        assert calls == []
+        assert response.json()["ready"] is False
+        assert "사내 클라이언트 인증" in response.json()["reason"]
+
+
+def test_assisted_review_rejects_duplicate_bearer_headers(monkeypatch) -> None:
+    from mcp_server import remote
+
+    calls = _assist_gate_setup(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_TOKEN", FAKE_ASSIST_TOKEN)
+
+    async def exercise():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=remote.app),
+            base_url=ASSIST_ORIGIN,
+        ) as client:
+            return await client.post(
+                remote.ASSISTED_REVIEW_PATH,
+                headers=[
+                    ("Authorization", f"Bearer {FAKE_ASSIST_TOKEN}"),
+                    ("Authorization", f"Bearer {FAKE_ASSIST_TOKEN}"),
+                ],
+                json={"assist_enabled": True, "text": "x"},
+            )
+
+    assert anyio.run(exercise).status_code == 403
+    assert calls == []
+
+
+def test_token_only_deployment_reports_not_ready_to_browsers(monkeypatch) -> None:
+    _assist_gate_setup(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_TOKEN", FAKE_ASSIST_TOKEN)
+
+    browser = _assist_request("GET")
+    internal = _assist_request(
+        "GET", {"Authorization": f"Bearer {FAKE_ASSIST_TOKEN}"}
+    )
+
+    assert browser.json()["ready"] is False
+    assert "사내 클라이언트 인증" in browser.json()["reason"]
+    assert internal.json()["ready"] is True
+    for response in (browser, internal):
+        _assert_no_token_echo(response)
+        assert response.json()["access_control"] == {
+            "bearer_token": True,
+            "browser_same_origin": False,
+        }
+
+
+@pytest.mark.parametrize(
+    ("allow_browser", "headers", "expected_status"),
+    [
+        ("1", {"Origin": ASSIST_ORIGIN, "Sec-Fetch-Site": "same-origin"}, 200),
+        ("", {"Origin": ASSIST_ORIGIN, "Sec-Fetch-Site": "same-origin"}, 403),
+        ("1", {"Origin": "https://evil.example", "Sec-Fetch-Site": "same-origin"}, 403),
+        ("1", {"Origin": f"{ASSIST_ORIGIN}.evil.example", "Sec-Fetch-Site": "same-origin"}, 403),
+        ("1", {"Origin": ASSIST_ORIGIN, "Sec-Fetch-Site": "cross-site"}, 403),
+        ("1", {"Origin": ASSIST_ORIGIN, "Sec-Fetch-Site": "same-site"}, 403),
+        ("1", {"Origin": ASSIST_ORIGIN}, 403),
+        ("1", {"Sec-Fetch-Site": "same-origin"}, 403),
+    ],
+    ids=[
+        "allowed",
+        "browser-off",
+        "origin-mismatch",
+        "origin-suffix",
+        "cross-site",
+        "same-site",
+        "no-fetch-metadata",
+        "no-origin",
+    ],
+)
+def test_assisted_review_browser_same_origin_access(
+    monkeypatch, allow_browser, headers, expected_status
+) -> None:
+    calls = _assist_gate_setup(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_ALLOW_BROWSER", allow_browser)
+
+    response = _assist_request("POST", headers)
+
+    assert response.status_code == expected_status
+    assert calls == (["여성만 지원 가능"] if expected_status == 200 else [])
+    if expected_status == 403:
+        assert response.json()["ready"] is False
+        assert response.json()["reason"]
+
+
+def test_browser_access_reports_ready_when_enabled(monkeypatch) -> None:
+    _assist_gate_setup(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_ALLOW_BROWSER", "true")
+
+    capability = _assist_request("GET").json()
+
+    assert capability["ready"] is True
+    assert capability["access_control"] == {
+        "bearer_token": False,
+        "browser_same_origin": True,
+    }
+
+
+def test_explicit_assisted_origins_replace_mcp_origins(monkeypatch) -> None:
+    from mcp_server import remote
+
+    _assist_gate_setup(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_MCP_ALLOWED_ORIGINS", "https://mcp-only.example")
+    assert "https://mcp-only.example" in remote._assisted_review_allowed_origins()
+    assert all("*" not in value for value in remote._assisted_review_allowed_origins())
+
+    monkeypatch.setenv(
+        "FAIRPOST_ASSISTED_REVIEW_ALLOWED_ORIGINS",
+        "https://review.example, https://*.example",
+    )
+    assert remote._assisted_review_allowed_origins() == ("https://review.example",)
+
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_ALLOW_BROWSER", "1")
+    assert _assist_request(
+        "POST", {"Origin": ASSIST_ORIGIN, "Sec-Fetch-Site": "same-origin"}
+    ).status_code == 403
+
+
+def test_browser_access_without_exact_origins_stays_closed(monkeypatch) -> None:
+    calls = _assist_gate_setup(monkeypatch)
+    monkeypatch.delenv("VERCEL")
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_ALLOW_BROWSER", "1")
+
+    capability = _assist_request("GET").json()
+    response = _assist_request(
+        "POST",
+        {"Origin": "http://127.0.0.1:8000", "Sec-Fetch-Site": "same-origin"},
+    )
+
+    assert capability["ready"] is False
+    assert capability["access_control"]["browser_same_origin"] is False
+    assert response.status_code == 403
+    assert calls == []
+
+
+def test_token_with_browser_access_accepts_either_path(monkeypatch) -> None:
+    calls = _assist_gate_setup(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_TOKEN", FAKE_ASSIST_TOKEN)
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_ALLOW_BROWSER", "yes")
+
+    via_token = _assist_request(
+        "POST",
+        {"Authorization": f"Bearer {FAKE_ASSIST_TOKEN}", "Sec-Fetch-Site": "cross-site"},
+    )
+    via_browser = _assist_request(
+        "POST", {"Origin": ASSIST_ORIGIN, "Sec-Fetch-Site": "same-origin"}
+    )
+    denied = _assist_request(
+        "POST", {"Origin": "https://evil.example", "Sec-Fetch-Site": "cross-site"}
+    )
+
+    assert (via_token.status_code, via_browser.status_code) == (200, 200)
+    assert denied.status_code == 403
+    assert "사내 클라이언트 인증" in denied.json()["reason"]
+    _assert_no_token_echo(denied)
+    assert len(calls) == 2
+
+
+def test_local_runtime_assisted_review_is_not_gated(monkeypatch) -> None:
+    from mcp_server.local_runtime import create_local_app
+
+    calls = _assist_gate_setup(monkeypatch)
+    monkeypatch.delenv("VERCEL")
+
+    async def exercise():
+        # No lifespan: the MCP session manager may run only once per process,
+        # and the assisted-review route does not depend on it.
+        app = create_local_app()
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://127.0.0.1:8000",
+        ) as client:
+            capability = await client.get("/api/assisted-review")
+            accepted = await client.post(
+                "/api/assisted-review",
+                headers={
+                    "Origin": "http://127.0.0.1:8000",
+                    "Sec-Fetch-Site": "same-origin",
+                },
+                json={"assist_enabled": True, "text": "여성만 지원 가능"},
+            )
+            cross = await client.post(
+                "/api/assisted-review",
+                headers={"Sec-Fetch-Site": "cross-site"},
+                json={"assist_enabled": True, "text": "x"},
+            )
+        return capability, accepted, cross
+
+    capability, accepted, cross = anyio.run(exercise)
+
+    assert capability.json()["ready"] is True
+    assert "access_control" not in capability.json()
+    assert accepted.status_code == 200
+    assert cross.status_code == 403
+    assert calls == ["여성만 지원 가능"]

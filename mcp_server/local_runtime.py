@@ -74,7 +74,7 @@ class SameOriginMiddleware:
 
 def create_local_app(web_dir: Path | None = None) -> Starlette:
     # Import after settings are loaded; the remote/cloud entrypoint never loads them.
-    from .remote import ASSISTED_REVIEW_PATH, RemoteSecurityMiddleware, assisted_review
+    from .remote import ASSISTED_REVIEW_PATH, RemoteSecurityMiddleware, local_assisted_review
     from .server import MCP_PATH, mcp
 
     if web_dir is None:
@@ -98,7 +98,7 @@ def create_local_app(web_dir: Path | None = None) -> Starlette:
     web_app = Starlette(routes=[
         Route("/", home),
         *([Route("/favicon.svg", favicon)] if (web_dir.parent / "favicon.svg").is_file() else []),
-        Route(ASSISTED_REVIEW_PATH, assisted_review, methods=["GET", "POST"]),
+        Route(ASSISTED_REVIEW_PATH, local_assisted_review, methods=["GET", "POST"]),
         Mount("/web", app=StaticFiles(directory=web_dir, html=True)),
     ])
     # The authenticated remote MCP middleware is only used on web/API routes.
