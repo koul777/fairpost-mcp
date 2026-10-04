@@ -62,17 +62,17 @@ P0 중 하나라도 충족하지 않으면 자동 테스트 통과만으로 v1.0
 
 | 항목 | 값 |
 |---|---|
-| 규칙셋 버전 | `2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-3cc0d52d9470` |
-| 매칭 버전 | `match-e7a6520cb324e679` |
-| 검증 | pytest 1246 통과(8개는 로컬 `jq` 부재로 건너뜀), 데이터 검증, 웹 번들 일치, 웹 parity 2,310건 불일치 0, 패키지 소스 동등성 통과 |
+| 규칙셋 버전 | `2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-da8f450a87f4` |
+| 매칭 버전 | `match-8cc4dbbcae8c00fa` |
+| 검증 | pytest 1260 통과(8개는 로컬 `jq` 부재로 건너뜀), 데이터 검증, 웹 번들 일치, 웹 parity 2,310건 불일치 0, 패키지 소스 동등성 통과 |
 
 - 후보 기간에는 탐지 범위를 넓히는 정규식ㆍ트리거를 추가하지 않는다. 라벨 없이
   넓힌 패턴은 G1 근거가 없고 라벨 대상 버전을 계속 바꾼다.
 - 허용하는 변경은 train 검토에서 확인된 오탐을 줄이는 보호 문맥 추가뿐이며, 이 경우
   새 매칭 버전을 이 표에 기록하고 라벨링 인계 대상도 함께 갱신한다.
 - 봉인 홀드아웃은 열람하지 않는다.
-- 라벨링 담당자와 일정은 아직 정해지지 않았다. 평가 운영자ㆍ도메인 검토자 배정과
-  train review 232건 착수일을 정한 뒤 이 절에 기록한다.
+- 라벨링 담당자와 일정은 아직 정해지지 않았다. 역할ㆍ배분ㆍ일정안과 결정 필요 항목은
+  [사람 라벨링 착수 계획](labeling-kickoff.md)에 있으며, 배정이 확정되면 이 절에 기록한다.
 
 참고: 릴리스 보고서 도구(`tools/build_release_report.py`)의 strict readiness 차단 항목은
 6종(`human_holdout_labels`, `private_corpus_diversity`, `current_production_deployment`,
