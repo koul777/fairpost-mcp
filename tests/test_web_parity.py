@@ -360,6 +360,10 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
         "copyDisabled": True,
         "dynamicContainersCleared": True,
     }
+    assert result["easySelection"] == {
+        "selections": [[0, 6]],
+        "toast": "공고문이 바뀌었습니다. '검토 메모 만들기'를 다시 누르면 위치가 새로 계산됩니다.",
+    }
     assert result["easyModeAssist"] == {
         "assistOnInExpert": True,
         "toggleChecked": False,

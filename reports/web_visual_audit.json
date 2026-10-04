@@ -1,8 +1,8 @@
 {
   "audit_date": "2026-10-04",
   "evidence_status": "current",
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-3cc0d52d9470",
-  "matching_version": "match-e7a6520cb324e679",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-da8f450a87f4",
+  "matching_version": "match-8cc4dbbcae8c00fa",
   "browser": {
     "name": "Chromium headless shell",
     "version": "153.0.8010.12",

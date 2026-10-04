@@ -2164,6 +2164,11 @@
     }
     const selectButton = target.closest("[data-select-start]");
     if (!selectButton) return;
+    // Offsets belong to the checked text; after an edit they point elsewhere.
+    if (latestCheckedText !== input.value) {
+      showToast("공고문이 바뀌었습니다. '검토 메모 만들기'를 다시 누르면 위치가 새로 계산됩니다.");
+      return;
+    }
     const start = Number(selectButton.dataset.selectStart);
     const end = Number(selectButton.dataset.selectEnd);
     input.focus();

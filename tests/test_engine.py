@@ -1922,6 +1922,8 @@ def test_negated_human_review_does_not_protect_the_automated_decision(
         ("연령: 만 30세 전후", "AGE-002"),
         ("우대사항\n20~30대 신입", "AGE-001"),
         ("채용제목\n20~30대 직원 모집", "AGE-001"),
+        ("지원자격\n25~35세 대상 채용", "AGE-002"),
+        ("지원자격\n30대 초반 대상 모집", "AGE-001"),
         ("우대사항\n30대 초중반", "AGE-001"),
         ("우대조건\n40대 미만", "AGE-001"),
     ],
@@ -1943,6 +1945,9 @@ def test_common_age_range_wordings_are_flagged(text: str, rule_id: str) -> None:
         "직무내용\n20~30대 고객 대상 마케팅",
         "회사소개\n20-50대의 연령층이 근무하고 있습니다",
         "회사소개\n20~40대 직원들이 함께 근무합니다",
+        "매장소개\n20~30대가 주로 이용하는 매장",
+        "직무내용\n30대 초반 고객 대상 마케팅",
+        "직무내용\n보육 대상 연령: 만 10세",
         "접수 기간: 2026. 8. 1. ~ 8. 12.\n근무시간 09:00~18:00",
         "모집인원\n1~29명",
     ],
@@ -1977,8 +1982,23 @@ def test_explicit_single_gender_recruitment_is_flagged(text: str) -> None:
         "모집분야\n봉사활동 참여 직원 모집",
         "채용정책\n여성 직원 채용 확대",
         "지원자격\n남성 지원자와 여성 지원자 모두 가능",
+        "채용제목\n남, 여 직원 모집",
+        "채용제목\n남 또는 여 직원 모집",
+        "채용제목\n남 / 여 직원 모집",
+        "채용제목\n남성 또는 여성 직원 모집",
+        "채용제목\n남성과 여성 직원 모집",
+        "채용정책\n여성 인력 채용을 확대합니다",
+        "안내\n여성 근로자 채용 장려금 안내",
+        "채용정책\n남성 직원 채용 비중 확대",
     ],
 )
 def test_inclusive_or_policy_gender_wording_is_not_sex_finding(text: str) -> None:
     result = FairpostEngine().check(text)
     assert "SEX-001" not in {item.id for item in result.findings}
+
+
+def test_inclusive_enumeration_does_not_hide_a_separate_restriction() -> None:
+    # Exclusions apply per candidate, so an explicit restriction elsewhere in
+    # the same posting is still reported.
+    result = FairpostEngine().check("채용제목\n남, 여 직원 모집\n지원자격\n남성만 가능")
+    assert "SEX-001" in {item.id for item in result.findings}

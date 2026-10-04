@@ -694,7 +694,28 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     unavailable,
   };
 
+  // Easy-mode "select in posting" uses offsets of the checked text only.
+  posting.value = "여직원 모집";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  await tick();
+  const selections = [];
+  posting.setSelectionRange = (start, end) => selections.push([start, end]);
+  const selectTarget = {
+    dataset: { selectStart: "0", selectEnd: "6" },
+    closest: (selector) => (selector === "[data-select-start]" ? selectTarget : null),
+  };
+  elements.get("easy-result").trigger("click", { target: selectTarget });
+  posting.value = "📋 여직원 모집";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("easy-result").trigger("click", { target: selectTarget });
+  const easySelection = {
+    selections,
+    toast: elements.get("toast").textContent,
+  };
+
   console.log(JSON.stringify({
+    easySelection,
     questionId,
     questionCount: result.questions.length,
     resultsTitleFocused,
