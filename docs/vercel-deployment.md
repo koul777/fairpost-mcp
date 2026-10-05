@@ -39,12 +39,42 @@ GPT는 `FAIRPOST_OPENAI_API_KEY`ㆍ`FAIRPOST_OPENAI_MODEL`, Gemini는
 공개 배포에 연결할 때는 이 인스턴스별 제한 외에 배포 접근제어와 전역 비용
 한도를 별도로 설정해야 한다.
 
-**배포 게이트:** `/api/assisted-review`에는 아직 Bearer 인증이나 출처 허용 목록이
-없다. 이 경로에 인증 또는 출처 제한을 구현하고 회귀 테스트로 확인하기 전에는 운영
-Production 환경에 AI 제공자 키를 설정하지 않는다. 2026-10-04 운영 확인 결과
-`ai_configured:false`로 키가 없어 현재 비용 노출은 없다. 키를 추가하기 전에 이 게이트,
-제공자 계정의 지출 상한, Vercel에서 실제 클라이언트 IP가 호출 제한 키로 들어오는지를
-함께 확인한다.
+**보강 실행 접근제어(실패 시 닫힘):** AI 제공자가 설정된 원격 배포에서
+`POST /api/assisted-review`는 다음 중 하나를 만족할 때만 처리하고, 아니면 403과
+이유를 반환한다.
+
+- 사내 클라이언트: `Authorization: Bearer <FAIRPOST_ASSISTED_REVIEW_TOKEN>`
+  (상수 시간 비교, `Authorization` 헤더가 정확히 하나일 때만). MCP용
+  `FAIRPOST_MCP_TOKEN`과 별도 값이다. 브라우저 코드에는 넣을 수 없으므로 웹
+  화면에서는 이 방식을 쓰지 않는다.
+- 브라우저: `FAIRPOST_ASSISTED_REVIEW_ALLOW_BROWSER=1`이고, 요청 `Origin`이
+  `FAIRPOST_ASSISTED_REVIEW_ALLOWED_ORIGINS`(쉼표 구분, 정확히 일치) 중 하나이며
+  `Sec-Fetch-Site: same-origin`일 때. 목록을 비우면 MCP 허용 출처(Vercel 기본
+  출처와 `FAIRPOST_MCP_ALLOWED_ORIGINS`)를 재사용하되 `*`가 들어간 항목은 제외한다.
+
+둘 다 설정하지 않고 AI 키만 넣으면 `GET /api/assisted-review`와 `/api/health`의
+`assisted_review`는 `ready:false`와 "보강 실행 인증이 설정되지 않았습니다" 이유를
+반환하고 POST는 거부되어 웹 스위치가 비활성화된다. 토큰만 설정한 배포는 토큰 없는
+조회에 `ready:false`를 반환해 웹 스위치를 끈다. 응답의 `access_control`에는 각
+방식의 사용 여부만 표시하며 토큰 값은 응답ㆍ로그에 남기지 않는다. 루프백 로컬 런타임
+(`python -m mcp_server.local_runtime web`)은 기존 동일 출처 검사만 적용하며 이 게이트를 쓰지 않는다.
+
+브라우저 허용은 비용 방어로는 약하다. `Origin`과 `Sec-Fetch-Site`는 정상
+브라우저가 다른 사이트에서 이 경로를 호출하지 못하게 막을 뿐이며, curl 같은
+비브라우저 클라이언트는 두 헤더를 임의로 위조할 수 있다.
+
+**배포 게이트:** 운영 Production 환경에 AI 제공자 키를 설정하기 전에 다음을 모두
+확인한다. 2026-10-04 운영 확인 결과 `ai_configured:false`로 키가 없어 현재 비용
+노출은 없다.
+
+- 위 접근제어 중 하나 이상을 설정하고 배포 후 `GET /api/assisted-review`의
+  `access_control`과 `ready`로 확인한다. 둘 다 없으면 키를 넣어도 요청은 거부된다.
+- 사내 토큰만 쓰는 경우에도 제공자 계정의 지출 상한을 설정한다.
+- 공개 브라우저 허용(`FAIRPOST_ASSISTED_REVIEW_ALLOW_BROWSER`)을 켜는 경우 헤더
+  위조로 누구나 호출할 수 있다고 가정하고, 제공자 계정의 지출 상한과 Vercel
+  Firewall의 `/api/assisted-review` 요청 제한(rate limiting) 규칙을 반드시 함께
+  설정한다. 인스턴스별 분당 제한은 서버리스 인스턴스 사이에 공유되지 않는다.
+- Vercel에서 실제 클라이언트 IP가 호출 제한 키로 들어오는지 확인한다.
 
 법령 MCP 조회 후 AI를 순차 호출하므로 Python Function의 `maxDuration`은 60초로
 설정한다. AI 호출 자체는 기본 30초에서 중단되어 함수 제한 안에 실패 응답을

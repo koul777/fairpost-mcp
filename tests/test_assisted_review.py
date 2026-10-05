@@ -466,6 +466,8 @@ def test_assisted_review_http_endpoint_requires_explicit_toggle(
         )
 
     monkeypatch.setattr(remote, "prepare_assisted_review", fake_prepare)
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_TOKEN", "fake-assist-token")
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_REQUESTS_PER_MINUTE", "1000")
 
     async def exercise() -> None:
         transport = httpx.ASGITransport(app=remote.app)
@@ -475,10 +477,12 @@ def test_assisted_review_http_endpoint_requires_explicit_toggle(
         ) as client:
             rejected = await client.post(
                 remote.ASSISTED_REVIEW_PATH,
+                headers={"Authorization": "Bearer fake-assist-token"},
                 json={"text": "여성만 지원 가능"},
             )
             accepted = await client.post(
                 remote.ASSISTED_REVIEW_PATH,
+                headers={"Authorization": "Bearer fake-assist-token"},
                 json={
                     "assist_enabled": True,
                     "ai_provider": "gemini",
