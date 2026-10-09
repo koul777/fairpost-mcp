@@ -6,17 +6,115 @@
     "확인되지 않은 항목은 해당 절차가 없다는 뜻이 아니라 이 공고문에서 발견되지 않았다는 뜻입니다.";
 
   const SECTION_ALIASES = [
-    ["개요", ["채용개요", "모집개요", "공고개요"]],
-    ["자격요건", ["자격요건", "지원자격", "응시자격", "필수요건"]],
-    ["우대사항", ["우대사항", "가점사항", "우대조건"]],
-    ["전형절차", ["전형절차", "전형방법", "선발절차", "채용절차"]],
-    ["일정", ["전형일정", "채용일정", "일정"]],
-    ["근무조건", ["근무조건", "근로조건", "보수", "급여"]],
-    ["제출서류", ["제출서류", "지원서류", "구비서류"]],
-    ["유의사항", ["유의사항", "주의사항"]],
-    ["문의처", ["문의처", "문의", "연락처"]],
-    ["기타", ["기타"]],
-  ];
+  [
+    "개요",
+    [
+      "채용개요",
+      "모집개요",
+      "공고개요",
+      "담당업무",
+      "주요업무",
+      "주요 업무",
+      "담당 업무",
+      "업무내용",
+      "What You'll Do",
+      "What You’ll Do",
+      "합류하면 함께할 업무에요",
+      "이런 일을 해요"
+    ]
+  ],
+  [
+    "자격요건",
+    [
+      "자격요건",
+      "지원자격",
+      "응시자격",
+      "필수요건",
+      "자격조건",
+      "필요지식",
+      "필요 지식 및 기술",
+      "자격조건 및 필요지식",
+      "Required Skills",
+      "이런 분과 함께하고 싶어요"
+    ]
+  ],
+  [
+    "우대사항",
+    [
+      "우대사항",
+      "우대내용",
+      "가점사항",
+      "우대조건",
+      "Preferred Skills",
+      "이런 분이면 더 좋아요!",
+      "이런 경험이 있으면 더 좋아요"
+    ]
+  ],
+  [
+    "전형절차",
+    [
+      "전형절차/방법",
+      "전형절차",
+      "전형방법",
+      "선발절차",
+      "채용절차",
+      "합류 여정",
+      "이렇게 합류해요",
+      "전형절차 및 일정",
+      "전형 절차 및 안내 사항",
+      "전형절차 및 기타사항"
+    ]
+  ],
+  [
+    "일정",
+    [
+      "전형일정",
+      "채용일정",
+      "일정", "접수기간", "모집기간", "공고기간", "접수 마감일"
+    ]
+  ],
+  [
+    "근무조건",
+    [
+      "근무조건",
+      "근로조건",
+      "보수",
+      "급여",
+      "고용형태",
+      "근무형태"
+    ]
+  ],
+  [
+    "제출서류",
+    [
+      "제출서류",
+      "지원서류",
+      "구비서류"
+    ]
+  ],
+  [
+    "유의사항",
+    [
+      "유의사항",
+      "주의사항",
+      "꼭 확인해 주세요"
+    ]
+  ],
+  [
+    "문의처",
+    [
+      "문의처",
+      "문의",
+      "연락처"
+    ]
+  ],
+  [
+    "기타",
+    [
+      "기타"
+    ]
+  ]
+];
   const MORPH_REWRITES = [
     ["않습니다", "않음"],
     ["있으신", "있는"],
@@ -233,16 +331,21 @@
     });
   }
 
+  function normalizedHeading(line) {
+    return Array.from(line).filter((ch) => !ZERO_WIDTH.has(ch)).map((ch) => ch.normalize("NFKC")).join("");
+  }
+
+  function compactHeading(value) {
+    return normalizedHeading(value).trim().replace(/^[\s#>*\-–—\d.()①-⑳\[\]■]+|[\s:：\[\]]+$/gu, "").replace(/\s+/gu, "").toLowerCase();
+  }
+
   function headingName(line) {
-    const cleaned = line
-      .trim()
-      .replace(/^[\s#>*\-–—\d.()①-⑳]+|[\s:：]+$/gu, "");
-    if (!cleaned || cleaned.length > 30) return null;
-    const compact = cleaned.replace(/\s+/gu, "");
+    const cleaned = normalizedHeading(line).trim().replace(/^[\s#>*\-–—\d.()①-⑳\[\]■]+|[\s:：\[\]]+$/gu, "");
+    if (!cleaned || Array.from(cleaned).length > 30) return null;
+    const compact = compactHeading(cleaned);
+    if (compact.endsWith("합류여정")) return "전형절차";
     for (const [canonical, aliases] of SECTION_ALIASES) {
-      if (aliases.some((alias) => compact === alias.replace(/\s+/gu, ""))) {
-        return canonical;
-      }
+      if (aliases.some((alias) => compact === compactHeading(alias))) return canonical;
     }
     return null;
   }
@@ -345,16 +448,14 @@
     const next = text.indexOf("\n", end);
     const lineEnd = next === -1 ? text.length : next;
     const boundaries = [".", "!", "?", "。", "！", "？"];
-    const sentenceStart = Math.max(
-      ...boundaries.map((mark) => text.lastIndexOf(mark, start - 1))
-    );
-    const segmentStart = sentenceStart >= lineStart ? sentenceStart + 1 : lineStart;
-    const sentenceEnds = boundaries
-      .map((mark) => text.indexOf(mark, end))
-      .filter((position) => position !== -1 && position < lineEnd);
-    const segmentEnd = sentenceEnds.length
-      ? Math.min(...sentenceEnds) + 1
-      : lineEnd;
+    const marks = [];
+    for (let i = lineStart; i < lineEnd; i += 1) {
+      if (boundaries.includes(text[i]) && !(text[i] === "." && i > 0 && (/\p{Nd}/u.test(text[i - 1]) || (/[A-Za-z0-9]/u.test(text[i - 1]) && /[A-Za-z0-9]/u.test(text[i + 1] || ""))))) marks.push(i);
+    }
+    const before = marks.filter((i) => i < start);
+    const after = marks.filter((i) => i >= end);
+    const segmentStart = before.length ? before[before.length - 1] + 1 : lineStart;
+    const segmentEnd = after.length ? after[0] + 1 : lineEnd;
     const segment = text.slice(segmentStart, segmentEnd);
     const codePoints = Array.from(segment);
     const limit = 238;
@@ -377,48 +478,172 @@
     }`;
   }
 
-  function extractSlots(text, sections, definitions) {
-    return Object.keys(definitions)
-      .sort()
-      .map((slotId) => {
-        const definition = definitions[slotId];
-        const preferred = sections.filter((section) =>
-          (definition.search_sections || []).includes(section.name)
-        );
-        const searchOrder = preferred.concat(
-          sections.filter((section) => !preferred.includes(section))
-        );
-        let match = null;
-        let matchedSection = null;
-        for (const section of searchOrder) {
-          match = findFirst(section.text, definition.accept_patterns || []);
-          if (match) {
-            matchedSection = section;
-            break;
+  const DUTY_HEADINGS = ["담당업무","주요업무","업무내용","What You'll Do","What You’ll Do","합류하면 함께할 업무에요","이런 일을 해요"];
+  const HIRING_CONTEXT = ["지원자","응시자","서류전형","면접","인터뷰","역량검사","전형절차","채용과정"];
+  const DUTY_CONTEXT = ["re:(?:알고리즘|임직원|직원|제품|서비스|고객).{0,80}(?:연구|개발|설계|운영|개선|평가)"];
+  const CONTACT_CONTEXT = ["문의","연락","인사팀","채용팀","인사부","담당 부서","전화","전자우편","re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}","re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}"];
+  const CONTACT_NON_CHANNEL = ["결과","통보","기재","등록","발송","지원서","모집"];
+  const DEFERRED_BODY = ["re:^(?:추후|차후|나중에|별도|미정|예정|상세).*(?:안내|공지|협의|예정|미정)?$"];
+  const DATE_CONTENT = ["re:\\d{1,4}[./-]\\d{1,2}","re:\\d+\\s*(?:년|월|일|시|주)","상시","수시", "채용시까지", "채용 시까지"];
+  const STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토"];
+
+  function lineBounds(text, start, end) {
+    const left = text.lastIndexOf("\n", start - 1) + 1;
+    const right = text.indexOf("\n", end);
+    return [left, right === -1 ? text.length : right];
+  }
+
+  function isDutySection(section) {
+    const first = section.text.split("\n", 1)[0];
+    return DUTY_HEADINGS.some((h) => compactHeading(h) === compactHeading(first));
+  }
+
+  function contextAllowed(slotId, line, section) {
+    if (slotId !== "qualification_rationale" && isDutySection(section)) return false;
+    if (slotId === "selection_stages" && findFirst(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"])) return false;
+    if (["ai_disclosure", "evaluation_criteria", "selection_stages"].includes(slotId)) {
+      if (["자격요건", "우대사항"].includes(section.name) && findFirst(line, ["경험", "경력", "설계", "연구", "개발", "운영"]) && !findFirst(line, ["지원자", "응시자", "채용 과정", "전형 절차", "실시", "참여", "진행"])) return false;
+      if (findFirst(line, DUTY_CONTEXT) && !findFirst(line, HIRING_CONTEXT)) return false;
+    }
+    if (slotId === "qualification_rationale" && /\.(?:pdf|hwpx?|hml|docx?|zip)\s*$/iu.test(line)) return false;
+    if (slotId === "compensation" && line.includes("유지보수") && !findFirst(line.replaceAll("유지보수", ""), ["급여", "보수", "연봉", "월급", "시급", "임금"])) return false;
+    if (slotId === "contact_point") {
+      if (findFirst(line, ["비상연락처", "본인휴대폰", "본인 연락처"])) return false;
+      if (findFirst(line, ["지원서", "입사지원", "개인정보", "인적사항", "기재", "등록"]) && !findFirst(line, ["문의", "담당 부서", "채용팀", "인사팀"])) return false;
+    }
+    if (slotId === "contact_point" && section.name !== "문의처") {
+      if (findFirst(line, CONTACT_NON_CHANNEL) && !findFirst(line, ["문의", "연락", "전화", "담당 부서"])) return false;
+      if (!findFirst(line, CONTACT_CONTEXT)) return false;
+    }
+    return true;
+  }
+
+  function candidateUnits(section, definition, slotId) {
+    const units = [];
+    for (const match of findMatches(section.text, definition.accept_patterns || [])) {
+      const [left, right] = lineBounds(section.text, match.start, match.end);
+      const line = section.text.slice(left, right);
+      let heading = headingName(line) !== null || compactHeading(line) === compactHeading(match.text);
+      if (["selection_stages", "ai_disclosure"].includes(slotId) && findFirst(line, STAGE_EVENTS)) heading = false;
+      if (slotId === "contact_point" && findFirst(line, ["re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}", "re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}"])) heading = false;
+      if (heading) {
+        if (["selection_stages", "ai_disclosure", "qualification_rationale"].includes(slotId)) continue;
+        let cursor = right + 1;
+        let end = cursor;
+        let bodyStart = cursor;
+        const bodyParts = [];
+        while (cursor < section.text.length && Array.from(section.text.slice(right, cursor)).length < 600) {
+          end = section.text.indexOf("\n", cursor);
+          if (end === -1) end = section.text.length;
+          const body = section.text.slice(cursor, end);
+          const plain = body.replace(/<[^>]+>/gu, "").trim();
+          if (plain) {
+            if (headingName(plain) || findFirst(plain, DEFERRED_BODY)) break;
+            if (!bodyParts.length) bodyStart = cursor;
+            bodyParts.push(body);
+            if (slotId !== "schedule" || bodyParts.length === 2 || !/[~～-]$/u.test(plain)) break;
           }
+          cursor = end + 1;
         }
-        const componentsFound = (definition.components || [])
-          .filter((component) => findFirst(text, component.patterns || []))
-          .map((component) => component.id)
-          .sort();
-        let evidence = null;
-        let section = null;
-        if (match && matchedSection) {
-          const start = matchedSection.start + match.start;
-          const end = matchedSection.start + match.end;
-          evidence = evidenceLine(text, start, end);
-          section = matchedSection.name;
-        }
-        return {
-          slot: slotId,
-          label: definition.label,
-          found: Boolean(match),
-          components_found: componentsFound,
-          components_total: (definition.components || []).length,
-          evidence,
-          section,
-        };
-      });
+        if (!bodyParts.length) continue;
+        const body = bodyParts.join("\n");
+        const support = [...(definition.accept_patterns || []), ...(definition.components || []).flatMap((c) => c.patterns || [])];
+        if (slotId === "schedule") support.push(...DATE_CONTENT);
+        if (!findFirst(body, support) && !(["preference_items", "evaluation_criteria"].includes(slotId) && Array.from(body.trim()).length >= 4)) continue;
+        if (!contextAllowed(slotId, body, section)) continue;
+        units.push({start:bodyStart, end, context:line + "\n" + body});
+      } else if (contextAllowed(slotId, line, section) && contextAllowed(slotId, evidenceLine(section.text, match.start, match.end), section)) {
+        units.push({start:match.start, end:match.end, context:line});
+      }
+    }
+    return units;
+  }
+
+  function componentPresent(slotId, component, contexts) {
+    return contexts.some((context) => findMatches(context, component.patterns || []).some((match) => {
+      const evidence = evidenceLine(context, match.start, match.end);
+      if (slotId === "schedule" && ["application_date", "assessment_date"].includes(component.id) && !findFirst(evidence, DATE_CONTENT)) {
+        const [left, right] = lineBounds(context, match.start, match.end);
+        const header = context.slice(left, right);
+        const body = context.slice(right + 1).split("\n")[0];
+        if (compactHeading(header) !== compactHeading(match.text) || !findFirst(body, DATE_CONTENT) || findFirst(body.trim(), DEFERRED_BODY)) return false;
+      }
+      if (slotId === "compensation" && component.id === "amount_or_range") {
+        const benefits = findMatches(context, ["re:(?:복지|지원비|지원금|포상|식대|경조|실비|숙박)[^.!?\\n]{0,40}\\d[\\d,]*(?:만)?\\s*원"]);
+        if (benefits.some((b) => b.start <= match.start && match.end <= b.end && !b.text.includes("포함"))) return false;
+      }
+      return true;
+    }));
+  }
+
+  function sourceCandidateAllowed(source, match, sections, layer) {
+    const line = evidenceLine(source, match.start, match.end);
+    const section = sections.find((s) => s.start <= match.start && match.start < s.end);
+    if (findFirst(match.text, ["출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족"])) {
+      const protective = [
+        "re:(?:수집|기재|작성)\\s*(?:금지|불가|불필요|하지|받지)",
+        "re:(?:포함|제공)\\s*하지",
+        "re:(?:기재|표현)[^.!?\\n]{0,100}(?:평가대상에서\\s*제외|부적합|탈락처리)",
+        "re:블라인드[^.!?\\n]{0,80}미준수",
+      ];
+      const localTail = Array.from(source.slice(match.end).split("\n", 1)[0].split(".", 1)[0].split(";", 1)[0].split(",", 1)[0]).slice(0, 60).join("");
+      const directRequirement = findFirst(localTail, ["re:(?:필수|요구|제출해야|제출\\s*필수)"]);
+      const indirectRequirement = findFirst(localTail, ["re:(?:수집|기재|작성|포함|제공)\\s*(?:하지|받지)\\s*(?:않는\\s*것(?:은|이|을)?\\s*(?:허용되지\\s*않|허용하지\\s*않|금지|불가)|않을\\s*수\\s*없)"]);
+      if (findFirst(line, protective) && !directRequirement && !indirectRequirement) return false;
+    }
+    if (layer === "question" && findFirst(match.text, ["면접", "인터뷰"])) {
+      if (section && isDutySection(section)) return false;
+      if (findFirst(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"])) return false;
+    }
+    if (layer === "question" && findFirst(match.text, ["북한이탈주민", "북한이탈 주민", "탈북자"])) {
+      const rowStart = source.lastIndexOf("<tr", match.start);
+      const rowEnd = source.indexOf("</tr>", match.end);
+      let tablePreference = false;
+      if (rowStart >= 0 && rowEnd >= 0 && !source.slice(rowStart, match.start).includes("</tr>") && Array.from(source.slice(rowStart, rowEnd)).length < 1800) {
+        const row = source.slice(rowStart, rowEnd).replace(/<[^>]+>/gu, "");
+        tablePreference = Boolean(findFirst(row, ["가산점", "가점", "re:만점의\\s*\\d+%", "re:점수\\s*만점의\\s*\\d+%"])) && !findFirst(row, ["지원 불가", "채용 제외", "신원조회"]);
+      }
+      const proofOnly = findFirst(line, ["등록확인서", "증명서"]) && !findFirst(line, ["지원 불가", "채용 제외", "신원조회"]);
+      if ((tablePreference || proofOnly || section?.name === "우대사항") && !findFirst(line, ["제외", "불가", "제한", "신원조회"])) return false;
+    }
+    if (layer === "question" && findFirst(match.text, ["재직 기간", "근속 기간"]) && findFirst(line, ["형법", "범한 자", "벌금형", "선고받"])) return false;
+    return true;
+  }
+
+  function candidateRank(slotId, context) {
+    const plain = context.replace(/<[^>]+>/gu, "");
+    if (slotId === "schedule") {
+      const numeric = Boolean(findFirst(context, DATE_CONTENT.slice(0, 2)));
+      const period = Boolean(findFirst(context, ["접수 기간", "공고 기간", "모집 기간"]));
+      return [(numeric && period) || findFirst(context, ["채용시까지", "채용 시까지"]) ? 2 : Number(numeric), Number(Boolean(findFirst(context, ["채용시까지", "채용 시까지", "상시모집", "상시 모집"])) )];
+    }
+    if (slotId === "selection_stages") return [Number(/[→>▶]/u.test(plain)), new Set(findMatches(plain, STAGE_EVENTS).map((m) => m.text)).size];
+    if (slotId === "contact_point") return [Number(Boolean(findFirst(context, ["문의", "담당 부서", "인사팀", "채용팀"]))), 0];
+    if (slotId === "evaluation_criteria") return [Number(Boolean(findFirst(context, ["평가 항목", "배점", "평가 기준"]))), 0];
+    return [0, 0];
+  }
+
+  function extractSlots(text, sections, definitions) {
+    return Object.keys(definitions).sort().map((slotId) => {
+      const definition = definitions[slotId];
+      const preferred = sections.filter((s) => (definition.search_sections || []).includes(s.name));
+      const searchOrder = preferred.concat(sections.filter((s) => !preferred.includes(s)));
+      const candidates = searchOrder.flatMap((section) => candidateUnits(section, definition, slotId).map((unit) => ({section, unit})));
+      const contexts = candidates.map((c) => c.unit.context);
+      const componentsFound = (definition.components || []).filter((c) => componentPresent(slotId, c, contexts)).map((c) => c.id).sort();
+      const first = candidates.reduce((best, candidate) => {
+        if (!best) return candidate;
+        const a = candidateRank(slotId, candidate.unit.context);
+        const b = candidateRank(slotId, best.unit.context);
+        return a[0] > b[0] || (a[0] === b[0] && a[1] > b[1]) ? candidate : best;
+      }, null);
+      return {
+        slot:slotId, label:definition.label, found:Boolean(first),
+        components_found:componentsFound, components_total:(definition.components || []).length,
+        evidence:first ? evidenceLine(text, first.section.start + first.unit.start, first.section.start + first.unit.end) : null,
+        section:first ? first.section.name : null,
+      };
+    });
   }
 
   function makeBasis(rule, data) {
@@ -495,7 +720,8 @@
             !isExcluded(source, candidate, trigger.exclude || []) &&
             (!trigger.section_scope ||
               sectionAt(sections, candidate.start) === trigger.section_scope) &&
-            matchesContextGroups(source, candidate, trigger)
+            matchesContextGroups(source, candidate, trigger) &&
+            sourceCandidateAllowed(source, candidate, sections, rule.layer)
         ) || null;
       if (match) fired.set(rule.id, match);
       else if (candidates.length) suppressed.add(rule.id);

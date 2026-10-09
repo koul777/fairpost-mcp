@@ -778,7 +778,154 @@ for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
     postsAdded: posts().length - comparisonPostsBefore,
   };
 
+
+  // Book companion reader flow shares answer state without duplicate controls.
+  const assert = require("node:assert/strict");
+  elements.get("mode-easy").trigger("click");
+  const readerPostsBefore = posts().length;
+  posting.value = "일반 채용공고\n지원자격: 관련 업무 경험\n서류전형과 면접";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  await tick();
+  const readerResult = window.FairpostEngine.check(posting.value);
+  const readerId = readerResult.questions[0].id;
+  const dynamicMarkup = () => ["easy-result", "findings-list", "slots-list", "questions-list"]
+    .map((id) => elements.get(id).innerHTML).join("\n");
+  const assertUniqueIds = (label) => {
+    const foundIds = [...dynamicMarkup().matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+    assert.equal(new Set(foundIds).size, foundIds.length, label);
+    readerResult.questions.forEach((question) => {
+      assert.equal(foundIds.filter((id) => id === `answer-${question.id}`).length, 1,
+        `${label}: exactly one answer for ${question.id}`);
+    });
+  };
+  assertUniqueIds("easy");
+  const easyQuestions = elements.get("questions-list").innerHTML;
+  for (const meaning of ["분배 · 기회와 요건", "절차 · 기준과 재검토", "대인 · 존중과 목소리", "정보 · 설명과 접근"]) {
+    assert.ok(easyQuestions.includes(meaning), meaning);
+  }
+  assert.equal((easyQuestions.match(/class="fairness-group"/g) || []).length, 4);
+  assert.ok(elements.get("easy-result").innerHTML.includes("AI 사용 여부와 안내 적용 여부"));
+  const readerAnswer = new FakeTextAreaElement(`answer-${readerId}`);
+  readerAnswer.dataset.questionAnswer = readerId;
+  readerAnswer.value = '근거 확인 <img src=x onerror=alert(1)>';
+  elements.get("result-content").trigger("input", { target: readerAnswer });
+  for (const [id, value] of [
+    ["human-review-evidence", "직무기술서와 공고 요건 대조"],
+    ["human-review-reason", "경력 조건 수정 이유"],
+    ["human-review-next", "인사 담당자 · 운영 여부 확인 · 10월 12일"],
+  ]) {
+    elements.get(id).value = value;
+    elements.get(id).trigger("input");
+  }
+  elements.get("mode-expert").trigger("click");
+  assertUniqueIds("expert");
+  const expertQuestions = dynamicMarkup();
+  assert.ok(expertQuestions.includes("&lt;img src=x onerror=alert(1)&gt;"));
+  elements.get("mode-easy").trigger("click");
+  assertUniqueIds("easy after mode roundtrip");
+  assert.ok(elements.get("questions-list").innerHTML.includes("&lt;img src=x onerror=alert(1)&gt;"));
+  assert.equal(elements.get("human-review-reason").value, "경력 조건 수정 이유");
+  await elements.get("copy-button").trigger("click");
+  const recordMemo = copied;
+  assert.ok(recordMemo.includes("[현재 공고 검토 기록 — 자기 기록]"));
+  assert.ok(recordMemo.includes("인사 담당자 · 운영 여부 확인 · 10월 12일"));
+  assert.ok(recordMemo.includes(readerAnswer.value));
+  assert.ok(recordMemo.includes("입력은 실제 절차의 검증 완료나 공정성 보증을 뜻하지 않습니다."));
+  elements.get("check-button").trigger("click");
+  assert.ok(elements.get("questions-list").innerHTML.includes("&lt;img src=x onerror=alert(1)&gt;"));
+  assert.equal(elements.get("human-review-reason").value, "경력 조건 수정 이유");
+  // Draft records must never be persisted by the default review.
+  assert.ok(![...localReviewValues.values()].some((value) => value.includes("경력 조건 수정 이유")));
+  const memoBeforeEdit = copied;
+  posting.value += "\n요건을 보완한 공고";
+  posting.dispatchEvent(new Event("input"));
+  assert.equal(elements.get("human-review-reason").disabled, true);
+  assert.equal(elements.get("copy-button").disabled, true);
+  assert.ok(elements.get("human-review-status").textContent.includes("수정 전 공고 기준"));
+  readerAnswer.value = "stale answer must not replace the prior answer";
+  elements.get("result-content").trigger("input", { target: readerAnswer });
+  elements.get("human-review-reason").value = "stale record must not replace the prior record";
+  elements.get("human-review-reason").trigger("input");
+  await elements.get("copy-button").trigger("click");
+  assert.equal(copied, memoBeforeEdit);
+  elements.get("check-button").trigger("click");
+  await tick();
+  assert.equal(elements.get("human-review-reason").value, "");
+  assert.equal(elements.get("human-review-reason").disabled, false);
+  assert.equal(elements.get("previous-review-records").hidden, false);
+  const previousMarkup = elements.get("previous-review-records-content").innerHTML;
+  assert.ok(previousMarkup.includes("현재 공고에 자동 적용되지 않음"));
+  assert.ok(previousMarkup.includes("&lt;img src=x onerror=alert(1)&gt;"));
+  assert.ok(previousMarkup.includes("경력 조건 수정 이유"));
+  assert.ok(!previousMarkup.includes("stale answer"));
+  assert.ok(!previousMarkup.includes("<img"));
+  await elements.get("copy-button").trigger("click");
+  const afterEditMemo = copied;
+  assert.ok(!afterEditMemo.includes("[현재 공고 검토 기록 — 자기 기록]"));
+  assert.ok(afterEditMemo.includes("[수정 전 검토 기록 — 현재 공고에 자동 적용되지 않음]"));
+  assert.ok(!afterEditMemo.includes("stale record"));
+  assert.ok(!afterEditMemo.includes("담당자 답변: 근거 확인"));
+  elements.get("mode-expert").trigger("click");
+  elements.get("mode-easy").trigger("click");
+  assert.equal(elements.get("previous-review-records-content").innerHTML, previousMarkup);
+  const rulesBeforeReaderTest = window.FAIRPOST_DATA.version;
+  readerAnswer.value = "버전 변경 전 답변";
+  elements.get("result-content").trigger("input", { target: readerAnswer });
+  window.FAIRPOST_DATA.version += "-reader-change";
+  elements.get("check-button").trigger("click");
+  assert.ok(!elements.get("questions-list").innerHTML.includes("버전 변경 전 답변"));
+  assert.ok(elements.get("previous-review-records-content").innerHTML.includes("버전 변경 전 답변"));
+  window.FAIRPOST_DATA.version = rulesBeforeReaderTest;
+  const postsDuringReader = posts().length - readerPostsBefore;
+  assert.equal(postsDuringReader, 0);
+
+  // Only reviews with content consume the bounded archive; oldest drafts are evicted.
+  for (let index = 0; index < 12; index += 1) {
+    elements.get("human-review-evidence").value = `retained-review-${index}-END`;
+    elements.get("human-review-evidence").trigger("input");
+    posting.value += `\n수정 ${index}`;
+    posting.dispatchEvent(new Event("input"));
+    elements.get("check-button").trigger("click");
+  }
+  const boundedMarkup = elements.get("previous-review-records-content").innerHTML;
+  assert.equal((boundedMarkup.match(/class="previous-record"/g) || []).length, 10);
+  assert.ok(!boundedMarkup.includes("retained-review-0-END"));
+  assert.ok(!boundedMarkup.includes("retained-review-1-END"));
+  assert.ok(boundedMarkup.includes("retained-review-2-END"));
+  assert.ok(boundedMarkup.includes("retained-review-11-END"));
+
+  elements.get("sample-button").trigger("click");
+  assert.equal(elements.get("previous-review-records").hidden, true);
+  assert.equal(elements.get("human-review-evidence").value, "");
+  elements.get("check-button").trigger("click");
+  assert.equal(elements.get("previous-review-records").hidden, true);
+  const sampleQuestionMarkup = elements.get("questions-list").innerHTML;
+  posting.value = "AI 면접으로 최종 결정";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  const aiQuestions = elements.get("questions-list").innerHTML;
+  assert.ok(aiQuestions.includes("Q-PROC-004"));
+  assert.ok(aiQuestions.includes("자료 위치: 제6장 결론"));
+  assert.ok(aiQuestions.includes("책 관점 연결: 3부 3-1"));
+  assert.ok(aiQuestions.includes("문맥·직접 근거·조직 적용 범위"));
+  assert.ok(sampleQuestionMarkup.includes('class="fairness-group"'));
+  // Static HTML must expose reader sections while keeping deployment secondary.
+  const webHtml = fs.readFileSync(path.join(root, "web/index.html"), "utf8");
+  assert.ok(webHtml.includes('class="result-block shared-questions"'));
+  assert.ok(webHtml.includes('class="review-progress-strip"'));
+  assert.ok(webHtml.includes("새로고침·지우기·예시 입력으로 없어"));
+  assert.ok(webHtml.includes("기록이 있는 검토를 최근 최대 10회"));
+  assert.ok(webHtml.includes("더 오래된 기록은 제거"));
+  assert.ok(!webHtml.slice(webHtml.indexOf("<header"), webHtml.indexOf("</header>")).includes("vercel"));
+  assert.ok(webHtml.slice(webHtml.indexOf("<footer")).includes("https://vercel.com/new/clone"));
+  const readerFlow = { defaultExternalPosts: postsDuringReader, easyQuestionsAccessible: true,
+    uniqueAnswerIds: true, modeRoundtripPreserved: true, sameInputRecheckPreserved: true,
+    staleCopyBlocked: true, priorRecordsSeparated: true, escapedPriorRecords: true,
+    recordMemo, afterEditMemo };
+
   console.log(JSON.stringify({
+    readerFlow,
     comparisonFlow,
     easySelection,
     questionId,

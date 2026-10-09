@@ -1762,3 +1762,127 @@ body[data-mode="easy"] .editor-pane {
     grid-template-columns: 1fr;
   }
 }
+
+/* Reader review flow: short summaries, shared answers and explicit local drafts. */
+.skip-link {
+  position: absolute;
+  z-index: 20;
+  top: 8px;
+  left: 8px;
+  padding: 12px;
+  transform: translateY(-160%);
+  background: var(--panel);
+  color: var(--ink);
+}
+.skip-link:focus { transform: translateY(0); }
+.organization-options > summary,
+.review-scope > summary,
+.role-review-disclosure > summary,
+.integration-details > summary,
+.easy-source-detail > summary,
+.easy-guidance-detail > summary,
+.question-context-detail > summary {
+  min-height: 44px;
+  padding: 12px 16px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.organization-options { border-bottom: 1px solid var(--line); }
+.organization-options > summary small,
+.role-review-disclosure > summary small { color: var(--muted); }
+body[data-mode="easy"] .editor-pane,
+.editor-pane { grid-template-rows: auto; }
+body[data-mode="easy"] .editor-pane { min-height: auto; }
+.review-scope > summary { font-size: 12px; color: var(--muted); }
+.review-boundary { line-height: 1.6; }
+body[data-mode="easy"] .review-boundary {
+  margin: 0;
+  padding: 8px 16px;
+  border: 0;
+  font-size: 12px;
+}
+.review-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.review-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 13px;
+  text-decoration: none;
+}
+.review-nav a:hover { background: var(--soft); }
+.easy-source-detail { margin: 12px 0; border: 1px solid var(--line); border-radius: 6px; }
+.easy-source-detail .easy-posting { margin: 0; border: 0; }
+.easy-guidance-detail .easy-missing { padding-top: 8px; }
+.easy-missing li small { display: block; margin-top: 4px; color: var(--muted); font-weight: 400; font-size: 12px; line-height: 1.6; }
+.shared-questions { padding-bottom: 12px; }
+.fairness-group { border: 1px solid var(--line); border-radius: 6px; margin-bottom: 8px; background: var(--panel); }
+.fairness-group > summary { padding: 12px 14px; cursor: pointer; min-height: 44px; line-height: 1.5; }
+.fairness-group > summary strong { font-size: 14px; }
+.fairness-group > summary span { color: var(--muted); font-size: 12px; margin-left: 8px; }
+.fairness-group > summary small { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.fairness-question-list { display: grid; gap: 10px; padding: 0 10px 12px; }
+.question-item { scroll-margin-top: 16px; }
+.question-item:focus-visible { outline: 3px solid #1d5c80; outline-offset: 2px; }
+.question-context-detail { margin-top: 8px; background: var(--soft); border-radius: 4px; }
+.question-context-detail > summary { padding: 8px; }
+.question-context-detail > p { margin-left: 8px; margin-right: 8px; padding-bottom: 8px; }
+.review-answer-detail summary,
+.question-detail summary { min-height: 44px; font-size: 13px; }
+.review-answer-content label { font-size: 13px; }
+.review-answer-content textarea { font-size: 16px; }
+.human-review-panel { margin: 12px 16px 16px; padding: 16px; background: var(--soft); border: 1px solid var(--line); border-radius: 6px; }
+.human-review-panel h3 { margin: 0 0 8px; font-size: 16px; }
+.human-review-panel label { display: block; font-size: 14px; font-weight: 700; margin: 12px 0 6px; }
+.human-review-panel textarea { width: 100%; min-height: 72px; padding: 10px; border: 1px solid #aebdb5; border-radius: 5px; color: var(--ink); background: var(--panel); font: inherit; font-size: 16px; line-height: 1.6; resize: vertical; }
+.human-review-panel textarea:disabled,
+.review-answer-content textarea:disabled { background: #edf1ee; color: var(--muted); }
+.record-storage,
+.record-status,
+.previous-record p { font-size: 12px; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; }
+.record-status { border-left: 3px solid var(--blue); padding-left: 10px; }
+.previous-review-records > summary { min-height: 44px; padding: 10px 0; cursor: pointer; font-size: 13px; line-height: 1.6; }
+.previous-review-records > summary small { display: block; color: var(--muted); }
+.previous-record { padding-top: 8px; border-top: 1px solid var(--line); }
+.previous-record h4 { font-size: 14px; line-height: 1.6; }
+.previous-record pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 13px; line-height: 1.6; }
+.role-review-disclosure { margin: 12px 16px; border: 1px solid var(--line); border-radius: 6px; }
+.role-review-disclosure .role-review-panel { margin: 0; border: 0; }
+.integration-details { max-width: 480px; }
+.integration-details p { line-height: 1.6; }
+.app-footer { flex-wrap: wrap; padding-top: 12px; padding-bottom: 12px; }
+.slot-ai-note { font-size: 12px; line-height: 1.6; color: var(--muted); }
+.comparison-removed { border-left-color: var(--muted); }
+.mode-option,
+.button,
+.icon-button,
+.role-review-panel select,
+.role-review-panel input,
+.organization-profile select { min-height: 44px; }
+.icon-button { width: 44px; }
+.review-progress-strip { background: var(--soft); border-color: var(--line); }
+.review-progress-strip strong { color: var(--ink); }
+@media (max-width: 1100px) {
+  #posting-input { min-height: 220px; height: 260px; resize: vertical; font-size: 16px; }
+  .empty-state { min-height: 260px; }
+}
+@media (max-width: 600px) {
+  .human-review-panel { margin: 12px; padding: 12px; }
+  .role-review-disclosure { margin: 12px; }
+  .fairness-group > summary span { display: block; margin: 4px 0 0; }
+  .review-nav a { flex: 1 1 auto; justify-content: center; }
+  .integration-details { max-width: 100%; }
+}
+
+/* Evidence stays readable while long posting details remain expandable. */
+.easy-found { list-style: none; padding: 0; margin: 1rem 0 0; }
+.easy-found li + li { margin-top: 1rem; }
+.easy-found blockquote { margin: .4rem 0 0; padding-left: .8rem; border-left: 3px solid var(--line, #d9e3dd); overflow-wrap: anywhere; line-height: 1.65; }
+.easy-slot-follow-up { padding: 1rem; border: 1px solid #b8cfc1; border-radius: 12px; background: #f1f6f3; color: #234738; line-height: 1.7; }
+
+.input-scope-hint { margin: 0; padding: 10px 20px; color: #465c55; font-size: 0.82rem; line-height: 1.6; border-bottom: 1px solid #dce4df; }

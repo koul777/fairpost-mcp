@@ -65,6 +65,15 @@ LABELED_NAME_RE = re.compile(
 
 
 class ContentParser(HTMLParser):
+    """Extract selected body elements without drifting into the surrounding page."""
+
+    _VOID_TAGS = frozenset({
+        "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+        "meta", "param", "source", "track", "wbr",
+    })
+    _IGNORED_TAGS = frozenset({"script", "style", "template", "noscript"})
+    _BREAK_TAGS = frozenset({"br", "p", "tr", "li", "h3", "h4"})
+
     def __init__(
         self,
         *,
@@ -74,58 +83,68 @@ class ContentParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.target_classes = target_classes or set()
         self.textarea_id = textarea_id
-        self.capture_depth = 0
-        self.textarea_depth = 0
+        # Frames hold inherited capture/suppression state. Void elements never
+        # push a frame; an unmatched closing tag cannot consume a body boundary.
+        self._stack: list[tuple[str, bool, bool]] = []
         self.parts: list[str] = []
         self.h2_values: list[str] = []
-        self._heading_depth = 0
+        self._heading_depth: int | None = None
         self._heading_parts: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = {key: value or "" for key, value in attrs}
         classes = set(values.get("class", "").split())
-        if self.capture_depth:
-            self.capture_depth += 1
-        elif tag == "div" and classes.intersection(self.target_classes):
-            self.capture_depth = 1
-        if self.textarea_depth:
-            self.textarea_depth += 1
-        elif tag == "textarea" and values.get("id") == self.textarea_id:
-            self.textarea_depth = 1
-        if tag == "h2":
-            self._heading_depth = 1
-            self._heading_parts = []
-        elif self._heading_depth:
-            self._heading_depth += 1
-        if (self.capture_depth or self.textarea_depth) and tag in {
-            "br",
-            "p",
-            "tr",
-            "li",
-            "h3",
-            "h4",
-        }:
+        parent_capture = self._stack[-1][1] if self._stack else False
+        parent_ignored = self._stack[-1][2] if self._stack else False
+        ignored = parent_ignored or tag in self._IGNORED_TAGS
+        capture = parent_capture or (
+            tag == "div" and bool(classes.intersection(self.target_classes))
+        ) or (
+            tag == "textarea"
+            and self.textarea_id is not None
+            and values.get("id") == self.textarea_id
+        )
+        if tag not in self._VOID_TAGS:
+            self._stack.append((tag, capture, ignored))
+            if tag == "h2" and not ignored:
+                self._heading_depth = len(self._stack)
+                self._heading_parts = []
+        if capture and not ignored and tag in self._BREAK_TAGS:
             self.parts.append("\n")
 
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+        if tag not in self._VOID_TAGS:
+            self.handle_endtag(tag)
+
     def handle_endtag(self, tag: str) -> None:
-        if self.capture_depth:
-            self.capture_depth -= 1
-        if self.textarea_depth:
-            self.textarea_depth -= 1
-        if self._heading_depth:
-            self._heading_depth -= 1
-            if self._heading_depth == 0:
-                value = " ".join(self._heading_parts).strip()
-                if value:
-                    self.h2_values.append(value)
+        if tag in self._VOID_TAGS:
+            return
+        index = next(
+            (i for i in range(len(self._stack) - 1, -1, -1)
+             if self._stack[i][0] == tag),
+            None,
+        )
+        if index is None:
+            return
+        if self._heading_depth is not None and index < self._heading_depth:
+            value = " ".join(self._heading_parts).strip()
+            if value:
+                self.h2_values.append(value)
+            self._heading_depth = None
+            self._heading_parts = []
+        del self._stack[index:]
 
     def handle_data(self, data: str) -> None:
-        if self.capture_depth or self.textarea_depth:
-            value = data.strip()
-            if value:
-                self.parts.extend((value, "\n"))
-        if self._heading_depth and data.strip():
-            self._heading_parts.append(data.strip())
+        if not self._stack or self._stack[-1][2]:
+            return
+        value = data.strip()
+        if not value:
+            return
+        if self._stack[-1][1]:
+            self.parts.extend((value, "\n"))
+        if self._heading_depth is not None:
+            self._heading_parts.append(value)
 
     def text(self) -> str:
         value = "".join(self.parts)

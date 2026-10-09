@@ -129,6 +129,23 @@
   const modeEasyButton = document.getElementById("mode-easy");
   const modeExpertButton = document.getElementById("mode-expert");
   const easyResult = document.getElementById("easy-result");
+  const humanRecordFields = new Map([
+    ["evidence", document.getElementById("human-review-evidence")],
+    ["reason", document.getElementById("human-review-reason")],
+    ["next", document.getElementById("human-review-next")],
+  ]);
+  const humanRecordStatus = document.getElementById("human-review-status");
+  const previousRecordsPanel = document.getElementById("previous-review-records");
+  const previousRecordsContent = document.getElementById("previous-review-records-content");
+  const FAIRNESS_PERSPECTIVES = Object.freeze([
+    { dimension: "분배", key: "distribution", title: "기회와 요건", meaning: "지원 기회와 자격·우대 요건이 직무에 맞는지 살펴봅니다." },
+    { dimension: "절차", key: "procedure", title: "기준과 재검토", meaning: "기준과 진행 절차가 설명되고, 이의를 말할 통로가 있는지 살펴봅니다." },
+    { dimension: "대인", key: "interpersonal", title: "존중과 목소리", meaning: "지원자를 존중하는 표현과 사람에게 이야기할 통로를 살펴봅니다." },
+    { dimension: "정보", key: "information", title: "설명과 접근", meaning: "지원자가 필요한 정보와 이유를 이해하고 물을 수 있는지 살펴봅니다." },
+  ]);
+  const HUMAN_RECORD_LABELS = Object.freeze({ evidence: "확인한 사실·근거", reason: "수정 여부와 이유", next: "남은 확인사항·담당자·다음 행동" });
+  let humanReviewRecord = { evidence: "", reason: "", next: "" };
+  let previousReviewRecords = [];
   const VIEW_MODE_STORAGE_KEY = "fairpost.view-mode.v1";
   const VIEW_MODES = new Set(["easy", "expert"]);
   const SLOT_EMBEDDED_QUESTION_ALLOWLIST = new Set(
@@ -1106,6 +1123,13 @@
         button.setAttribute("aria-pressed", String(pressed));
       }
     });
+    if (latestResult) {
+      // Only the active presentation creates answer controls. Both modes use
+      // the same in-memory Map; hidden surfaces must never duplicate IDs.
+      renderSlots(latestResult.slots, latestResult.questions);
+      renderQuestions(latestResult.questions);
+      updateHumanReviewState();
+    }
     if (!persist) return;
     const storage = roleReviewStorage();
     if (!storage) return;
@@ -1137,13 +1161,70 @@
     return markup + escapeHtml(codePoints.slice(cursor).join(""));
   }
 
+  function humanRecordHasContent(record) {
+    return Object.values(record).some((value) => value.trim());
+  }
+
+  function archiveCurrentHumanReview() {
+    const answers = latestResult.questions
+      .filter((question) => (reviewAnswers.get(question.id) || "").trim())
+      .map((question) => ({ id: question.id, question: question.question, answer: reviewAnswers.get(question.id) }));
+    if (!answers.length && !humanRecordHasContent(humanReviewRecord)) return;
+    // No posting text or fingerprint is kept with these session-only drafts.
+    previousReviewRecords.push({
+      at: new Date().toISOString(),
+      ruleset: latestResult.ruleset_version,
+      record: { ...humanReviewRecord },
+      answers,
+    });
+    previousReviewRecords = previousReviewRecords.slice(-10);
+  }
+
+  function updateHumanReviewState() {
+    const stale = Boolean(latestResult) && latestCheckedText !== input.value;
+    humanRecordFields.forEach((field) => { field.disabled = !latestResult || stale; });
+    if (typeof resultContent.querySelectorAll === "function") {
+      resultContent.querySelectorAll("[data-question-answer]").forEach((field) => { field.disabled = stale; });
+    }
+    humanRecordStatus.textContent = stale
+      ? "공고문이 바뀌었습니다. 아래 답변과 기록은 수정 전 공고 기준입니다. 다시 검토한 뒤 현재 답변을 남기세요. 메모 복사는 재검토 뒤 가능합니다."
+      : "현재 검토에 연결된 자기 기록입니다. 입력만으로 검증 완료를 뜻하지 않습니다.";
+  }
+
+  function renderPreviousHumanReviews() {
+    previousRecordsPanel.hidden = !previousReviewRecords.length;
+    previousRecordsContent.innerHTML = previousReviewRecords.map((entry, index) => `<article class="previous-record">
+      <h4>수정 전 기록 ${index + 1} · 현재 공고에 자동 적용되지 않음</h4>
+      <p>${escapeHtml(entry.at)} · 검토 기준 ${escapeHtml(entry.ruleset)}</p>
+      ${Object.entries(entry.record).filter(([, value]) => value.trim()).map(([key, value]) => `<p><strong>${HUMAN_RECORD_LABELS[key]}</strong></p><pre>${escapeHtml(value)}</pre>`).join("")}
+      ${entry.answers.map((answer) => `<p><strong>${escapeHtml(answer.id)}</strong> ${escapeHtml(answer.question)}</p><pre>${escapeHtml(answer.answer)}</pre>`).join("")}
+    </article>`).join("");
+  }
+
+  function slotFollowUp(slot) {
+    if (!slot.found) return "";
+    const components = slot.components_found || [];
+    if (slot.slot === "compensation" && !components.includes("amount_or_range")) {
+      return "보수 관련 문구는 있지만 금액·범위 또는 산정 기준은 확인되지 않았습니다. 수습 급여 비율과 기본 보수를 구분해, 지원자가 확인할 금액이나 기준을 안내하세요.";
+    }
+    if (slot.slot === "result_notice") {
+      const missing = [];
+      if (!components.includes("notice_time")) missing.push("통지 시점");
+      if (!components.includes("notice_audience")) missing.push("통지 대상");
+      if (missing.length) return "결과 안내 문구는 찾았습니다. 이번 검사에서 구체적으로 찾지 못한 " + missing.join("·") + "이 원문에 있는지 확인하고, 부족한 내용만 보완하세요.";
+    }
+    if (slot.slot === "schedule" && !components.includes("application_date") && !components.includes("assessment_date")) {
+      return "일정 관련 문구는 찾았지만 구체적인 접수·전형 날짜는 검출되지 않았습니다. 별도 안내하는 일정이라면 안내 채널과 예정 시점을 확인하세요.";
+    }
+    return "";
+  }
+
   function renderEasy(result, text) {
     const orderedFindings = [...result.findings].sort(
       (left, right) =>
         left.offset[0] - right.offset[0] || left.offset[1] - right.offset[1]
     );
     const missing = result.slots.filter((slot) => !slot.found);
-    const questionCount = result.questions.length;
     const headline = orderedFindings.length
       ? `다시 살펴볼 표현 <strong>${orderedFindings.length}개</strong>, 공고문에서 찾지 못한 안내 <strong>${missing.length}개</strong>가 있습니다.`
       : missing.length
@@ -1175,31 +1256,42 @@
       ? `<section class="easy-section" aria-labelledby="easy-findings-heading">
           <h3 id="easy-findings-heading">1. 다시 살펴볼 표현</h3>
           <p class="easy-hint">노란색 표시는 법 조항과 함께 다시 볼 만한 표현입니다. 고쳐야 한다는 판정이 아니라, 직무에 꼭 필요한 조건인지 확인해 보라는 뜻입니다.</p>
-          <pre class="easy-posting" tabindex="0" role="region" aria-label="표시된 공고문">${highlightedPosting(text, orderedFindings)}</pre>
+          <details class="easy-source-detail"><summary>표시된 공고문 펼치기</summary><pre class="easy-posting" tabindex="0" role="region" aria-label="표시된 공고문">${highlightedPosting(text, orderedFindings)}</pre></details>
           <ol class="easy-findings">${findingCards}</ol>
         </section>`
       : "";
     const missingSection = missing.length
       ? `<section class="easy-section" aria-labelledby="easy-missing-heading">
-          <h3 id="easy-missing-heading">${orderedFindings.length ? "2" : "1"}. 공고문에 추가하면 좋은 안내</h3>
+          <h3 id="easy-missing-heading">${orderedFindings.length ? "2" : "1"}. 공고문에서 찾지 못한 안내</h3>
           <p class="easy-hint">공고문에서 아래 안내를 찾지 못했습니다. 절차가 없다는 뜻이 아니므로, 실제로 운영 중이면 공고문에 적어 주세요.</p>
-          <ul class="easy-missing">${missing
-            .map((slot) => `<li>${escapeHtml(slot.label)}</li>`)
-            .join("")}</ul>
+          <details class="easy-guidance-detail"><summary>안내 ${missing.length}개와 적용 여부 확인</summary><ul class="easy-missing">${missing
+            .map((slot) => `<li>${escapeHtml(slot.label)}${slot.slot === "ai_disclosure" ? '<small>공고에 AI 언급이 없다고 실제 사용 여부를 알 수 없습니다. 담당자가 AI 사용 여부와 안내 적용 여부를 확인하세요.</small>' : ""}</li>`)
+            .join("")}</ul></details>
         </section>`
-      : `<section class="easy-section"><p class="easy-hint">점검하는 안내 항목 ${result.slots.length}개를 공고문에서 모두 찾았습니다.</p></section>`;
-    const expertPointer = questionCount
-      ? `<div class="easy-expert-pointer">
-          <span>담당자가 함께 확인할 질문 ${questionCount}개와 법 조항 원문은 전문가 모드에 있습니다.</span>
-          <button type="button" class="button button-secondary" data-switch-mode="expert">전문가 모드로 보기</button>
-        </div>`
-      : "";
+      : `<section class="easy-section" aria-labelledby="easy-missing-heading"><h3 id="easy-missing-heading">공고문 안내 확인</h3><p class="easy-hint">점검하는 안내 항목 ${result.slots.length}개를 공고문에서 모두 찾았습니다.</p></section>`;
+    const found = result.slots.filter((slot) => slot.found);
+    const followUps = found.map(slotFollowUp).filter(Boolean);
+    const foundSection = found.length
+      ? '<section class="easy-section" aria-labelledby="easy-found-heading">' +
+        '<h3 id="easy-found-heading">찾은 안내와 남은 확인</h3>' +
+        '<p class="easy-hint">관련 문구를 찾았다는 뜻입니다. 내용의 충분성이나 실제 운영까지 확인한 것은 아닙니다.</p>' +
+        followUps.map((note) => '<p class="easy-slot-follow-up">' + escapeHtml(note) + '</p>').join('') +
+        '<details class="easy-guidance-detail"><summary>찾은 안내 ' + found.length + '개와 원문 근거 보기</summary>' +
+        '<ul class="easy-found">' + found.map((slot) => '<li><strong>' + escapeHtml(slot.label) +
+          '</strong><blockquote>' + escapeHtml(slot.evidence || '원문 위치를 직접 확인해 주세요.') +
+          '</blockquote></li>').join('') + '</ul></details></section>'
+      : '';
     easyResult.innerHTML = `
+      <nav class="review-nav" aria-label="검토 항목으로 이동">
+        ${orderedFindings.length ? '<a href="#easy-findings-heading">표현</a>' : ""}
+        <a href="#easy-missing-heading">안내</a><a href="#questions-heading">네 관점 질문</a><a href="#human-review-heading">검토 기록</a>
+      </nav>
       <p class="easy-headline">${headline}</p>
       ${findingsSection}
       ${missingSection}
+      ${foundSection}
       <p class="easy-hint easy-rerun">공고문을 고친 뒤 '검토 메모 만들기'를 다시 누르면 결과가 새로 나옵니다.</p>
-      ${expertPointer}
+
     `;
   }
 
@@ -1684,6 +1776,11 @@
     roleReviewProgress.textContent = `자기 기록 역할 0/7 · 이벤트 0개 (${ROLE_REVIEW_SELF_REPORT})`;
     roleReviewMissing.textContent = "";
     reviewAnswers.clear();
+    humanReviewRecord = { evidence: "", reason: "", next: "" };
+    previousReviewRecords = [];
+    humanRecordFields.forEach((field) => { field.value = ""; });
+    renderPreviousHumanReviews();
+    updateHumanReviewState();
     ["findings-list", "slots-list", "questions-list"].forEach((id) =>
       document.getElementById(id).replaceChildren()
     );
@@ -1742,7 +1839,7 @@
     const container = document.getElementById("slots-list");
     if (!missing.length) {
       container.innerHTML =
-        '<div class="none-item">11개 안내 항목이 공고문에서 모두 확인되었습니다.</div>';
+        '<div class="none-item">11개 안내 항목의 관련 문구를 찾았습니다. 내용의 충분성과 실제 운영은 별도 확인이 필요합니다.</div>';
       return;
     }
     const questionsById = new Map(
@@ -1751,7 +1848,7 @@
     container.innerHTML = missing
       .map((slot) => {
         const question = questionsById.get(SLOT_QUESTION_IDS[slot.slot]);
-        const questionDetail = question
+        const questionDetail = question && appBody.dataset.mode === "expert"
           ? `<details class="slot-question-detail">
               <summary aria-label="${escapeHtml(slot.label)} 관련 확인 질문 보기">확인 질문 보기</summary>
               <div class="slot-question-content">${questionCard(question)}</div>
@@ -1760,6 +1857,7 @@
         return `<div class="slot-item">
           <strong>${escapeHtml(slot.label)}</strong>
           <span>공고문에서 확인되지 않았습니다</span>
+          ${slot.slot === "ai_disclosure" ? '<p class="slot-ai-note">담당자가 실제 AI 사용 여부와 안내 적용 여부를 확인하세요. 미탐지는 AI 사용의 증거가 아닙니다.</p>' : ""}
           ${questionDetail}
         </div>`;
       })
@@ -1823,27 +1921,30 @@
           .join(" · ")}</span>`
       : "";
     const answer = reviewAnswers.get(question.id) || "";
-    return `<article class="question-item">
+    return `<article id="question-${escapeHtml(question.id)}" class="question-item" tabindex="-1">
       <div class="item-main">
         <div class="item-meta">
           <span class="id-tag">${escapeHtml(question.id)}</span>
           <span class="dimension-tag">${escapeHtml(question.dimension)}</span>
           <span class="scope-tag">${scopeLabel}</span>
           ${linkTag}
-          <span>${escapeHtml(question.book_ref)}</span>
+          <span>${/^[1-4]부\s/.test(question.book_ref || "") ? "책 관점 연결" : "자료 위치"}: ${escapeHtml(question.book_ref || "")}</span>
         </div>
         <p class="item-title">${escapeHtml(question.question)}</p>
+        <details class="question-context-detail">
+          <summary>문맥·직접 근거·조직 적용 범위 보기</summary>
         ${evidence}
         ${reference}
         <p class="organization-context"><span class="applicability-tag">${escapeHtml(organization.applicability)}</span><br><strong>${escapeHtml(organization.label)}</strong><br>${escapeHtml(organization.note)}${organizationReferences ? `<br>${organizationReferences}` : ""}</p>
+        </details>
       </div>
       ${detail}
       <details class="review-answer-detail">
         <summary>담당자 답변 남기기</summary>
         <div class="review-answer-content">
           <label for="${escapeHtml(answerId)}">${escapeHtml(question.id)} 사람 검토 답변</label>
-          <textarea id="${escapeHtml(answerId)}" data-question-answer="${escapeHtml(question.id)}" rows="3" placeholder="근거를 확인한 뒤 수정 여부, 확인한 사실, 후속 조치를 기록하세요.">${escapeHtml(answer)}</textarea>
-          <small>이 답변은 현재 분석 메모리에만 보관되며 서버나 브라우저 저장소로 전송·저장되지 않습니다.</small>
+          <textarea id="${escapeHtml(answerId)}" data-question-answer="${escapeHtml(question.id)}" rows="3" maxlength="4000" aria-describedby="human-review-storage human-review-status" placeholder="근거를 확인한 뒤 수정 여부, 확인한 사실, 후속 조치를 기록하세요.">${escapeHtml(answer)}</textarea>
+          <small>이 답변은 이 탭의 메모리에만 보관되며 서버나 브라우저 저장소로 전송·저장되지 않습니다. 새로고침·지우기·예시 입력으로 없어집니다.</small>
         </div>
       </details>
     </article>`;
@@ -1851,6 +1952,21 @@
 
   function renderQuestions(questions) {
     const container = document.getElementById("questions-list");
+    if (appBody.dataset.mode === "easy") {
+      container.innerHTML = FAIRNESS_PERSPECTIVES.map((perspective) => {
+        const group = questions.filter((question) => question.dimension === perspective.dimension);
+        const posting = group.filter((question) => question.review_scope !== "common");
+        const common = group.filter((question) => question.review_scope === "common");
+        return `<details class="fairness-group" data-perspective="${perspective.key}">
+          <summary><strong>${perspective.dimension} · ${perspective.title}</strong><span>질문 ${group.length}개</span><small>${perspective.meaning}</small></summary>
+          <div class="fairness-question-list">
+            ${posting.length ? posting.map(questionCard).join("") : '<p class="easy-hint">이 관점에서 현재 규칙에 연결된 공고별 질문이 없습니다. 실제 운영의 확인은 담당자의 몫입니다.</p>'}
+            ${common.length ? `<details class="common-checklist"><summary>공통 기본 체크리스트 ${common.length}개</summary><div class="common-question-list">${common.map(questionCard).join("")}</div></details>` : ""}
+          </div>
+        </details>`;
+      }).join("");
+      return;
+    }
     if (!questions.length) {
       container.innerHTML =
         '<div class="none-item">현재 규칙에 연결된 추가 검토 질문이 확인되지 않았습니다.</div>';
@@ -1980,6 +2096,9 @@
     resultContent.hidden = false;
     copyButton.disabled = false;
     updateComparison(result, input.value);
+    humanRecordFields.forEach((field, key) => { field.value = humanReviewRecord[key]; });
+    renderPreviousHumanReviews();
+    updateHumanReviewState();
     void initializeRoleReview(result, input.value);
   }
 
@@ -1990,6 +2109,7 @@
     const lines = [
       "fairpost 채용공고문 검토 메모",
       result.disclaimer,
+      "검토 범위: 입력한 텍스트. 이미지·첨부에만 있는 내용과 실제 운영은 별도로 확인해야 합니다.",
       "개수는 검토할 작업량이며 점수·등급·합격/불합격 또는 공정성 판정이 아닙니다.",
       "",
       `규칙 사전: ${result.ruleset_version}`,
@@ -2070,11 +2190,19 @@
         });
       }
     };
+    const foundSlots = result.slots.filter((slot) => slot.found);
+    lines.push("", "[찾은 안내의 근거 · 충분성과 실제 운영은 별도 확인]");
+    foundSlots.forEach((slot) => {
+      lines.push('- ' + slot.label + ': ' + (slot.evidence || '원문 직접 확인 필요'));
+      const followUp = slotFollowUp(slot);
+      if (followUp) lines.push('  다음 확인: ' + followUp);
+    });
     lines.push("", `[확인되지 않은 항목 ${result.counts.not_found}건]`);
     result.slots
       .filter((slot) => !slot.found)
       .forEach((slot) => {
         lines.push(`- ${slot.label}: 공고문에서 확인되지 않았습니다.`)
+        if (slot.slot === "ai_disclosure") lines.push("  담당자가 실제 AI 사용 여부와 안내 적용 여부를 확인합니다. 미탐지는 AI 사용의 증거가 아닙니다.");
         const slotQuestion = questionsById.get(SLOT_QUESTION_IDS[slot.slot]);
         if (slotQuestion) {
           appendQuestion(slotQuestion, "  확인 질문:");
@@ -2084,6 +2212,22 @@
     visiblePostingQuestions.forEach((question) => appendQuestion(question));
     lines.push("", `[공통 기본 체크리스트 ${commonQuestions.length}건]`);
     commonQuestions.forEach((question) => appendQuestion(question));
+    if (humanRecordHasContent(humanReviewRecord)) {
+      lines.push("", "[현재 공고 검토 기록 — 자기 기록]", "입력은 실제 절차의 검증 완료나 공정성 보증을 뜻하지 않습니다.");
+      Object.entries(humanReviewRecord).forEach(([key, value]) => {
+        if (value.trim()) lines.push(`${HUMAN_RECORD_LABELS[key]}: ${value.trim()}`);
+      });
+    }
+    if (previousReviewRecords.length) {
+      lines.push("", "[수정 전 검토 기록 — 현재 공고에 자동 적용되지 않음]", "아래 답변과 기록은 이전 입력 기준입니다. 현재 결과의 답변으로 보지 말고 다시 확인하세요.");
+      previousReviewRecords.forEach((entry, index) => {
+        lines.push(`이전 기록 ${index + 1} · ${entry.at} · 검토 기준 ${entry.ruleset}`);
+        Object.entries(entry.record).forEach(([key, value]) => {
+          if (value.trim()) lines.push(`  ${HUMAN_RECORD_LABELS[key]}: ${value.trim()}`);
+        });
+        entry.answers.forEach((answer) => lines.push(`  이전 답변 ${answer.id} ${answer.question}: ${answer.answer.trim()}`));
+      });
+    }
     if (latestAssistedReview && latestAssistedReview.summary) {
       if (assistedResultIsCurrent()) {
         lines.push(
@@ -2136,9 +2280,16 @@
       return;
     }
     setFieldError(input, postingInputError, "");
-    reviewAnswers.clear();
+    const result = window.FairpostEngine.check(input.value);
+    const sameReview = latestResult && latestCheckedText === input.value &&
+      latestResult.ruleset_version === result.ruleset_version;
+    if (!sameReview) {
+      if (latestResult) archiveCurrentHumanReview();
+      reviewAnswers.clear();
+      humanReviewRecord = { evidence: "", reason: "", next: "" };
+    }
     latestCheckedText = input.value;
-    render(window.FairpostEngine.check(input.value));
+    render(result);
     resultsTitle.focus();
     if (
       typeof window.matchMedia === "function" &&
@@ -2163,6 +2314,7 @@
         ? "공고문이 바뀌었습니다. 다시 검토하면 비교 결과와 메모가 갱신됩니다."
         : "마지막으로 검토한 공고문입니다. 아래 결과와 메모를 사용할 수 있습니다.");
     }
+    updateHumanReviewState();
     markAssistedSettingsChanged("공고문이 바뀌었습니다.");
   });
   checkButton.addEventListener("click", runCheck);
@@ -2209,6 +2361,7 @@
       if (latestResult) {
         renderSlots(latestResult.slots, latestResult.questions);
         renderQuestions(latestResult.questions);
+        updateHumanReviewState();
       }
       // Never re-sends: an earlier AI result is only marked as outdated.
       markAssistedSettingsChanged("조직 조건이 바뀌었습니다.");
@@ -2300,9 +2453,17 @@
     const target = event.target;
     if (!(target instanceof HTMLTextAreaElement)) return;
     const questionId = target.dataset.questionAnswer;
-    if (!questionId) return;
+    if (!questionId || latestCheckedText !== input.value || !latestResult ||
+        !latestResult.questions.some((question) => question.id === questionId)) return;
     reviewAnswers.set(questionId, target.value);
     updateAnswerProgress();
+  });
+
+  humanRecordFields.forEach((field, key) => {
+    field.addEventListener("input", () => {
+      if (!latestResult || latestCheckedText !== input.value) return;
+      humanReviewRecord[key] = field.value.slice(0, 4000);
+    });
   });
 
   document.getElementById("ruleset-version").textContent =

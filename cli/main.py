@@ -7,9 +7,6 @@ from pathlib import Path
 import sys
 from typing import Iterable, NoReturn
 
-from core import FairpostEngine, RuleLoadError
-from mcp_server.storage import LocalAnswerStore
-from mcp_server.review import prepare_hr_review_packet
 
 
 class _PurgeArgumentError(Exception):
@@ -50,7 +47,10 @@ def _normalize_argv(argv: list[str] | None) -> list[str]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="fairpost",
-        description="채용공고문에서 법령 관련 표현과 함께 검토할 질문을 확인합니다.",
+        description=(
+            "FairPost 채용공고 검토 프로그램. fairpost web으로 로컬 화면을 열거나 "
+            "채용공고문에서 법령 관련 표현과 검토 질문을 확인합니다."
+        ),
     )
     parser.add_argument("files", nargs="*", help="점검할 UTF-8 텍스트 파일. 생략하면 표준입력")
     parser.add_argument(
@@ -89,6 +89,8 @@ def build_purge_parser() -> argparse.ArgumentParser:
 
 
 def _purge_answers(argv: list[str]) -> int:
+    from mcp_server.storage import LocalAnswerStore
+
     try:
         args = build_purge_parser().parse_args(argv)
     except _PurgeArgumentError:
@@ -109,6 +111,20 @@ def _purge_answers(argv: list[str]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     values = list(sys.argv[1:] if argv is None else argv)
+    if values and values[0] == "web":
+        try:
+            from mcp_server.local_runtime import main as local_main
+            return local_main(["web", *values[1:]])
+        except ModuleNotFoundError:
+            print(
+                "fairpost: 로컬 화면에 필요한 패키지가 없습니다. "
+                "python -m pip install . 을 먼저 실행하세요.",
+                file=sys.stderr,
+            )
+            return 2
+    from core import FairpostEngine, RuleLoadError
+    from mcp_server.review import prepare_hr_review_packet
+
     if values and values[0] == "purge-answers":
         return _purge_answers(values[1:])
     args = build_parser().parse_args(_normalize_argv(values))

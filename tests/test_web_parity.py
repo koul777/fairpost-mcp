@@ -333,6 +333,16 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     )
     result = json.loads(completed.stdout)
     assert result["resultsTitleFocused"] is True
+    reader = result["readerFlow"]
+    assert reader["defaultExternalPosts"] == 0
+    for key in (
+        "easyQuestionsAccessible", "uniqueAnswerIds", "modeRoundtripPreserved",
+        "sameInputRecheckPreserved", "staleCopyBlocked",
+        "priorRecordsSeparated", "escapedPriorRecords",
+    ):
+        assert reader[key] is True, key
+    assert "[현재 공고 검토 기록 — 자기 기록]" in reader["recordMemo"]
+    assert "[수정 전 검토 기록 — 현재 공고에 자동 적용되지 않음]" in reader["afterEditMemo"]
     comparison = result["comparisonFlow"]
     assert comparison["firstComparison"]["hidden"] is False
     assert comparison["firstComparison"]["groups"] == ""
@@ -649,3 +659,28 @@ def test_web_css_focus_and_text_size_are_accessible() -> None:
     assert ".visually-hidden{" in compact
     assert ".field-error{" in compact
     assert '[aria-invalid="true"]{' in compact
+
+
+def test_book_companion_reader_flow_and_storage_boundaries() -> None:
+    html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    app = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
+    header = html[html.index("<header"):html.index("</header>")]
+    footer = html[html.index("<footer"):]
+    assert "deploy-button" not in header
+    assert "https://vercel.com/new/clone" in footer
+    assert 'class="result-block shared-questions"' in html
+    assert 'class="review-progress-strip"' in html
+    assert 'class="organization-options"' in html
+    assert 'class="role-review-disclosure"' in html
+    for field in ("human-review-evidence", "human-review-reason", "human-review-next"):
+        assert f'id="{field}"' in html
+    assert "기록이 있는 검토를 최근 최대 10회" in html
+    assert "더 오래된 기록은 제거" in html
+    assert "새로고침·지우기·예시 입력" in html
+    for title in ("기회와 요건", "기준과 재검토", "존중과 목소리", "설명과 접근"):
+        assert title in app
+    assert "담당자가 실제 AI 사용 여부와 안내 적용 여부를 확인" in app
+    assert "현재 공고에 자동 적용되지 않음" in app
+    assert "sameReview" in app
+    assert "previousReviewRecords.slice(-10)" in app
+    assert "expertPointer" not in app

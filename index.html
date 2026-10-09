@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <title>FairPost MCP</title>
+  <title>FairPost 채용공고 검토 프로그램</title>
   <style>
     :root {
       color: #17202a;
@@ -97,12 +97,18 @@
 </head>
 <body>
   <main>
-    <h1>FairPost MCP</h1>
+    <h1>FairPost 채용공고 검토 프로그램</h1>
     <p class="status">운영 중</p>
-    <p>채용공고의 표현과 확인할 질문을 근거와 함께 정리하는 읽기 전용 원격 MCP 서버입니다.</p>
+    <p>채용공고에서 다시 볼 표현과 담당자가 확인할 질문을 근거와 함께 정리합니다. 기본 검토는 내 PC에서 실행하는 로컬 화면으로 이용할 수 있습니다.</p>
     <p>결과는 사람 검토용 참고자료이며 공정성ㆍ법률ㆍ합격 여부를 판정하지 않습니다.</p>
     <div class="actions">
-      <a class="deploy" href="/web/">웹 검토 메모 열기</a>
+      <a class="deploy" href="https://github.com/koul777/fairpost-mcp#빠른-시작">내 PC에서 실행하는 방법</a>
+      <a href="/web/">공개 웹 앱 열기</a>
+      <p class="hint">기본 검사는 브라우저 안에서 실행되며 MCP 클라이언트나 AI 키가 필요하지 않습니다. 원문은 자동으로 서버로 전송되지 않습니다.</p>
+    </div>
+    <details>
+      <summary>선택: 원격 MCP와 자체 배포</summary>
+      <div class="actions">
       <a
         class="deploy"
         href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkoul777%2Ffairpost-mcp&amp;project-name=fairpost-mcp&amp;repository-name=fairpost-mcp"
@@ -110,7 +116,7 @@
         rel="noopener noreferrer"
       >내 Vercel에 이 MCP 배포 ↗</a>
       <p class="hint">Vercel이 공개 저장소를 복제하고 프로젝트 생성 화면을 엽니다. 원격 MCP를 열기 전에 Bearer 토큰과 허용 호스트를 설정하세요.</p>
-    </div>
+      </div>
     <dl>
       <div>
         <dt>읽기 전용 MCP</dt>
@@ -137,6 +143,7 @@
     <p>FairPost 애플리케이션은 원문을 파일이나 DB에 영속 저장하지 않지만, Vercel과 사용한 AI 제공자의 로그ㆍ보존 정책은 각 서비스 설정을 별도로 확인해야 합니다.</p>
     <p>배포 후 <code>FAIRPOST_MCP_TOKEN</code>을 설정하세요. 명시적 공개 opt-in이 없는 운영 기본값에서는 읽기 전용 도구에도 Bearer 인증이 필요합니다.</p>
     <p>답변 저장과 이어서 검토하기는 루프백 로컬 MCP에서만 제공됩니다.</p>
+    </details>
   </main>
 </body>
 </html>

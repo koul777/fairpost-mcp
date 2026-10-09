@@ -56,6 +56,10 @@ def test_preamble_and_korean_headings_tile_the_text() -> None:
         ("\u3000자격요건\u3000", "자격요건"),
         ("１. 자격요건", "자격요건"),
         ("채용 개요", "개요"),
+        ("자격\u200b요건", "자격요건"),
+        ("■ 자격요건", "자격요건"),
+        ("[자격요건]", "자격요건"),
+        ("１．자격요건", "자격요건"),
         ("기타", "기타"),
     ],
 )
@@ -70,10 +74,6 @@ def test_decorated_korean_heading_aliases(heading: str, canonical: str) -> None:
     [
         "지원자격은 별도로 안내합니다",
         "자격요건 및 우대사항 안내 사항입니다 정말로 긴 제목입니다",
-        "자격\u200b요건",
-        "■ 자격요건",
-        "[자격요건]",
-        "１．자격요건",
     ],
 )
 def test_lines_that_are_not_headings(line: str) -> None:
@@ -198,14 +198,13 @@ def test_shipped_contact_slot_uses_preferred_section_and_components() -> None:
     contact = statuses["contact_point"]
     assert contact.found is True
     assert contact.section == "문의처"
-    # The preferred 문의처 section wins over the earlier 담당자 mention, and
-    # its own heading is the first accepted pattern there.
-    assert contact.evidence == "문의처"
+    # The preferred section provides informative contact content.
+    assert contact.evidence == "인사팀 담당자 (평일 09:00~18:00)"
     assert contact.components_found == ["department", "hours"]
     assert contact.components_total == 4
 
 
-# KNOWN PARITY GAP, pinned pending an owner decision on which engine changes.
+# Remaining legacy line-splitting gaps are pinned; BOM heading parity is resolved.
 # Python splits lines with str.splitlines() and strips str.isspace();
 # web/engine.js splits on "\n" only and uses ECMAScript whitespace (which
 # includes U+FEFF but not U+001C-U+001F or U+0085). The two engines therefore
@@ -219,7 +218,7 @@ def test_shipped_contact_slot_uses_preferred_section_and_components() -> None:
         ("3쪽\x0c자격요건\n남성만 지원 가능", "자격요건", "전체"),
         ("안내\r자격요건\r남성만 지원 가능", "자격요건", "전체"),
         ("안내\N{LINE SEPARATOR}자격요건\N{LINE SEPARATOR}남성만 지원 가능", "자격요건", "전체"),
-        ("\N{ZERO WIDTH NO-BREAK SPACE}자격요건\n남성만 지원 가능", "전체", "자격요건"),
+        ("\N{ZERO WIDTH NO-BREAK SPACE}자격요건\n남성만 지원 가능", "자격요건", "자격요건"),
         ("안내\n\x1f자격요건\n남성만 지원 가능", "자격요건", "전체"),
     ],
     ids=["form-feed", "cr-only", "line-separator", "bom-heading", "unit-separator"],
