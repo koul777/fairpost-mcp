@@ -31,6 +31,13 @@ DEPLOYMENT_CONFIG_POLICY = {
         "{.corpus*/**,build/**,dist/**,tmp/**,tests/**,tools/**,reports/**,"
         "docs/**,.env,.env.*,*.egg-info/**}"
     ),
+    # The printed book QR points at /book. It must stay a temporary (non
+    # permanent) redirect so the landing target can change without browsers
+    # caching the old destination: (source, destination, permanent).
+    "redirects": (
+        ("/book", "/web/?entry=book", False),
+        ("/book/", "/web/?entry=book", False),
+    ),
     "rewrites": (
         ("/api/mcp", "/api"),
         ("/api/claude-mcp", "/api"),
@@ -80,6 +87,7 @@ RUNTIME_SOURCE_FILES = (
     "web/data.js",
     "web/engine.js",
     "web/index.html",
+    "web/posting-templates.js",
     "web/styles.css",
     "data/guidance/ncs-fair-hiring.yaml",
     "data/guidance/organization-applicability.yaml",

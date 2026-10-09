@@ -41,6 +41,15 @@
     </header>
 
     <main id="workspace" class="workspace">
+      <section id="book-entry" class="book-entry" aria-labelledby="book-entry-title" hidden>
+        <h2 id="book-entry-title">책 부록에서 오신 분께</h2>
+        <p>책 부록에서 ‘채용 공고문 공정성 검토 MCP’ 프로그램으로 소개한 도구입니다. MCP 연결이나 설치 없이 이 화면에서 바로 쓸 수 있습니다. 기본 검사는 이 브라우저 안에서만 실행되고 공고문을 서버로 보내지 않습니다. 점수나 판정 대신 다시 볼 표현, 공고에 더할 안내, 조직이 답할 질문을 보여 줍니다.</p>
+        <ol class="book-entry-steps" aria-label="책 독자 사용 순서">
+          <li><strong>공고 붙여 넣기</strong> 채용공고문을 붙여 넣거나 '예시 입력'을 누릅니다.</li>
+          <li><strong>검토 메모 만들기</strong> 다시 볼 표현, 공고에서 찾지 못한 안내, 조직이 답할 질문을 확인합니다.</li>
+          <li><strong>고쳐서 다시 검토</strong> 예시 문장과 줄 고쳐 쓰기로 공고를 직접 고친 뒤 '검토 메모 만들기'를 다시 누릅니다.</li>
+        </ol>
+      </section>
       <section class="editor-pane" aria-labelledby="editor-title">
         <div class="pane-header">
           <div>
@@ -48,6 +57,9 @@
             <h2 id="editor-title">검토할 공고문</h2>
           </div>
           <div class="editor-actions">
+            <button id="posting-undo" class="button button-quiet" type="button" aria-label="공고문에 넣거나 반영한 마지막 변경 되돌리기" hidden>
+              되돌리기
+            </button>
             <button id="sample-button" class="button button-quiet" type="button">
               예시 입력
             </button>
@@ -190,6 +202,7 @@
             <strong>개수는 검토할 작업량입니다.</strong>
             점수·등급·합격/불합격 또는 공정성 판정으로 해석하지 않고, 담당자가 원문과 근거를 확인해 수정 여부를 결정합니다.
           </div>
+          <p id="placeholder-notice" class="placeholder-notice" role="note" hidden></p>
 
           <section id="easy-result" class="easy-result easy-only" aria-label="쉬운 모드 검토 결과"></section>
 
@@ -244,6 +257,19 @@
             <p id="comparison-status" class="comparison-status" role="status" aria-live="polite" aria-atomic="true"></p>
             <div id="comparison-groups" class="comparison-groups"></div>
             <p class="comparison-help">표현·누락 안내·질문을 항목별로 비교합니다. 표시가 사라져도 검토 완료를 뜻하지 않습니다. 비교 기준은 이 탭에서만 유지되며, 지우기·예시 입력·새로고침으로 초기화됩니다.</p>
+          </section>
+          <section id="improvement-panel" class="improvement-panel" aria-labelledby="improvement-title" hidden>
+            <div class="comparison-heading">
+              <h3 id="improvement-title">공고문 고친 내용 정리</h3>
+              <button id="copy-posting-button" class="button button-secondary" type="button" disabled>고친 공고문 복사</button>
+            </div>
+            <p id="improvement-status" class="comparison-status"></p>
+            <div id="improvement-content" class="improvement-groups"></div>
+            <div class="improvement-remaining">
+              <h4 id="improvement-remaining-title">남은 확인</h4>
+              <ul id="improvement-remaining" aria-labelledby="improvement-remaining-title"></ul>
+            </div>
+            <p class="comparison-help">비교 기준 공고와 현재 공고를 줄 단위로 비교합니다. 공백만 다른 줄과 빈 줄은 세지 않습니다. 표시가 사라져도 검토 완료를 뜻하지 않으며, 게시 전에 담당자가 원문과 근거를 다시 확인합니다. 이 정리는 이 탭의 메모리에만 있습니다.</p>
           </section>
 
           <details class="role-review-disclosure">
@@ -381,6 +407,7 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="data.js"></script>
+    <script src="posting-templates.js"></script>
     <script src="engine.js"></script>
     <script src="app.js"></script>
   </body>

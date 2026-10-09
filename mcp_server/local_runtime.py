@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 
 LOCAL_CONFIG_NAME = ".env.fairpost.local.json"
+BOOK_ENTRY_TARGET = "/web/?entry=book"
 CONFIG_KEYS = frozenset({
     "FAIRPOST_AI_PROVIDER", "FAIRPOST_AI_API_URL", "FAIRPOST_AI_API_KEY", "FAIRPOST_AI_MODEL",
     "FAIRPOST_AI_TIMEOUT_SECONDS", "FAIRPOST_AI_REASONING_EFFORT",
@@ -82,7 +83,7 @@ def resolve_web_dir(web_dir: Path | None = None) -> Path:
             Path(sys.prefix) / "share" / "fairpost" / "web",
         )
     )
-    required = ("index.html", "app.js", "engine.js", "data.js", "styles.css")
+    required = ("index.html", "app.js", "engine.js", "data.js", "posting-templates.js", "styles.css")
     for candidate in candidates:
         if all((candidate / name).is_file() for name in required):
             return candidate
@@ -112,6 +113,11 @@ def create_local_app(
     async def home(_request):
         return RedirectResponse("/web/")
 
+    async def book(_request):
+        # Fixed entry address printed in the book. Keep it a temporary (307)
+        # redirect, like the /book entry in vercel.json, so the target can change.
+        return RedirectResponse(BOOK_ENTRY_TARGET, status_code=307)
+
     async def favicon(_request):
         return FileResponse(web_dir.parent / "favicon.svg", media_type="image/svg+xml")
 
@@ -133,6 +139,8 @@ def create_local_app(
     mcp_app = mcp.streamable_http_app()
     web_app = Starlette(routes=[
         Route("/", home),
+        Route("/book", book),
+        Route("/book/", book),
         *([Route("/favicon.svg", favicon)] if (web_dir.parent / "favicon.svg").is_file() else []),
         Route(ASSISTED_REVIEW_PATH, optional_assisted_review, methods=["GET", "POST"]),
         Mount("/web", app=StaticFiles(directory=web_dir, html=True)),

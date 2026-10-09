@@ -57,6 +57,17 @@ def test_local_app_serves_only_web_and_requires_same_origin(monkeypatch):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8000") as client:
                 root = await client.get("/")
                 assert root.headers["location"] == "/web/"
+                # The printed book address: a temporary (307) redirect that
+                # never gets cached, with or without the trailing slash.
+                for book_path in ("/book", "/book/"):
+                    book = await client.get(book_path)
+                    assert book.status_code == 307
+                    assert book.headers["location"] == "/web/?entry=book"
+                    assert book.headers["cache-control"] == "no-store"
+                followed = await client.get("/book", follow_redirects=True)
+                assert followed.status_code == 200
+                assert str(followed.url).endswith("/web/?entry=book")
+                assert 'id="assisted-review-toggle"' in followed.text
                 web = await client.get("/web/")
                 assert web.status_code == 200
                 assert 'id="assisted-review-toggle"' in web.text
@@ -68,6 +79,11 @@ def test_local_app_serves_only_web_and_requires_same_origin(monkeypatch):
                 for path in ("/.env.fairpost.local.json", "/.git/config", "/web/..%2f.env.fairpost.local.json", "/README.md"):
                     assert (await client.get(path)).status_code == 404
                 assert (await client.get("/web/", headers={"host": "evil.example"})).status_code == 400
+                # /book keeps the loopback-only host and same-origin protection.
+                for book_path in ("/book", "/book/"):
+                    assert (await client.get(book_path, headers={"host": "evil.example"})).status_code == 400
+                    for headers in ({"origin": "https://evil.example"}, {"sec-fetch-site": "cross-site"}):
+                        assert (await client.get(book_path, headers=headers)).status_code == 403
                 for headers in ({"origin": "https://evil.example"}, {"origin": "http://127.0.0.1:9000"}, {"origin": "null"}, {"sec-fetch-site": "cross-site"}):
                     assert (await client.post("/api/assisted-review", headers=headers, json={})).status_code == 403
                 assert (await client.get("/api/assisted-review", headers={"origin": "http://127.0.0.1:8000"})).status_code == 200
@@ -75,6 +91,20 @@ def test_local_app_serves_only_web_and_requires_same_origin(monkeypatch):
                 assert mcp_response.status_code == 200
                 assert "prepare_hr_review" in mcp_response.text
                 assert "save_answer" in mcp_response.text
+    anyio.run(exercise)
+
+
+def test_book_entry_works_without_optional_assistance(isolated_local_mcp):
+    async def exercise():
+        app = create_local_app(assisted_review_enabled=False)
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8000") as client:
+                for book_path in ("/book", "/book/"):
+                    book = await client.get(book_path)
+                    assert book.status_code == 307
+                    assert book.headers["location"] == "/web/?entry=book"
+                assert (await client.get("/book", follow_redirects=True)).status_code == 200
+                assert (await client.get("/book", headers={"host": "evil.example"})).status_code == 400
     anyio.run(exercise)
 
 
@@ -88,7 +118,7 @@ def test_local_settings_template_has_no_credentials():
 
 def test_asset_resolution_uses_checkout_and_installed_package(tmp_path, monkeypatch):
     from mcp_server import local_runtime
-    required = ("index.html", "app.js", "engine.js", "data.js", "styles.css")
+    required = ("index.html", "app.js", "engine.js", "data.js", "posting-templates.js", "styles.css")
     checkout = tmp_path / "checkout"
     module = checkout / "mcp_server" / "local_runtime.py"
     monkeypatch.setattr(local_runtime, "__file__", str(module))

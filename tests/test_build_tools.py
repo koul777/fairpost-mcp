@@ -1468,8 +1468,15 @@ def test_vercel_configuration_excludes_private_inputs() -> None:
         "/api/health": "/api",
         "/api/mcp": "/api",
     }
+    # The printed book QR address is a temporary redirect into the web app.
+    assert config["redirects"] == [
+        {"source": "/book", "destination": "/web/?entry=book", "permanent": False},
+        {"source": "/book/", "destination": "/web/?entry=book", "permanent": False},
+    ]
     assert (ROOT / "index.html").is_file()
     landing = (ROOT / "index.html").read_text(encoding="utf-8")
+    assert 'href="/book">책 독자: 설치 없이 바로 시작</a>' in landing
+    assert landing.index('href="/book"') < landing.index('href="/web/"')
     assert "내 Vercel에 이 MCP 배포" in landing
     assert "https://vercel.com/new/clone?repository-url=" in landing
     assert "FAIRPOST_MCP_TOKEN" in landing
@@ -1497,6 +1504,20 @@ def test_vercel_configuration_excludes_private_inputs() -> None:
         "data/local_rules.yaml",
     ):
         assert private_path in ignored
+
+
+def test_readme_points_book_readers_to_the_stable_entry() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    book_url = "https://fairmcp.vercel.app/book"
+    notice = "**책에서 QR로 오셨다면:**"
+
+    assert f"[책 독자 바로 시작]({book_url})" in readme
+    assert notice in readme
+    assert readme.index(notice) < readme.index("## 빠른 시작")
+    assert f"<{book_url}>" in readme
+    assert "기본 검사는 브라우저 안에서만 실행되고 공고문을 서버로 보내지" in readme
+    assert "**보강 실행**을 눌렀을 때만" in readme
+    assert f"책 독자 주소 [`/book`]({book_url})" in readme
 
 
 def test_data_validator_accepts_committed_dictionaries() -> None:

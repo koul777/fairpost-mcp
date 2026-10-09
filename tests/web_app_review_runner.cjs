@@ -216,7 +216,11 @@ globalThis.fetch = async (url, options = {}) => {
   };
 };
 
-for (const relative of ["web/data.js", "web/engine.js", "web/app.js"]) {
+// The optional example-sentence bundle loads after data.js, as in index.html.
+const appSources = ["web/data.js", "web/posting-templates.js", "web/engine.js", "web/app.js"]
+  .filter((relative) => relative !== "web/posting-templates.js" ||
+    fs.existsSync(path.join(root, relative)));
+for (const relative of appSources) {
   vm.runInThisContext(
     fs.readFileSync(path.join(root, relative), "utf8"),
     { filename: relative }

@@ -6,7 +6,7 @@
 
 **채용공고의 표현, 빠진 정보, 확인할 질문을 근거와 함께 정리하는 결정론적 리뷰 도구**
 
-[로컬 화면 빠른 시작](#빠른-시작) · [24초 데모](docs/assets/fairpost-promo.mp4) · [선택형 MCP 연결](#mcp-연결) · [공개 웹 앱](https://fairmcp.vercel.app/web/)
+[책 독자 바로 시작](https://fairmcp.vercel.app/book) · [로컬 화면 빠른 시작](#빠른-시작) · [24초 데모](docs/assets/fairpost-promo.mp4) · [선택형 MCP 연결](#mcp-연결) · [공개 웹 앱](https://fairmcp.vercel.app/web/)
 
 </div>
 
@@ -25,6 +25,11 @@ AI·현행 법령 보강은 서버에 Korean Law MCP와 AI API 키가 설정되�
 > 아닙니다. “확인되지 않음”은 해당 절차가 없다는 뜻이 아니라 공고문에서 찾지
 > 못했다는 뜻입니다.
 
+**책에서 QR로 오셨다면:** 설치 없이 <https://fairmcp.vercel.app/book> 에서 바로
+시작합니다. 기본 검사는 브라우저 안에서만 실행되고 공고문을 서버로 보내지
+않습니다. 선택형 AI·현행 법령 보강은 직접 켜고 **보강 실행**을 눌렀을 때만 해당
+요청이 서버로 전송됩니다.
+
 ## 빠른 시작
 
 ### 어떤 방법으로 시작할까요?
@@ -32,12 +37,12 @@ AI·현행 법령 보강은 서버에 Korean Law MCP와 AI API 키가 설정되�
 | 방법 | 이런 분께 | 필요한 것 | 공고문 처리 위치와 개인정보 |
 |---|---|---|---|
 | **로컬 화면** | 내 PC에서 기본 검토와 사람 기록을 하려는 독자 | Python 3.11 이상, 저장소 내려받기와 설치 | 브라우저 화면은 `127.0.0.1`에서 제공되고 기본 검사는 브라우저 안에서 실행됩니다. |
-| **공개 웹 앱** ([배포 앱](https://fairmcp.vercel.app/web/)) | 설치 없이 공개 예시를 살펴보려는 분 | 웹 브라우저 | 기본 모드에서는 공고문이 기기 밖으로 나가지 않습니다. 선택형 AI·법령 보강에서 **보강 실행**을 누른 요청만 서버로 전송됩니다. |
+| **공개 웹 앱** ([배포 앱](https://fairmcp.vercel.app/web/), 책 독자 주소 [`/book`](https://fairmcp.vercel.app/book)) | 설치 없이 공개 예시를 살펴보거나 책의 QR로 바로 시작하려는 분 | 웹 브라우저 | 기본 모드에서는 공고문이 기기 밖으로 나가지 않습니다. 선택형 AI·법령 보강에서 **보강 실행**을 누른 요청만 서버로 전송됩니다. |
 | **CLI** | 공고 파일 여러 개를 점검하거나 JSON 결과·검토 패킷이 필요한 분 | Python 3.11 이상, 저장소 내려받기와 설치 | 내 PC 안에서만 실행됩니다. 단 `--review-packet`은 Korean Law MCP를 설정한 경우에만 법령명·조문번호를 외부에 조회합니다. |
 | **로컬 MCP** (로컬 웹 포함) | Claude Code·Codex 같은 AI 도구에서 호출하거나, AI·법령 보강과 로컬 답변 저장을 쓰려는 분 | Python 3.11 이상, 설치, MCP 클라이언트 | 서버는 내 PC(`127.0.0.1`)에서 실행됩니다. 연결한 클라우드 AI 도구는 입력을 처리할 수 있습니다. |
 | **원격 MCP** (Vercel) | 설치 없이 MCP 클라이언트에서 읽기 전용으로 호출하려는 분 | 운영자가 발급한 접속 토큰(Bearer) | 공고문이 FairPost 서버(Vercel)로 전송됩니다. 영속 저장은 하지 않지만 완전한 기기 내 처리는 아닙니다. |
 
-처음 사용하는 독자라면 아래 로컬 화면을 권합니다. 기본 검사는 내 PC에서 실행되고 MCP 클라이언트나 AI 키가 필요하지 않습니다. 내부 정보나 개인정보가 포함된 공고문도 로컬 화면 또는 CLI에서 검토할 수 있습니다.
+설치 없이 써 보려면 공개 웹 앱(책 독자는 `/book`)을, 내부 공고를 내 PC에서만 검토하려면 아래 로컬 화면을 쓰세요. 기본 검사는 어느 쪽에서든 브라우저 안에서 실행되고 MCP 클라이언트나 AI 키가 필요하지 않습니다. 내부 정보나 개인정보가 포함된 공고문도 로컬 화면 또는 CLI에서 검토할 수 있습니다.
 
 ### 1. 내 PC에서 화면 열기
 
@@ -50,7 +55,7 @@ python -m pip install -e .
 fairpost web --open-browser
 ```
 
-화면은 `http://127.0.0.1:8000/web/`에서 열립니다. 브라우저가 자동으로 열리지 않으면 이 주소를 직접 여세요. 포트가 이미 사용 중이면 `fairpost web --port 8001 --open-browser`로 실행할 수 있습니다. Windows에서는 저장소 폴더의 `run_fairpost_web.bat`을 실행해도 서버 준비 뒤 기본 브라우저가 열립니다. 이 스크립트는 실행 중인 창에서 `Ctrl+C`로 종료합니다.
+화면은 `http://127.0.0.1:8000/web/`에서 열립니다(`http://127.0.0.1:8000/book`도 같은 화면으로 연결됩니다). 브라우저가 자동으로 열리지 않으면 이 주소를 직접 여세요. 포트가 이미 사용 중이면 `fairpost web --port 8001 --open-browser`로 실행할 수 있습니다. Windows에서는 저장소 폴더의 `run_fairpost_web.bat`을 실행해도 서버 준비 뒤 기본 브라우저가 열립니다. 이 스크립트는 실행 중인 창에서 `Ctrl+C`로 종료합니다.
 
 패키지 누락 메시지가 나오면 `python -m pip install .`을 실행하고, 로컬 화면 자산 누락 메시지가 나오면 저장소 폴더에서 다시 설치하세요. 화면 서버는 내 PC의 `127.0.0.1`에서만 열립니다.
 
@@ -300,6 +305,7 @@ fairpost-mcp
 python -m pytest
 python tools\validate_data.py
 python tools\export_web_bundle.py --check
+python tools\export_posting_templates.py --check
 python tools\verify_web_parity.py
 python tools\verify_distribution.py
 ```

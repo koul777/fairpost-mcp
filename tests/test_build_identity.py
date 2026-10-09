@@ -180,6 +180,7 @@ def test_runtime_source_manifest_covers_deployed_web() -> None:
         "web/data.js",
         "web/engine.js",
         "web/index.html",
+        "web/posting-templates.js",
         "web/styles.css",
     } <= set(RUNTIME_SOURCE_FILES)
 
@@ -204,6 +205,17 @@ def test_deployment_config_policy_matches_vercel_json() -> None:
         )
     )
     function = config["functions"]["api/index.py"]
+    # The printed book QR must keep working and stay a temporary redirect: a
+    # permanent (301/308) redirect would be cached by browsers and make the
+    # destination impossible to change later. ``statusCode`` could smuggle in a
+    # permanent status, so only these exact keys are allowed.
+    for item in config["redirects"]:
+        assert set(item) == {"source", "destination", "permanent"}
+        assert item["permanent"] is False
+    redirects = tuple(
+        (item["source"], item["destination"], item["permanent"])
+        for item in config["redirects"]
+    )
     rewrites = tuple(
         (item["source"], item["destination"])
         for item in config["rewrites"]
@@ -219,6 +231,12 @@ def test_deployment_config_policy_matches_vercel_json() -> None:
     assert function["excludeFiles"] == DEPLOYMENT_CONFIG_POLICY[
         "function_exclude_files"
     ]
+    assert redirects == DEPLOYMENT_CONFIG_POLICY["redirects"]
+    assert {source for source, _, _ in redirects} >= {"/book", "/book/"}
+    assert all(
+        destination == "/web/?entry=book" and permanent is False
+        for _, destination, permanent in DEPLOYMENT_CONFIG_POLICY["redirects"]
+    )
     assert rewrites == DEPLOYMENT_CONFIG_POLICY["rewrites"]
     assert headers == DEPLOYMENT_CONFIG_POLICY["headers"]
 

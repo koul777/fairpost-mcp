@@ -35,6 +35,7 @@ packages = ["core", "cli", "mcp_server"]
 "share/fairpost/data" = [
   "data/slots.yaml",
   "data/local_rules.example.yaml",
+  "data/posting_templates.yaml",
 ]
 "share/fairpost/data/rules" = [
   "data/rules/law.yaml",
@@ -58,6 +59,7 @@ packages = ["core", "cli", "mcp_server"]
   "web/data.js",
   "web/engine.js",
   "web/index.html",
+  "web/posting-templates.js",
   "web/styles.css",
 ]
 

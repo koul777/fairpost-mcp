@@ -38,8 +38,18 @@ def test_anonymous_authentication_behavior_rejects_fail_open_states() -> None:
     assert verify_mod._anonymous_authentication_behavior_matches("disabled", 503) is True
 
 
-def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
+def _verify_with_fakes(
+    monkeypatch,
+    *,
+    book_status: int = 307,
+    book_headers: dict[str, str] | None = None,
+) -> tuple[dict[str, object], list[str], list[dict[str, object]]]:
+    """Run ``verify`` against mocked HTTP/MCP clients; no network is touched."""
+
     calls: list[str] = []
+    book_requests: list[dict[str, object]] = []
+    if book_headers is None:
+        book_headers = {"location": "/web/?entry=book"}
 
     class FakeHTTPClient:
         instances = 0
@@ -54,8 +64,15 @@ def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
         async def __aexit__(self, *_args) -> None:
             return None
 
-        async def get(self, url: str) -> _FakeResponse:
+        async def get(self, url: str, **kwargs) -> _FakeResponse:
             assert self.instance_id == 1
+            if url.endswith("/book"):
+                book_requests.append({"url": url, **kwargs})
+                return _FakeResponse(
+                    status_code=book_status,
+                    payload={},
+                    headers=book_headers,
+                )
             assert url.endswith("/api/health")
             return _FakeResponse(
                 status_code=200,
@@ -213,6 +230,11 @@ def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
         "test-token",
         None,
     )
+    return report, calls, book_requests
+
+
+def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
+    report, calls, book_requests = _verify_with_fakes(monkeypatch)
 
     assert calls == [
         "check_job_posting",
@@ -235,6 +257,93 @@ def test_verify_skips_live_write_check_by_default(monkeypatch) -> None:
     assert report["claude_server_name"] == "fairpost-readonly"
     assert report["claude_tools"] == ["check_job_posting"]
     assert report["checks"]["claude_readonly_profile_verified"] is True
+    # The book entry is requested once, without following the redirect.
+    assert book_requests == [
+        {"url": "https://example.test/book", "follow_redirects": False}
+    ]
+    assert report["checks"]["book_entry_redirect_is_temporary"] is True
+    assert report["book_entry"] == {
+        "url": "https://example.test/book",
+        "status_code": 307,
+        "location": "/web/?entry=book",
+        "expected_target": "/web/?entry=book",
+    }
+
+
+@pytest.mark.parametrize("status_code", [302, 307])
+@pytest.mark.parametrize(
+    "location",
+    ["/web/?entry=book", "https://example.test/web/?entry=book"],
+)
+def test_book_entry_accepts_temporary_redirect_to_web_entry(
+    status_code: int,
+    location: str,
+) -> None:
+    assert (
+        verify_mod._book_entry_redirect_is_temporary(
+            status_code, location, "https://example.test"
+        )
+        is True
+    )
+
+
+@pytest.mark.parametrize(
+    ("status_code", "location"),
+    [
+        (301, "/web/?entry=book"),
+        (308, "/web/?entry=book"),
+        (200, "/web/?entry=book"),
+        (404, None),
+        (307, None),
+        (307, "/web/"),
+        (307, "/web/?entry=other"),
+        (307, "/web/?entry=book#top"),
+        (307, "/prefix/web/?entry=book"),
+        (307, "https://evil.example/web/?entry=book"),
+    ],
+)
+def test_book_entry_rejects_permanent_missing_or_wrong_redirects(
+    status_code: int,
+    location: str | None,
+) -> None:
+    assert (
+        verify_mod._book_entry_redirect_is_temporary(
+            status_code, location, "https://example.test"
+        )
+        is False
+    )
+
+
+@pytest.mark.parametrize(
+    ("book_status", "book_headers"),
+    [
+        (308, {"location": "/web/?entry=book"}),
+        (301, {"location": "/web/?entry=book"}),
+        (404, {}),
+        (307, {}),
+        (307, {"location": "/web/"}),
+    ],
+)
+def test_verify_fails_when_book_entry_is_not_a_temporary_redirect(
+    monkeypatch,
+    book_status: int,
+    book_headers: dict[str, str],
+) -> None:
+    report, _calls, book_requests = _verify_with_fakes(
+        monkeypatch,
+        book_status=book_status,
+        book_headers=book_headers,
+    )
+
+    assert book_requests[0]["follow_redirects"] is False
+    assert report["checks"]["book_entry_redirect_is_temporary"] is False
+    assert report["book_entry"]["status_code"] == book_status
+    assert report["book_entry"]["location"] == book_headers.get("location")
+    # Every other contract check still passes; only the book entry fails the audit.
+    assert [name for name, ok in report["checks"].items() if not ok] == [
+        "book_entry_redirect_is_temporary"
+    ]
+    assert report["passed"] is False
 
 
 def test_main_forwards_allow_write_check_flag(

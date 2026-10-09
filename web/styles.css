@@ -1886,3 +1886,127 @@ body[data-mode="easy"] .review-boundary {
 .easy-slot-follow-up { padding: 1rem; border: 1px solid #b8cfc1; border-radius: 12px; background: #f1f6f3; color: #234738; line-height: 1.7; }
 
 .input-scope-hint { margin: 0; padding: 10px 20px; color: #465c55; font-size: 0.82rem; line-height: 1.6; border-bottom: 1px solid #dce4df; }
+
+/* Posting improvement: book entry, example sentences, line rewrites, undo and change summary. */
+.book-entry {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid #b8cfc1;
+  border-radius: 8px;
+  background: #f1f6f3;
+  color: #234738;
+}
+.book-entry h2 { margin: 0 0 6px; font-size: 16px; line-height: 1.4; }
+.book-entry p { margin: 0 0 10px; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.book-entry-steps { margin: 0; padding-left: 22px; display: grid; gap: 4px; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.book-entry-steps strong { margin-right: 4px; }
+.editor-actions { flex-wrap: wrap; justify-content: flex-end; }
+.button[aria-disabled="true"] { cursor: not-allowed; opacity: 0.55; }
+.placeholder-notice {
+  margin: 0;
+  padding: 10px 16px;
+  border-left: 4px solid var(--yellow);
+  background: #fffbea;
+  color: #3d3520;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.placeholder-found-hint { color: #5b4a12; }
+.template-detail,
+.rewrite-detail {
+  min-width: 0;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 400;
+}
+.template-detail > summary,
+.rewrite-detail > summary {
+  min-height: 44px;
+  padding: 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.template-content,
+.rewrite-content { min-width: 0; padding: 0 12px 12px; display: grid; gap: 8px; }
+/* Inside a question card the sentence block is one more full-width strip. */
+.question-item > .template-detail { margin: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: #fbfcfb; }
+.question-item > .template-detail > summary { padding: 10px 15px; }
+.question-item > .template-detail > .template-content { padding: 0 15px 12px; }
+.template-notice,
+.template-condition,
+.template-sources,
+.rewrite-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.template-condition { color: #5b4a12; }
+.template-text {
+  max-height: 260px;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fbfcfb;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.template-sources-title { margin: 0; color: var(--ink); font-size: 12px; font-weight: 700; }
+.template-sources { padding-left: 18px; }
+/* Source items sit inside the missing-guidance list; drop its card styling. */
+.easy-missing .template-sources li { padding: 0; border: 0; border-radius: 0; background: none; font-size: 12px; font-weight: 400; }
+.template-actions { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.template-actions .button { max-width: 100%; white-space: normal; text-align: left; }
+/* Keyboard focus scrolls these into view; leave room for the focus ring. */
+.template-detail > summary,
+.rewrite-detail > summary,
+.template-actions .button,
+#posting-undo { scroll-margin: 16px 0 32px; }
+.template-detail > summary:focus-visible,
+.rewrite-detail > summary:focus-visible { outline-offset: -3px; }
+.rewrite-content label { font-size: 13px; font-weight: 700; }
+.rewrite-content textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px;
+  border: 1px solid #aebdb5;
+  border-radius: 5px;
+  color: var(--ink);
+  background: var(--panel);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.rewrite-content textarea:disabled { background: #edf1ee; color: var(--muted); }
+.rewrite-guide { color: #3f4b45; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.rewrite-guide ul { margin: 4px 0 0; padding-left: 18px; }
+.easy-slot-follow-up-item { margin-bottom: 12px; }
+.easy-slot-follow-up-item .easy-slot-follow-up { margin-bottom: 0; }
+.improvement-panel {
+  margin: 18px clamp(15px, 2vw, 24px) 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+.improvement-panel .comparison-heading button { white-space: normal; text-align: left; }
+.improvement-groups { display: grid; gap: 8px; }
+.improvement-added { border-left-color: var(--blue); }
+.improvement-removed { border-left-color: var(--muted); }
+.improvement-lines { margin: 0; padding: 0 16px 12px 36px; }
+.improvement-lines li { margin: 6px 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.improvement-remaining h4 { margin: 14px 0 6px; font-size: 14px; }
+.improvement-remaining ul { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.7; }
+@media (max-width: 600px) {
+  .book-entry { padding: 12px; }
+  .template-actions .button { flex: 1 1 100%; }
+}
