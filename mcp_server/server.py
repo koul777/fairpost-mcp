@@ -11,7 +11,13 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 
 from core import FairpostEngine
-from core.review_packet import ReviewAction, ReviewEvent, ReviewRole, ReviewStage
+from core.review_packet import (
+    SYSTEM_CHAIR_ACTOR_REF,
+    ReviewAction,
+    ReviewEvent,
+    ReviewRole,
+    ReviewStage,
+)
 from core.schema import CheckResult, Finding, Question, SlotStatus
 from .review import HrReviewPacket, prepare_hr_review_packet
 from .storage import (
@@ -588,6 +594,17 @@ def record_review_event(
     )
     if action == "resolve" and resolves_event_id is None:
         raise ValueError("resolve action requires resolves_event_id")
+    # Only start_role_review writes the automatic chair event. A caller-supplied
+    # copy would be silently excluded from participation and look automatic.
+    reserved_actor = (
+        actor_ref is not None
+        and actor_ref.strip().casefold() == SYSTEM_CHAIR_ACTOR_REF
+    )
+    if reserved_actor or event.is_system_generated:
+        raise ValueError(
+            "actor_ref=system-chair와 자동 생성 위원장 메모는 start_role_review만 "
+            "기록합니다. 사람이 남기는 이벤트에는 다른 actor_ref나 메모를 쓰십시오"
+        )
     updated = review_packet_store.append(packet_id, event)
     return {
         "status": "stored_locally",
@@ -603,7 +620,9 @@ def record_review_event(
         "packet_id로 로컬 다중 역할 검토 패킷과 참여 역할ㆍ이벤트를 조회합니다. "
         "participating_roles와 missing_roles는 start_role_review가 자동 생성한 "
         "위원장 이벤트(actor_ref=system-chair)를 참여로 세지 않고 사람이 남긴 "
-        "이벤트만 집계합니다(브라우저 역할 검토 큐와 동일). "
+        "이벤트만 집계합니다(브라우저 역할 검토 큐와 동일). event_count는 위원장 "
+        "이벤트를 포함한 전체 이벤트 수이고, reviewer_event_count는 사람이 남긴 "
+        "이벤트 수로 브라우저의 '이벤트 N개'와 같습니다. "
         "공고 원문은 저장하지 않으며, 패킷에는 fingerprint와 근거 식별자만 있습니다."
     ),
     annotations=READ_ONLY_ANNOTATIONS,
@@ -618,6 +637,7 @@ def get_role_review(packet_id: str) -> dict[str, Any]:
         "participating_roles": sorted(packet.participating_roles),
         "missing_roles": list(packet.missing_roles),
         "event_count": len(packet.events),
+        "reviewer_event_count": packet.reviewer_event_count,
         "issue_statuses": list(packet.issue_statuses),
         "open_issue_count": packet.open_issue_count,
     }

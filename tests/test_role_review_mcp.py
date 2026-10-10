@@ -9,6 +9,7 @@ import pytest
 import mcp_server.server as server
 import mcp_server.storage as storage
 from core import ReviewEvent, posting_fingerprint
+from core.review_packet import SYSTEM_CHAIR_NOTE
 from mcp_server.storage import LocalReviewPacketStore
 
 
@@ -50,6 +51,8 @@ def test_local_review_packet_store_appends_roles_without_posting_text(
                 "candidate_advocate",
             ]
             assert loaded["event_count"] == 2
+            # The browser's "이벤트 N개" leaves out the automatic chair event.
+            assert loaded["reviewer_event_count"] == 1
             assert "private-posting-marker" not in json.dumps(
                 json.loads((tmp_path / "review-packets.json").read_text(encoding="utf-8")),
                 ensure_ascii=False,
@@ -79,6 +82,58 @@ def test_record_review_event_requires_matching_fingerprint(
                 "auditor",
                 "note",
             )
+
+    anyio.run(exercise)
+
+
+@pytest.mark.parametrize(
+    ("actor_ref", "role", "note"),
+    [
+        ("system-chair", "auditor", "감사 메모"),
+        ("System-Chair", "chair", "위원장 메모"),
+        (None, "chair", SYSTEM_CHAIR_NOTE),
+    ],
+    ids=["reserved-actor", "reserved-actor-variant", "automatic-chair-note"],
+)
+def test_record_review_event_rejects_system_chair_markers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    actor_ref: str | None,
+    role: str,
+    note: str,
+) -> None:
+    store = LocalReviewPacketStore(tmp_path / "review-packets.json")
+    monkeypatch.setattr(server, "review_packet_store", store)
+
+    async def exercise() -> None:
+        created = await server.start_role_review("시스템 이벤트 위장 검토 공고")
+        packet = created["review_packet"]
+        with pytest.raises(ValueError, match="start_role_review"):
+            server.record_review_event(
+                packet["packet_id"],
+                packet["posting_fingerprint"],
+                "analysis",
+                role,
+                "note",
+                note=note,
+                actor_ref=actor_ref,
+            )
+        loaded = server.get_role_review(packet["packet_id"])
+        assert loaded["event_count"] == 1
+        assert loaded["reviewer_event_count"] == 0
+
+        # A reviewer may still write a chair note in their own words.
+        updated = server.record_review_event(
+            packet["packet_id"],
+            packet["posting_fingerprint"],
+            "analysis",
+            "chair",
+            "note",
+            note="위원장이 직접 남긴 조정 메모",
+            actor_ref="chair-1",
+        )
+        assert updated["participating_roles"] == ["chair"]
+        assert server.get_role_review(packet["packet_id"])["reviewer_event_count"] == 1
 
     anyio.run(exercise)
 
