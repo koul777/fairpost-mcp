@@ -147,6 +147,12 @@ _HIRING_CONTEXT = ["지원자","응시자","서류전형","면접","역량검사
 _DUTY_CONTEXT = ["re:(?:알고리즘|임직원|직원|제품|서비스|고객).{0,80}(?:연구|개발|설계|운영|개선|평가)"]
 _CONTACT_CONTEXT = ["문의","연락","인사팀","채용팀","인사부","담당 부서","전화","전자우편","re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}","re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}"]
 _CONTACT_NON_CHANNEL = ["결과","통보","기재","등록","발송","지원서","모집"]
+# A phone number (an area/mobile number or a 15xx/16xx/18xx representative
+# number) or an e-mail address. A line holding one is evidence, not a label.
+# A representative number is not inquiry context by itself (_CONTACT_CONTEXT):
+# outside a 문의처 section it still needs 문의/연락/전화 ... on its line.
+# web/engine.js CONTACT_CHANNEL must stay identical.
+_CONTACT_CHANNEL = ["re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}", "re:(?<![\\d-])1[568]\\d{2}-\\d{4}(?![\\d-])", "re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}"]
 # A label body is "announced later" when it starts with 추후/차후/나중에/미정, or with 별도/상세/예정
 # as a bare marker or a statement that names a deferral (안내/공지/협의/예정/미정/문의/통보/참조/
 # 확인) and carries no date or amount. Real content that merely starts with an ambiguous word
@@ -161,6 +167,11 @@ _STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","�
 # They count as a selection stage only in a stage context (_stage_context) unless
 # they are part of a named stage such as "실무 인터뷰".
 _BARE_STAGE_TERMS = ["인터뷰", "서류접수", "서류 검토", "서류 리뷰"]
+# Interview names with a qualifier ("최종 면접", "임원 면접", "1차 면접") are bare
+# stage terms too: "임원 면접 일정 조율" is recruiting work. Their own "면접" is
+# not their stage context. Same pattern as the selection_stages accept pattern
+# in data/slots.yaml; web/engine.js BARE_INTERVIEW_STAGE must stay identical.
+_BARE_INTERVIEW_STAGE = ["re:(?:최종|임원|대면|비대면|화상|온라인|전화|실무진|실무|경영진|대표이사|대표|인성|역량|직무|기술|심층|PT|발표|토론|\\d\\s*차)\\s*면접(?!관|비|장)"]
 _STAGE_SECTIONS = {"전형절차", "일정"}
 # Order and step markers that make a sentence a list of stages.
 _STAGE_MARKERS = ["re:→|⇒|▶|▷|->|=>|>", "re:\\d\\s*단계", "re:\\d\\s*차(?![가-힣])", "re:\\d\\s*차\\s*(?:인터뷰|면접|전형|심사|평가|합격|과제|테스트|서류)", "전형", "re:(?:채용|선발|합류)\\s*(?:절차|과정|프로세스)", "re:최종\\s*합격"]
@@ -280,13 +291,27 @@ def _stage_context(section: Section | None, sentence: str) -> bool:
 
 def _bare_stage_match(text: str, start: int, end: int) -> bool:
     """text[start:end] is a bare stage term that is not part of a named stage."""
+    candidate = text[start:end]
+    interview = find_first(candidate, _BARE_INTERVIEW_STAGE)
+    if interview is not None and interview.start() == 0 and interview.end() == len(candidate):
+        return True  # "최종 면접", "1차 면접"
     bare = {_compact(term) for term in _BARE_STAGE_TERMS}
-    if _compact(text[start:end]) not in bare:
+    if _compact(candidate) not in bare:
         return False
     named = [event for event in _STAGE_EVENTS if _compact(event) not in bare]
     left, right = _line_bounds(text, start, end)
     return not any(left + m.start() <= start and end <= left + m.end()
                    for m in find_matches(text[left:right], named))
+
+
+def _bare_stage_sentence(text: str, start: int, end: int) -> str:
+    """The sentence around a bare stage term, with the term's own 면접 blanked.
+
+    "최종 면접" must not be its own stage context, while the order marker of
+    "1차 면접" still is (as "1차" is for "1차 인터뷰"). Offsets are kept.
+    """
+    masked = text[:start] + text[start:end].replace("면접", "  ") + text[end:]
+    return _evidence_line(masked, start, end)
 
 
 def _hiring_context(line: str, section: Section | None) -> bool:
@@ -324,6 +349,44 @@ def _context_allowed(slot_id: str, line: str, section: Section, offset: int) -> 
     return True
 
 
+def _label_body_unit(
+    section: Section, definition: dict[str, Any], slot_id: str, line: str, right: int, offset: int
+) -> tuple[int, int, str] | None:
+    """The unit a label line anchors: its body, unless deferred, empty or unsupported."""
+    cursor = right + 1
+    body_parts: list[str] = []
+    body_start = cursor
+    end = cursor
+    while cursor < len(section.text) and cursor - right < 600:
+        end = section.text.find("\n", cursor)
+        end = len(section.text) if end == -1 else end
+        body = section.text[cursor:end]
+        plain = re.sub(r"<[^>]+>", "", body).strip()
+        if plain:
+            if _heading_name(plain) or find_first(plain, _DEFERRED_BODY):
+                break
+            if not body_parts:
+                body_start = cursor
+            body_parts.append(body)
+            # Keep a split date range together; other label bodies need one line.
+            if slot_id != "schedule" or len(body_parts) == 2 or not plain.endswith(("~", "～", "-")):
+                break
+        cursor = end + 1
+    if not body_parts:
+        return None
+    body = "\n".join(body_parts)
+    support = definition.get("accept_patterns", []) + [
+        p for c in definition.get("components", []) for p in c.get("patterns", [])
+    ]
+    if slot_id == "schedule":
+        support += _DATE_CONTENT
+    if not find_first(body, support) and not (slot_id in {"preference_items", "evaluation_criteria"} and len(body.strip()) >= 4):
+        return None
+    if not _context_allowed(slot_id, body, section, offset):
+        return None
+    return body_start, end, line + "\n" + body
+
+
 def _candidate_units(section: Section, definition: dict[str, Any], slot_id: str) -> list[tuple[int, int, str]]:
     units: list[tuple[int, int, str]] = []
     for match in find_matches(section.text, definition.get("accept_patterns", [])):
@@ -331,55 +394,34 @@ def _candidate_units(section: Section, definition: dict[str, Any], slot_id: str)
         line = section.text[left:right]
         if (slot_id == "selection_stages"
                 and _bare_stage_match(section.text, match.start(), match.end())
-                and not _stage_context(section, _evidence_line(section.text, match.start(), match.end()))):
-            continue  # "고객 인터뷰", "민원 서류접수": work, not an applicant stage.
+                and not _stage_context(section, _bare_stage_sentence(section.text, match.start(), match.end()))):
+            continue  # "고객 인터뷰", "민원 서류접수", "임원 면접 일정 조율": work, not an applicant stage.
         heading = _heading_name(line) is not None or _compact(line) == _compact(match.group(0))
         if slot_id in {"selection_stages", "ai_disclosure"} and (
             find_first(line, _STAGE_EVENTS)
             or (_heading_name(line) is None and _line_marker(line)[0] in {"item", "mark", "note"})
         ):
             heading = False  # A named stage, or a list item ("- 인터뷰"), is evidence.
-        if slot_id == "contact_point" and find_first(line, [r"re:0\d{1,2}[- )]\d{3,4}[- ]\d{4}", r"re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}"]):
+        if slot_id == "contact_point" and find_first(line, _CONTACT_CHANNEL):
             heading = False
         if heading:
             if slot_id in {"selection_stages", "ai_disclosure", "qualification_rationale"}:
                 continue
             # A label can anchor a body, but a deferred/empty heading cannot.
-            cursor = right + 1
-            body_parts: list[str] = []
-            body_start = cursor
-            end = cursor
-            while cursor < len(section.text) and cursor - right < 600:
-                end = section.text.find("\n", cursor)
-                end = len(section.text) if end == -1 else end
-                body = section.text[cursor:end]
-                plain = re.sub(r"<[^>]+>", "", body).strip()
-                if plain:
-                    if _heading_name(plain) or find_first(plain, _DEFERRED_BODY):
-                        break
-                    if not body_parts:
-                        body_start = cursor
-                    body_parts.append(body)
-                    # Keep a split date range together; other label bodies need one line.
-                    if slot_id != "schedule" or len(body_parts) == 2 or not plain.endswith(("~", "～", "-")):
-                        break
-                cursor = end + 1
-            if not body_parts:
-                continue
-            body = "\n".join(body_parts)
-            support = definition.get("accept_patterns", []) + [
-                p for c in definition.get("components", []) for p in c.get("patterns", [])
-            ]
-            if slot_id == "schedule":
-                support += _DATE_CONTENT
-            if not find_first(body, support) and not (slot_id in {"preference_items", "evaluation_criteria"} and len(body.strip()) >= 4):
-                continue
-            if not _context_allowed(slot_id, body, section, match.start()):
-                continue
-            units.append((body_start, end, line + "\n" + body))
+            unit = _label_body_unit(section, definition, slot_id, line, right, match.start())
+            if unit is not None:
+                units.append(unit)
         elif (_context_allowed(slot_id, line, section, match.start())
               and _context_allowed(slot_id, _evidence_line(section.text, match.start(), match.end()), section, match.start())):
             units.append((match.start(), match.end(), line))
+    if slot_id == "contact_point" and section.name == "문의처" and not units:
+        # The 문의처 heading itself ("문의", "▶ 문의") labels its body: a phone,
+        # an e-mail or a department ("총무과", "인사과 채용담당") there is the
+        # contact point even without a word such as 문의 or 담당자 on its line.
+        right = _line_bounds(section.text, 0, 0)[1]
+        unit = _label_body_unit(section, definition, slot_id, section.text[:right], right, 0)
+        if unit is not None:
+            units.append(unit)
     return units
 
 
@@ -413,7 +455,13 @@ def _component_present(slot_id: str, component: dict[str, Any], contexts: list[s
 # 인적사항은 기재 금지"). A connective must end a word and 고/나 need a verb
 # stem before them, so 고객, 공고, 나이, 며칠 or the particle (이)나 never split.
 # A penalty for leaving the item out ("미기재 시 탈락") is a requirement, not a
-# protection. web/engine.js keeps the same patterns (PROTECTIVE_* constants).
+# protection. A penalty declared absent ("미기재 시 불이익 없음", "미기재 시에도
+# 감점하지 않습니다") makes the item optional, which is a protection; a purpose
+# clause ("불이익이 없도록 정확히 기재 바랍니다") still asks for the item, so
+# 없도록/않도록/없게/않게 do not negate a penalty, nor does a 없 inside a word
+# ("빠짐없이"). An indifference ("신체 조건 무관") stops protecting once a
+# contrast follows it in the sentence ("단 키 175cm 이상 필수", "무관하지만").
+# web/engine.js keeps the same patterns (PROTECTIVE_* constants).
 _SENSITIVE_CANDIDATE = ["출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족"]
 _NOT_AN_INFORMATION_ITEM = [r"re:가족\s*같은"]
 _PROTECTIVE = [
@@ -421,10 +469,15 @@ _PROTECTIVE = [
     r"re:(?:포함|제공)\s*하지",
     r"re:(?:기재|표현)[^.!?\n]{0,100}(?:평가대상에서\s*제외|부적합|탈락처리)",
     r"re:블라인드[^.!?\n]{0,80}미준수",
+    r"re:(?:미기재|미작성|미제출|누락)\s*(?:시|하면|할\s*경우|된\s*경우)[^.!?\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)[^.!?\n,]{0,12}(?:(?<=[\s은는이가도을를지익점락외합])(?:없|않)(?!도록|게)|아니|아닙|아님)",
 ]
 _PROTECTIVE_INDIFFERENT = [r"re:^\s*(?:(?:과|와|은|는|의|에)\s*)?(?:무관|관계\s*없|상관\s*없|불문|제한\s*없)"]
+_PROTECTIVE_CONTRAST = [
+    r"re:(?:^|[\s,(（\[])(?:단|다만|하지만|그러나|그렇지만)(?=[\s,:：)）\]]|$)",
+    r"re:^\S*(?:지만|으나|하나|는데)(?=[\s,]|$)",
+]
 _PROTECTIVE_OMISSION_PENALTY = [
-    r"re:(?:(?:미기재|미작성|미제출|누락)\s*(?:시|하면|할\s*경우|된\s*경우)|(?:기재|작성|제출)\s*하지\s*않(?:으면|을\s*경우|는\s*경우|은))[^.!?\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)(?![^.!?\n,]{0,12}(?:없|않|아니))"
+    r"re:(?:(?:미기재|미작성|미제출|누락)\s*(?:시|하면|할\s*경우|된\s*경우)|(?:기재|작성|제출)\s*하지\s*않(?:으면|을\s*경우|는\s*경우|은))[^.!?\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)(?![^.!?\n,]{0,12}(?:(?<=[\s은는이가도을를지익점락외합])(?:없|않)(?!도록|게)|아니|아닙|아님))"
 ]
 _PROTECTIVE_REQUIREMENT = [
     r"re:(?:필수|요구|제출해야|제출\s*필수)",
@@ -462,8 +515,8 @@ def _protective_comma_joins(left: str, right: str, item: str | None) -> bool:
     return item is None or len(find_matches(item, _PROTECTIVE_TOKEN)) <= _PROTECTIVE_LIST_ITEM_TOKENS
 
 
-def _protective_clause(source: str, start: int, end: int) -> tuple[int, int]:
-    """Source span of the clause around source[start:end], inside its evidence window."""
+def _protective_sentence(source: str, start: int, end: int) -> tuple[int, int]:
+    """Source span of the sentence around source[start:end], inside its evidence window."""
     line_start = source.rfind("\n", 0, start) + 1
     line_end = source.find("\n", end)
     line_end = len(source) if line_end == -1 else line_end
@@ -477,6 +530,12 @@ def _protective_clause(source: str, start: int, end: int) -> tuple[int, int]:
         window_end = min(right - left, max(end - left + 96, window_start + _EVIDENCE_WINDOW_CODEPOINTS))
         window_start = max(0, window_end - _EVIDENCE_WINDOW_CODEPOINTS)
         left, right = left + window_start, left + window_end
+    return left, right
+
+
+def _protective_clause(source: str, start: int, end: int) -> tuple[int, int]:
+    """Source span of the clause around source[start:end], inside its evidence window."""
+    left, right = _protective_sentence(source, start, end)
     sentence = source[left:right]
     s, e = start - left, end - left
     ends = find_matches(sentence, _PROTECTIVE_CLAUSE_END)
@@ -510,8 +569,12 @@ def _protective_clause(source: str, start: int, end: int) -> tuple[int, int]:
 def _protective_clause_governs(source: str, start: int, end: int) -> bool:
     """Whether a protective expression governs the sensitive candidate source[start:end]."""
     clause_start, clause_end = _protective_clause(source, start, end)
-    if find_first(source[end:clause_end], _PROTECTIVE_INDIFFERENT):
-        return True  # "신체 조건과 무관하게"
+    indifferent = find_first(source[end:clause_end], _PROTECTIVE_INDIFFERENT)
+    if indifferent is not None:
+        # "신체 조건과 무관하게" protects; "신체 조건 무관, 단 키 175cm 이상 필수"
+        # does not: the contrast brings a condition back.
+        sentence_end = _protective_sentence(source, start, end)[1]
+        return find_first(source[end + indifferent.end():sentence_end], _PROTECTIVE_CONTRAST) is None
     clause = source[clause_start:clause_end]
     if find_first(clause, _PROTECTIVE_OMISSION_PENALTY):
         return False  # "부모 직업 미기재 시 탈락" requires the item.

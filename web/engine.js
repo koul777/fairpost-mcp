@@ -626,6 +626,8 @@
   const DUTY_CONTEXT = ["re:(?:알고리즘|임직원|직원|제품|서비스|고객).{0,80}(?:연구|개발|설계|운영|개선|평가)"];
   const CONTACT_CONTEXT = ["문의","연락","인사팀","채용팀","인사부","담당 부서","전화","전자우편","re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}","re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}"];
   const CONTACT_NON_CHANNEL = ["결과","통보","기재","등록","발송","지원서","모집"];
+  // Keep identical to _CONTACT_CHANNEL: a phone (incl. 15xx/16xx/18xx) or an e-mail.
+  const CONTACT_CHANNEL = ["re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}", "re:(?<![\\d-])1[568]\\d{2}-\\d{4}(?![\\d-])", "re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}"];
   // Keep identical to _DEFERRED_BODY in core/extractor.py (see the comment there).
   const DEFERRED_BODY = ["re:^(?:(?:추후|차후|나중에|미정)[^\\n]*|(?![^\\n]*(?:(?:19|20)\\d{2}\\s*[./-]\\s*\\d{1,2}|\\d{1,2}\\s*[./]\\s*\\d{1,2}|\\d{1,4}\\s*(?:년|월|일|시|주)|\\d[\\d,.]{0,15}\\s*(?:[천백만억]\\s*)*원))(?:(?:별도|상세|예정)[^\\n]*(?:안내|공지|협의|예정|미정|문의|통보|참조|확인)[^\\n]*|예정[^\\n]{0,12}|별도|상세))$"];
   const DATE_CONTENT = ["re:\\d{1,4}[./-]\\d{1,2}|(?:19|20)\\d{2}\\s*[./-]\\s*\\d{1,2}","re:\\d+\\s*(?:년|월|일|시|주)","상시","수시", "채용시까지", "채용 시까지"];
@@ -633,6 +635,8 @@
   // Keep identical to _BARE_STAGE_TERMS, _STAGE_SECTIONS, _STAGE_MARKERS,
   // _LINE_MARKER and _SENTENCE_END in core/extractor.py.
   const BARE_STAGE_TERMS = ["인터뷰", "서류접수", "서류 검토", "서류 리뷰"];
+  // Keep identical to _BARE_INTERVIEW_STAGE ("최종 면접", "1차 면접" ...).
+  const BARE_INTERVIEW_STAGE = ["re:(?:최종|임원|대면|비대면|화상|온라인|전화|실무진|실무|경영진|대표이사|대표|인성|역량|직무|기술|심층|PT|발표|토론|\\d\\s*차)\\s*면접(?!관|비|장)"];
   const STAGE_SECTIONS = ["전형절차", "일정"];
   const STAGE_MARKERS = ["re:→|⇒|▶|▷|->|=>|>", "re:\\d\\s*단계", "re:\\d\\s*차(?![가-힣])", "re:\\d\\s*차\\s*(?:인터뷰|면접|전형|심사|평가|합격|과제|테스트|서류)", "전형", "re:(?:채용|선발|합류)\\s*(?:절차|과정|프로세스)", "re:최종\\s*합격"];
   const LINE_MARKER = pythonRegex(
@@ -737,11 +741,20 @@
 
   // Mirrors _bare_stage_match.
   function bareStageMatch(text, start, end) {
+    const candidate = text.slice(start, end);
+    const interview = findFirst(candidate, BARE_INTERVIEW_STAGE);
+    if (interview && interview.start === 0 && interview.end === candidate.length) return true;
     const bare = BARE_STAGE_TERMS.map((term) => compactHeading(term));
-    if (!bare.includes(compactHeading(text.slice(start, end)))) return false;
+    if (!bare.includes(compactHeading(candidate))) return false;
     const named = STAGE_EVENTS.filter((event) => !bare.includes(compactHeading(event)));
     const [left, right] = lineBounds(text, start, end);
     return !findMatches(text.slice(left, right), named).some((m) => left + m.start <= start && end <= left + m.end);
+  }
+
+  // Mirrors _bare_stage_sentence: the term's own 면접 is not its stage context.
+  function bareStageSentence(text, start, end) {
+    const masked = text.slice(0, start) + text.slice(start, end).replaceAll("면접", "  ") + text.slice(end);
+    return evidenceLine(masked, start, end);
   }
 
   function hiringContext(line, section) {
@@ -769,44 +782,56 @@
     return true;
   }
 
+  // Mirrors _label_body_unit: the body a label line anchors, or null.
+  function labelBodyUnit(section, definition, slotId, line, right, offset) {
+    let cursor = right + 1;
+    let end = cursor;
+    let bodyStart = cursor;
+    const bodyParts = [];
+    while (cursor < section.text.length && Array.from(section.text.slice(right, cursor)).length < 600) {
+      end = section.text.indexOf("\n", cursor);
+      if (end === -1) end = section.text.length;
+      const body = section.text.slice(cursor, end);
+      const plain = trimPythonWhitespace(body.replace(/<[^>]+>/gu, ""));
+      if (plain) {
+        if (headingName(plain) || findFirst(plain, DEFERRED_BODY)) break;
+        if (!bodyParts.length) bodyStart = cursor;
+        bodyParts.push(body);
+        if (slotId !== "schedule" || bodyParts.length === 2 || !/[~～-]$/u.test(plain)) break;
+      }
+      cursor = end + 1;
+    }
+    if (!bodyParts.length) return null;
+    const body = bodyParts.join("\n");
+    const support = [...(definition.accept_patterns || []), ...(definition.components || []).flatMap((c) => c.patterns || [])];
+    if (slotId === "schedule") support.push(...DATE_CONTENT);
+    if (!findFirst(body, support) && !(["preference_items", "evaluation_criteria"].includes(slotId) && Array.from(trimPythonWhitespace(body)).length >= 4)) return null;
+    if (!contextAllowed(slotId, body, section, offset)) return null;
+    return {start:bodyStart, end, context:line + "\n" + body};
+  }
+
   function candidateUnits(section, definition, slotId) {
     const units = [];
     for (const match of findMatches(section.text, definition.accept_patterns || [])) {
       const [left, right] = lineBounds(section.text, match.start, match.end);
       const line = section.text.slice(left, right);
-      if (slotId === "selection_stages" && bareStageMatch(section.text, match.start, match.end) && !stageContext(section, evidenceLine(section.text, match.start, match.end))) continue;
+      if (slotId === "selection_stages" && bareStageMatch(section.text, match.start, match.end) && !stageContext(section, bareStageSentence(section.text, match.start, match.end))) continue;
       let heading = headingName(line) !== null || compactHeading(line) === compactHeading(match.text);
       if (["selection_stages", "ai_disclosure"].includes(slotId) && (findFirst(line, STAGE_EVENTS) || (headingName(line) === null && ["item", "mark", "note"].includes(lineMarker(line)[0])))) heading = false;
-      if (slotId === "contact_point" && findFirst(line, ["re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}", "re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}"])) heading = false;
+      if (slotId === "contact_point" && findFirst(line, CONTACT_CHANNEL)) heading = false;
       if (heading) {
         if (["selection_stages", "ai_disclosure", "qualification_rationale"].includes(slotId)) continue;
-        let cursor = right + 1;
-        let end = cursor;
-        let bodyStart = cursor;
-        const bodyParts = [];
-        while (cursor < section.text.length && Array.from(section.text.slice(right, cursor)).length < 600) {
-          end = section.text.indexOf("\n", cursor);
-          if (end === -1) end = section.text.length;
-          const body = section.text.slice(cursor, end);
-          const plain = trimPythonWhitespace(body.replace(/<[^>]+>/gu, ""));
-          if (plain) {
-            if (headingName(plain) || findFirst(plain, DEFERRED_BODY)) break;
-            if (!bodyParts.length) bodyStart = cursor;
-            bodyParts.push(body);
-            if (slotId !== "schedule" || bodyParts.length === 2 || !/[~～-]$/u.test(plain)) break;
-          }
-          cursor = end + 1;
-        }
-        if (!bodyParts.length) continue;
-        const body = bodyParts.join("\n");
-        const support = [...(definition.accept_patterns || []), ...(definition.components || []).flatMap((c) => c.patterns || [])];
-        if (slotId === "schedule") support.push(...DATE_CONTENT);
-        if (!findFirst(body, support) && !(["preference_items", "evaluation_criteria"].includes(slotId) && Array.from(trimPythonWhitespace(body)).length >= 4)) continue;
-        if (!contextAllowed(slotId, body, section, match.start)) continue;
-        units.push({start:bodyStart, end, context:line + "\n" + body});
+        const unit = labelBodyUnit(section, definition, slotId, line, right, match.start);
+        if (unit) units.push(unit);
       } else if (contextAllowed(slotId, line, section, match.start) && contextAllowed(slotId, evidenceLine(section.text, match.start, match.end), section, match.start)) {
         units.push({start:match.start, end:match.end, context:line});
       }
+    }
+    if (slotId === "contact_point" && section.name === "문의처" && !units.length) {
+      // The 문의처 heading itself labels its body (a phone, e-mail or department).
+      const right = lineBounds(section.text, 0, 0)[1];
+      const unit = labelBodyUnit(section, definition, slotId, section.text.slice(0, right), right, 0);
+      if (unit) units.push(unit);
     }
     return units;
   }
@@ -840,10 +865,15 @@
     "re:(?:포함|제공)\\s*하지",
     "re:(?:기재|표현)[^.!?\\n]{0,100}(?:평가대상에서\\s*제외|부적합|탈락처리)",
     "re:블라인드[^.!?\\n]{0,80}미준수",
+    "re:(?:미기재|미작성|미제출|누락)\\s*(?:시|하면|할\\s*경우|된\\s*경우)[^.!?\\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)[^.!?\\n,]{0,12}(?:(?<=[\\s은는이가도을를지익점락외합])(?:없|않)(?!도록|게)|아니|아닙|아님)",
   ];
   const PROTECTIVE_INDIFFERENT = ["re:^\\s*(?:(?:과|와|은|는|의|에)\\s*)?(?:무관|관계\\s*없|상관\\s*없|불문|제한\\s*없)"];
+  const PROTECTIVE_CONTRAST = [
+    "re:(?:^|[\\s,(（\\[])(?:단|다만|하지만|그러나|그렇지만)(?=[\\s,:：)）\\]]|$)",
+    "re:^\\S*(?:지만|으나|하나|는데)(?=[\\s,]|$)",
+  ];
   const PROTECTIVE_OMISSION_PENALTY = [
-    "re:(?:(?:미기재|미작성|미제출|누락)\\s*(?:시|하면|할\\s*경우|된\\s*경우)|(?:기재|작성|제출)\\s*하지\\s*않(?:으면|을\\s*경우|는\\s*경우|은))[^.!?\\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)(?![^.!?\\n,]{0,12}(?:없|않|아니))",
+    "re:(?:(?:미기재|미작성|미제출|누락)\\s*(?:시|하면|할\\s*경우|된\\s*경우)|(?:기재|작성|제출)\\s*하지\\s*않(?:으면|을\\s*경우|는\\s*경우|은))[^.!?\\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)(?![^.!?\\n,]{0,12}(?:(?<=[\\s은는이가도을를지익점락외합])(?:없|않)(?!도록|게)|아니|아닙|아님))",
   ];
   const PROTECTIVE_REQUIREMENT = [
     "re:(?:필수|요구|제출해야|제출\\s*필수)",
@@ -876,7 +906,8 @@
     return item === null || findMatches(item, PROTECTIVE_TOKEN).length <= PROTECTIVE_LIST_ITEM_TOKENS;
   }
 
-  function protectiveClause(source, start, end) {
+  // Mirrors _protective_sentence: the sentence span inside the evidence window.
+  function protectiveSentence(source, start, end) {
     const lineStart = lastNewlineBefore(source, start) + 1;
     const next = source.indexOf("\n", end);
     const lineEnd = next === -1 ? source.length : next;
@@ -901,6 +932,11 @@
       left = base + codePoints.slice(0, windowStart).join("").length;
       right = base + codePoints.slice(0, windowEnd).join("").length;
     }
+    return [left, right];
+  }
+
+  function protectiveClause(source, start, end) {
+    const [left, right] = protectiveSentence(source, start, end);
     const sentence = source.slice(left, right);
     const s = start - left;
     const e = end - left;
@@ -939,7 +975,12 @@
 
   function protectiveClauseGoverns(source, match) {
     const [clauseStart, clauseEnd] = protectiveClause(source, match.start, match.end);
-    if (findFirst(source.slice(match.end, clauseEnd), PROTECTIVE_INDIFFERENT)) return true;
+    const indifferent = findFirst(source.slice(match.end, clauseEnd), PROTECTIVE_INDIFFERENT);
+    if (indifferent) {
+      // An indifference stops protecting once a contrast follows it.
+      const sentenceEnd = protectiveSentence(source, match.start, match.end)[1];
+      return !findFirst(source.slice(match.end + indifferent.end, sentenceEnd), PROTECTIVE_CONTRAST);
+    }
     const clause = source.slice(clauseStart, clauseEnd);
     if (findFirst(clause, PROTECTIVE_OMISSION_PENALTY)) return false;
     if (!findFirst(clause, PROTECTIVE)) return false;

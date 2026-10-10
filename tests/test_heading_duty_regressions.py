@@ -13,6 +13,11 @@ found in review of the slot extractor:
   written as list items ("- 인터뷰", "2. AI 영상면접") were read as labels.
 
 Every case also runs through the browser engine and must match Python exactly.
+
+Follow-ups (2026-10-10 evening): interview names with a qualifier ("최종 면접",
+"임원 면접", "1차 면접") are selection stages under the same stage-context rule
+as a bare 인터뷰, and a 문의처 heading body with a 15xx/16xx/18xx number or a
+department name ("총무과", "인사과 채용담당") is a contact point.
 """
 from __future__ import annotations
 
@@ -82,6 +87,58 @@ STAGE_LISTS = {
     "zero-width-duty-heading": (
         "담당​업무\n- 사무 보조\n채용 안내\n- 1차 AI 면접 실시", {"ai_disclosure"}),
     "lone-cr-lines": ("담당업무\r- 사무 보조\r채용 안내\r- 1차 AI 면접 실시", {"ai_disclosure"}),
+    "bulleted-final-interview": ("전형절차\n- 서류전형\n- 최종 면접", {"selection_stages"}),
+}
+
+# Interview names with a qualifier in a stage context: a selection stage with an
+# interview component. (text, section of the evidence)
+INTERVIEW_NAME_STAGES = {
+    "bulleted-final-interview": ("전형절차\n- 서류전형\n- 최종 면접", "전형절차"),
+    "procedure-two-interviews": ("전형절차\n임원 면접 및 실무진 면접", "전형절차"),
+    # Decision: in a 전형절차 section even a note names the procedure's stage.
+    "procedure-final-interview-note": ("전형절차\n최종 면접 시 복장 자유", "전형절차"),
+    "schedule-in-person-interview": ("일정\n- 대면 면접: 2026년 8월 20일", "일정"),
+    "ordinal-then-final": ("1차 면접 후 최종 면접", "전체"),
+    "document-stage-then-team-interview": ("서류 전형 합격자에 한해 실무진 면접 실시", "전체"),
+    "executive-interview-arrow": ("임원 면접 → 최종 합격", "전체"),
+    "duty-then-plain-title-interviews": (DUTY_THEN_PLAIN_TITLE, "개요"),
+}
+
+# The same names in recruiting work or in a note outside a stage context.
+INTERVIEW_NAME_NOT_STAGE = {
+    "recruiter-duty-review-and-schedule": "담당업무\n- 채용 지원자 서류 검토 및 면접 일정 조율",
+    "recruiter-duty-executive-interview": "담당업무\n- 임원 면접 일정 조율",
+    "unheaded-executive-interview-work": "임원 면접 일정 조율 및 채용 행정 지원",
+    "unheaded-technical-interview-work": "기술 면접 질문 개발 및 평가 도구 운영",
+    "interviewer-training": "최종 면접관 교육 지원",
+    "dress-code-note": "면접 시 복장 자유",
+    "final-interview-dress-code-in-notes": "유의사항\n최종 면접 시 복장 자유",
+}
+
+# A 문의처 body with a representative number or a department, or a
+# representative number with inquiry context. (text, section, component)
+CONTACT_FOUND = {
+    "representative-number-under-heading": ("문의처\n1588-1234", "문의처", "phone"),
+    "representative-number-under-short-heading": ("문의\n1577-0000", "문의처", "phone"),
+    "decorated-heading-bulleted-number": ("● 문의\n- 1644-1234", "문의처", "phone"),
+    "department-under-short-heading": ("문의\n총무과", "문의처", "department"),
+    "department-and-desk": ("문의처\n인사과 채용담당", "문의처", "department"),
+    "team-under-contact-heading": ("연락처\n경영지원팀", "문의처", "department"),
+    "duty-then-decorated-contact": ("담당업무\n- 회계 결산\n▶ 문의\n- 1588-1234", "문의처", "phone"),
+    "representative-number-with-inquiry-word": ("채용 문의 전화 1577-0000", "전체", "phone"),
+    "representative-number-after-phone-label": ("전화: 1588-1234", "전체", "phone"),
+}
+
+# Still no contact point.
+CONTACT_NOT_FOUND = {
+    "redaction-token": "문의\n[PHONE]",
+    "redaction-token-under-full-heading": "문의처\n[PHONE]",
+    "deferred-body": "문의처\n추후 안내",
+    "representative-number-in-duty-text": "고객센터 1588-1234 운영 업무",
+    "result-notice-body": "문의\n결과 발표 후 개별 안내",
+    "change-notice-body": "문의처\n본 공고 내용은 내부 사정에 따라 변경될 수 있습니다",
+    "result-word-body": "문의처\n합격결과는 홈페이지에 게시",
+    "number-without-separator": "문의\n15881234",
 }
 
 # --- look-alikes whose outcome must not change -------------------------------
@@ -276,7 +333,8 @@ def test_real_stage_lists_are_found(text: str, slots: set[str]) -> None:
 def test_list_items_carry_their_stage_evidence() -> None:
     result = _check(STAGE_LISTS["numbered-review-and-ai-video"][0])
     assert _slot(result, "ai_disclosure")["evidence"] == "2. AI 영상면접"
-    assert _slot(result, "selection_stages")["components_found"] == ["document_stage"]
+    # "3. 최종 면접" is an interview stage in a 전형절차 section.
+    assert _slot(result, "selection_stages")["components_found"] == ["document_stage", "interview_stage"]
     review = _check(STAGE_LISTS["bulleted-review-and-interview"][0])
     assert _slot(review, "selection_stages")["components_found"] == ["document_stage", "interview_stage"]
     assert _slot(review, "selection_stages")["section"] == "전형절차"
@@ -331,6 +389,58 @@ def test_example_titles_are_section_headings(title: str, section: str) -> None:
     assert [s.name for s in split_sections(f"{title}은 별도로 정합니다.")] == ["전체"]
 
 
+@pytest.mark.parametrize(("text", "section"), INTERVIEW_NAME_STAGES.values(), ids=INTERVIEW_NAME_STAGES.keys())
+def test_interview_names_in_a_stage_context_are_stages(text: str, section: str) -> None:
+    result = _check(text)
+    slot = _slot(result, "selection_stages")
+    assert slot["found"] is True
+    assert slot["section"] == section
+    assert "interview_stage" in slot["components_found"]
+    assert STAGES_QUESTION not in _question_ids(result)
+
+
+@pytest.mark.parametrize("text", INTERVIEW_NAME_NOT_STAGE.values(), ids=INTERVIEW_NAME_NOT_STAGE.keys())
+def test_interview_names_outside_a_stage_context_are_not_stages(text: str) -> None:
+    result = _check(text)
+    slot = _slot(result, "selection_stages")
+    assert slot["found"] is False
+    assert slot["evidence"] is None
+    assert STAGES_QUESTION in _question_ids(result)
+
+
+def test_interview_name_pattern_is_shared_with_the_slot_dictionary() -> None:
+    slots = yaml.safe_load((ROOT / "data" / "slots.yaml").read_text(encoding="utf-8"))
+    stages = slots["selection_stages"]
+    interview = next(c for c in stages["components"] if c["id"] == "interview_stage")
+    assert set(extractor._BARE_INTERVIEW_STAGE) <= set(stages["accept_patterns"])
+    assert set(extractor._BARE_INTERVIEW_STAGE) <= set(interview["patterns"])
+    contact = slots["contact_point"]
+    phone = next(c for c in contact["components"] if c["id"] == "phone")
+    assert set(extractor._CONTACT_CHANNEL[:2]) <= set(contact["accept_patterns"])
+    assert set(extractor._CONTACT_CHANNEL[:2]) == set(phone["patterns"])
+
+
+@pytest.mark.parametrize(("text", "section", "component"), CONTACT_FOUND.values(), ids=CONTACT_FOUND.keys())
+def test_contact_heading_body_or_representative_number_is_a_contact_point(
+    text: str, section: str, component: str
+) -> None:
+    result = _check(text)
+    slot = _slot(result, "contact_point")
+    assert slot["found"] is True
+    assert slot["section"] == section
+    assert component in slot["components_found"]
+    assert CONTACT_QUESTION not in _question_ids(result)
+
+
+@pytest.mark.parametrize("text", CONTACT_NOT_FOUND.values(), ids=CONTACT_NOT_FOUND.keys())
+def test_tokens_deferrals_and_unrelated_numbers_are_not_contact_points(text: str) -> None:
+    result = _check(text)
+    slot = _slot(result, "contact_point")
+    assert slot["found"] is False
+    assert slot["evidence"] is None
+    assert CONTACT_QUESTION in _question_ids(result)
+
+
 def test_official_spaced_dates_are_dates_but_list_numbers_are_not() -> None:
     dated = _slot(_check("접수기간\n2026. 8. 1. ~ 8. 12."), "schedule")
     assert dated["found"] is True
@@ -353,7 +463,7 @@ def test_web_engine_uses_the_same_patterns() -> None:
     assert json.loads(_js_constant("LINE_MARKER")) == extractor._LINE_MARKER.pattern
     assert json.loads(_js_constant("SENTENCE_END")) == extractor._SENTENCE_END
     for name in ("HIRING_CONTEXT", "DATE_CONTENT", "STAGE_EVENTS", "BARE_STAGE_TERMS",
-                 "STAGE_MARKERS", "DUTY_HEADINGS"):
+                 "BARE_INTERVIEW_STAGE", "STAGE_MARKERS", "DUTY_HEADINGS", "CONTACT_CHANNEL"):
         assert json.loads(_js_constant(name)) == getattr(extractor, f"_{name}"), name
     assert sorted(json.loads(_js_constant("STAGE_SECTIONS"))) == sorted(extractor._STAGE_SECTIONS)
 
@@ -396,6 +506,14 @@ def _parity_cases() -> dict[str, str]:
     cases.update({f"stage-kept:{k}": v[0] for k, v in STAGE_CONTEXT_KEPT.items()})
     cases.update({f"not-stage-kept:{k}": v for k, v in NOT_STAGE_KEPT.items()})
     cases.update({f"decorated:{k}": v[0] for k, v in DECORATED_HEADINGS.items()})
+    cases.update({f"interview-stage:{k}": v[0] for k, v in INTERVIEW_NAME_STAGES.items()})
+    cases.update({f"interview-not-stage:{k}": v for k, v in INTERVIEW_NAME_NOT_STAGE.items()})
+    cases.update({f"contact-found:{k}": v[0] for k, v in CONTACT_FOUND.items()})
+    cases.update({f"contact-not-found:{k}": v for k, v in CONTACT_NOT_FOUND.items()})
+    for key, (text, _section, _component) in CONTACT_FOUND.items():
+        # Inside a posting, after a decorated duty list and with CRLF lines.
+        cases[f"contact-in-posting:{key}"] = f"● 담당업무\n- 회계 결산\n● 근무조건\n- 연봉 4,000만원\n{text}"
+        cases[f"contact-crlf:{key}"] = text.replace("\n", "\r\n")
     for title in TEMPLATE_TITLES:
         cases[f"title:{title}"] = f"담당업무\n인사 행정 지원\n{title}\n본문"
     for slot_id in TEMPLATE_SLOTS_LOST_AFTER_DUTIES:
