@@ -17,6 +17,9 @@ selection_stages:
     - "필기 전형"
     - "서류 검토"
     - "서류 리뷰"
+    # 최종 면접, 임원 면접, 1차 면접 ...: only in a stage context, like a bare
+    # 인터뷰 (core/extractor.py _BARE_INTERVIEW_STAGE is the same pattern).
+    - "re:(?:최종|임원|대면|비대면|화상|온라인|전화|실무진|실무|경영진|대표이사|대표|인성|역량|직무|기술|심층|PT|발표|토론|\\d\\s*차)\\s*면접(?!관|비|장)"
   search_sections: [ 전형절차, 일정 ]
   components:
     - id: document_stage
@@ -33,6 +36,7 @@ selection_stages:
         - 면접 심사
         - 인터뷰
         - 면접 전형
+        - "re:(?:최종|임원|대면|비대면|화상|온라인|전화|실무진|실무|경영진|대표이사|대표|인성|역량|직무|기술|심층|PT|발표|토론|\\d\\s*차)\\s*면접(?!관|비|장)"
     - id: job_mapping
       patterns: [ 직무능력, 직무역량, 지식ㆍ기술ㆍ태도, 직무기술서 ]
 evaluation_criteria:
@@ -134,6 +138,9 @@ contact_point:
     - "이메일"
     - "전자우편"
     - "re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}"
+    # 15xx/16xx/18xx representative numbers; outside a 문의처 section they still
+    # need inquiry context on their line.
+    - "re:(?<![\\d-])1[568]\\d{2}-\\d{4}(?![\\d-])"
     - "re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}"
     - "1:1 문의"
     - "1대1 문의"
@@ -143,9 +150,16 @@ contact_point:
   search_sections: [ 문의처, 유의사항, 기타 ]
   components:
     - id: department
-      patterns: [ 담당 부서, 인사팀, 채용팀, 인사부 ]
+      # A department or team name (총무과, 경영지원팀, 고객센터, 인사과 채용담당),
+      # not a word that only ends like one (결과, 여부, 내부, 사실).
+      patterns:
+        - 담당 부서
+        - 인사팀
+        - 채용팀
+        - 인사부
+        - "re:(?<![가-힣])[가-힣]{1,12}(?:팀|부서|센터|(?<![결효통부초학경])과|(?<![여내외전일세정])부|(?<![사확현진교과])실)(?:으로|로|에서|에게|에|의|은|는|이|가|와|과)?(?![가-힣])|(?:채용|인사)\\s*담당|담당관"
     - id: phone
-      patterns: [ "re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}" ]
+      patterns: [ "re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}", "re:(?<![\\d-])1[568]\\d{2}-\\d{4}(?![\\d-])" ]
     - id: email
       patterns: [ "re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}" ]
     - id: hours

@@ -330,6 +330,12 @@ class ReviewPacket:
         return tuple(role for role in REVIEW_ROLES if role not in participating)
 
     @property
+    def reviewer_event_count(self) -> int:
+        """Reviewer-authored events, the "이벤트 N개" the browser panel shows."""
+
+        return sum(1 for event in self.events if not event.is_system_generated)
+
+    @property
     def issue_statuses(self) -> tuple[dict[str, Any], ...]:
         resolved = {
             event.resolves_event_id

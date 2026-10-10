@@ -12,6 +12,12 @@ reach across clauses.
 A protective verb now silences only the candidate it governs (same clause), and
 the protective notices that were silent before stay silent. Every case also runs
 through the browser engine and must match Python exactly.
+
+Follow-ups (2026-10-10 evening): a penalty declared absent ("미기재 시 불이익
+없음") is protection, while a purpose clause ("불이익이 없도록 기재 바랍니다")
+is not; the Q-DIST-005 and Q-DIST-017 excludes no longer reach across clauses;
+an indifference ("신체 조건 무관") followed by a contrast ("단 키 175cm 이상
+필수") no longer protects.
 """
 from __future__ import annotations
 
@@ -64,6 +70,14 @@ MUST_FLAG = {
     "bracketed-ban-then-parent-job": ("출신학교(기재 금지), 부모 직업 기재", "FAMILY-001"),
     "ban-comma-then-parent-job-bonus": ("출신학교 기재 금지, 부모 직업 기재 시 가산점", "FAMILY-001"),
     "school-ban-then-required-parent-job": ("출신학교 기재 금지 부모 직업 필수", "FAMILY-001"),
+    # A penalty with no negation, or a purpose clause that asks for the item.
+    "missing-parent-job-penalty-bare": ("부모 직업 미기재 시 불이익", "FAMILY-001"),
+    "omission-penalty-purpose-clause": (
+        "부모 직업 미기재 시 불이익이 없도록 빠짐없이 기재 바랍니다", "FAMILY-001"),
+    "omission-penalty-purpose-ge": ("부모 직업 미기재 시 불이익이 없게 꼭 기재하세요", "FAMILY-001"),
+    # A waived penalty protects only the item in its own clause.
+    "waived-penalty-then-other-requirement": (
+        "사진 미기재 시 불이익 없음, 부모 직업 기재 필수", "FAMILY-001"),
 }
 
 # Linked or own-trigger questions the same defect removed.
@@ -77,6 +91,23 @@ LINKED_QUESTIONS = {
         "주민등록번호 뒷자리는 기재하지 마시고 가족관계증명서를 제출하세요.", "Q-INFO-011", None),
     "certificate-with-masked-id": (
         "가족관계증명서는 주민등록번호 기재 금지 상태로 제출하십시오", "Q-INFO-011", None),
+    # Q-DIST-005 "출신학교 ... 기재하지" exclude used to reach into another clause.
+    "school-preference-then-other-ban": ("출신학교 졸업자 우대, 부모 직업은 기재하지 마세요", "Q-DIST-005", None),
+    "school-preference-connective-then-ban": (
+        "출신학교 졸업자 우대하며 부모 직업은 기재하지 마세요", "Q-DIST-005", None),
+    "school-preference-next-sentence-ban": (
+        "출신학교 졸업자 우대. 부모 직업은 기재하지 마세요", "Q-DIST-005", None),
+    "school-preference-next-line-ban": ("출신학교 졸업자 우대\n부모 직업은 기재하지 마세요", "Q-DIST-005", None),
+    # Q-DIST-017 excludes used to silence every marital item near any ban.
+    "marital-item-then-contrast-ban": (
+        "입사지원서 항목: 혼인 여부, 단 자녀 유무는 기재하지 마세요", "Q-DIST-017", None),
+    "marital-required-then-child-ban": ("혼인 여부 기재 필수, 자녀 유무는 기재하지 마세요", "Q-DIST-017", None),
+    "marriage-required-then-child-ban": ("결혼 여부 기재 필수, 자녀 유무는 기재하지 마세요", "Q-DIST-017", None),
+    "marital-item-then-contrast-not-collected": ("혼인 여부, 단 자녀 유무는 수집하지 않습니다", "Q-DIST-017", None),
+    # An indifference followed by a contrast no longer protects the candidate.
+    "body-indifferent-then-contrast": ("신체 조건 무관, 단 키 175cm 이상 필수", "Q-DIST-007", "BODY-001"),
+    "body-indifferent-jiman": ("신체 조건은 무관하지만 키 175cm 이상이어야 합니다", "Q-DIST-007", "BODY-001"),
+    "body-indifferent-bracketed-contrast": ("신체 조건 무관(단, 키 175cm 이상)", "Q-DIST-007", "BODY-001"),
 }
 
 # Genuine protective notices: the protection governs the candidate, so the
@@ -126,6 +157,22 @@ PROTECTIVE_SILENT = {
     "school-ban-adverb-not-overridden": (
         "출신학교는 일체 기재 금지 상태로 부모의 학력을 기재해 주세요", {"Q-DIST-005", "Q-DIST-010"}),
     "school-ban-before-required-parent-job": ("출신학교 기재 금지 부모 직업 필수", {"Q-DIST-010"}),
+    # A penalty declared absent makes the item optional.
+    "omission-without-penalty-eopseum": ("부모 직업 미기재 시 불이익 없음", {"FAMILY-001", "Q-DIST-010", "Q-INFO-010"}),
+    "omission-without-penalty-polite": ("부모 직업 미기재 시 불이익은 없습니다", {"FAMILY-001"}),
+    "sibling-education-omission-no-deduction": (
+        "형제자매 학력 미기재 시에도 감점하지 않습니다", {"SCHOOL-001", "Q-DIST-005", "Q-INFO-010"}),
+    "omission-not-rejected": ("부모 직업 누락 시에도 탈락 처리하지 않습니다", {"FAMILY-001"}),
+    # An indifference without a contrast still protects.
+    "body-and-education-indifferent": ("신체 조건 무관, 학력 무관", {"Q-DIST-007"}),
+    # The clause-scoped Q-DIST-005 / Q-DIST-017 excludes still cover noun lists.
+    "school-list-ban": ("출신학교, 학점, 어학점수는 기재하지 마세요", {"Q-DIST-005"}),
+    "school-family-ban-then-career": (
+        "블라인드 안내: 출신학교, 가족관계는 기재하지 마시고 경력만 작성하세요", {"Q-DIST-005"}),
+    "pregnancy-birth-list-ban": ("임신 여부, 출산 계획은 기재하지 마세요", {"Q-DIST-017"}),
+    "marital-comma-where": ("혼인 여부, 지원서에 기재하지 마세요", {"Q-DIST-017"}),
+    "marital-included-unfit": ("혼인 여부 등 개인 인적사항이 포함되어 있는 경우 부적격 처리", {"Q-DIST-017"}),
+    "marriage-child-not-asked": ("결혼 여부, 자녀 유무는 묻지 않습니다", {"Q-DIST-017"}),
 }
 
 # 고/나/며 inside ordinary words (or the particle (이)나) between the candidate
@@ -210,6 +257,32 @@ def test_protective_clause_spans_a_noun_list() -> None:
     assert extractor._protective_clause(text, start, start + len("출신학교")) == (0, len(text))
 
 
+@pytest.mark.parametrize(
+    ("phrase", "penalty"),
+    [
+        ("미기재 시 불이익", True),
+        ("미기재 시 불이익이 없도록 기재 바랍니다", True),
+        ("미기재 시 감점되지 않게 기재 바랍니다", True),
+        ("미기재 시 불이익 없음", False),
+        ("미기재 시에도 감점하지 않습니다", False),
+        ("미기재 시 탈락 대상이 아닙니다", False),
+    ],
+)
+def test_only_a_declared_absent_penalty_is_waived(phrase: str, penalty: bool) -> None:
+    assert (find_first(phrase, extractor._PROTECTIVE_OMISSION_PENALTY) is not None) is penalty
+    assert (find_first(phrase, extractor._PROTECTIVE) is not None) is not penalty
+
+
+def test_contrast_after_indifference_asks_the_question_on_its_own_wording() -> None:
+    # The candidate itself is no longer protected, so the question is not
+    # "suppressed" and core/engine.py keeps the BODY-001 link as well.
+    text = "신체 조건 무관, 단 키 175cm 이상 필수"
+    question = next(q for q in _check(text)["questions"] if q["id"] == "Q-DIST-007")
+    assert question["matched_text"] == "신체 조건"
+    assert question["trigger_reason"] == "presence"
+    assert question["linked_findings"] == ["BODY-001"]
+
+
 # --- the web engine mirrors the patterns -------------------------------------------
 
 _MIRRORED = {
@@ -217,6 +290,7 @@ _MIRRORED = {
     "NOT_AN_INFORMATION_ITEM": "_NOT_AN_INFORMATION_ITEM",
     "PROTECTIVE": "_PROTECTIVE",
     "PROTECTIVE_INDIFFERENT": "_PROTECTIVE_INDIFFERENT",
+    "PROTECTIVE_CONTRAST": "_PROTECTIVE_CONTRAST",
     "PROTECTIVE_OMISSION_PENALTY": "_PROTECTIVE_OMISSION_PENALTY",
     "PROTECTIVE_REQUIREMENT": "_PROTECTIVE_REQUIREMENT",
     "PROTECTIVE_CLAUSE_END": "_PROTECTIVE_CLAUSE_END",
