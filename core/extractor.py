@@ -10,7 +10,7 @@ from .morph import ZERO_WIDTH, find_first, find_matches
 from .schema import SlotStatus
 
 
-SECTION_VERSION = "sections-v5-ranked-evidence-negation-context"
+SECTION_VERSION = "sections-v6-clause-scoped-protection-duty-block"
 
 _SENTENCE_BOUNDARIES = ".!?。！？"
 _EVIDENCE_WINDOW_CODEPOINTS = 238
