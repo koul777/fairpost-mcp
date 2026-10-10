@@ -2,9 +2,13 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-title FairPost - Local Web and MCP
-python -m mcp_server.local_runtime web
+title FairPost - Local Review
+echo FairPost local review opens in your browser when the server is ready.
+echo Stop this server with Ctrl+C.
+python -m cli.main web --open-browser %*
 if errorlevel 1 (
-    echo Run python -m pip install -e ".[dev]" if dependencies are missing.
+    echo Local startup failed. Check the message above.
+    echo If packages are missing, run: python -m pip install .
     pause
+    exit /b 1
 )

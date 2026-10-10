@@ -147,3 +147,31 @@ def test_purge_answers_argument_errors_do_not_echo_private_inputs(capsys) -> Non
     assert captured.out == ""
     assert captured.err == "fairpost: invalid purge-answers arguments\n"
     assert "private-org-a" not in captured.err
+
+
+def test_web_subcommand_forwards_reader_options(monkeypatch) -> None:
+    from mcp_server import local_runtime
+    calls = []
+    monkeypatch.setattr(local_runtime, "main", lambda args: calls.append(args) or 0)
+
+    assert main(["web", "--port", "8123", "--open-browser"]) == 0
+    assert calls == [["web", "--port", "8123", "--open-browser"]]
+
+
+def test_web_subcommand_preserves_startup_failure_status(monkeypatch) -> None:
+    from mcp_server import local_runtime
+    monkeypatch.setattr(local_runtime, "main", lambda _args: 2)
+    assert main(["web"]) == 2
+
+
+def test_web_missing_dependencies_gives_install_instruction(monkeypatch, capsys) -> None:
+    from mcp_server import local_runtime
+
+    def missing(_args):
+        raise ModuleNotFoundError("private dependency path")
+
+    monkeypatch.setattr(local_runtime, "main", missing)
+    assert main(["web"]) == 2
+    message = capsys.readouterr().err
+    assert "python -m pip install ." in message
+    assert "private dependency path" not in message

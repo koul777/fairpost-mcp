@@ -75,6 +75,53 @@ LFㆍCRLF 차이는 정규화하므로 같은 Git 내용은 Windows와 Vercel Li
 증거 점검 결과는 임시 경로에 쓴다. 외부 MCP 클라이언트 감사처럼 이전 런타임에서
 수행한 감사는 다시 수행하기 전까지 `"evidence_status": "historical"`로 둔다.
 
+## 규칙ㆍ코드 변경 뒤 한 번에 재생성 (2026-10-10)
+
+질문ㆍ슬롯ㆍ엔진을 고치면 규칙셋이나 런타임 지문이 바뀌어 위 게이트가 바로 실패한다.
+그중 일부는 비공개 코퍼스(`.corpus*`, Git 제외)가 있어야 다시 만들 수 있어 CI가 고칠 수
+없다. 코퍼스가 있는 PC에서 다음 명령 하나로 정해진 순서대로 갱신한다.
+
+```powershell
+python tools\refresh_evidence.py --plan   # 무엇을 다시 만들지 먼저 확인
+python tools\refresh_evidence.py
+```
+
+1. 생성 도구가 등록된 코퍼스 기반 보고서를 다시 만든다. stale이거나 `historical`로
+   표시된 것이 대상이며, `--all`이면 모두 다시 만든다.
+
+   | 보고서 | 도구 | 기본 입력 |
+   |---|---|---|
+   | `web_engine_parity.json` | `verify_web_parity.py` (Node.js 필요) | `.corpus-final/train/records.jsonl` |
+   | `engine_performance.json` | `benchmark_engine.py` (기존 설정 재사용) | `.corpus-prd/train/records.jsonl` |
+   | `question_relevance_audit.json` | `audit_question_relevance.py` | `.corpus-prd/train/records.jsonl` |
+   | `corpus_rule_coverage.json` | `analyze_corpus.py` | `.corpus/train/records.jsonl` |
+
+   새 보고서는 임시 파일에 먼저 쓰고, 입력 건수와 입력 SHA-256이 기존 증거와 같을 때만
+   `reports/`에 반영한다. 코퍼스가 다르면 기존 보고서를 그대로 두고 알려 준다. 입력 경로는
+   `--input 보고서이름=경로`로 바꾸고, 코퍼스를 의도적으로 바꿨다면
+   `--accept-input-change`를 붙인다.
+2. 모든 보고서를 쓴 뒤 sdistㆍwheel을 새로 빌드해 `distribution_audit.json`을 갱신한다.
+3. 마지막으로 게이트가 통과하면 `evidence_version_audit.json`을 쓴다. 통과하지 못하면
+   남은 stale 보고서를 보여 주고 종료 코드 `1`을 반환한다.
+
+사람ㆍ배포ㆍ브라우저가 필요한 보고서(`human_labeling_handoff.json`,
+`production_rollout.json`, `web_visual_audit.json`, `youth_job_rule_coverage.json`)는
+이 도구가 다시 쓰지 않고 할 일만 안내한다. 다시 만들기 전까지 현재 증거로 쓰지 않으려면
+이유와 함께 표시한다.
+
+```powershell
+python tools\refresh_evidence.py --mark-historical production_rollout.json --reason "재배포 전 기록"
+```
+
+`historical` 표시는 게이트를 통과시키지만 릴리스를 통과시키지는 않는다. 웹ㆍPython
+비교 증거가 `historical`이거나 이전 규칙셋 기준이면 `build_release_report.py`가
+`current_web_parity` 차단 사유를 추가하고, 사람 평가는 현재 규칙셋의 최종 평가가 있어야
+한다.
+
+2026-10-10 기록: 6ff67c6이 규칙셋을 `…-0fa75d41155c`로 바꾼 뒤 위 7개 보고서를 이 방식으로
+`historical`로 표시했다. 코퍼스가 있는 PC에서 `python tools\refresh_evidence.py`를 실행하면
+앞의 세 보고서가 현재 증거로 돌아온다.
+
 ## strict 릴리스
 
 후보 CI에서는 `--candidate-report`와 필요 시

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .extractor import extract_slots, section_at, split_sections
+from .extractor import extract_slots, section_at, source_candidate_allowed, split_sections
 from .loader import Ruleset, load_ruleset
 from .morph import find_first, find_matches, is_excluded, normalize
 from .schema import Basis, CheckResult, Finding, Question, QuestionReference
@@ -108,6 +108,7 @@ class FairpostEngine:
                     == trigger["section_scope"]
                 )
                 and _matches_context_groups(source, candidate, trigger)
+                and source_candidate_allowed(source, candidate.start(), candidate.end(), sections, rule["layer"])
             ),
             None,
         )

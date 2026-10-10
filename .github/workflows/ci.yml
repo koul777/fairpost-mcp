@@ -38,6 +38,7 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           python tools/validate_data.py
           python tools/export_web_bundle.py --check
+          python tools/export_posting_templates.py --check
       - name: Test
         env:
           FAIRPOST_REQUIRE_NODE: "1"
@@ -84,6 +85,7 @@ jobs:
         run: |
           python tools/validate_data.py
           python tools/export_web_bundle.py --check
+          python tools/export_posting_templates.py --check
       - name: Test declared latest Python compatibility
         env:
           FAIRPOST_REQUIRE_NODE: "1"
@@ -113,6 +115,7 @@ jobs:
           python tools/validate_data.py
           python tools/build_statutes.py
           python tools/export_web_bundle.py --check
+          python tools/export_posting_templates.py --check
       - name: Verify release evidence and product gates
         shell: bash
         run: |

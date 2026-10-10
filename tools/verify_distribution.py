@@ -42,6 +42,7 @@ SDIST_REQUIRED = {
     "mcp_server/assisted_review.py",
     "mcp_server/build_identity.py",
     "web/index.html",
+    "web/posting-templates.js",
     "data/rules/law.yaml",
     "data/guidance/ncs-fair-hiring.yaml",
     "data/guidance/organization-applicability.yaml",
@@ -696,6 +697,7 @@ def inspect_wheel(path: Path) -> dict[str, object]:
         "web/index.html",
         "web/data.js",
         "web/engine.js",
+        "web/posting-templates.js",
     }
     for suffix in data_required:
         if not any(name.endswith(f"/share/fairpost/{suffix}") for name in names):

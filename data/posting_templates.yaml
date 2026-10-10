@@ -1,0 +1,192 @@
+# Fill-in example sentences for the 11 guidance slots in data/slots.yaml.
+#
+# This file is deliberately separate from slots.yaml: the ruleset version is a
+# hash of rules/slots/statutes only, so adding or rewording an example never
+# changes the frozen ruleset. web/posting-templates.js is generated from this
+# file by tools/export_posting_templates.py (never edit the .js by hand).
+#
+# Authoring rules (enforced by the exporter and tests/test_posting_templates.py):
+#   - every blank is exactly the two characters "○○"; three in a row are rejected;
+#   - no real e-mail addresses or phone numbers, no names of people or institutions;
+#   - no scores, verdicts or legal-assurance wording;
+#   - each text, appended to a posting that lacks the slot, must make the engine
+#     report that slot as found without adding any law-layer finding;
+#   - the engine only credits a component on a line (or heading block) that
+#     already carries one of the slot's accept patterns, so every text line and
+#     supplement that fills a component repeats such a phrase on purpose;
+#   - sources are limited to titles and locators that already exist in data/.
+schema_version: fairpost-posting-templates-v1
+notice: 예시 문장입니다. ○○ 빈칸을 조직의 실제 사실로 바꾸고, 운영하지 않는 내용은 넣지 마세요.
+placeholder: "○○"
+slots:
+  selection_stages:
+    label: 전형 단계
+    condition: 실제로 운영하는 전형 단계만 남기고, 없는 단계는 지우세요.
+    text: |-
+      전형 절차
+      이 채용의 전형 단계는 ○○전형, ○○전형, 최종 합격자 결정 순서입니다.
+      1단계 ○○전형: ○○을(를) 확인합니다.
+      2단계 ○○전형: ○○을(를) 확인합니다.
+      각 전형 단계에서 확인하는 직무능력(지식ㆍ기술ㆍ태도)은 ○○입니다.
+    components:
+      document_stage: "서류전형에서는 제출한 지원서를 ○○ 기준으로 검토합니다."
+      interview_stage: "면접전형은 ○○ 방식으로 진행하며 ○○을(를) 확인합니다."
+      job_mapping: "각 전형 단계에서 확인하는 직무능력(지식ㆍ기술ㆍ태도)은 ○○입니다."
+    sources:
+      - title: 2023 능력중심 채용모델 활용 가이드(인사담당자)
+        locator: 39, 47쪽
+      - title: 채용절차의 공정화에 관한 법률
+        locator: 제8조(채용일정 및 채용과정의 고지)
+  evaluation_criteria:
+    label: 평가 기준
+    condition: 공고에 적은 기준과 실제 평가에 쓰는 기준이 같을 때만 넣으세요.
+    text: |-
+      평가 기준
+      전형별 평가 기준과 배점은 다음과 같습니다.
+      - ○○전형: 평가 항목 ○○(배점 ○○점), ○○(배점 ○○점)
+      - ○○전형: 평가 항목 ○○(배점 ○○점), ○○(배점 ○○점)
+      평가 항목은 직무능력(지식ㆍ기술ㆍ태도) ○○과(와) 연결됩니다.
+    components:
+      criteria_named: "단계별 평가 항목은 ○○, ○○입니다."
+      weighting_named: "각 평가 항목의 배점은 ○○점입니다."
+      job_linkage: "평가 항목은 직무능력(지식ㆍ기술ㆍ태도) ○○과(와) 연결됩니다."
+    sources:
+      - title: 2024년 능력중심 채용모델 평가위원 가이드북
+        locator: 10, 16, 18, 30쪽
+  schedule:
+    label: 전형 일정
+    condition: 면접ㆍ필기 등 실제로 실시하는 전형의 일정만 남기세요.
+    text: |-
+      전형 일정
+      - 접수 기간: ○○월 ○○일 ○○시부터 ○○월 ○○일 ○○시까지
+      - 면접 일시: ○○월 ○○일 ○○시
+      전형 일정이 변경되면 ○○ 방법으로 별도 공지합니다.
+    components:
+      application_date: "접수 기간은 ○○월 ○○일 ○○시부터 ○○월 ○○일 ○○시까지입니다."
+      assessment_date: "면접 일시는 ○○월 ○○일 ○○시입니다."
+      change_notice: "전형 일정이 변경되면 ○○ 방법으로 별도 공지합니다."
+    sources:
+      - title: 채용절차의 공정화에 관한 법률
+        locator: 제8조(채용일정 및 채용과정의 고지)
+  result_notice:
+    label: 결과 안내
+    condition: null
+    text: |-
+      결과 안내
+      - 안내 대상: 합격자와 불합격자 모두에게 각 전형의 결과를 안내합니다.
+      - 안내 시기: 각 전형의 결과 발표일은 ○○월 ○○일입니다.
+      - 안내 방법: ○○ 방법으로 개별 통보합니다.
+    components:
+      notice_channel: "전형 결과는 ○○ 방법으로 개별 통보합니다."
+      notice_time: "각 전형의 결과 발표일은 ○○월 ○○일입니다."
+      notice_audience: "합격자와 불합격자 모두에게 각 전형의 결과를 안내합니다."
+    sources:
+      - title: 채용절차의 공정화에 관한 법률
+        locator: 제10조(채용 여부의 고지)
+      - title: 2024년 능력중심 채용모델 평가위원 가이드북
+        locator: 6, 12, 23쪽
+  appeal_channel:
+    label: 이의제기 경로
+    condition: 이의신청을 접수하고 사람이 다시 검토해 회신하는 절차가 실제로 있을 때만 넣으세요.
+    text: |-
+      이의제기 안내
+      전형 결과에 이의가 있는 지원자는 ○○일 이내에 ○○ 부서에 ○○ 방법으로 이의신청을 할 수 있습니다.
+      접수된 이의신청은 사람이 직접 재심사하며, 접수일부터 ○○일 이내에 결과를 회신합니다.
+    components:
+      channel_named: "이의신청은 ○○ 부서에 ○○ 방법으로 접수합니다."
+      has_deadline: "이의신청은 ○○일 이내에 접수할 수 있습니다."
+      human_review: "접수된 이의신청은 사람이 직접 재심사하고 결과를 회신합니다."
+      feedback_collected: "이의신청과 지원자의 의견 수렴을 ○○ 방법으로 받아 다음 채용 개선에 반영합니다."
+    sources:
+      - title: 2023 능력중심 채용모델 활용 가이드(인사담당자)
+        locator: 31, 39쪽
+  contact_point:
+    label: 문의 창구
+    condition: null
+    text: |-
+      문의처
+      - 담당 부서: ○○
+      - 문의 전화: ○○
+      - 이메일: ○○
+      - 채용 문의 가능 시간: ○○
+    components:
+      department: "채용 문의는 ○○ 담당 부서에서 안내합니다."
+      phone: "문의 전화: ○○"
+      email: "문의 이메일: ○○"
+      hours: "채용 문의 가능 시간은 ○○입니다."
+    sources:
+      - title: 2023 능력중심 채용모델 활용 가이드(인사담당자)
+        locator: 39쪽
+  document_return:
+    label: 채용서류 반환ㆍ파기 안내
+    condition: 실제로 받는 서류와 제출 방식에 맞게 고치세요.
+    text: |-
+      채용서류 반환ㆍ파기 안내
+      - 채용 여부가 확정된 이후 ○○ 방법으로 본인 확인을 거쳐 채용서류 반환을 청구할 수 있으며, 반환 청구 기간은 ○○까지입니다.
+      - 반환 청구 기간이 지났거나 청구하지 않은 채용서류는 「개인정보 보호법」에 따라 파기합니다.
+    components:
+      return_period: "채용서류 반환 청구 기간은 ○○까지이며, ○○ 방법으로 청구할 수 있습니다."
+      disposal_notice: "반환 청구 기간이 지났거나 청구하지 않은 채용서류는 「개인정보 보호법」에 따라 파기합니다."
+    sources:
+      - title: 채용절차의 공정화에 관한 법률
+        locator: 제11조(채용서류의 반환 등)
+  ai_disclosure:
+    label: AI 활용 안내
+    condition: AI·자동화 도구를 실제로 쓰는 경우에만 넣으세요.
+    text: |-
+      인공지능 활용 안내
+      이 채용의 ○○ 전형에서는 AI 채용 도구를 사용합니다.
+      AI 채용 도구는 ○○ 목적으로 사용하며, 활용 범위는 ○○입니다.
+      AI 채용 도구가 분석하는 자료는 지원자가 제출하거나 입력한 ○○ 응답 데이터입니다.
+      AI 채용 도구의 결과는 참고자료로만 사용하며, 최종 판단은 사람이 합니다.
+      AI 채용 도구의 결과에 대한 설명 요구는 ○○ 부서에 할 수 있으며, 요구가 있으면 사람의 검토를 거쳐 설명합니다.
+    components:
+      usage_scope: "AI 채용 도구는 ○○ 목적으로 사용하며, 활용 범위는 ○○입니다."
+      data_scope: "AI 채용 도구가 분석하는 자료는 지원자가 제출하거나 입력한 ○○ 응답 데이터입니다."
+      decision_role: "AI 채용 도구의 결과는 참고자료로만 사용하며, 최종 판단은 사람이 합니다."
+      human_review: "AI 채용 도구의 결과에 대해 설명을 요구하면 사람의 검토를 거쳐 설명합니다."
+      explanation_channel: "AI 채용 도구의 결과에 대한 설명 요구는 ○○ 부서에 할 수 있습니다."
+    sources:
+      - title: 개인정보 보호법
+        locator: 제37조의2(자동화된 결정에 대한 정보주체의 권리 등)
+      - title: 인공지능 채용 가이드라인(안) 개발
+        locator: 211, 212, 213, 214, 217, 218쪽
+  compensation:
+    label: 보수 조건
+    condition: null
+    text: |-
+      보수
+      - 보수 수준: ○○ 기준 ○○원 (범위로 안내하는 경우 ○○원부터 ○○원까지)
+      - 산정 기준: ○○에 따라 정합니다.
+      - 고정 보수와 변동 보수의 구분: ○○
+    components:
+      amount_or_range: "보수 수준은 ○○원(범위로 안내하는 경우 ○○원부터 ○○원까지)입니다."
+      payment_period: "보수는 연봉 기준 ○○원입니다."
+    sources: []
+  preference_items:
+    label: 우대사항 적용 방식
+    condition: 우대사항을 실제로 적용하는 경우에만 넣으세요.
+    text: |-
+      우대사항
+      - 우대사항의 대상: 직무와 관련된 ○○
+      - 우대사항의 반영 단계와 방법: ○○ 전형에서 ○○ 방식으로 반영합니다.
+      - 우대사항 적용 시 동점자 처리: ○○
+    components:
+      item_named: "우대사항의 대상은 직무와 관련된 ○○에 해당하는 대상자입니다."
+      application_method: "우대사항은 ○○ 전형에서 ○○ 방식으로 반영하며, 동점자는 ○○ 기준으로 정합니다."
+    sources: []
+  qualification_rationale:
+    label: 자격요건의 직무 관련성
+    condition: 각 자격요건이 직무에 필요한 이유를 설명할 수 있는 요건만 남기세요.
+    text: |-
+      자격요건의 직무 관련성
+      - 자격요건 ○○: ○○ 업무 수행에 필요하여 요구합니다. 요구 수준은 ○○입니다.
+      - 자격요건 ○○: ○○ 업무 수행에 필요하여 요구합니다. 요구 수준은 ○○입니다.
+    components:
+      requirement_named: "직무 관련 자격요건은 ○○, ○○입니다."
+      rationale_named: "각 자격요건은 ○○ 업무 수행에 필요하여 요구합니다."
+      job_description_named: "각 자격요건은 직무기술서의 ○○ 항목에서 도출했습니다."
+      target_level_named: "직무 관련 자격요건의 요구 수준은 ○○입니다."
+    sources:
+      - title: 2023 능력중심 채용모델 활용 가이드(인사담당자)
+        locator: 30, 42, 43, 44쪽

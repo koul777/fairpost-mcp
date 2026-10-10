@@ -1,6 +1,6 @@
 {
   "audit_date": "2026-10-04",
-  "evidence_status": "current",
+  "evidence_status": "historical",
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-da8f450a87f4",
   "matching_version": "match-8cc4dbbcae8c00fa",
   "browser": {
@@ -15,7 +15,7 @@
   "scenarios": [
     {
       "name": "desktop-easy-and-expert",
-      "launch_url": "file:///C:/workspace/fairmcp/web/index.html",
+      "launch_url": "http://127.0.0.1:8127/web/",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -38,15 +38,16 @@
         "expert": 0
       },
       "screenshots": [
-        "tmp/visual-qa/2026-10-04/desktop-0-empty.png",
-        "tmp/visual-qa/2026-10-04/desktop-1-easy-result.png",
-        "tmp/visual-qa/2026-10-04/desktop-2-emoji.png",
-        "tmp/visual-qa/2026-10-04/desktop-3-expert.png"
-      ]
+        ".tmp/browser-review/desktop-0-empty.png",
+        ".tmp/browser-review/desktop-1-easy-result.png",
+        ".tmp/browser-review/desktop-2-emoji.png",
+        ".tmp/browser-review/desktop-3-expert.png"
+      ],
+      "static_server_api_404_count": 2
     },
     {
       "name": "tablet-easy-and-expert",
-      "launch_url": "file:///C:/workspace/fairmcp/web/index.html",
+      "launch_url": "http://127.0.0.1:8127/web/",
       "viewport": {
         "width": 820,
         "height": 1180
@@ -69,15 +70,16 @@
         "expert": 0
       },
       "screenshots": [
-        "tmp/visual-qa/2026-10-04/tablet-0-empty.png",
-        "tmp/visual-qa/2026-10-04/tablet-1-easy-result.png",
-        "tmp/visual-qa/2026-10-04/tablet-2-emoji.png",
-        "tmp/visual-qa/2026-10-04/tablet-3-expert.png"
-      ]
+        ".tmp/browser-review/tablet-0-empty.png",
+        ".tmp/browser-review/tablet-1-easy-result.png",
+        ".tmp/browser-review/tablet-2-emoji.png",
+        ".tmp/browser-review/tablet-3-expert.png"
+      ],
+      "static_server_api_404_count": 2
     },
     {
       "name": "mobile-easy-and-expert",
-      "launch_url": "file:///C:/workspace/fairmcp/web/index.html",
+      "launch_url": "http://127.0.0.1:8127/web/",
       "viewport": {
         "width": 390,
         "height": 844
@@ -100,13 +102,86 @@
         "expert": 0
       },
       "screenshots": [
-        "tmp/visual-qa/2026-10-04/mobile-0-empty.png",
-        "tmp/visual-qa/2026-10-04/mobile-1-easy-result.png",
-        "tmp/visual-qa/2026-10-04/mobile-2-emoji.png",
-        "tmp/visual-qa/2026-10-04/mobile-3-expert.png"
-      ]
+        ".tmp/browser-review/mobile-0-empty.png",
+        ".tmp/browser-review/mobile-1-easy-result.png",
+        ".tmp/browser-review/mobile-2-emoji.png",
+        ".tmp/browser-review/mobile-3-expert.png"
+      ],
+      "static_server_api_404_count": 2
     }
   ],
   "contains_posting_text": false,
-  "note": "Re-run after merging origin/main (PR #2 v0.4-hygiene). Sample posting is the built-in example; screenshots are local and not committed."
+  "note": "Easy/expert and emoji selections checked via a static loopback HTTP server; its optional assisted-review capability endpoint returned 404 as expected. Comparison checked via standalone file mode. Synthetic inputs only; screenshots remain local. Comparison sent no postings and stored no posting text. Full-page axe checks used HTTP to avoid file-mode stylesheet-fetch restrictions.",
+  "runtime_source_fingerprint": "runtime-de4fda98b279d6ecc6c26532fcb07240cdc441d4013c596935764d9034fe6246",
+  "comparison_checked_at": "2026-10-04T05:52:39.190Z",
+  "comparison_scenarios": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900,
+      "violations": [],
+      "overflow": false,
+      "storedPosting": false,
+      "posting_requests": 0,
+      "page_errors": []
+    },
+    {
+      "name": "tablet",
+      "width": 820,
+      "height": 1180,
+      "violations": [],
+      "overflow": false,
+      "storedPosting": false,
+      "posting_requests": 0,
+      "page_errors": []
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844,
+      "violations": [],
+      "overflow": false,
+      "storedPosting": false,
+      "posting_requests": 0,
+      "page_errors": []
+    }
+  ],
+  "production_comparison": {
+    "checked_at": "2026-10-04T06:04:40.736Z",
+    "cases": [
+      {
+        "name": "desktop",
+        "width": 1440,
+        "height": 900,
+        "violations": [],
+        "overflow": false,
+        "storedPosting": false,
+        "posting_requests": 0,
+        "page_errors": []
+      },
+      {
+        "name": "tablet",
+        "width": 820,
+        "height": 1180,
+        "violations": [],
+        "overflow": false,
+        "storedPosting": false,
+        "posting_requests": 0,
+        "page_errors": []
+      },
+      {
+        "name": "mobile",
+        "width": 390,
+        "height": 844,
+        "violations": [],
+        "overflow": false,
+        "storedPosting": false,
+        "posting_requests": 0,
+        "page_errors": []
+      }
+    ],
+    "passed": true
+  },
+  "historical_reason": "2026-10-04 운영 배포(2b22889)와 그 시점 화면의 기록. 이후 커밋은 아직 운영에 배포ㆍ검증되지 않았으므로 재배포 후 다시 기록하기 전까지 현재 증거로 쓰지 않음",
+  "historical_marked_at": "2026-10-10T12:57:33+09:00"
 }

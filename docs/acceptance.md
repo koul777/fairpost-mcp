@@ -53,7 +53,8 @@ Vercel 운영 주소는 Bearer 인증 뒤에 원문을 저장하지 않는 읽�
 headless Chromium으로 1440×900, 820×1180, 390×844에서 다시 검증했습니다. 세 화면
 모두 가로 넘침이 없고, 이모지가 섞인 공고에서도 강조 표시와 원문 선택 위치가
 일치하며, axe-core WCAG 2 A/AA 위반이 0건입니다. 수치는
-`reports/web_visual_audit.json`에 `current`로 기록했습니다.
+`reports/web_visual_audit.json`에 기록했습니다(2026-10-09 이후 화면 변경으로 현재는
+`historical`, 재검증 필요).
 서버 없이 `web/index.html`을 직접 연 `file://` 실행도 같은 보고서에
 기록했고, 전수 엔진 비교 결과는 `reports/web_engine_parity.json`에
 원문 없이 저장했습니다.

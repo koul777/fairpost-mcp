@@ -139,6 +139,7 @@ def test_build_release_report_accepts_built_at_override(
         json.dumps(
             {
                 "schema_version": "fairpost-web-engine-parity-v1",
+                "ruleset_version": "ruleset-version",
                 "input": {"records": 7},
                 "mismatched_records": 0,
             }
@@ -331,6 +332,33 @@ def test_build_release_report_accepts_built_at_override(
         "work24_source_access",
         "release_tag",
     }
+    assert report["verification"]["web_parity_evidence_current"] is True
+
+    # A parity report kept as historical, or built for an older ruleset, still
+    # says 0 mismatches; the release must not read that as current agreement.
+    for stale_parity in (
+        {"evidence_status": "historical", "ruleset_version": "ruleset-version"},
+        {"ruleset_version": "ruleset-old"},
+    ):
+        (reports_dir / "web_engine_parity.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "fairpost-web-engine-parity-v1",
+                    "input": {"records": 7},
+                    "mismatched_records": 0,
+                    **stale_parity,
+                }
+            ),
+            encoding="utf-8",
+        )
+        stale_report = module.build_report(
+            junitxml,
+            built_at="2026-08-03T23:57:39+09:00",
+        )
+        assert stale_report["verification"]["web_parity_evidence_current"] is False
+        assert "current_web_parity" in {
+            item["id"] for item in stale_report["release_readiness"]["blockers"]
+        }
 
 
 def test_release_report_rejects_incomplete_test_evidence(tmp_path: Path) -> None:
@@ -1468,8 +1496,15 @@ def test_vercel_configuration_excludes_private_inputs() -> None:
         "/api/health": "/api",
         "/api/mcp": "/api",
     }
+    # The printed book QR address is a temporary redirect into the web app.
+    assert config["redirects"] == [
+        {"source": "/book", "destination": "/web/?entry=book", "permanent": False},
+        {"source": "/book/", "destination": "/web/?entry=book", "permanent": False},
+    ]
     assert (ROOT / "index.html").is_file()
     landing = (ROOT / "index.html").read_text(encoding="utf-8")
+    assert 'href="/book">책 독자: 설치 없이 바로 시작</a>' in landing
+    assert landing.index('href="/book"') < landing.index('href="/web/"')
     assert "내 Vercel에 이 MCP 배포" in landing
     assert "https://vercel.com/new/clone?repository-url=" in landing
     assert "FAIRPOST_MCP_TOKEN" in landing
@@ -1497,6 +1532,20 @@ def test_vercel_configuration_excludes_private_inputs() -> None:
         "data/local_rules.yaml",
     ):
         assert private_path in ignored
+
+
+def test_readme_points_book_readers_to_the_stable_entry() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    book_url = "https://fairmcp.vercel.app/book"
+    notice = "**책에서 QR로 오셨다면:**"
+
+    assert f"[책 독자 바로 시작]({book_url})" in readme
+    assert notice in readme
+    assert readme.index(notice) < readme.index("## 빠른 시작")
+    assert f"<{book_url}>" in readme
+    assert "기본 검사는 브라우저 안에서만 실행되고 공고문을 서버로 보내지" in readme
+    assert "**보강 실행**을 눌렀을 때만" in readme
+    assert f"책 독자 주소 [`/book`]({book_url})" in readme
 
 
 def test_data_validator_accepts_committed_dictionaries() -> None:

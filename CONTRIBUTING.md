@@ -26,6 +26,7 @@ python -m pip install -e ".[dev]"
 ```powershell
 python -m pytest
 python tools\export_web_bundle.py --check
+python tools\export_posting_templates.py --check
 python tools\build_statutes.py
 python tools\verify_web_parity.py
 python tools\verify_distribution.py

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import sys
 from typing import Any
+from urllib.parse import urlsplit
 
 import anyio
 import httpx
@@ -35,6 +36,30 @@ SAMPLE_POSTING = "여성만 지원 가능"
 EXPECTED_FINDING_ID = "SEX-001"
 EXPECTED_STATUTE = "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률"
 EXPECTED_ARTICLE = "제7조"
+# The book QR prints this fixed address, so it has to stay a temporary redirect.
+BOOK_ENTRY_PATH = "/book"
+BOOK_ENTRY_TARGET = "/web/?entry=book"
+TEMPORARY_REDIRECT_STATUSES = {302, 307}
+
+
+def _book_entry_redirect_is_temporary(
+    status_code: int,
+    location: str | None,
+    base_url: str,
+) -> bool:
+    """True for a 302/307 from /book to the web entry on the same host."""
+
+    if status_code not in TEMPORARY_REDIRECT_STATUSES or not isinstance(location, str):
+        return False
+    target = urlsplit(location)
+    if target.netloc and target.netloc != urlsplit(base_url).netloc:
+        return False
+    return (
+        location.endswith(BOOK_ENTRY_TARGET)
+        and target.path == "/web/"
+        and target.query == "entry=book"
+        and not target.fragment
+    )
 
 
 def _expected_tools(_authentication: str | None) -> set[str]:
@@ -74,12 +99,15 @@ async def verify(
     endpoint = f"{base_url}/api/mcp"
     claude_endpoint = f"{base_url}/api/claude-mcp"
     health_url = f"{base_url}/api/health"
+    book_url = f"{base_url}{BOOK_ENTRY_PATH}"
     timeout = httpx.Timeout(60.0)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         health_response = await client.get(health_url)
         health_response.raise_for_status()
         health = health_response.json()
+        # Do not follow the redirect: the status code and Location are the contract.
+        book_response = await client.get(book_url, follow_redirects=False)
         anonymous = await client.post(
             endpoint,
             headers={"Accept": "application/json, text/event-stream"},
@@ -212,9 +240,15 @@ async def verify(
         for value in (security_headers["cache_control"] or "").split(",")
         if value.strip()
     }
+    book_location = book_response.headers.get("location")
     checks = {
         "health_ok": health_response.status_code == 200
         and health.get("status") == "ok",
+        "book_entry_redirect_is_temporary": _book_entry_redirect_is_temporary(
+            book_response.status_code,
+            book_location,
+            base_url,
+        ),
         "authentication_behavior_matches": authentication_behavior_matches,
         "claude_authentication_mode_matches": health.get(
             "claude_readonly_authentication"
@@ -319,6 +353,12 @@ async def verify(
         "mcp_endpoint": endpoint,
         "claude_mcp_endpoint": claude_endpoint,
         "health_endpoint": health_url,
+        "book_entry": {
+            "url": book_url,
+            "status_code": book_response.status_code,
+            "location": book_location,
+            "expected_target": BOOK_ENTRY_TARGET,
+        },
         "deployment_id": deployment_id,
         "deployment_target": "production",
         "health": {
