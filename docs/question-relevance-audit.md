@@ -151,7 +151,7 @@ slot-question 관계에서 불일치 0건으로 검증했다. 다만 이 추가 
 구문ㆍ정적 DOM 구조ㆍ반응형 CSS 회귀 검증으로 대체했다.
 
 현재 규칙으로 재현되는 기계 판독 가능한 집계는
-`reports/question_relevance_audit.json`에 저장한다. 이 보고서는 현재
+`reports/question_relevance_audit.json`(2026-10-10부터 historical, 재생성 필요)에 저장한다. 이 보고서는 현재
 질문 정의 52개별 발동률, `review_scope`ㆍ표시 그룹별 발동 수, 95% 이상
 반복 질문을 원문 없이 기록한다. 변경 전 스냅샷과 모델 보조 표본 분류는
 `reports/question_relevance_manual_review.json`에 분리해, 현재 집계와

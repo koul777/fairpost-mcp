@@ -14,6 +14,9 @@ build/
 # Collected postings are local research inputs and are never redistributed.
 .corpus*/
 
+# Per-posting benchmark results can quote posting excerpts and stay local.
+.assay/
+
 # Organization-specific answers and rules stay local.
 answers.json
 data/local_rules.yaml

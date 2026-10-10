@@ -226,6 +226,13 @@
             점수·등급·합격/불합격 또는 공정성 판정으로 해석하지 않고, 담당자가 원문과 근거를 확인해 수정 여부를 결정합니다.
           </div>
           <p id="placeholder-notice" class="placeholder-notice" role="note" hidden></p>
+          <nav id="result-jump" class="review-nav result-jump" aria-label="검토 결과 안에서 이동" hidden>
+            <a class="advanced-only" href="#findings-heading">표현 검토 후보</a>
+            <a class="advanced-only" href="#slots-heading">확인되지 않은 항목</a>
+            <a class="advanced-only" href="#questions-heading">공고별 질문</a>
+            <a class="advanced-only" href="#human-review-heading">검토 기록</a>
+            <a id="improvement-jump" href="#improvement-title" hidden>고친 내용 정리</a>
+          </nav>
 
           <nav id="review-nav" class="review-nav easy-only" aria-label="검토 항목으로 이동"></nav>
           <section id="easy-result" class="easy-result easy-only" aria-label="쉬운 모드 검토 결과"></section>
@@ -273,7 +280,7 @@
             <div class="assisted-review-heading-row">
               <div>
                 <p class="eyebrow">선택적 보강 검토</p>
-                <h3 id="assisted-review-heading">AI·현행 법령 검토 메모</h3>
+                <h3 id="assisted-review-heading" tabindex="-1">AI·현행 법령 검토 메모</h3>
               </div>
               <span id="assisted-review-result-status" class="assist-badge">대기</span>
             </div>
@@ -309,7 +316,7 @@
           </section>
           <section id="comparison-panel" class="comparison-panel" aria-labelledby="comparison-title" hidden>
             <div class="comparison-heading">
-              <h3 id="comparison-title">수정 전후 비교</h3>
+              <h3 id="comparison-title" tabindex="-1">수정 전후 비교</h3>
               <button id="comparison-reset" class="button button-quiet" type="button" disabled>현재 결과를 새 기준으로</button>
             </div>
             <p id="comparison-status" class="comparison-status" role="status" aria-live="polite" aria-atomic="true"></p>
@@ -318,7 +325,7 @@
           </section>
           <section id="improvement-panel" class="improvement-panel" aria-labelledby="improvement-title" hidden>
             <div class="comparison-heading">
-              <h3 id="improvement-title">공고문 고친 내용 정리</h3>
+              <h3 id="improvement-title" tabindex="-1">공고문 고친 내용 정리</h3>
               <button id="copy-posting-button" class="button button-secondary" type="button" disabled>고친 공고문 복사</button>
             </div>
             <p id="improvement-status" class="comparison-status"></p>
@@ -430,6 +437,7 @@
       </details>
     </footer>
 
+    <p id="review-live" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></p>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="data.js"></script>
     <script src="posting-templates.js"></script>

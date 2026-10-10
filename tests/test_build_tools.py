@@ -1487,6 +1487,7 @@ def test_reclassifier_preserves_ids_hashes_and_fixed_membership(
 def test_vercel_configuration_excludes_private_inputs() -> None:
     config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
     assert config["functions"]["api/index.py"]["maxDuration"] == 60
+    assert ".assay/**" in config["functions"]["api/index.py"]["excludeFiles"]
     rewrites = {
         item["source"]: item["destination"] for item in config["rewrites"]
     }
@@ -1517,6 +1518,7 @@ def test_vercel_configuration_excludes_private_inputs() -> None:
     for private_path in (
         ".env",
         ".agents/",
+        ".assay/",
         ".claude/",
         ".corpus*/",
         ".corpus*",
@@ -1735,6 +1737,7 @@ def test_distribution_audit_rejects_private_build_artifacts() -> None:
         "reports/build_artifact.json",
         "reports/distribution_audit.json",
         ".corpus-final/train/records.jsonl",
+        ".assay/publication-20261009/results.jsonl",
         ".private-review/queue.jsonl",
         ".env",
     }
@@ -1743,6 +1746,7 @@ def test_distribution_audit_rejects_private_build_artifacts() -> None:
 
     assert ".env" in violations
     assert ".corpus-final/train/records.jsonl" in violations
+    assert ".assay/publication-20261009/results.jsonl" in violations
     assert ".private-review/queue.jsonl" in violations
     assert "reports/build_artifact.json" in violations
     assert "reports/distribution_audit.json" in violations
@@ -2091,7 +2095,9 @@ def test_private_fairness_research_bundle_has_traceable_references() -> None:
     for source in bundle["sources"]:
         local_reference = source.get("local_reference")
         if local_reference is not None:
-            assert not local_reference.startswith((".corpus", ".private-review"))
+            assert not local_reference.startswith(
+                (".corpus", ".assay", ".private-review")
+            )
             assert (ROOT / local_reference).is_file()
     known_sources = set(source_ids)
     for claim in bundle["claims"]:

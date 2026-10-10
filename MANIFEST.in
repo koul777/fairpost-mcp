@@ -40,6 +40,7 @@ global-exclude distribution_audit-*.json
 global-exclude evidence_version_audit-*.json
 prune .corpus
 prune .corpus-*
+prune .assay
 prune .private-review
 prune tmp
 prune build

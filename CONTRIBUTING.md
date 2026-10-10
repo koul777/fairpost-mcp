@@ -36,6 +36,17 @@ python tools\verify_distribution.py
 고칠 때는 일반화된 제외 표현과 필요한 최소 window를 사용하고 회귀
 테스트를 추가합니다. 점수·등급·합격·통과 판정은 도입하지 않습니다.
 
+규칙, 슬롯, 질문 또는 엔진 코드를 바꾸면 릴리스 증거가 stale이 되거나
+`historical`로 남을 수 있습니다. 비공개 코퍼스(`.corpus*`)가 있는 PC에서
+아래 명령으로 갱신 대상을 먼저 확인한 뒤 다시 만듭니다.
+
+```powershell
+python tools\refresh_evidence.py --plan
+python tools\refresh_evidence.py
+```
+
+절차와 예외는 [릴리스 증거 버전 관리](docs/evidence-versioning.md)를 참고합니다.
+
 ## 데이터
 
 공고 원문, 담당자 개인정보, 기관별 순위는 커밋하지 않습니다. 공개

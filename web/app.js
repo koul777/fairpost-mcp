@@ -66,11 +66,13 @@
   const comparisonStatus = document.getElementById("comparison-status");
   const comparisonGroups = document.getElementById("comparison-groups");
   const comparisonReset = document.getElementById("comparison-reset");
+  const comparisonTitle = document.getElementById("comparison-title");
   const assistedToggle = document.getElementById("assisted-review-toggle");
   const assistedStatus = document.getElementById("assisted-review-status");
   const assistedBadge = document.getElementById("assisted-review-badge");
   const assistedProvider = document.getElementById("assisted-review-provider");
   const assistedPanel = document.getElementById("assisted-review-panel");
+  const assistedHeading = document.getElementById("assisted-review-heading");
   const assistedResultStatus = document.getElementById(
     "assisted-review-result-status"
   );
@@ -125,6 +127,7 @@
   const resultContent = document.getElementById("result-content");
   const resultsTitle = document.getElementById("results-title");
   const toast = document.getElementById("toast");
+  const reviewLive = document.getElementById("review-live");
   const appBody = document.getElementById("app-body");
   const modeEasyButton = document.getElementById("mode-easy");
   const modeExpertButton = document.getElementById("mode-expert");
@@ -142,6 +145,8 @@
   const undoButton = document.getElementById("posting-undo");
   const placeholderNotice = document.getElementById("placeholder-notice");
   const improvementPanel = document.getElementById("improvement-panel");
+  const resultJump = document.getElementById("result-jump");
+  const improvementJump = document.getElementById("improvement-jump");
   const improvementStatus = document.getElementById("improvement-status");
   const improvementContent = document.getElementById("improvement-content");
   const improvementRemaining = document.getElementById("improvement-remaining");
@@ -290,6 +295,9 @@
   // Posting-improvement state lives in tab memory only; nothing here is
   // written to browser storage or sent anywhere.
   let lastPostingSelection = null;
+  // A range this script selected (an inserted blank, a rewritten line). Browsers
+  // report it through the same "select" event as a reader's own selection.
+  let programSelection = null;
   let postingUndo = null;
   const rewriteDrafts = new Map();
   const rewriteTargets = new Map();
@@ -339,6 +347,13 @@
     errorElement.textContent = "";
     errorElement.hidden = true;
     field.removeAttribute("aria-invalid");
+  }
+
+  // A live region announces every write, even one that changes nothing, so
+  // status text is written only when it differs. Typing in the posting field
+  // then does not repeat the same "공고문이 바뀌었습니다" status on each key.
+  function setLiveText(element, text) {
+    if (element && element.textContent !== text) element.textContent = text;
   }
 
   function roleReviewStorage() {
@@ -1144,6 +1159,7 @@
   function setViewMode(mode, persist) {
     const nextMode = VIEW_MODES.has(mode) ? mode : "easy";
     appBody.dataset.mode = nextMode;
+    updateResultJump();
     // Easy mode hides the assist controls, so assist must not stay on unseen.
     if (nextMode === "easy" && assistedToggle.checked) {
       deactivateAssistedReview();
@@ -1220,9 +1236,12 @@
     if (typeof resultContent.querySelectorAll === "function") {
       resultContent.querySelectorAll("[data-question-answer]").forEach((field) => { field.disabled = stale; });
     }
-    humanRecordStatus.textContent = stale
-      ? "공고문이 바뀌었습니다. 아래 답변과 기록은 수정 전 공고 기준입니다. 다시 검토한 뒤 현재 답변을 남기세요. 메모 복사는 재검토 뒤 가능합니다."
-      : "현재 검토에 연결된 자기 기록입니다. 입력만으로 검증 완료를 뜻하지 않습니다.";
+    setLiveText(
+      humanRecordStatus,
+      stale
+        ? "공고문이 바뀌었습니다. 아래 답변과 기록은 수정 전 공고 기준입니다. 다시 검토한 뒤 현재 답변을 남기세요. 메모 복사는 재검토 뒤 가능합니다."
+        : "현재 검토에 연결된 자기 기록입니다. 입력만으로 검증 완료를 뜻하지 않습니다."
+    );
   }
 
   function renderPreviousHumanReviews() {
@@ -1325,12 +1344,63 @@
     }
   }
 
+  // Lines are split like Python's str.splitlines() and web/engine.js: \n, \r,
+  // \r\n (one boundary), \v, \f, U+001C-U+001E, U+0085, U+2028 and U+2029. A
+  // textarea stores only "\n", but a pasted form feed or U+2028 stays in the
+  // text, and rewrite blocks, blank-line numbers and the change summary have
+  // to agree with the engine about where a line ends.
+  const LINE_BREAK_CHARS = new Set([
+    "\n", "\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029",
+  ]);
+  const LINE_BREAK_PATTERN = /\r\n|[\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029]/u;
+
+  // One entry per line, in UTF-16 code units: [start, end) is the line without
+  // its boundary and `next` is where the following line starts.
+  function lineSpans(text) {
+    const spans = [];
+    let start = 0;
+    for (let index = 0; index < text.length; index += 1) {
+      if (!LINE_BREAK_CHARS.has(text[index])) continue;
+      const width = text[index] === "\r" && text[index + 1] === "\n" ? 2 : 1;
+      spans.push({ start, end: index, next: index + width });
+      start = index + width;
+      index += width - 1;
+    }
+    if (start < text.length) spans.push({ start, end: text.length, next: text.length });
+    return spans;
+  }
+
+  // The line holding `position`. A position inside a "\r\n" belongs to the
+  // line before it; the position after a final boundary is an empty line.
+  function lineAt(spans, position, textLength) {
+    let low = 0;
+    let high = spans.length - 1;
+    while (low <= high) {
+      const middle = (low + high) >> 1;
+      const span = spans[middle];
+      // The last line has no boundary, so the end of the text still belongs to it.
+      const limit = span.end === span.next ? span.next + 1 : span.next;
+      if (position < span.start) high = middle - 1;
+      else if (position >= limit) low = middle + 1;
+      else return span;
+    }
+    return { start: textLength, end: textLength, next: textLength };
+  }
+
+  function endsWithLineBreak(text) {
+    return text.length > 0 && LINE_BREAK_CHARS.has(text[text.length - 1]);
+  }
+
+  function startsWithLineBreak(text) {
+    return text.length > 0 && LINE_BREAK_CHARS.has(text[0]);
+  }
+
   // Slot results carry only their first evidence line, so blanks are located
   // by posting line instead of being attributed to individual slots.
   function placeholderLinesLabel(text) {
     if (typeof text !== "string" || !text || !PLACEHOLDER) return "";
     const numbers = text
-      .split("\n")
+      .split(LINE_BREAK_PATTERN)
       .map((line, index) => (line.includes(PLACEHOLDER) ? index + 1 : 0))
       .filter(Boolean);
     if (!numbers.length) return "";
@@ -1383,15 +1453,19 @@
     </details>`;
   }
 
-  // The whole line(s) holding a finding, in UTF-16 code units of `text`.
-  function findingLineRange(text, finding) {
+  // The whole line(s) holding a finding, in UTF-16 code units of `text`. The
+  // range stops before the line's boundary, so applying a rewrite keeps the
+  // boundary characters (\n, \f, a lone \r, U+2028, ...) exactly as they were.
+  function findingLineRange(text, finding, spans = lineSpans(text)) {
     const start = codePointsToCodeUnits(text, finding.offset[0]);
     const end = codePointsToCodeUnits(text, finding.offset[1]);
-    const lineStart = start > 0 ? text.lastIndexOf("\n", start - 1) + 1 : 0;
-    let lineEnd = text.indexOf("\n", Math.max(start, end - 1));
-    if (lineEnd === -1) lineEnd = text.length;
-    if (lineEnd > lineStart && text[lineEnd - 1] === "\r") lineEnd -= 1;
-    return { start: lineStart, end: lineEnd, original: text.slice(lineStart, lineEnd) };
+    const first = lineAt(spans, start, text.length);
+    const last = lineAt(spans, Math.max(start, end - 1), text.length);
+    return {
+      start: first.start,
+      end: last.end,
+      original: text.slice(first.start, last.end),
+    };
   }
 
   function rewriteBlock(index, finding) {
@@ -1404,7 +1478,7 @@
           .join("")}</ul></div>`
       : "";
     return `<details class="rewrite-detail">
-      <summary aria-label="${number}번 표현이 있는 줄 고쳐 쓰기">이 줄 고쳐 쓰기</summary>
+      <summary aria-label="이 줄 고쳐 쓰기, ${number}번 표현이 있는 줄">이 줄 고쳐 쓰기</summary>
       <div class="rewrite-content">
         <label for="rewrite-${index}">${number}번 표현이 있는 줄</label>
         <textarea id="rewrite-${index}" data-rewrite-draft="${index}" rows="3" spellcheck="false" aria-describedby="rewrite-hint-${index}">${escapeHtml(draft)}</textarea>
@@ -1420,9 +1494,19 @@
   function rememberPostingSelection() {
     const start = input.selectionStart;
     const end = input.selectionEnd;
-    if (Number.isInteger(start) && Number.isInteger(end)) {
-      lastPostingSelection = { start, end, value: input.value };
+    if (!Number.isInteger(start) || !Number.isInteger(end)) return;
+    // A range that script selected is not the reader's caret. Browsers fire
+    // "select" for it too; keeping it would make the next "커서 위치에 넣기"
+    // land inside the example that was just inserted.
+    if (
+      programSelection &&
+      programSelection.value === input.value &&
+      programSelection.start === start &&
+      programSelection.end === end
+    ) {
+      return;
     }
+    lastPostingSelection = { start, end, value: input.value };
   }
 
   // A remembered caret counts only while the posting is exactly what it was
@@ -1435,8 +1519,66 @@
       : null;
   }
 
-  function selectPostingRange(start, end) {
+  const MIRROR_STYLE_PROPERTIES = [
+    "fontFamily", "fontSize", "fontStyle", "fontWeight", "letterSpacing", "lineHeight",
+    "wordSpacing", "textIndent", "tabSize", "whiteSpace", "overflowWrap", "wordBreak",
+    "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+  ];
+
+  // Browsers do not scroll a textarea to a selection that script sets, so in a
+  // short field (phone, tablet) an inserted sentence or rewritten line can sit
+  // out of sight while the focus ring and the toast point at it. Measure the
+  // line holding `position` in an off-screen copy of the field and scroll the
+  // field there. Silently does nothing where layout is not available.
+  function revealPostingPosition(position) {
+    if (
+      typeof window.getComputedStyle !== "function" ||
+      typeof document.createElement !== "function" ||
+      !document.body ||
+      typeof document.body.appendChild !== "function" ||
+      !(input.clientHeight > 0) ||
+      !(input.clientWidth > 0)
+    ) {
+      return;
+    }
+    let mirror = null;
+    try {
+      const style = window.getComputedStyle(input);
+      mirror = document.createElement("div");
+      MIRROR_STYLE_PROPERTIES.forEach((name) => {
+        mirror.style[name] = style[name];
+      });
+      mirror.style.position = "absolute";
+      mirror.style.visibility = "hidden";
+      mirror.style.top = "0";
+      mirror.style.left = "-9999px";
+      mirror.style.boxSizing = "border-box";
+      mirror.style.width = `${input.clientWidth}px`;
+      mirror.style.border = "0";
+      mirror.textContent = input.value.slice(0, position);
+      const marker = document.createElement("span");
+      marker.textContent = "​";
+      mirror.appendChild(marker);
+      document.body.appendChild(mirror);
+      const top = marker.offsetTop;
+      const lineHeight = parseFloat(style.lineHeight) || marker.offsetHeight || 24;
+      const view = input.clientHeight;
+      if (top < input.scrollTop || top + lineHeight > input.scrollTop + view) {
+        input.scrollTop = Math.max(0, top - Math.round(view / 3));
+      }
+    } catch (_error) {
+      // Scrolling is a convenience; the selection itself is already set.
+    } finally {
+      if (mirror && typeof mirror.remove === "function") mirror.remove();
+    }
+  }
+
+  // Selects [start, end) after a program edit. The next "커서 위치에 넣기" then
+  // starts from `caret` (the end of the text just put in, a line end), not
+  // from the selected range.
+  function selectPostingRange(start, end, caret = end) {
     input.focus();
+    programSelection = { start, end, value: input.value };
     if (typeof input.setSelectionRange === "function") {
       try {
         input.setSelectionRange(start, end);
@@ -1444,16 +1586,19 @@
         // Selection is a convenience; the edit itself already happened.
       }
     }
-    rememberPostingSelection();
+    revealPostingPosition(start);
+    lastPostingSelection = { start: caret, end: caret, value: input.value };
   }
 
   // Every program edit of the posting goes through here: one undo step, then
   // the regular input event so stale handling (memo copy lock etc.) runs.
-  function applyProgramChange(next) {
+  // `restoreSelection` is where undo puts the caret back; without it undo
+  // places the caret at the first changed character.
+  function applyProgramChange(next, restoreSelection = null) {
     const before = input.value;
     input.value = next;
     // Read back what the textarea stored, so undo compares like with like.
-    postingUndo = { before, after: input.value };
+    postingUndo = { before, after: input.value, restoreSelection };
     input.dispatchEvent(new Event("input"));
   }
 
@@ -1464,36 +1609,49 @@
     const cursor = where === "cursor" ? knownPostingCursor() : null;
     let next;
     let insertedAt;
+    let restoreSelection = null;
     if (cursor === null) {
       const base = value.replace(/\s+$/u, "");
       next = base ? `${base}\n\n${text}` : text;
       insertedAt = base ? base.length + 2 : 0;
     } else {
-      // Keep the inserted block on its own lines without deleting anything.
-      const before = value.slice(0, cursor);
-      const after = value.slice(cursor);
-      const lead = before && !before.endsWith("\n") ? "\n" : "";
-      const trail = after && !after.startsWith("\n") ? "\n" : "";
+      // The block goes on its own lines and nothing is deleted or split: a
+      // caret at the start of a line puts it above that line, any other
+      // caret (mid-line or at the line's end) puts it below that line.
+      const line = lineAt(lineSpans(value), cursor, value.length);
+      const at = cursor === line.start ? line.start : line.end;
+      const before = value.slice(0, at);
+      const after = value.slice(at);
+      const lead = before && !endsWithLineBreak(before) ? "\n" : "";
+      const trail = after && !startsWithLineBreak(after) ? "\n" : "";
       next = `${before}${lead}${text}${trail}${after}`;
       insertedAt = before.length + lead.length;
-    }
-    applyProgramChange(next);
-    const blank = next.indexOf(PLACEHOLDER, insertedAt);
-    if (blank >= 0 && blank + PLACEHOLDER.length <= insertedAt + text.length) {
-      selectPostingRange(blank, blank + PLACEHOLDER.length);
-    } else {
-      selectPostingRange(insertedAt + text.length, insertedAt + text.length);
+      // Undo gives the reader back the caret or selection they had.
+      restoreSelection = {
+        start: lastPostingSelection.start,
+        end: lastPostingSelection.end,
+      };
     }
     const blanks = countPlaceholders(text);
     const fallbackNote = where === "cursor" && cursor === null
       ? "커서 위치를 알 수 없어 공고 끝에 넣었습니다. "
       : "";
+    // Announced before the edit's own status writes (stale result, locked
+    // memo), so the sentence about what happened is not read last.
     showToast(
       fallbackNote +
         (blanks
           ? `예시 문장을 넣었습니다. ${PLACEHOLDER} 빈칸 ${blanks}곳을 실제 내용으로 바꾼 뒤 '검토 메모 만들기'를 다시 누르세요.`
           : "예시 문장을 넣었습니다. 조직의 실제 내용과 맞게 고친 뒤 '검토 메모 만들기'를 다시 누르세요.")
     );
+    applyProgramChange(next, restoreSelection);
+    const insertedEnd = insertedAt + text.length;
+    const blank = next.indexOf(PLACEHOLDER, insertedAt);
+    if (blank >= 0 && blank + PLACEHOLDER.length <= insertedEnd) {
+      selectPostingRange(blank, blank + PLACEHOLDER.length, insertedEnd);
+    } else {
+      selectPostingRange(insertedEnd, insertedEnd);
+    }
   }
 
   function applyRewrite(index) {
@@ -1517,14 +1675,15 @@
       showToast("고쳐 쓸 내용을 입력하세요. 줄을 지우려면 공고문에서 직접 지우세요.");
       return;
     }
-    if (replacement === target.original) {
+    // The field shows "\n" where the posting may hold \r; same text, same line.
+    if (replacement === target.original.replace(/\r\n?/gu, "\n")) {
       showToast("고쳐 쓴 내용이 지금 줄과 같습니다. 바꿀 내용을 직접 쓴 뒤 반영하세요.");
       return;
     }
     const value = input.value;
+    showToast("반영했습니다. '검토 메모 만들기'를 다시 눌러 확인하세요.");
     applyProgramChange(value.slice(0, target.start) + replacement + value.slice(target.end));
     selectPostingRange(target.start, target.start + replacement.length);
-    showToast("반영했습니다. '검토 메모 만들기'를 다시 눌러 확인하세요.");
   }
 
   function updateUndoState() {
@@ -1552,16 +1711,51 @@
       return;
     }
     const restored = postingUndo.before;
+    const undone = postingUndo.after;
+    const restoreSelection = postingUndo.restoreSelection;
     postingUndo = null;
-    input.value = restored;
-    input.dispatchEvent(new Event("input"));
-    lastPostingSelection = null;
-    input.focus();
+    // The undone text is announced first; the status writes that the edit
+    // triggers (stale result, locked memo) follow it.
     showToast(
       latestResult && latestCheckedText === restored
         ? "되돌렸습니다. 마지막으로 검토한 공고문과 같아 현재 결과를 그대로 볼 수 있습니다."
         : "되돌렸습니다. '검토 메모 만들기'를 다시 눌러 확인하세요."
     );
+    input.value = restored;
+    input.dispatchEvent(new Event("input"));
+    lastPostingSelection = null;
+    programSelection = null;
+    // Put the caret back: where the reader had it before a cursor insert, else
+    // where the undone text was, so the field shows the change.
+    let caretStart = 0;
+    let caretEnd = 0;
+    if (
+      restoreSelection &&
+      restoreSelection.start >= 0 &&
+      restoreSelection.start <= restoreSelection.end &&
+      restoreSelection.end <= restored.length
+    ) {
+      caretStart = restoreSelection.start;
+      caretEnd = restoreSelection.end;
+    } else {
+      while (
+        caretStart < restored.length &&
+        caretStart < undone.length &&
+        restored[caretStart] === undone[caretStart]
+      ) {
+        caretStart += 1;
+      }
+      caretEnd = caretStart;
+    }
+    input.focus();
+    if (typeof input.setSelectionRange === "function") {
+      try {
+        input.setSelectionRange(caretStart, caretEnd);
+      } catch (_error) {
+        // Placing the caret is a convenience; the posting is already restored.
+      }
+    }
+    revealPostingPosition(caretStart);
   }
 
   function updateRewriteControls() {
@@ -1577,8 +1771,8 @@
   // Line-level difference between two postings: LCS over non-blank lines,
   // ignoring whitespace-only changes. Large postings are not summarized.
   function postingLineDiff(beforeText, afterText) {
-    const beforeRaw = beforeText.split(/\r?\n/u);
-    const afterRaw = afterText.split(/\r?\n/u);
+    const beforeRaw = beforeText.split(LINE_BREAK_PATTERN);
+    const afterRaw = afterText.split(LINE_BREAK_PATTERN);
     if (beforeRaw.length > IMPROVEMENT_MAX_LINES || afterRaw.length > IMPROVEMENT_MAX_LINES) {
       return { tooMany: true, added: [], removed: [] };
     }
@@ -1657,11 +1851,21 @@
     return improvementCache.changes;
   }
 
+  // Expert mode lists its sections here; easy mode brings its own navigation,
+  // so there the bar exists only while the change-summary link does.
+  function updateResultJump() {
+    resultJump.hidden = appBody.dataset.mode !== "expert" && improvementJump.hidden;
+  }
+
   function renderImprovement() {
     const fresh = Boolean(latestResult) && latestCheckedText === input.value;
     const changes = fresh ? postingChanges() : null;
     improvementPanel.hidden = !changes;
     copyPostingButton.disabled = !changes;
+    // The summary sits below the question cards; keyboard and screen reader
+    // users reach it through this link instead of tabbing past all of them.
+    improvementJump.hidden = !changes;
+    updateResultJump();
     if (!changes) return;
     if (changes !== improvementRendered) {
       // Rebuilt only when the diff changes, so open groups stay open.
@@ -1727,15 +1931,22 @@
         left.offset[0] - right.offset[0] || left.offset[1] - right.offset[1]
     );
     const missing = result.slots.filter((slot) => !slot.found);
-    const headline = orderedFindings.length
+    // Example sentences leave blanks behind; a found instruction with a blank
+    // in it is not a finished one, so the count belongs in the headline.
+    const blankCount = countPlaceholders(text);
+    const blankNote = blankCount
+      ? ` 채우지 않은 빈칸(${escapeHtml(PLACEHOLDER)}) <strong>${blankCount}곳</strong>이 남아 있습니다.`
+      : "";
+    const headline = (orderedFindings.length
       ? `다시 살펴볼 표현 <strong>${orderedFindings.length}개</strong>, 공고문에서 찾지 못한 안내 <strong>${missing.length}개</strong>가 있습니다.`
       : missing.length
-      ? `법 조항과 연결된 표현은 발견되지 않았습니다. 공고문에서 찾지 못한 안내 <strong>${missing.length}개</strong>를 확인해 보세요.`
-      : "법 조항과 연결된 표현은 발견되지 않았고, 점검하는 안내 항목도 공고문에서 모두 찾았습니다.";
+      ? `법령 조항과 함께 표시할 표현이 확인되지 않았습니다. 공고문에서 찾지 못한 안내 <strong>${missing.length}개</strong>를 확인해 보세요.`
+      : `법령 조항과 함께 표시할 표현이 확인되지 않았습니다. 점검하는 안내 항목 ${result.slots.length}개의 관련 문구를 찾았습니다. 내용의 충분성과 실제 운영은 별도 확인이 필요합니다.`) + blankNote;
     // Line targets belong to this checked text; a new review replaces them.
     rewriteTargets.clear();
+    const spans = lineSpans(text);
     orderedFindings.forEach((finding, index) => {
-      rewriteTargets.set(index, findingLineRange(text, finding));
+      rewriteTargets.set(index, findingLineRange(text, finding, spans));
     });
     const findingCards = orderedFindings
       .map((finding, index) => {
@@ -1776,7 +1987,7 @@
             .map((slot) => `<li>${escapeHtml(slot.label)}${slot.slot === "ai_disclosure" ? '<small>공고에 AI 언급이 없다고 실제 사용 여부를 알 수 없습니다. 담당자가 AI 사용 여부와 안내 적용 여부를 확인하세요.</small>' : ""}${templateBlock(slot.slot, slot.label)}</li>`)
             .join("")}</ul></details>
         </section>`
-      : `<section class="easy-section" aria-labelledby="easy-missing-heading"><h3 id="easy-missing-heading">공고문 안내 확인</h3><p class="easy-hint">점검하는 안내 항목 ${result.slots.length}개를 공고문에서 모두 찾았습니다.</p></section>`;
+      : `<section class="easy-section" aria-labelledby="easy-missing-heading"><h3 id="easy-missing-heading">공고문 안내 확인</h3><p class="easy-hint">점검하는 안내 항목 ${result.slots.length}개의 관련 문구를 찾았습니다. 내용의 충분성과 실제 운영은 별도 확인이 필요합니다.</p></section>`;
     const found = result.slots.filter((slot) => slot.found);
     const blankLines = placeholderLinesLabel(text);
     const followUps = found
@@ -1824,7 +2035,40 @@
     toast.textContent = message;
     toast.classList.add("visible");
     window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => toast.classList.remove("visible"), 4000);
+    toastTimer = window.setTimeout(() => {
+      toast.classList.remove("visible");
+      // Faded out only visually: empty it so a screen reader reading the page
+      // later does not meet an old message at the end.
+      toast.textContent = "";
+    }, 4000);
+  }
+
+  // The results heading takes focus after a review but says nothing about what
+  // the review found; this polite status carries the outcome (counts of work
+  // items, blanks, the change summary) without any verdict.
+  function announceReview(message) {
+    if (!reviewLive) return;
+    reviewLive.textContent = "";
+    reviewLive.textContent = message;
+  }
+
+  function reviewAnnouncement(result) {
+    const parts = [
+      "검토 메모를 새로 만들었습니다.",
+      `표현 검토 후보 ${result.counts.findings}개, 공고문에서 찾지 못한 안내 ${result.counts.not_found}개.`,
+    ];
+    if (!placeholderNotice.hidden && placeholderNotice.textContent) {
+      parts.push(placeholderNotice.textContent);
+    }
+    const changes = !improvementPanel.hidden ? postingChanges() : null;
+    if (changes) {
+      parts.push(
+        changes.tooMany
+          ? "공고문 고친 내용 정리가 있습니다. 변경 줄이 많아 줄 목록은 만들지 않았습니다."
+          : `공고문 고친 내용 정리가 있습니다. 바꾸거나 추가한 줄 ${changes.added.length}개, 삭제한 줄 ${changes.removed.length}개.`
+      );
+    }
+    return parts.join(" ");
   }
 
   function reviewPriorityLabel(value) {
@@ -1958,8 +2202,10 @@
           Boolean((reviewAnswers.get(question.id) || "").trim())
         ).length
       : 0;
-    document.getElementById("answer-progress").textContent =
-      `담당자 답변 ${answered}/${total}`;
+    setLiveText(
+      document.getElementById("answer-progress"),
+      `담당자 답변 ${answered}/${total}`
+    );
   }
 
   function setAssistBadge(element, label, state = "") {
@@ -2196,6 +2442,9 @@
     assistedResultSignature = null;
     assistedResultView = null;
     assistedPanel.hidden = false;
+    // The run button disables itself while the request is in flight; move
+    // focus to the panel the result appears in instead of dropping it.
+    assistedHeading.focus();
     assistedNotice.textContent =
       "Korean Law MCP에서 현행 조문을 확인한 뒤 AI 검토 메모를 작성하고 있습니다.";
     assistedOutput.textContent = "";
@@ -2312,6 +2561,7 @@
     easyResult.replaceChildren();
     postingUndo = null;
     lastPostingSelection = null;
+    programSelection = null;
     rewriteDrafts.clear();
     rewriteTargets.clear();
     improvementCache = null;
@@ -2319,6 +2569,8 @@
     placeholderNotice.hidden = true;
     placeholderNotice.textContent = "";
     improvementPanel.hidden = true;
+    improvementJump.hidden = true;
+    updateResultJump();
     improvementStatus.textContent = "";
     improvementContent.replaceChildren();
     improvementRemaining.replaceChildren();
@@ -2611,7 +2863,7 @@
     const stale = latestCheckedText !== input.value;
     comparisonReset.disabled = stale || !comparison ||
       comparisonBaseline.text === latestCheckedText;
-    comparisonStatus.textContent = message;
+    setLiveText(comparisonStatus, message);
     if (!comparison) {
       comparisonGroups.replaceChildren();
       return;
@@ -2867,6 +3119,7 @@
     latestCheckedText = input.value;
     render(result);
     resultsTitle.focus();
+    announceReview(reviewAnnouncement(result));
     if (
       typeof window.matchMedia === "function" &&
       window.matchMedia("(max-width: 1100px)").matches &&
@@ -2978,6 +3231,9 @@
       return true;
     } catch (_error) {
       const temporary = document.createElement("textarea");
+      // select() moves focus into the temporary field; hand it back afterwards
+      // so a keyboard user is not left on <body>.
+      const previousFocus = document.activeElement;
       try {
         temporary.value = makeText();
         temporary.style.position = "fixed";
@@ -2992,6 +3248,13 @@
         return false;
       } finally {
         temporary.remove();
+        if (
+          previousFocus &&
+          previousFocus !== document.body &&
+          typeof previousFocus.focus === "function"
+        ) {
+          previousFocus.focus({ preventScroll: true });
+        }
       }
     }
   }
@@ -3024,6 +3287,9 @@
     comparison = null;
     renderComparison("현재 검토 결과를 새 비교 기준으로 삼았습니다. 다음 수정부터 이 결과와 비교합니다.");
     renderImprovement();
+    // The button disables itself (nothing left to reset) and the change
+    // summary hides, so the focused control disappears: keep focus in the panel.
+    comparisonTitle.focus();
   });
 
   modeEasyButton.addEventListener("click", () => setViewMode("easy", true));
@@ -3050,6 +3316,7 @@
     if (typeof input.setSelectionRange === "function") {
       input.setSelectionRange(start, end);
     }
+    revealPostingPosition(start);
   });
 
   roleReviewRecord.addEventListener("click", recordRoleReviewEvent);

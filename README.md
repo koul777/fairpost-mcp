@@ -310,6 +310,15 @@ python tools\verify_web_parity.py
 python tools\verify_distribution.py
 ```
 
+규칙, 슬롯, 질문 또는 엔진 코드를 바꾸면 릴리스 증거가 stale이 되거나 `historical`로 남을 수 있습니다. 비공개 코퍼스(`.corpus*`)가 있는 PC에서 아래 명령으로 갱신 대상을 먼저 확인한 뒤 다시 만듭니다.
+
+```powershell
+python tools\refresh_evidence.py --plan
+python tools\refresh_evidence.py
+```
+
+절차와 예외는 [릴리스 증거 버전 관리](docs/evidence-versioning.md)를 참고합니다.
+
 자동화 테스트 통과는 법률 정확도나 현장 유용성의 증명이 아닙니다. v1.0 차단 조건은
 [로드맵](docs/roadmap.md)의 P0를 기준으로 추적합니다. 사람이 확정한 홀드아웃 평가(G1·G2),
 허가된 독립 민간 출처, 운영 CI·외부 클라이언트 증거와 릴리스 동결 등이 해당합니다.

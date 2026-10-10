@@ -601,6 +601,9 @@ def record_review_event(
 @mcp.tool(
     description=(
         "packet_id로 로컬 다중 역할 검토 패킷과 참여 역할ㆍ이벤트를 조회합니다. "
+        "participating_roles와 missing_roles는 start_role_review가 자동 생성한 "
+        "위원장 이벤트(actor_ref=system-chair)를 참여로 세지 않고 사람이 남긴 "
+        "이벤트만 집계합니다(브라우저 역할 검토 큐와 동일). "
         "공고 원문은 저장하지 않으며, 패킷에는 fingerprint와 근거 식별자만 있습니다."
     ),
     annotations=READ_ONLY_ANNOTATIONS,

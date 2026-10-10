@@ -128,6 +128,138 @@
   const MATCH_CACHE = new Map();
   const ZERO_WIDTH = new Set(["\u200b", "\u200c", "\u200d", "\ufeff"]);
 
+  // The Python core is the reference. Its str.isspace(), str.strip() and re
+  // "\s" agree on this set, which differs from ECMAScript whitespace: it adds
+  // U+001C-U+001F and U+0085 and leaves out U+FEFF.
+  const PY_SPACE_CLASS =
+    "\\t\\n\\v\\f\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
+  // The exact complement, for "\S" inside a character class such as [\s\S].
+  const PY_NON_SPACE_CLASS =
+    "\\0-\\x08\\x0e-\\x1b\\x21-\\x84\\x86-\\x9f\\xa1-\\u167f\\u1681-\\u1fff" +
+    "\\u200b-\\u2027\\u202a-\\u202e\\u2030-\\u205e\\u2060-\\u2fff\\u3001-\\u{10ffff}";
+  const PYTHON_WHITESPACE_RUN = new RegExp(`([${PY_SPACE_CLASS}]+)`, "u");
+  // Every member is below U+3001, so a one-off scan builds an exact lookup.
+  const PYTHON_WHITESPACE = (() => {
+    const member = new RegExp(`^[${PY_SPACE_CLASS}]$`, "u");
+    const characters = new Set();
+    for (let code = 0; code <= 0x3000; code += 1) {
+      const character = String.fromCharCode(code);
+      if (member.test(character)) characters.add(character);
+    }
+    return characters;
+  })();
+  // str.splitlines() boundaries; "\r\n" counts as a single boundary.
+  const PYTHON_LINE_BREAKS = new Set([
+    "\n", "\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029",
+  ]);
+  const PYTHON_REGEX_CACHE = new Map();
+
+  function isPythonWhitespace(character) {
+    return PYTHON_WHITESPACE.has(character);
+  }
+
+  function trimPythonWhitespace(value) {
+    let start = 0;
+    let end = value.length;
+    while (start < end && isPythonWhitespace(value[start])) {
+      start += 1;
+    }
+    while (end > start && isPythonWhitespace(value[end - 1])) {
+      end -= 1;
+    }
+    return value.slice(start, end);
+  }
+
+  // Mirrors str.splitlines(keepends=True).
+  function splitPythonLines(text) {
+    const lines = [];
+    let start = 0;
+    for (let index = 0; index < text.length; index += 1) {
+      if (!PYTHON_LINE_BREAKS.has(text[index])) continue;
+      if (text[index] === "\r" && text[index + 1] === "\n") index += 1;
+      lines.push(text.slice(start, index + 1));
+      start = index + 1;
+    }
+    if (start < text.length) lines.push(text.slice(start));
+    return lines;
+  }
+
+  // The whole code point that ends just before code-unit index `index`.
+  function codePointEndingAt(text, index) {
+    const low = text.charCodeAt(index - 1);
+    if (low >= 0xdc00 && low <= 0xdfff && index >= 2) {
+      const high = text.charCodeAt(index - 2);
+      if (high >= 0xd800 && high <= 0xdbff) return text.slice(index - 2, index);
+    }
+    return text[index - 1];
+  }
+
+  // Mirrors text.rfind("\n", 0, offset): only newlines strictly before offset.
+  function lastNewlineBefore(text, offset) {
+    return offset > 0 ? text.lastIndexOf("\n", offset - 1) : -1;
+  }
+
+  // Rewrites a Python `re` pattern (no flags other than IGNORECASE) into an
+  // ECMAScript "u" pattern with the same meaning for the constructs the
+  // dictionary uses: "\s"/"\S" use Python whitespace, "\d"/"\D" are Unicode
+  // decimal digits, "." stops only at "\n" (not "\r", U+2028 or U+2029), and
+  // "$" also matches before a final "\n".
+  function pythonRegexSource(source) {
+    if (PYTHON_REGEX_CACHE.has(source)) return PYTHON_REGEX_CACHE.get(source);
+    let out = "";
+    let inClass = false;
+    for (let index = 0; index < source.length; index += 1) {
+      const character = source[index];
+      if (character === "\\" && index + 1 < source.length) {
+        const escaped = source[index + 1];
+        index += 1;
+        if (escaped === "s") {
+          out += inClass ? PY_SPACE_CLASS : `[${PY_SPACE_CLASS}]`;
+        } else if (escaped === "S") {
+          out += inClass ? PY_NON_SPACE_CLASS : `[^${PY_SPACE_CLASS}]`;
+        } else if (escaped === "d") {
+          out += "\\p{Nd}";
+        } else if (escaped === "D") {
+          out += "\\P{Nd}";
+        } else {
+          out += character + escaped;
+        }
+        continue;
+      }
+      if (inClass) {
+        if (character === "]") inClass = false;
+        out += character;
+        continue;
+      }
+      if (character === "[") {
+        inClass = true;
+        out += character;
+        if (source[index + 1] === "^") {
+          out += "^";
+          index += 1;
+        }
+        // Python reads a leading "]" as a literal member, not an empty class.
+        if (source[index + 1] === "]") {
+          out += "\\]";
+          index += 1;
+        }
+        continue;
+      }
+      if (character === ".") out += "[^\\n]";
+      else if (character === "$") out += "(?=\\n?$)";
+      else out += character;
+    }
+    if (PYTHON_REGEX_CACHE.size >= 1024) {
+      PYTHON_REGEX_CACHE.delete(PYTHON_REGEX_CACHE.keys().next().value);
+    }
+    PYTHON_REGEX_CACHE.set(source, out);
+    return out;
+  }
+
+  function pythonRegex(source, flags) {
+    return new RegExp(pythonRegexSource(source), flags);
+  }
+
   function normalize(text) {
     return String(text);
   }
@@ -138,14 +270,16 @@
 
   function patternToRegex(pattern) {
     if (pattern.startsWith("re:")) {
-      return new RegExp(pattern.slice(3), "giu");
+      return pythonRegex(pattern.slice(3), "giu");
     }
     const expression = pattern
       .normalize("NFC")
-      .split(/(\s+)/u)
-      .map((part) => (/\s/u.test(part) ? "\\s*" : escapeRegex(part)))
+      .split(PYTHON_WHITESPACE_RUN)
+      .map((part) =>
+        part && trimPythonWhitespace(part) === "" ? "\\s*" : escapeRegex(part)
+      )
       .join("");
-    return new RegExp(expression, "giu");
+    return pythonRegex(expression, "giu");
   }
 
   function morphTextWithOffsets(text) {
@@ -200,7 +334,7 @@
       if (!ZERO_WIDTH.has(character)) {
         const replacement = /[\r\n\t]/u.test(character)
           ? character
-          : /\s/u.test(character)
+          : isPythonWhitespace(character)
             ? " "
             : character.normalize("NFKC");
         normalized += replacement;
@@ -331,16 +465,30 @@
     });
   }
 
+  // Same pattern as core.extractor._HEADING_DECORATION, with Python semantics.
+  const HEADING_DECORATION = pythonRegex(
+    "^[\\s#>*\\-–—\\d.()①-⑳\\[\\]■]+|[\\s:：\\[\\]]+$",
+    "gu"
+  );
+  const WHITESPACE_RUN = pythonRegex("\\s+", "gu");
+
   function normalizedHeading(line) {
     return Array.from(line).filter((ch) => !ZERO_WIDTH.has(ch)).map((ch) => ch.normalize("NFKC")).join("");
   }
 
+  function stripHeadingDecoration(value) {
+    return trimPythonWhitespace(normalizedHeading(value)).replace(
+      HEADING_DECORATION,
+      ""
+    );
+  }
+
   function compactHeading(value) {
-    return normalizedHeading(value).trim().replace(/^[\s#>*\-–—\d.()①-⑳\[\]■]+|[\s:：\[\]]+$/gu, "").replace(/\s+/gu, "").toLowerCase();
+    return stripHeadingDecoration(value).replace(WHITESPACE_RUN, "").toLowerCase();
   }
 
   function headingName(line) {
-    const cleaned = normalizedHeading(line).trim().replace(/^[\s#>*\-–—\d.()①-⑳\[\]■]+|[\s:：\[\]]+$/gu, "");
+    const cleaned = stripHeadingDecoration(line);
     if (!cleaned || Array.from(cleaned).length > 30) return null;
     const compact = compactHeading(cleaned);
     if (compact.endsWith("합류여정")) return "전형절차";
@@ -353,8 +501,9 @@
   function splitSections(text) {
     const headings = [];
     let cursor = 0;
-    const lines = text.match(/[^\n]*\n|[^\n]+$/gu) || [];
-    lines.forEach((line) => {
+    // Python splits headings with str.splitlines(), so a form feed, lone CR,
+    // U+2028 and the other Unicode line boundaries also end a heading line.
+    splitPythonLines(text).forEach((line) => {
       const name = headingName(line);
       if (name) headings.push([name, cursor]);
       cursor += line.length;
@@ -427,30 +576,16 @@
     return text.slice(left, right);
   }
 
-  const PYTHON_WHITESPACE =
-    /^[\t\n\v\f\r\x1c-\x20\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]$/u;
-
-  function trimPythonWhitespace(value) {
-    let start = 0;
-    let end = value.length;
-    while (start < end && PYTHON_WHITESPACE.test(value[start])) {
-      start += 1;
-    }
-    while (end > start && PYTHON_WHITESPACE.test(value[end - 1])) {
-      end -= 1;
-    }
-    return value.slice(start, end);
-  }
-
   function evidenceLine(text, start, end) {
-    const prior = text.lastIndexOf("\n", start - 1);
-    const lineStart = prior + 1;
+    const lineStart = lastNewlineBefore(text, start) + 1;
     const next = text.indexOf("\n", end);
     const lineEnd = next === -1 ? text.length : next;
     const boundaries = [".", "!", "?", "。", "！", "？"];
     const marks = [];
     for (let i = lineStart; i < lineEnd; i += 1) {
-      if (boundaries.includes(text[i]) && !(text[i] === "." && i > 0 && (/\p{Nd}/u.test(text[i - 1]) || (/[A-Za-z0-9]/u.test(text[i - 1]) && /[A-Za-z0-9]/u.test(text[i + 1] || ""))))) marks.push(i);
+      // Python reads text[i - 1] as a whole code point, so an astral digit
+      // (e.g. U+1D7CF) before "." must be tested as its surrogate pair.
+      if (boundaries.includes(text[i]) && !(text[i] === "." && i > 0 && (/^\p{Nd}$/u.test(codePointEndingAt(text, i)) || (/[A-Za-z0-9]/u.test(text[i - 1]) && /[A-Za-z0-9]/u.test(text[i + 1] || ""))))) marks.push(i);
     }
     const before = marks.filter((i) => i < start);
     const after = marks.filter((i) => i >= end);
@@ -486,9 +621,10 @@
   const DEFERRED_BODY = ["re:^(?:추후|차후|나중에|별도|미정|예정|상세).*(?:안내|공지|협의|예정|미정)?$"];
   const DATE_CONTENT = ["re:\\d{1,4}[./-]\\d{1,2}","re:\\d+\\s*(?:년|월|일|시|주)","상시","수시", "채용시까지", "채용 시까지"];
   const STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토"];
+  const ATTACHMENT_SUFFIX = pythonRegex("\\.(?:pdf|hwpx?|hml|docx?|zip)\\s*$", "iu");
 
   function lineBounds(text, start, end) {
-    const left = text.lastIndexOf("\n", start - 1) + 1;
+    const left = lastNewlineBefore(text, start) + 1;
     const right = text.indexOf("\n", end);
     return [left, right === -1 ? text.length : right];
   }
@@ -505,7 +641,7 @@
       if (["자격요건", "우대사항"].includes(section.name) && findFirst(line, ["경험", "경력", "설계", "연구", "개발", "운영"]) && !findFirst(line, ["지원자", "응시자", "채용 과정", "전형 절차", "실시", "참여", "진행"])) return false;
       if (findFirst(line, DUTY_CONTEXT) && !findFirst(line, HIRING_CONTEXT)) return false;
     }
-    if (slotId === "qualification_rationale" && /\.(?:pdf|hwpx?|hml|docx?|zip)\s*$/iu.test(line)) return false;
+    if (slotId === "qualification_rationale" && ATTACHMENT_SUFFIX.test(line)) return false;
     if (slotId === "compensation" && line.includes("유지보수") && !findFirst(line.replaceAll("유지보수", ""), ["급여", "보수", "연봉", "월급", "시급", "임금"])) return false;
     if (slotId === "contact_point") {
       if (findFirst(line, ["비상연락처", "본인휴대폰", "본인 연락처"])) return false;
@@ -536,7 +672,7 @@
           end = section.text.indexOf("\n", cursor);
           if (end === -1) end = section.text.length;
           const body = section.text.slice(cursor, end);
-          const plain = body.replace(/<[^>]+>/gu, "").trim();
+          const plain = trimPythonWhitespace(body.replace(/<[^>]+>/gu, ""));
           if (plain) {
             if (headingName(plain) || findFirst(plain, DEFERRED_BODY)) break;
             if (!bodyParts.length) bodyStart = cursor;
@@ -549,7 +685,7 @@
         const body = bodyParts.join("\n");
         const support = [...(definition.accept_patterns || []), ...(definition.components || []).flatMap((c) => c.patterns || [])];
         if (slotId === "schedule") support.push(...DATE_CONTENT);
-        if (!findFirst(body, support) && !(["preference_items", "evaluation_criteria"].includes(slotId) && Array.from(body.trim()).length >= 4)) continue;
+        if (!findFirst(body, support) && !(["preference_items", "evaluation_criteria"].includes(slotId) && Array.from(trimPythonWhitespace(body)).length >= 4)) continue;
         if (!contextAllowed(slotId, body, section)) continue;
         units.push({start:bodyStart, end, context:line + "\n" + body});
       } else if (contextAllowed(slotId, line, section) && contextAllowed(slotId, evidenceLine(section.text, match.start, match.end), section)) {
@@ -566,7 +702,7 @@
         const [left, right] = lineBounds(context, match.start, match.end);
         const header = context.slice(left, right);
         const body = context.slice(right + 1).split("\n")[0];
-        if (compactHeading(header) !== compactHeading(match.text) || !findFirst(body, DATE_CONTENT) || findFirst(body.trim(), DEFERRED_BODY)) return false;
+        if (compactHeading(header) !== compactHeading(match.text) || !findFirst(body, DATE_CONTENT) || findFirst(trimPythonWhitespace(body), DEFERRED_BODY)) return false;
       }
       if (slotId === "compensation" && component.id === "amount_or_range") {
         const benefits = findMatches(context, ["re:(?:복지|지원비|지원금|포상|식대|경조|실비|숙박)[^.!?\\n]{0,40}\\d[\\d,]*(?:만)?\\s*원"]);

@@ -57,7 +57,7 @@ CPU 아키텍처, 입력 해시와 건수, 예열·반복 설정을 함께 남�
 
 ## 결과 해석
 
-`reports/engine_performance.json`은 단일 개발 장비에서 얻은 기준선이다. 다음과 같은
+`reports/engine_performance.json`(2026-10-10부터 historical, 재생성 필요)은 단일 개발 장비에서 얻은 기준선이다. 다음과 같은
 주장은 이 보고서만으로 할 수 없다.
 
 - 동시 사용자 수 또는 서버 처리 용량

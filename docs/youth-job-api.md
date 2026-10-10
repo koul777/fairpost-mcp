@@ -63,4 +63,4 @@ python tools\collect_corpus.py `
 2026-07-26 공식 공개 조회 경로로 300건을 수집했고, 학습 210건과
 홀드아웃 90건으로 분할했습니다. 익명 집계는
 `reports/youth_job_corpus_summary.json`과
-`reports/youth_job_rule_coverage.json`에 기록합니다.
+`reports/youth_job_rule_coverage.json`(2026-10-10부터 historical, 재생성 필요)에 기록합니다.

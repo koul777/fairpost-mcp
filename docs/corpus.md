@@ -17,7 +17,7 @@
 - 공개 집계: `reports/corpus_summary.json`
 - 학습 세트 규칙 집계: `reports/corpus_rule_coverage.json`
 - 청년 채용 공개 집계: `reports/youth_job_corpus_summary.json`
-- 청년 채용 규칙 집계: `reports/youth_job_rule_coverage.json`
+- 청년 채용 규칙 집계: `reports/youth_job_rule_coverage.json`(2026-10-10부터 historical, 재생성 필요)
 - 민간 공개 집계: `reports/private_open_corpus_summary.json`
 - 민간 학습 규칙 집계: `reports/private_open_training_analysis.json`
 - 최종 결합 집계: `reports/final_corpus_summary.json`

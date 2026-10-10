@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEPLOYMENT_EXCLUSION_POLICY = (
     ".env",
     ".agents/",
+    ".assay/",
     ".claude/",
     ".corpus*",
     ".git/",
@@ -28,7 +29,7 @@ DEPLOYMENT_EXCLUSION_POLICY = (
 DEPLOYMENT_CONFIG_POLICY = {
     "function_max_duration": 60,
     "function_exclude_files": (
-        "{.corpus*/**,build/**,dist/**,tmp/**,tests/**,tools/**,reports/**,"
+        "{.corpus*/**,.assay/**,build/**,dist/**,tmp/**,tests/**,tools/**,reports/**,"
         "docs/**,.env,.env.*,*.egg-info/**}"
     ),
     # The printed book QR points at /book. It must stay a temporary (non
