@@ -102,6 +102,30 @@
       "Q-DIST-002_after": 360,
       "net_question_instances": 23,
       "source": "법 finding 관련질문 연결 확대 후 2026-08-30 train-only 재집계"
+    },
+    "slot_evidence_context_recount": {
+      "Q-DIST-001_before": 145,
+      "Q-DIST-001_after": 142,
+      "Q-DIST-002_before": 360,
+      "Q-DIST-002_after": 404,
+      "Q-DIST-005_before": 3,
+      "Q-DIST-005_after": 10,
+      "Q-DIST-010_before": 62,
+      "Q-DIST-010_after": 60,
+      "Q-DIST-013_before": 33,
+      "Q-DIST-013_after": 16,
+      "Q-INFO-002_before": 360,
+      "Q-INFO-002_after": 356,
+      "Q-INFO-003_before": 129,
+      "Q-INFO-003_after": 367,
+      "Q-INFO-006_before": 64,
+      "Q-INFO-006_after": 65,
+      "Q-PROC-001_before": 290,
+      "Q-PROC-001_after": 291,
+      "Q-PROC-003_before": 69,
+      "Q-PROC-003_after": 63,
+      "net_question_instances": 259,
+      "source": "6ff67c6ㆍ08eb034(2026-10-09) 슬롯 근거ㆍ보호 문맥 변경 후 2026-10-10 train-only 재집계(사람 검토 아님). Q-INFO-003 증가는 문의 맥락 없는 이메일ㆍ담당자 표기를 연락 창구로 보지 않게 한 의도된 강화와 코퍼스 비식별 토큰 때문이고, Q-DIST-002 증가는 첨부 파일명ㆍ빈 라벨인 직무기술서를 근거로 보지 않게 한 변경, Q-DIST-013 감소는 우대ㆍ증빙 문맥의 북한이탈주민 언급 제외 때문이다"
     }
   }
 }

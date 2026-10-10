@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-10T21:26:08+09:00",
+  "checked_at": "2026-10-10T22:39:37+09:00",
   "historical_paths_skipped": [
     "reports/human_labeling_handoff.json",
     "reports/mcp_client_audit.json",
@@ -29,7 +29,7 @@
       "claims_current": false,
       "expected_runtime_source_fingerprint": "runtime-aa3d00994d65d4aeb7d0f7a7bdd0d296499cd625e1504b8b1d6ef9ed23f86620",
       "expected_schema_version": null,
-      "expected_validation_source_fingerprint": "validation-acf594e1f7f2893d084c7e97b0f56a59e7fc2f4802753f34ed7a359b2b1af9b9",
+      "expected_validation_source_fingerprint": "validation-63a3749e6e4b5a7c4da4e2af435da0b3a74e8c206bff3509b47e19ed94dcea44",
       "matching_version": "match-fa5e6d7a5c7d2904",
       "matching_version_matches": false,
       "path": "reports/build_artifact-8h-candidate-2026-09-12.json",
@@ -59,7 +59,7 @@
       "claims_current": false,
       "expected_runtime_source_fingerprint": "runtime-aa3d00994d65d4aeb7d0f7a7bdd0d296499cd625e1504b8b1d6ef9ed23f86620",
       "expected_schema_version": null,
-      "expected_validation_source_fingerprint": "validation-acf594e1f7f2893d084c7e97b0f56a59e7fc2f4802753f34ed7a359b2b1af9b9",
+      "expected_validation_source_fingerprint": "validation-63a3749e6e4b5a7c4da4e2af435da0b3a74e8c206bff3509b47e19ed94dcea44",
       "matching_version": "match-fa5e6d7a5c7d2904",
       "matching_version_matches": false,
       "path": "reports/build_artifact-v0.4-candidate-2026-10-03.json",
