@@ -2,18 +2,11 @@
 
 from __future__ import annotations
 
-import base64
-import json
-from pathlib import Path
-import subprocess
-
 import pytest
 
-from core import FairpostEngine, load_ruleset
+from core import load_ruleset
 from core.extractor import Section, extract_slots, section_at, split_sections
 
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def _spans(text: str) -> list[tuple[str, int, int]]:
@@ -204,40 +197,44 @@ def test_shipped_contact_slot_uses_preferred_section_and_components() -> None:
     assert contact.components_total == 4
 
 
-# Remaining legacy line-splitting gaps are pinned; BOM heading parity is resolved.
-# Python splits lines with str.splitlines() and strips str.isspace();
-# web/engine.js splits on "\n" only and uses ECMAScript whitespace (which
-# includes U+FEFF but not U+001C-U+001F or U+0085). The two engines therefore
-# assign different sections to the same finding. This pins both sides so a
-# fix on either one fails here and the case moves to the parity suite; it
-# is not an xfail because release evidence rejects skipped JUnit cases.
-@pytest.mark.requires_node
+# Python is the reference for line handling: a heading line ends at every
+# str.splitlines() boundary. tests/test_web_parity.py holds web/engine.js to
+# the same sections, offsets and slots for each of these characters.
 @pytest.mark.parametrize(
-    ("text", "python_section", "web_section"),
-    [
-        ("3쪽\x0c자격요건\n남성만 지원 가능", "자격요건", "전체"),
-        ("안내\r자격요건\r남성만 지원 가능", "자격요건", "전체"),
-        ("안내\N{LINE SEPARATOR}자격요건\N{LINE SEPARATOR}남성만 지원 가능", "자격요건", "전체"),
-        ("\N{ZERO WIDTH NO-BREAK SPACE}자격요건\n남성만 지원 가능", "자격요건", "자격요건"),
-        ("안내\n\x1f자격요건\n남성만 지원 가능", "자격요건", "전체"),
-    ],
-    ids=["form-feed", "cr-only", "line-separator", "bom-heading", "unit-separator"],
+    "boundary",
+    ["\n", "\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"],
+    ids=["lf", "cr", "vt", "ff", "fs", "gs", "rs", "nel", "line-sep", "para-sep"],
 )
-def test_known_section_parity_gap_with_web_engine_is_pinned(
-    text: str, python_section: str, web_section: str
-) -> None:
-    encoded = base64.b64encode(text.encode("utf-8")).decode("ascii")
-    completed = subprocess.run(
-        ["node", "tests/js_runner.cjs", encoded],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    web = json.loads(completed.stdout)
-    python = FairpostEngine().check(text).to_dict()
+def test_every_splitlines_boundary_ends_a_heading_line(boundary: str) -> None:
+    text = f"안내{boundary}자격요건{boundary}남성만"
 
-    assert {f["id"] for f in python["findings"]} == {f["id"] for f in web["findings"]}
-    assert {f["section"] for f in python["findings"]} == {python_section}
-    assert {f["section"] for f in web["findings"]} == {web_section}
+    assert _spans(text) == [("전체", 0, 3), ("자격요건", 3, 11)]
+    _assert_tiles(text)
+
+
+def test_unit_separator_is_stripped_whitespace_but_not_a_line_boundary() -> None:
+    # U+001F is str.isspace() but not a str.splitlines() boundary: it is
+    # stripped around a heading yet cannot end the line before one.
+    assert _spans("안내\n\x1f자격요건\x1f\n남성만") == [
+        ("전체", 0, 3),
+        ("자격요건", 3, 13),
+    ]
+    assert _spans("안내\x1f자격요건\x1f남성만") == [("전체", 0, 11)]
+
+
+def test_bom_is_dropped_from_headings_but_kept_in_slot_evidence() -> None:
+    assert _spans("\ufeff자격요건\n남성만") == [("자격요건", 0, 9)]
+    # U+FEFF is not whitespace for str.strip(), so evidence keeps it.
+    text = "근무조건\n\ufeff급여 월 300만원\n"
+
+    [pay] = extract_slots(text, split_sections(text), {"pay": PAY_SLOT})
+
+    assert pay.evidence == "\ufeff급여 월 300만원"
+
+
+def test_crlf_mixed_with_lone_cr_counts_each_boundary_once() -> None:
+    # "\r", "\r\n", "\n" and "\r" are four boundaries; "\r\n" is one.
+    text = "자격요건\r\r\n남성만\n\r전형절차"
+
+    assert _spans(text) == [("자격요건", 0, 12), ("전형절차", 12, 16)]
+    _assert_tiles(text)

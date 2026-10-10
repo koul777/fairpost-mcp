@@ -208,6 +208,256 @@ def test_seeded_unicode_combinations_match_python_core() -> None:
         assert web_result == python_result, f"seeded case {case_index}"
 
 
+def _web_check_batch(texts: list[str], tmp_path: Path) -> list[dict]:
+    batch = tmp_path / "web-batch.json"
+    batch.write_text(
+        json.dumps(
+            [base64.b64encode(text.encode("utf-8")).decode("ascii") for text in texts]
+        ),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        ["node", "tests/js_runner.cjs", "--batch", str(batch)],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    results = json.loads(completed.stdout)
+    assert len(results) == len(texts)
+    return results
+
+
+def _finding_locations(result: dict) -> list[tuple[str, str, list[int]]]:
+    return [
+        (item["id"], item["section"], list(item["offset"]))
+        for item in result["findings"]
+    ]
+
+
+def _slot_states(result: dict) -> list[tuple]:
+    return [
+        (s["slot"], s["found"], s["section"], s["evidence"], s["components_found"])
+        for s in result["slots"]
+    ]
+
+
+def _assert_line_boundary_parity(text: str, web: dict, python: dict) -> None:
+    # Named assertions first so a failure says which part diverged.
+    assert _finding_locations(web) == _finding_locations(python)
+    assert _slot_states(web) == _slot_states(python)
+    for finding in python["findings"]:
+        start, end = finding["offset"]
+        # Offsets are code points into the original text, CR/LF and all.
+        assert text[start:end] == finding["matched_text"]
+    assert web == python
+
+
+# Python splits heading lines with str.splitlines() and trims with
+# str.strip(); these inputs used to fall into the web engine's "전체"
+# section (or lose slot evidence) because it split on "\n" only and used
+# ECMAScript whitespace. Each case states the Python section it must reach.
+LINE_BOUNDARY_PARITY_CASES = {
+    "form-feed": ("3쪽\x0c자격요건\n남성만 지원 가능", {"SEX-001": "자격요건"}),
+    "cr-only": ("안내\r자격요건\r남성만 지원 가능", {"SEX-001": "자격요건"}),
+    "line-separator": (
+        "안내\N{LINE SEPARATOR}자격요건\N{LINE SEPARATOR}남성만 지원 가능",
+        {"SEX-001": "자격요건"},
+    ),
+    "bom-heading": (
+        "\N{ZERO WIDTH NO-BREAK SPACE}자격요건\n남성만 지원 가능",
+        {"SEX-001": "자격요건"},
+    ),
+    "unit-separator": ("안내\n\x1f자격요건\n남성만 지원 가능", {"SEX-001": "자격요건"}),
+    "crlf-with-lone-cr": (
+        "채용 안내\r\n자격요건\r남성만 지원 가능\r\n전형절차\r서류전형 → AI 면접 → 최종합격\r\n",
+        {"SEX-001": "자격요건"},
+    ),
+    "form-feed-page-break-between-sections": (
+        "자격요건\n남성만 지원 가능\x0c우대사항\n20대 지원자 우대\x0c문의처\n인사팀 채용 담당자 문의",
+        {"SEX-001": "자격요건", "AGE-001": "우대사항"},
+    ),
+    "paragraph-separator-between-crlf-sections": (
+        "자격요건\r\n남성만 지원 가능\N{PARAGRAPH SEPARATOR}우대사항\r\n20대 지원자 우대",
+        {"SEX-001": "자격요건", "AGE-001": "우대사항"},
+    ),
+    "paragraph-separator-lines": (
+        "채용 안내\u2029자격요건\u2029여성만 지원 가능합니다.\u2029전형절차\u2029서류전형 → 면접전형\u2029",
+        {"SEX-001": "자격요건"},
+    ),
+    "nel-inside-crlf": (
+        "채용 안내\r\n자격요건\x85남성만 지원 가능\r\n문의처\x85인사팀 채용 담당자 문의",
+        {"SEX-001": "자격요건"},
+    ),
+    "vertical-tab-and-form-feed": (
+        "채용 안내\x0b\x0c자격요건\x0b남성만 지원 가능\x0c",
+        {"SEX-001": "자격요건"},
+    ),
+    "information-separators": (
+        "채용 안내\x1c자격요건\x1d남성만 지원 가능\x1e근무조건\x1e급여 월 300만원",
+        {"SEX-001": "자격요건"},
+    ),
+    "unit-separator-inside-and-after-heading": (
+        "채용 안내\n자격\x1f요건\x1f\x1f\n남성만 지원 가능",
+        {"SEX-001": "자격요건"},
+    ),
+    "nel-after-heading": ("채용 안내\n자격요건\x85\n남성만 지원 가능", {"SEX-001": "자격요건"}),
+    "unicode-digit-heading-number": (
+        "채용 안내\n\N{ARABIC-INDIC DIGIT ONE}. 자격요건\n남성만 지원 가능",
+        {"SEX-001": "자격요건"},
+    ),
+    "cr-cr-lf-and-lf-cr": (
+        "채용 안내\r\r\n자격요건\n\r남성만 지원 가능\r\r\n",
+        {"SEX-001": "자격요건"},
+    ),
+    # Slot-only cases: no finding, but slot evidence and found/missing used
+    # to differ (trimming, "$" before a final newline, "." across a lone CR,
+    # a surrogate-pair digit before a sentence period).
+    "slot-evidence-form-feed": ("근무조건\x0c급여 월 300만원\x0c상여 별도\n", {}),
+    "slot-evidence-line-separator": (
+        "문의처\u2028인사팀 채용 담당자\u2028평일 09:00~18:00",
+        {},
+    ),
+    "slot-schedule-body-after-unit-separator-line": (
+        "일정\n접수기간\n\x1f\n2026년 8월 1일 ~ 8월 15일\n",
+        {},
+    ),
+    "slot-schedule-body-after-bom-line": (
+        "일정\n접수기간\n\ufeff\n2026년 8월 1일 ~ 8월 15일\n",
+        {},
+    ),
+    "slot-deferred-body-across-lone-cr": ("일정\n접수기간\n추후\r8월 1일 안내\n", {}),
+    "slot-evidence-astral-digit-period": (
+        "근무조건\n안내 \N{MATHEMATICAL BOLD DIGIT ONE}. 급여 월 300만원 지급\n",
+        {},
+    ),
+    "question-dollar-before-final-crlf": ("우대조건\r\n여성\r\n", {}),
+}
+
+
+@pytest.mark.requires_node
+def test_line_boundary_sections_offsets_and_slots_match_python_core(
+    tmp_path: Path,
+) -> None:
+    names = list(LINE_BOUNDARY_PARITY_CASES)
+    texts = [LINE_BOUNDARY_PARITY_CASES[name][0] for name in names]
+    web_results = _web_check_batch(texts, tmp_path)
+    engine = FairpostEngine()
+    for name, text, web in zip(names, texts, web_results, strict=True):
+        python = engine.check(text).to_dict()
+        expected_sections = LINE_BOUNDARY_PARITY_CASES[name][1]
+        assert {
+            item["id"]: item["section"]
+            for item in python["findings"]
+            if item["id"] in expected_sections
+        } == expected_sections, name
+        try:
+            _assert_line_boundary_parity(text, web, python)
+        except AssertionError as error:
+            raise AssertionError(f"{name}: {error}") from error
+
+
+SPLITLINES_BOUNDARIES = {
+    "lf": "\n",
+    "cr": "\r",
+    "crlf": "\r\n",
+    "vt": "\x0b",
+    "ff": "\x0c",
+    "fs": "\x1c",
+    "gs": "\x1d",
+    "rs": "\x1e",
+    "nel": "\x85",
+    "line-sep": "\u2028",
+    "para-sep": "\u2029",
+}
+
+
+@pytest.mark.requires_node
+def test_every_splitlines_boundary_matches_python_core(
+    tmp_path: Path,
+) -> None:
+    template = (
+        "채용 안내{b}자격요건{b}남성만 지원 가능{b}근무조건{b}급여 월 300만원{b}"
+        "문의처{b}인사팀 채용 담당자 문의{b}"
+    )
+    texts = [template.format(b=b) for b in SPLITLINES_BOUNDARIES.values()]
+    web_results = _web_check_batch(texts, tmp_path)
+    engine = FairpostEngine()
+    for name, text, web in zip(SPLITLINES_BOUNDARIES, texts, web_results, strict=True):
+        python = engine.check(text).to_dict()
+        sex = [f["section"] for f in python["findings"] if f["id"] == "SEX-001"]
+        assert sex == ["자격요건"], name
+        slots = {s["slot"]: s for s in python["slots"]}
+        assert slots["compensation"]["section"] == "근무조건", name
+        assert slots["contact_point"]["section"] == "문의처", name
+        try:
+            _assert_line_boundary_parity(text, web, python)
+        except AssertionError as error:
+            raise AssertionError(f"{name}: {error}") from error
+
+
+@pytest.mark.requires_node
+def test_seeded_line_boundary_combinations_match_python_core(
+    tmp_path: Path,
+) -> None:
+    rng = random.Random(20261010)
+    separators = [
+        *SPLITLINES_BOUNDARIES.values(),
+        "\x1f",
+        "\ufeff",
+        "\u200b",
+        "\t",
+        " ",
+        "\u00a0",
+        "\u3000",
+    ]
+    fragments = [
+        "자격요건",
+        "■ 지원 자격 :",
+        "자격\x1f요건",
+        "\u0661. 우대사항",
+        "전형절차",
+        "근무조건",
+        "일정",
+        "접수기간",
+        "문의처",
+        "담당업무",
+        "남성만 지원 가능",
+        "20대 지원자 우대",
+        "여성",
+        "우대조건",
+        "학력사항",
+        "해당 없음",
+        "과거 병력은 기재하지 마세요.",
+        "AI 면접 실시",
+        "서류전형 → 면접전형 → 최종합격",
+        "급여 월 300만원",
+        "2026.08.01 ~ 2026.08.15",
+        "추후 안내",
+        "인사팀 채용 담당자 문의",
+        "고객 서비스 개발",
+        "\U0001d7cf.",
+    ]
+    texts = []
+    for _ in range(160):
+        parts = []
+        for _ in range(rng.randint(2, 14)):
+            if rng.random() < 0.45:
+                parts.append(rng.choice(fragments))
+            else:
+                parts.append(rng.choice(separators) * rng.choice([1, 1, 2]))
+        texts.append("".join(parts))
+    web_results = _web_check_batch(texts, tmp_path)
+    engine = FairpostEngine()
+    for index, (text, web) in enumerate(zip(texts, web_results, strict=True)):
+        python = engine.check(text).to_dict()
+        try:
+            _assert_line_boundary_parity(text, web, python)
+        except AssertionError as error:
+            raise AssertionError(f"seeded case {index} {text!r}: {error}") from error
+
+
 def test_static_web_keeps_optional_assisted_review_off_by_default() -> None:
     html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
     app = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
