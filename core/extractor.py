@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import lru_cache, wraps
 import re
 import unicodedata
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 from .morph import ZERO_WIDTH, find_first, find_matches
 from .schema import SlotStatus
@@ -19,6 +19,63 @@ _EVIDENCE_WINDOW_CODEPOINTS = 238
 # web/engine.js HEADING_DECORATION must stay identical.
 _HEADING_DECORATION = re.compile(r"^[\s#>*\-–—\d.()①-⑳\[\]■●○◆◇▶▷□◎※【】<]+|[\s:：\[\]】>]+$")
 _WHITESPACE = re.compile(r"\s+")
+_HTML_TAG = re.compile(r"<[^>]+>")
+_ATTACHMENT_FILENAME = re.compile(r"\.(?:pdf|hwpx?|hml|docx?|zip)\s*$", re.I)
+_STAGE_ARROW = re.compile(r"[→>▶]")
+_ASCII_ALNUM = re.compile(r"[A-Za-z0-9]")
+
+# --- pure string helpers ---------------------------------------------------------
+# Heading detection runs the same lines through the same helpers once per slot,
+# so the helpers below are memoized. Each is a pure function of its one string
+# argument (and of constants that are final once this module is imported), so a
+# cached value is always the value a fresh call would return. Only strings are
+# keys: Section is a frozen dataclass but holds the whole section text.
+_STRING_CACHE_ENTRIES = 8192
+# A line longer than this is not cached, so an input without line breaks cannot
+# pin megabytes of keys in a long-lived server process.
+_STRING_CACHE_MAX_CHARS = 1024
+
+_PureStringFunction = TypeVar("_PureStringFunction", bound=Callable[[str], Any])
+
+
+def _memoized_string_function(function: _PureStringFunction) -> _PureStringFunction:
+    cached = lru_cache(maxsize=_STRING_CACHE_ENTRIES)(function)
+
+    @wraps(function)
+    def wrapper(value: str) -> Any:
+        if len(value) > _STRING_CACHE_MAX_CHARS:
+            return function(value)
+        return cached(value)
+
+    wrapper.cache_info = cached.cache_info  # type: ignore[attr-defined]
+    wrapper.cache_clear = cached.cache_clear  # type: ignore[attr-defined]
+    return wrapper  # type: ignore[return-value]
+
+
+# Enough for every character of the Basic Multilingual Plane; a character beyond
+# the limit is still translated correctly, only recomputed on each use.
+_NFKC_TABLE_MAX_ENTRIES = 65536
+
+
+class _PerCharacterNfkc(dict):
+    """``str.translate`` table: drop ZERO_WIDTH, NFKC-normalize every other character alone.
+
+    This is deliberately not whole-string NFKC: a combining mark or a conjoining
+    jamo must not compose with its neighbour, because web/engine.js normalizes
+    one character at a time as well. A character's replacement never depends on
+    the rest of the string, so it is computed once per distinct character and
+    translate() then runs at C speed.
+    """
+
+    def __missing__(self, ordinal: int) -> str | None:
+        char = chr(ordinal)
+        replacement = None if char in ZERO_WIDTH else unicodedata.normalize("NFKC", char)
+        if len(self) < _NFKC_TABLE_MAX_ENTRIES:
+            self[ordinal] = replacement
+        return replacement
+
+
+_PER_CHARACTER_NFKC = _PerCharacterNfkc()
 
 
 SECTION_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -39,10 +96,10 @@ SECTION_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
+@_memoized_string_function
 def _normalized_heading(line: str) -> str:
-    return "".join(
-        unicodedata.normalize("NFKC", char) for char in line if char not in ZERO_WIDTH
-    )
+    # Equal to "".join(NFKC(char) for char in line if char not in ZERO_WIDTH).
+    return line.translate(_PER_CHARACTER_NFKC)
 
 
 _SECTION_BY_COMPACT_ALIAS: dict[str, str] = {}
@@ -64,6 +121,7 @@ class Section:
     text: str
 
 
+@_memoized_string_function
 def _heading_name(line: str) -> str | None:
     cleaned = _HEADING_DECORATION.sub("", _normalized_heading(line).strip())
     if not cleaned or len(cleaned) > 30:
@@ -106,7 +164,7 @@ def _sentence_marks(text: str, left: int, right: int) -> list[int]:
     # Numeric enumeration and dotted dates are part of the evidence, not sentences.
     return [i for i in range(left, right) if text[i] in _SENTENCE_BOUNDARIES
             and not (text[i] == "." and i > 0 and (text[i - 1].isdecimal()
-                     or (i + 1 < len(text) and re.match(r"[A-Za-z0-9]", text[i - 1]) and re.match(r"[A-Za-z0-9]", text[i + 1]))))]
+                     or (i + 1 < len(text) and _ASCII_ALNUM.match(text[i - 1]) and _ASCII_ALNUM.match(text[i + 1]))))]
 
 
 def _evidence_line(text: str, start: int, end: int) -> str:
@@ -187,14 +245,25 @@ def _line_bounds(text: str, start: int, end: int) -> tuple[int, int]:
     return left, len(text) if right == -1 else right
 
 
+@_memoized_string_function
 def _compact(value: str) -> str:
     return _WHITESPACE.sub("", _HEADING_DECORATION.sub("", _normalized_heading(value).strip())).casefold()
 
 
+# Derived once from the constants above; the lists themselves are never mutated.
+_DUTY_HEADING_COMPACTS = frozenset(_compact(heading) for heading in _DUTY_HEADINGS)
+_BARE_STAGE_COMPACTS = frozenset(_compact(term) for term in _BARE_STAGE_TERMS)
+# Stage events that are not bare terms, and the patterns _stage_context reads.
+_NAMED_STAGE_EVENTS = [event for event in _STAGE_EVENTS if _compact(event) not in _BARE_STAGE_COMPACTS]
+_STAGE_CONTEXT_PATTERNS = _STAGE_MARKERS + _NAMED_STAGE_EVENTS + ["면접"]
+_DATE_CONTENT_NUMERIC = _DATE_CONTENT[:2]
+
+
 def _strip_tags(value: str) -> str:
-    return re.sub(r"<[^>]+>", "", value)
+    return _HTML_TAG.sub("", value)
 
 
+@_memoized_string_function
 def _line_marker(line: str) -> tuple[str, str]:
     """Return (kind, style) of a line's leading bullet, number or heading mark.
 
@@ -227,6 +296,7 @@ def _indent(line: str) -> int:
     return len(line) - len(line.lstrip())
 
 
+@_memoized_string_function
 def _heading_like(line: str) -> bool:
     """A short line that is not a sentence, so it can title the block below it."""
     cleaned = _HEADING_DECORATION.sub("", _normalized_heading(line).strip())
@@ -248,7 +318,7 @@ def _duty_block_end_in(text: str) -> int:
     identical.
     """
     lines = text.split("\n")
-    if _compact(lines[0]) not in {_compact(h) for h in _DUTY_HEADINGS}:
+    if _compact(lines[0]) not in _DUTY_HEADING_COMPACTS:
         return 0
     heading_kind, heading_style = _line_marker(lines[0])
     heading_indent = _indent(_strip_tags(lines[0]))
@@ -284,9 +354,7 @@ def _stage_context(section: Section | None, sentence: str) -> bool:
     another one ("서류 검토 → 인터뷰", "1차 인터뷰", "서류 검토 후 면접")."""
     if section is not None and section.name in _STAGE_SECTIONS:
         return True
-    bare = {_compact(term) for term in _BARE_STAGE_TERMS}
-    named = [event for event in _STAGE_EVENTS if _compact(event) not in bare]
-    return bool(find_first(_strip_tags(sentence), _STAGE_MARKERS + named + ["면접"]))
+    return bool(find_first(_strip_tags(sentence), _STAGE_CONTEXT_PATTERNS))
 
 
 def _bare_stage_match(text: str, start: int, end: int) -> bool:
@@ -295,13 +363,11 @@ def _bare_stage_match(text: str, start: int, end: int) -> bool:
     interview = find_first(candidate, _BARE_INTERVIEW_STAGE)
     if interview is not None and interview.start() == 0 and interview.end() == len(candidate):
         return True  # "최종 면접", "1차 면접"
-    bare = {_compact(term) for term in _BARE_STAGE_TERMS}
-    if _compact(candidate) not in bare:
+    if _compact(candidate) not in _BARE_STAGE_COMPACTS:
         return False
-    named = [event for event in _STAGE_EVENTS if _compact(event) not in bare]
     left, right = _line_bounds(text, start, end)
     return not any(left + m.start() <= start and end <= left + m.end()
-                   for m in find_matches(text[left:right], named))
+                   for m in find_matches(text[left:right], _NAMED_STAGE_EVENTS))
 
 
 def _bare_stage_sentence(text: str, start: int, end: int) -> str:
@@ -332,7 +398,7 @@ def _context_allowed(slot_id: str, line: str, section: Section, offset: int) -> 
                 return False
         if find_first(line, _DUTY_CONTEXT) and not _hiring_context(line, section):
             return False
-    if slot_id == "qualification_rationale" and re.search(r"\.(?:pdf|hwpx?|hml|docx?|zip)\s*$", line, re.I):
+    if slot_id == "qualification_rationale" and _ATTACHMENT_FILENAME.search(line):
         return False  # An attachment filename does not disclose its body.
     if slot_id == "compensation" and "유지보수" in line and not find_first(line.replace("유지보수", ""), ["급여", "보수", "연봉", "월급", "시급", "임금"]):
         return False
@@ -361,7 +427,7 @@ def _label_body_unit(
         end = section.text.find("\n", cursor)
         end = len(section.text) if end == -1 else end
         body = section.text[cursor:end]
-        plain = re.sub(r"<[^>]+>", "", body).strip()
+        plain = _HTML_TAG.sub("", body).strip()
         if plain:
             if _heading_name(plain) or find_first(plain, _DEFERRED_BODY):
                 break
@@ -396,10 +462,11 @@ def _candidate_units(section: Section, definition: dict[str, Any], slot_id: str)
                 and _bare_stage_match(section.text, match.start(), match.end())
                 and not _stage_context(section, _bare_stage_sentence(section.text, match.start(), match.end()))):
             continue  # "고객 인터뷰", "민원 서류접수", "임원 면접 일정 조율": work, not an applicant stage.
-        heading = _heading_name(line) is not None or _compact(line) == _compact(match.group(0))
+        line_is_heading = _heading_name(line) is not None
+        heading = line_is_heading or _compact(line) == _compact(match.group(0))
         if slot_id in {"selection_stages", "ai_disclosure"} and (
             find_first(line, _STAGE_EVENTS)
-            or (_heading_name(line) is None and _line_marker(line)[0] in {"item", "mark", "note"})
+            or (not line_is_heading and _line_marker(line)[0] in {"item", "mark", "note"})
         ):
             heading = False  # A named stage, or a list item ("- 인터뷰"), is evidence.
         if slot_id == "contact_point" and find_first(line, _CONTACT_CHANNEL):
@@ -614,7 +681,7 @@ def source_candidate_allowed(source: str, start: int, end: int, sections: list[S
         row_end = source.find("</tr>", end)
         table_preference = False
         if row_start >= 0 and row_end >= 0 and source.find("</tr>", row_start, start) == -1 and row_end - row_start < 1800:
-            row = re.sub(r"<[^>]+>", "", source[row_start:row_end])
+            row = _HTML_TAG.sub("", source[row_start:row_end])
             table_preference = bool(find_first(row, ["가산점", "가점", r"re:만점의\s*\d+%", r"re:점수\s*만점의\s*\d+%"])) and not find_first(row, ["지원 불가", "채용 제외", "신원조회"])
         proof_only = find_first(line, ["등록확인서", "증명서"]) and not find_first(line, ["지원 불가", "채용 제외", "신원조회"])
         if (table_preference or proof_only or (section is not None and section.name == "우대사항")) and not find_first(line, ["제외", "불가", "제한", "신원조회"]):
@@ -627,13 +694,13 @@ def source_candidate_allowed(source: str, start: int, end: int, sections: list[S
 
 def _candidate_rank(slot_id: str, context: str) -> tuple[int, int]:
     # Prefer concrete applicant evidence; markup arrows are not stage separators.
-    plain = re.sub(r"<[^>]+>", "", context)
+    plain = _HTML_TAG.sub("", context)
     if slot_id == "schedule":
-        numeric = bool(find_first(context, _DATE_CONTENT[:2]))
+        numeric = bool(find_first(context, _DATE_CONTENT_NUMERIC))
         period = bool(find_first(context, ["접수 기간", "공고 기간", "모집 기간"]))
         return (2 if (numeric and period) or find_first(context, ["채용시까지", "채용 시까지"]) else int(numeric), int(bool(find_first(context, ["채용시까지", "채용 시까지", "상시모집", "상시 모집"]))))
     if slot_id == "selection_stages":
-        return (int(bool(re.search(r"[→>▶]", plain))), len(set(m.group(0) for m in find_matches(plain, _STAGE_EVENTS))))
+        return (int(bool(_STAGE_ARROW.search(plain))), len(set(m.group(0) for m in find_matches(plain, _STAGE_EVENTS))))
     if slot_id == "contact_point":
         return (int(bool(find_first(context, ["문의", "담당 부서", "인사팀", "채용팀"]))), 0)
     if slot_id == "evaluation_criteria":
