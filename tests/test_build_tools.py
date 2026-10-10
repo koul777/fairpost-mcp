@@ -139,6 +139,7 @@ def test_build_release_report_accepts_built_at_override(
         json.dumps(
             {
                 "schema_version": "fairpost-web-engine-parity-v1",
+                "ruleset_version": "ruleset-version",
                 "input": {"records": 7},
                 "mismatched_records": 0,
             }
@@ -331,6 +332,33 @@ def test_build_release_report_accepts_built_at_override(
         "work24_source_access",
         "release_tag",
     }
+    assert report["verification"]["web_parity_evidence_current"] is True
+
+    # A parity report kept as historical, or built for an older ruleset, still
+    # says 0 mismatches; the release must not read that as current agreement.
+    for stale_parity in (
+        {"evidence_status": "historical", "ruleset_version": "ruleset-version"},
+        {"ruleset_version": "ruleset-old"},
+    ):
+        (reports_dir / "web_engine_parity.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "fairpost-web-engine-parity-v1",
+                    "input": {"records": 7},
+                    "mismatched_records": 0,
+                    **stale_parity,
+                }
+            ),
+            encoding="utf-8",
+        )
+        stale_report = module.build_report(
+            junitxml,
+            built_at="2026-08-03T23:57:39+09:00",
+        )
+        assert stale_report["verification"]["web_parity_evidence_current"] is False
+        assert "current_web_parity" in {
+            item["id"] for item in stale_report["release_readiness"]["blockers"]
+        }
 
 
 def test_release_report_rejects_incomplete_test_evidence(tmp_path: Path) -> None:

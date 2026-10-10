@@ -583,6 +583,20 @@ def build_report(
                 "reason": "봉인 홀드아웃 사람 라벨과 G1/G2 최종 평가가 없습니다.",
             }
         )
+    # A historical or older-ruleset parity report still carries its mismatch
+    # count, so the count alone cannot show the current engines agree.
+    web_parity_current = bool(
+        parity.get("evidence_status") != "historical"
+        and parity.get("ruleset_version") == ruleset.version
+        and parity.get("mismatched_records") == 0
+    )
+    if not web_parity_current:
+        blockers.append(
+            {
+                "id": "current_web_parity",
+                "reason": "웹ㆍPython 엔진 비교 증거가 현재 규칙셋 기준이 아닙니다.",
+            }
+        )
     if corpus_diversity.get("status") != "pass":
         blockers.append(
             {
@@ -655,6 +669,7 @@ def build_report(
             "statute_snapshots": len(ruleset.statutes),
             "web_parity_training_records": parity["input"]["records"],
             "web_parity_mismatches": parity["mismatched_records"],
+            "web_parity_evidence_current": web_parity_current,
             "prd_corpus_total": prd_corpus["total"],
             "prd_corpus_train": prd_corpus["train"],
             "prd_corpus_holdout": prd_corpus["holdout"],
