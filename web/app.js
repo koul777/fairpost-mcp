@@ -129,6 +129,7 @@
   const modeEasyButton = document.getElementById("mode-easy");
   const modeExpertButton = document.getElementById("mode-expert");
   const easyResult = document.getElementById("easy-result");
+  const reviewNav = document.getElementById("review-nav");
   const humanRecordFields = new Map([
     ["evidence", document.getElementById("human-review-evidence")],
     ["reason", document.getElementById("human-review-reason")],
@@ -1806,11 +1807,10 @@
           '<blockquote>' + escapeHtml(slot.evidence || '원문 위치를 직접 확인해 주세요.') +
           '</blockquote></li>').join('') + '</ul></details></section>'
       : '';
+    // The section nav sits outside the easy result so it can stay pinned
+    // while the reader scrolls down to the questions and the record.
+    reviewNav.innerHTML = `${orderedFindings.length ? '<a href="#easy-findings-heading">표현</a>' : ""}<a href="#easy-missing-heading">안내</a><a href="#questions-heading">네 관점 질문</a><a href="#human-review-heading">검토 기록</a>`;
     easyResult.innerHTML = `
-      <nav class="review-nav" aria-label="검토 항목으로 이동">
-        ${orderedFindings.length ? '<a href="#easy-findings-heading">표현</a>' : ""}
-        <a href="#easy-missing-heading">안내</a><a href="#questions-heading">네 관점 질문</a><a href="#human-review-heading">검토 기록</a>
-      </nav>
       <p class="easy-headline">${headline}</p>
       ${findingsSection}
       ${missingSection}
@@ -2306,7 +2306,7 @@
     humanRecordFields.forEach((field) => { field.value = ""; });
     renderPreviousHumanReviews();
     updateHumanReviewState();
-    ["findings-list", "slots-list", "questions-list"].forEach((id) =>
+    ["findings-list", "slots-list", "questions-list", "review-nav"].forEach((id) =>
       document.getElementById(id).replaceChildren()
     );
     easyResult.replaceChildren();
@@ -2900,6 +2900,13 @@
     input.addEventListener(type, rememberPostingSelection)
   );
   checkButton.addEventListener("click", runCheck);
+  // Ctrl+Enter (⌘+Enter on macOS) checks from the editor. Skip while a
+  // Korean IME is still composing so the last syllable is not lost.
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || !(event.ctrlKey || event.metaKey) || event.isComposing) return;
+    event.preventDefault();
+    runCheck();
+  });
   assistedToggle.addEventListener("change", () => {
     if (assistedToggle.checked) {
       if (!assistedAvailable) {

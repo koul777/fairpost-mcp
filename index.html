@@ -4,103 +4,273 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f2f5f2">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <title>FairPost 채용공고 검토 프로그램</title>
   <style>
     :root {
-      color: #17202a;
-      background: #f5f7f8;
-      font-family: Arial, "Noto Sans KR", sans-serif;
+      color-scheme: light;
+      color: #15211b;
+      background: #f2f5f2;
+      font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Segoe UI", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      --ink: #15211b;
+      --ink-2: #34423b;
+      --muted: #58655e;
+      --line: #e0e6e1;
+      --line-2: #cdd6cf;
+      --panel: #ffffff;
+      --soft: #f6f8f6;
+      --green: #176b4d;
+      --green-dark: #0f5039;
+      --green-ink: #0d4532;
+      --green-soft: #eaf5ef;
+      --green-line: #a8cdb8;
+    }
+    * {
+      box-sizing: border-box;
     }
     body {
       margin: 0;
       min-height: 100vh;
       display: grid;
       place-items: center;
+      background:
+        radial-gradient(1000px 420px at 0% -10%, rgba(23, 107, 77, 0.1), transparent 62%),
+        radial-gradient(800px 380px at 100% -6%, rgba(242, 201, 76, 0.14), transparent 58%),
+        #f2f5f2;
+      background-repeat: no-repeat;
+      line-height: 1.65;
+      word-break: keep-all;
+      overflow-wrap: break-word;
     }
     main {
-      width: min(680px, calc(100% - 40px));
-      padding: 40px 0;
+      width: min(720px, calc(100% - 32px));
+      margin: 48px 0;
+      padding: 36px clamp(22px, 5vw, 44px);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--panel);
+      box-shadow: 0 1px 2px rgba(17, 38, 28, 0.05), 0 18px 44px -20px rgba(17, 38, 28, 0.22);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+    .brand-mark {
+      flex: 0 0 auto;
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(150deg, #22895f 0%, #176b4d 48%, #0d4532 100%);
+      color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 18px -8px rgba(13, 69, 50, 0.7);
+    }
+    .brand-mark svg {
+      width: 28px;
+      height: 28px;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      padding: 4px 12px;
+      border: 1px solid #d4eadc;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: #137333;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .status::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2e8b65;
+      box-shadow: 0 0 0 3px rgba(46, 139, 101, 0.2);
     }
     h1 {
-      margin: 0 0 12px;
-      font-size: 32px;
-      letter-spacing: 0;
+      margin: 0 0 14px;
+      font-size: clamp(26px, 4.6vw, 34px);
+      line-height: 1.25;
+      letter-spacing: -0.025em;
     }
     p {
       margin: 8px 0;
-      line-height: 1.65;
-      color: #46515c;
+      color: #46534c;
+      line-height: 1.7;
+    }
+    .lead {
+      font-size: 17px;
+      color: var(--ink-2);
+    }
+    .note {
+      padding: 10px 14px;
+      border-left: 3px solid var(--green-line);
+      border-radius: 0 10px 10px 0;
+      background: var(--soft);
+      font-size: 14px;
     }
     dl {
-      margin: 28px 0;
-      border-top: 1px solid #cfd6dc;
+      margin: 22px 0;
+      border-top: 1px solid var(--line);
     }
-    div {
+    dl div {
       display: grid;
-      grid-template-columns: 130px minmax(0, 1fr);
+      grid-template-columns: 150px minmax(0, 1fr);
       gap: 16px;
-      padding: 14px 0;
-      border-bottom: 1px solid #cfd6dc;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
     }
     dt {
       font-weight: 700;
+      font-size: 14px;
     }
     dd {
       margin: 0;
+      font-size: 14px;
       overflow-wrap: anywhere;
     }
     code {
-      font-family: Consolas, monospace;
-      font-size: 14px;
+      padding: 1px 6px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--soft);
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 13px;
     }
     a {
       color: #0b5cad;
+      text-underline-offset: 3px;
+    }
+    a:focus-visible,
+    summary:focus-visible {
+      outline: 3px solid #1d5c80;
+      outline-offset: 2px;
     }
     .actions {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 12px;
-      margin: 24px 0 8px;
+      gap: 10px 12px;
+      margin: 26px 0 8px;
     }
     .deploy {
       display: inline-flex;
       align-items: center;
-      min-height: 44px;
+      min-height: 46px;
       padding: 0 18px;
-      border-radius: 6px;
-      background: #17202a;
-      color: #fff;
+      border: 1px solid var(--line-2);
+      border-radius: 12px;
+      background: var(--panel);
+      color: var(--ink);
       font-weight: 700;
       text-decoration: none;
+      transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
     }
     .deploy:hover {
-      background: #303b46;
+      border-color: var(--green-line);
+      background: var(--green-soft);
+      color: var(--green-ink);
     }
-    .hint {
-      max-width: 460px;
-      font-size: 13px;
+    .deploy:active {
+      transform: translateY(1px);
     }
-    .status {
-      color: #137333;
+    .actions > .deploy:first-child {
+      border-color: var(--green);
+      background: var(--green);
+      color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 10px 20px -12px rgba(13, 69, 50, 0.9);
+    }
+    .actions > .deploy:first-child:hover {
+      background: var(--green-dark);
+      color: #fff;
+    }
+    .actions > a:not(.deploy) {
+      padding: 0 4px;
       font-weight: 700;
     }
+    details .deploy {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: #fff;
+    }
+    details .deploy:hover {
+      background: #2d3a33;
+      color: #fff;
+    }
+    .hint {
+      flex: 1 1 100%;
+      max-width: 520px;
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    details {
+      margin-top: 26px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--soft);
+    }
+    summary {
+      padding: 14px 18px;
+      border-radius: 14px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    summary:hover {
+      background: #edf1ee;
+    }
+    details > :not(summary) {
+      margin-left: 18px;
+      margin-right: 18px;
+    }
+    details > p:last-child {
+      padding-bottom: 16px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .deploy {
+        transition: none;
+      }
+    }
     @media (max-width: 520px) {
-      div {
+      main {
+        margin: 16px 0;
+        padding: 26px 20px;
+        border-radius: 16px;
+      }
+      .actions .deploy {
+        flex: 1 1 100%;
+        justify-content: center;
+      }
+      dl div {
         grid-template-columns: 1fr;
-        gap: 6px;
+        gap: 4px;
       }
     }
   </style>
 </head>
 <body>
   <main>
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64" focusable="false">
+          <path d="M18 13h26v9.5H29.5v7.5H42v9.5H29.5V51H18V13Z" fill="currentColor"/>
+          <circle cx="48.5" cy="46.5" r="6.5" fill="#f2c94c"/>
+        </svg>
+      </span>
+      <p class="status">운영 중</p>
+    </div>
     <h1>FairPost 채용공고 검토 프로그램</h1>
-    <p class="status">운영 중</p>
-    <p>채용공고에서 다시 볼 표현과 담당자가 확인할 질문을 근거와 함께 정리합니다. 기본 검토는 내 PC에서 실행하는 로컬 화면으로 이용할 수 있습니다.</p>
-    <p>결과는 사람 검토용 참고자료이며 공정성ㆍ법률ㆍ합격 여부를 판정하지 않습니다.</p>
+    <p class="lead">채용공고에서 다시 볼 표현과 담당자가 확인할 질문을 근거와 함께 정리합니다. 기본 검토는 내 PC에서 실행하는 로컬 화면으로 이용할 수 있습니다.</p>
+    <p class="note">결과는 사람 검토용 참고자료이며 공정성ㆍ법률ㆍ합격 여부를 판정하지 않습니다.</p>
     <div class="actions">
       <a class="deploy" href="/book">책 독자: 설치 없이 바로 시작</a>
       <a class="deploy" href="https://github.com/koul777/fairpost-mcp#빠른-시작">내 PC에서 실행하는 방법</a>

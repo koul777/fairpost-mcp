@@ -8,6 +8,7 @@
       content="default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
     >
     <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#f2f5f2">
     <title>fairpost | 채용공고 검토 메모</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css">
@@ -16,7 +17,12 @@
     <a class="skip-link" href="#workspace">공고 입력과 검토로 건너뛰기</a>
     <header class="app-header">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">fp</span>
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" focusable="false">
+            <path d="M18 13h26v9.5H29.5v7.5H42v9.5H29.5V51H18V13Z" fill="currentColor"/>
+            <circle cx="48.5" cy="46.5" r="6.5" fill="#f2c94c"/>
+          </svg>
+        </span>
         <div>
           <h1>fairpost</h1>
           <p>근거 기반 채용공고 검토 메모</p>
@@ -42,6 +48,7 @@
 
     <main id="workspace" class="workspace">
       <section id="book-entry" class="book-entry" aria-labelledby="book-entry-title" hidden>
+        <p class="book-entry-kicker">책 독자용 바로 시작</p>
         <h2 id="book-entry-title">책 부록에서 오신 분께</h2>
         <p>책 부록에서 ‘채용 공고문 공정성 검토 MCP’ 프로그램으로 소개한 도구입니다. MCP 연결이나 설치 없이 이 화면에서 바로 쓸 수 있습니다. 기본 검사는 이 브라우저 안에서만 실행되고 공고문을 서버로 보내지 않습니다. 점수나 판정 대신 다시 볼 표현, 공고에 더할 안내, 조직이 답할 질문을 보여 줍니다.</p>
         <ol class="book-entry-steps" aria-label="책 독자 사용 순서">
@@ -161,7 +168,10 @@
           <p id="assisted-review-live" class="visually-hidden" role="status" aria-live="polite"></p>
         </div>
         <div class="editor-footer">
-          <span id="char-count">0자</span>
+          <div class="editor-meta">
+            <span id="char-count">0자</span>
+            <span class="shortcut-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd>로 바로 검토</span>
+          </div>
           <button id="check-button" class="button button-primary" type="button">
             검토 메모 만들기
           </button>
@@ -182,7 +192,20 @@
         </div>
 
         <div id="empty-state" class="empty-state">
-          <div class="empty-symbol" aria-hidden="true">⌁</div>
+          <div class="empty-symbol" aria-hidden="true">
+            <svg viewBox="0 0 136 108" focusable="false">
+              <ellipse class="ill-shadow" cx="66" cy="100" rx="46" ry="5"/>
+              <rect class="ill-back" x="38" y="8" width="64" height="82" rx="10"/>
+              <rect class="ill-paper" x="28" y="15" width="64" height="82" rx="10"/>
+              <rect class="ill-line" x="39" y="30" width="32" height="5" rx="2.5"/>
+              <rect class="ill-mark" x="39" y="43" width="42" height="8" rx="4"/>
+              <rect class="ill-line" x="39" y="59" width="38" height="5" rx="2.5"/>
+              <rect class="ill-line" x="39" y="72" width="26" height="5" rx="2.5"/>
+              <circle class="ill-lens" cx="90" cy="64" r="15"/>
+              <path class="ill-handle" d="m101 75 11 11"/>
+              <circle class="ill-dot" cx="112" cy="22" r="6"/>
+            </svg>
+          </div>
           <p>공고문을 입력하면 검토 담당자가 수정·확인할 표현, 안내 항목, 질문이 근거와 함께 표시됩니다.</p>
           <ol class="easy-steps easy-only" aria-label="사용 순서">
             <li><strong>붙여 넣기</strong> 왼쪽 칸에 채용공고문을 붙여 넣거나 '예시 입력'을 누릅니다.</li>
@@ -204,6 +227,7 @@
           </div>
           <p id="placeholder-notice" class="placeholder-notice" role="note" hidden></p>
 
+          <nav id="review-nav" class="review-nav easy-only" aria-label="검토 항목으로 이동"></nav>
           <section id="easy-result" class="easy-result easy-only" aria-label="쉬운 모드 검토 결과"></section>
 
           <div class="summary-strip" role="group" aria-label="검토 작업 개수">
@@ -222,6 +246,40 @@
             <strong id="answer-progress">담당자 답변 0/0</strong>
             <span>질문별 답변은 현재 분석 세션에만 남고, 새로고침·지우기·예시 입력으로 없어집니다. 답변 수는 절차 검증 완료를 뜻하지 않습니다.</span>
           </div>
+
+          <section class="result-block advanced-only" aria-labelledby="findings-heading">
+            <div class="block-heading">
+              <span class="block-index">01</span>
+              <div>
+                <h3 id="findings-heading">표현 검토 후보</h3>
+                <p>공고문에서 법령 조항과 함께 살펴볼 표현</p>
+              </div>
+            </div>
+            <div id="findings-list" class="item-list"></div>
+          </section>
+
+          <section class="result-block advanced-only" aria-labelledby="slots-heading">
+            <div class="block-heading">
+              <span class="block-index">02</span>
+              <div>
+                <h3 id="slots-heading">확인되지 않은 항목</h3>
+                <p>공고문에서 관련 안내 표현을 발견하지 못한 항목</p>
+              </div>
+            </div>
+            <div id="slots-list" class="slot-grid"></div>
+          </section>
+
+          <section id="assisted-review-panel" class="assisted-review-panel advanced-only" aria-labelledby="assisted-review-heading" hidden>
+            <div class="assisted-review-heading-row">
+              <div>
+                <p class="eyebrow">선택적 보강 검토</p>
+                <h3 id="assisted-review-heading">AI·현행 법령 검토 메모</h3>
+              </div>
+              <span id="assisted-review-result-status" class="assist-badge">대기</span>
+            </div>
+            <p id="assisted-review-notice" class="assisted-review-notice"></p>
+            <pre id="assisted-review-output" class="assisted-review-output" tabindex="0"></pre>
+          </section>
 
           <section class="result-block shared-questions" aria-labelledby="questions-heading">
             <div class="block-heading">
@@ -347,48 +405,15 @@
 
           </details>
 
-          <section id="assisted-review-panel" class="assisted-review-panel advanced-only" aria-labelledby="assisted-review-heading" hidden>
-            <div class="assisted-review-heading-row">
-              <div>
-                <p class="eyebrow">선택적 보강 검토</p>
-                <h3 id="assisted-review-heading">AI·현행 법령 검토 메모</h3>
-              </div>
-              <span id="assisted-review-result-status" class="assist-badge">대기</span>
-            </div>
-            <p id="assisted-review-notice" class="assisted-review-notice"></p>
-            <pre id="assisted-review-output" class="assisted-review-output" tabindex="0"></pre>
-          </section>
-
-          <section class="result-block advanced-only" aria-labelledby="findings-heading">
-            <div class="block-heading">
-              <span class="block-index">01</span>
-              <div>
-                <h3 id="findings-heading">표현 검토 후보</h3>
-                <p>공고문에서 법령 조항과 함께 살펴볼 표현</p>
-              </div>
-            </div>
-            <div id="findings-list" class="item-list"></div>
-          </section>
-
-          <section class="result-block advanced-only" aria-labelledby="slots-heading">
-            <div class="block-heading">
-              <span class="block-index">02</span>
-              <div>
-                <h3 id="slots-heading">확인되지 않은 항목</h3>
-                <p>공고문에서 관련 안내 표현을 발견하지 못한 항목</p>
-              </div>
-            </div>
-            <div id="slots-list" class="slot-grid"></div>
-          </section>
-
-
         </div>
       </section>
     </main>
 
     <footer class="app-footer">
-      <span>규칙 사전 <code id="ruleset-version">불러오는 중</code></span>
-      <span>기본 검사는 로컬 규칙 엔진 · AI·법령 보강은 사용자가 '보강 실행'을 누른 요청에서만 동작</span>
+      <div class="footer-meta">
+        <span>규칙 사전 <code id="ruleset-version">불러오는 중</code></span>
+        <span>기본 검사는 로컬 규칙 엔진 · AI·법령 보강은 사용자가 '보강 실행'을 누른 요청에서만 동작</span>
+      </div>
       <details class="integration-details">
         <summary>선택 기술 연동·배포 안내</summary>
         <p>기본 검토에는 MCP 클라이언트나 AI 키가 필요 없습니다. AI·법령 보강은 전문가 모드에서 전송 범위를 확인하고 실행합니다. 원격 MCP·배포는 별도 선택 기능이며 GitHub 저장소 접근 권한 필요.</p>
