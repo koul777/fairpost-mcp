@@ -4,7 +4,7 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
-      "excludeFiles": "{.corpus*/**,build/**,dist/**,tmp/**,tests/**,tools/**,reports/**,docs/**,.env,.env.*,*.egg-info/**}"
+      "excludeFiles": "{.corpus*/**,.assay/**,build/**,dist/**,tmp/**,tests/**,tools/**,reports/**,docs/**,.env,.env.*,*.egg-info/**}"
     }
   },
   "redirects": [

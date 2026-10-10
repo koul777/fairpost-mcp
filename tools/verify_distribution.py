@@ -180,6 +180,7 @@ FORBIDDEN_NAMES = {
 }
 FORBIDDEN_PARTS = {
     "__pycache__",
+    ".assay",
     ".corpus",
     ".private-review",
     "tmp",

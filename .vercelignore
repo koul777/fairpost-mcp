@@ -5,6 +5,7 @@
 .claude/
 .corpus*/
 .corpus*
+.assay/
 .git/
 .github/
 .mcp.json
