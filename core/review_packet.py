@@ -72,6 +72,13 @@ REVIEW_ROLES = (
 _ACTIONS = frozenset(
     {"note", "confirm", "edit_requested", "escalate", "resolve"}
 )
+# Reserved actor and note of the chair event that start_role_review creates
+# automatically. web/app.js (ROLE_REVIEW_SYSTEM_ACTOR / ROLE_REVIEW_SYSTEM_NOTE)
+# defines the same pair; tests/test_role_participation_parity.py keeps them equal.
+SYSTEM_CHAIR_ACTOR_REF = "system-chair"
+SYSTEM_CHAIR_NOTE = (
+    "위원장 조정 흐름이 생성되었습니다. 각 역할의 독립 검토를 추가하십시오."
+)
 _MAX_NOTE_LENGTH = 4000
 _MAX_EVIDENCE_REFS = 32
 
@@ -196,6 +203,26 @@ class ReviewEvent:
                     "resolves_event_id is only valid for resolve actions"
                 )
 
+    @property
+    def is_system_generated(self) -> bool:
+        """True for the chair event created automatically with a packet.
+
+        Same rule as the browser queue (``isSystemRoleReviewEvent`` plus its
+        load-time upgrade of unmarked v1 events in web/app.js): the reserved
+        ``system-chair`` actor, or an unattributed chair note carrying the
+        automatic text. Such an event records that the review flow exists, not
+        that anyone reviewed, so it never counts as role participation.
+        """
+
+        if self.actor_ref == SYSTEM_CHAIR_ACTOR_REF:
+            return True
+        return (
+            not self.actor_ref
+            and self.role == "chair"
+            and self.action == "note"
+            and self.note == SYSTEM_CHAIR_NOTE
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "event_id": self.event_id,
@@ -287,7 +314,15 @@ class ReviewPacket:
 
     @property
     def participating_roles(self) -> frozenset[str]:
-        return frozenset(event.role for event in self.events)
+        """Roles with at least one reviewer-authored event.
+
+        System-generated events (see ``ReviewEvent.is_system_generated``) are
+        excluded, matching what the browser review panel shows as "기록 없음".
+        """
+
+        return frozenset(
+            event.role for event in self.events if not event.is_system_generated
+        )
 
     @property
     def missing_roles(self) -> tuple[str, ...]:

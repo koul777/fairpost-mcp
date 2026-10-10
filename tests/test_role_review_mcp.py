@@ -39,8 +39,10 @@ def test_local_review_packet_store_appends_roles_without_posting_text(
             )
             loaded = server.get_role_review(packet_id)
 
-            assert updated["participating_roles"] == ["chair", "job_sme"]
+            # The automatic chair event is not participation (same as the web).
+            assert updated["participating_roles"] == ["job_sme"]
             assert updated["missing_roles"] == [
+                "chair",
                 "hr_owner",
                 "interviewer",
                 "policy_reviewer",
