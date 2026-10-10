@@ -66,11 +66,13 @@
   const comparisonStatus = document.getElementById("comparison-status");
   const comparisonGroups = document.getElementById("comparison-groups");
   const comparisonReset = document.getElementById("comparison-reset");
+  const comparisonTitle = document.getElementById("comparison-title");
   const assistedToggle = document.getElementById("assisted-review-toggle");
   const assistedStatus = document.getElementById("assisted-review-status");
   const assistedBadge = document.getElementById("assisted-review-badge");
   const assistedProvider = document.getElementById("assisted-review-provider");
   const assistedPanel = document.getElementById("assisted-review-panel");
+  const assistedHeading = document.getElementById("assisted-review-heading");
   const assistedResultStatus = document.getElementById(
     "assisted-review-result-status"
   );
@@ -125,6 +127,7 @@
   const resultContent = document.getElementById("result-content");
   const resultsTitle = document.getElementById("results-title");
   const toast = document.getElementById("toast");
+  const reviewLive = document.getElementById("review-live");
   const appBody = document.getElementById("app-body");
   const modeEasyButton = document.getElementById("mode-easy");
   const modeExpertButton = document.getElementById("mode-expert");
@@ -141,6 +144,8 @@
   const undoButton = document.getElementById("posting-undo");
   const placeholderNotice = document.getElementById("placeholder-notice");
   const improvementPanel = document.getElementById("improvement-panel");
+  const resultJump = document.getElementById("result-jump");
+  const improvementJump = document.getElementById("improvement-jump");
   const improvementStatus = document.getElementById("improvement-status");
   const improvementContent = document.getElementById("improvement-content");
   const improvementRemaining = document.getElementById("improvement-remaining");
@@ -338,6 +343,13 @@
     errorElement.textContent = "";
     errorElement.hidden = true;
     field.removeAttribute("aria-invalid");
+  }
+
+  // A live region announces every write, even one that changes nothing, so
+  // status text is written only when it differs. Typing in the posting field
+  // then does not repeat the same "공고문이 바뀌었습니다" status on each key.
+  function setLiveText(element, text) {
+    if (element && element.textContent !== text) element.textContent = text;
   }
 
   function roleReviewStorage() {
@@ -1143,6 +1155,7 @@
   function setViewMode(mode, persist) {
     const nextMode = VIEW_MODES.has(mode) ? mode : "easy";
     appBody.dataset.mode = nextMode;
+    updateResultJump();
     // Easy mode hides the assist controls, so assist must not stay on unseen.
     if (nextMode === "easy" && assistedToggle.checked) {
       deactivateAssistedReview();
@@ -1219,9 +1232,12 @@
     if (typeof resultContent.querySelectorAll === "function") {
       resultContent.querySelectorAll("[data-question-answer]").forEach((field) => { field.disabled = stale; });
     }
-    humanRecordStatus.textContent = stale
-      ? "공고문이 바뀌었습니다. 아래 답변과 기록은 수정 전 공고 기준입니다. 다시 검토한 뒤 현재 답변을 남기세요. 메모 복사는 재검토 뒤 가능합니다."
-      : "현재 검토에 연결된 자기 기록입니다. 입력만으로 검증 완료를 뜻하지 않습니다.";
+    setLiveText(
+      humanRecordStatus,
+      stale
+        ? "공고문이 바뀌었습니다. 아래 답변과 기록은 수정 전 공고 기준입니다. 다시 검토한 뒤 현재 답변을 남기세요. 메모 복사는 재검토 뒤 가능합니다."
+        : "현재 검토에 연결된 자기 기록입니다. 입력만으로 검증 완료를 뜻하지 않습니다."
+    );
   }
 
   function renderPreviousHumanReviews() {
@@ -1403,7 +1419,7 @@
           .join("")}</ul></div>`
       : "";
     return `<details class="rewrite-detail">
-      <summary aria-label="${number}번 표현이 있는 줄 고쳐 쓰기">이 줄 고쳐 쓰기</summary>
+      <summary aria-label="이 줄 고쳐 쓰기, ${number}번 표현이 있는 줄">이 줄 고쳐 쓰기</summary>
       <div class="rewrite-content">
         <label for="rewrite-${index}">${number}번 표현이 있는 줄</label>
         <textarea id="rewrite-${index}" data-rewrite-draft="${index}" rows="3" spellcheck="false" aria-describedby="rewrite-hint-${index}">${escapeHtml(draft)}</textarea>
@@ -1434,6 +1450,60 @@
       : null;
   }
 
+  const MIRROR_STYLE_PROPERTIES = [
+    "fontFamily", "fontSize", "fontStyle", "fontWeight", "letterSpacing", "lineHeight",
+    "wordSpacing", "textIndent", "tabSize", "whiteSpace", "overflowWrap", "wordBreak",
+    "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+  ];
+
+  // Browsers do not scroll a textarea to a selection that script sets, so in a
+  // short field (phone, tablet) an inserted sentence or rewritten line can sit
+  // out of sight while the focus ring and the toast point at it. Measure the
+  // line holding `position` in an off-screen copy of the field and scroll the
+  // field there. Silently does nothing where layout is not available.
+  function revealPostingPosition(position) {
+    if (
+      typeof window.getComputedStyle !== "function" ||
+      typeof document.createElement !== "function" ||
+      !document.body ||
+      typeof document.body.appendChild !== "function" ||
+      !(input.clientHeight > 0) ||
+      !(input.clientWidth > 0)
+    ) {
+      return;
+    }
+    let mirror = null;
+    try {
+      const style = window.getComputedStyle(input);
+      mirror = document.createElement("div");
+      MIRROR_STYLE_PROPERTIES.forEach((name) => {
+        mirror.style[name] = style[name];
+      });
+      mirror.style.position = "absolute";
+      mirror.style.visibility = "hidden";
+      mirror.style.top = "0";
+      mirror.style.left = "-9999px";
+      mirror.style.boxSizing = "border-box";
+      mirror.style.width = `${input.clientWidth}px`;
+      mirror.style.border = "0";
+      mirror.textContent = input.value.slice(0, position);
+      const marker = document.createElement("span");
+      marker.textContent = "​";
+      mirror.appendChild(marker);
+      document.body.appendChild(mirror);
+      const top = marker.offsetTop;
+      const lineHeight = parseFloat(style.lineHeight) || marker.offsetHeight || 24;
+      const view = input.clientHeight;
+      if (top < input.scrollTop || top + lineHeight > input.scrollTop + view) {
+        input.scrollTop = Math.max(0, top - Math.round(view / 3));
+      }
+    } catch (_error) {
+      // Scrolling is a convenience; the selection itself is already set.
+    } finally {
+      if (mirror && typeof mirror.remove === "function") mirror.remove();
+    }
+  }
+
   function selectPostingRange(start, end) {
     input.focus();
     if (typeof input.setSelectionRange === "function") {
@@ -1443,6 +1513,7 @@
         // Selection is a convenience; the edit itself already happened.
       }
     }
+    revealPostingPosition(start);
     rememberPostingSelection();
   }
 
@@ -1476,6 +1547,18 @@
       next = `${before}${lead}${text}${trail}${after}`;
       insertedAt = before.length + lead.length;
     }
+    const blanks = countPlaceholders(text);
+    const fallbackNote = where === "cursor" && cursor === null
+      ? "커서 위치를 알 수 없어 공고 끝에 넣었습니다. "
+      : "";
+    // Announced before the edit's own status writes (stale result, locked
+    // memo), so the sentence about what happened is not read last.
+    showToast(
+      fallbackNote +
+        (blanks
+          ? `예시 문장을 넣었습니다. ${PLACEHOLDER} 빈칸 ${blanks}곳을 실제 내용으로 바꾼 뒤 '검토 메모 만들기'를 다시 누르세요.`
+          : "예시 문장을 넣었습니다. 조직의 실제 내용과 맞게 고친 뒤 '검토 메모 만들기'를 다시 누르세요.")
+    );
     applyProgramChange(next);
     const blank = next.indexOf(PLACEHOLDER, insertedAt);
     if (blank >= 0 && blank + PLACEHOLDER.length <= insertedAt + text.length) {
@@ -1483,16 +1566,6 @@
     } else {
       selectPostingRange(insertedAt + text.length, insertedAt + text.length);
     }
-    const blanks = countPlaceholders(text);
-    const fallbackNote = where === "cursor" && cursor === null
-      ? "커서 위치를 알 수 없어 공고 끝에 넣었습니다. "
-      : "";
-    showToast(
-      fallbackNote +
-        (blanks
-          ? `예시 문장을 넣었습니다. ${PLACEHOLDER} 빈칸 ${blanks}곳을 실제 내용으로 바꾼 뒤 '검토 메모 만들기'를 다시 누르세요.`
-          : "예시 문장을 넣었습니다. 조직의 실제 내용과 맞게 고친 뒤 '검토 메모 만들기'를 다시 누르세요.")
-    );
   }
 
   function applyRewrite(index) {
@@ -1521,9 +1594,9 @@
       return;
     }
     const value = input.value;
+    showToast("반영했습니다. '검토 메모 만들기'를 다시 눌러 확인하세요.");
     applyProgramChange(value.slice(0, target.start) + replacement + value.slice(target.end));
     selectPostingRange(target.start, target.start + replacement.length);
-    showToast("반영했습니다. '검토 메모 만들기'를 다시 눌러 확인하세요.");
   }
 
   function updateUndoState() {
@@ -1551,16 +1624,36 @@
       return;
     }
     const restored = postingUndo.before;
+    const undone = postingUndo.after;
     postingUndo = null;
-    input.value = restored;
-    input.dispatchEvent(new Event("input"));
-    lastPostingSelection = null;
-    input.focus();
+    // The undone text is announced first; the status writes that the edit
+    // triggers (stale result, locked memo) follow it.
     showToast(
       latestResult && latestCheckedText === restored
         ? "되돌렸습니다. 마지막으로 검토한 공고문과 같아 현재 결과를 그대로 볼 수 있습니다."
         : "되돌렸습니다. '검토 메모 만들기'를 다시 눌러 확인하세요."
     );
+    input.value = restored;
+    input.dispatchEvent(new Event("input"));
+    lastPostingSelection = null;
+    // Put the caret where the undone text was, so the field shows the change.
+    let changedAt = 0;
+    while (
+      changedAt < restored.length &&
+      changedAt < undone.length &&
+      restored[changedAt] === undone[changedAt]
+    ) {
+      changedAt += 1;
+    }
+    input.focus();
+    if (typeof input.setSelectionRange === "function") {
+      try {
+        input.setSelectionRange(changedAt, changedAt);
+      } catch (_error) {
+        // Placing the caret is a convenience; the posting is already restored.
+      }
+    }
+    revealPostingPosition(changedAt);
   }
 
   function updateRewriteControls() {
@@ -1656,11 +1749,21 @@
     return improvementCache.changes;
   }
 
+  // Expert mode lists its sections here; easy mode brings its own navigation,
+  // so there the bar exists only while the change-summary link does.
+  function updateResultJump() {
+    resultJump.hidden = appBody.dataset.mode !== "expert" && improvementJump.hidden;
+  }
+
   function renderImprovement() {
     const fresh = Boolean(latestResult) && latestCheckedText === input.value;
     const changes = fresh ? postingChanges() : null;
     improvementPanel.hidden = !changes;
     copyPostingButton.disabled = !changes;
+    // The summary sits below the question cards; keyboard and screen reader
+    // users reach it through this link instead of tabbing past all of them.
+    improvementJump.hidden = !changes;
+    updateResultJump();
     if (!changes) return;
     if (changes !== improvementRendered) {
       // Rebuilt only when the diff changes, so open groups stay open.
@@ -1824,7 +1927,40 @@
     toast.textContent = message;
     toast.classList.add("visible");
     window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => toast.classList.remove("visible"), 4000);
+    toastTimer = window.setTimeout(() => {
+      toast.classList.remove("visible");
+      // Faded out only visually: empty it so a screen reader reading the page
+      // later does not meet an old message at the end.
+      toast.textContent = "";
+    }, 4000);
+  }
+
+  // The results heading takes focus after a review but says nothing about what
+  // the review found; this polite status carries the outcome (counts of work
+  // items, blanks, the change summary) without any verdict.
+  function announceReview(message) {
+    if (!reviewLive) return;
+    reviewLive.textContent = "";
+    reviewLive.textContent = message;
+  }
+
+  function reviewAnnouncement(result) {
+    const parts = [
+      "검토 메모를 새로 만들었습니다.",
+      `표현 검토 후보 ${result.counts.findings}개, 공고문에서 찾지 못한 안내 ${result.counts.not_found}개.`,
+    ];
+    if (!placeholderNotice.hidden && placeholderNotice.textContent) {
+      parts.push(placeholderNotice.textContent);
+    }
+    const changes = !improvementPanel.hidden ? postingChanges() : null;
+    if (changes) {
+      parts.push(
+        changes.tooMany
+          ? "공고문 고친 내용 정리가 있습니다. 변경 줄이 많아 줄 목록은 만들지 않았습니다."
+          : `공고문 고친 내용 정리가 있습니다. 바꾸거나 추가한 줄 ${changes.added.length}개, 삭제한 줄 ${changes.removed.length}개.`
+      );
+    }
+    return parts.join(" ");
   }
 
   function reviewPriorityLabel(value) {
@@ -1958,8 +2094,10 @@
           Boolean((reviewAnswers.get(question.id) || "").trim())
         ).length
       : 0;
-    document.getElementById("answer-progress").textContent =
-      `담당자 답변 ${answered}/${total}`;
+    setLiveText(
+      document.getElementById("answer-progress"),
+      `담당자 답변 ${answered}/${total}`
+    );
   }
 
   function setAssistBadge(element, label, state = "") {
@@ -2196,6 +2334,9 @@
     assistedResultSignature = null;
     assistedResultView = null;
     assistedPanel.hidden = false;
+    // The run button disables itself while the request is in flight; move
+    // focus to the panel the result appears in instead of dropping it.
+    assistedHeading.focus();
     assistedNotice.textContent =
       "Korean Law MCP에서 현행 조문을 확인한 뒤 AI 검토 메모를 작성하고 있습니다.";
     assistedOutput.textContent = "";
@@ -2319,6 +2460,8 @@
     placeholderNotice.hidden = true;
     placeholderNotice.textContent = "";
     improvementPanel.hidden = true;
+    improvementJump.hidden = true;
+    updateResultJump();
     improvementStatus.textContent = "";
     improvementContent.replaceChildren();
     improvementRemaining.replaceChildren();
@@ -2611,7 +2754,7 @@
     const stale = latestCheckedText !== input.value;
     comparisonReset.disabled = stale || !comparison ||
       comparisonBaseline.text === latestCheckedText;
-    comparisonStatus.textContent = message;
+    setLiveText(comparisonStatus, message);
     if (!comparison) {
       comparisonGroups.replaceChildren();
       return;
@@ -2867,6 +3010,7 @@
     latestCheckedText = input.value;
     render(result);
     resultsTitle.focus();
+    announceReview(reviewAnnouncement(result));
     if (
       typeof window.matchMedia === "function" &&
       window.matchMedia("(max-width: 1100px)").matches &&
@@ -2971,6 +3115,9 @@
       return true;
     } catch (_error) {
       const temporary = document.createElement("textarea");
+      // select() moves focus into the temporary field; hand it back afterwards
+      // so a keyboard user is not left on <body>.
+      const previousFocus = document.activeElement;
       try {
         temporary.value = makeText();
         temporary.style.position = "fixed";
@@ -2985,6 +3132,13 @@
         return false;
       } finally {
         temporary.remove();
+        if (
+          previousFocus &&
+          previousFocus !== document.body &&
+          typeof previousFocus.focus === "function"
+        ) {
+          previousFocus.focus({ preventScroll: true });
+        }
       }
     }
   }
@@ -3017,6 +3171,9 @@
     comparison = null;
     renderComparison("현재 검토 결과를 새 비교 기준으로 삼았습니다. 다음 수정부터 이 결과와 비교합니다.");
     renderImprovement();
+    // The button disables itself (nothing left to reset) and the change
+    // summary hides, so the focused control disappears: keep focus in the panel.
+    comparisonTitle.focus();
   });
 
   modeEasyButton.addEventListener("click", () => setViewMode("easy", true));
@@ -3043,6 +3200,7 @@
     if (typeof input.setSelectionRange === "function") {
       input.setSelectionRange(start, end);
     }
+    revealPostingPosition(start);
   });
 
   roleReviewRecord.addEventListener("click", recordRoleReviewEvent);

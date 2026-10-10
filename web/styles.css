@@ -59,6 +59,9 @@ textarea:focus-visible,
 summary:focus-visible,
 pre:focus-visible,
 a:focus-visible,
+#comparison-title:focus-visible,
+#improvement-title:focus-visible,
+#assisted-review-heading:focus-visible,
 #results-title:focus-visible {
   outline: 3px solid #1d5c80;
   outline-offset: 2px;
@@ -67,6 +70,18 @@ a:focus-visible,
 /* The editor pane clips overflow, so draw the ring inside the textarea. */
 #posting-input:focus-visible {
   outline-offset: -3px;
+}
+
+/* Summaries sit flush against the clipping edge of their pane or card, where
+   an outside ring loses its left, right or bottom side; draw it inside. */
+summary:focus-visible {
+  outline-offset: -3px;
+}
+
+/* Keyboard focus scrolling keeps a focused control clear of the fixed toast
+   instead of leaving it underneath for the seconds the toast is shown. */
+html {
+  scroll-padding-bottom: 112px;
 }
 
 [aria-invalid="true"] {
@@ -1999,6 +2014,8 @@ body[data-mode="easy"] .review-boundary {
   background: var(--soft);
 }
 .improvement-panel .comparison-heading button { white-space: normal; text-align: left; }
+/* Shared jump bar above the results: expert sections and the change summary. */
+.result-jump { margin: 12px clamp(15px, 2vw, 24px) 0; }
 .improvement-groups { display: grid; gap: 8px; }
 .improvement-added { border-left-color: var(--blue); }
 .improvement-removed { border-left-color: var(--muted); }

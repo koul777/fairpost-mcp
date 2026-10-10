@@ -117,6 +117,18 @@ def test_posting_improvement_flow_runs_locally() -> None:
     for label, state in result["noTemplates"].items():
         assert state == NO_TEMPLATE_STATE, label
 
+    # Accessibility regressions found by the real-browser audit (axe, keyboard,
+    # screen-reader status text); the runner asserts the behavior itself.
+    a11y = result["a11y"]
+    assert a11y["reviewAnnouncement"].startswith("검토 메모를 새로 만들었습니다. 표현 검토 후보 ")
+    assert not re.search(r"완료|통과|점수|합격|불합격", a11y["reviewAnnouncement"])
+    assert a11y["labelledControlsChecked"] >= 3
+    assert a11y["staleStatusWrites"] == ["comparison-status", "human-review-status"]
+    assert a11y["baselineResetFocus"] == "comparison-title"
+    for key in ("toastFirst", "scrollIntoView", "legacyCopyFocus", "toastCleared"):
+        assert a11y[key] is True, key
+    assert a11y["jumpBar"] == {"expertShown": True, "easyHiddenWithoutSummary": True}
+
     privacy = result["privacy"]
     assert privacy["posts"] == 0
     assert privacy["postingStored"] is False
@@ -174,6 +186,49 @@ def test_index_loads_templates_after_data_and_before_app() -> None:
         assert judgement not in improvement
 
 
+def test_improvement_flow_html_is_navigable_and_announced() -> None:
+    html = _read("web/index.html")
+    ids = re.findall(r'\bid="([^"]+)"', html)
+    assert len(ids) == len(set(ids)), "duplicate ids"
+
+    # A polite status outside every hidden container carries the review outcome.
+    live = _opening_tag(html, "review-live")
+    assert 'role="status"' in live and 'aria-live="polite"' in live
+    assert "visually-hidden" in live
+    assert html.index('id="review-live"') > html.index("</main>")
+    assert "hidden" not in re.findall(r'\s(hidden)(?=[\s>])', live)
+
+    # Headings that take focus after a button disables itself or hides.
+    for element_id in ("comparison-title", "improvement-title", "assisted-review-heading", "results-title"):
+        assert 'tabindex="-1"' in _opening_tag(html, element_id), element_id
+
+    # The jump bar is a labelled navigation whose targets all exist.
+    nav = html[html.index('<nav id="result-jump"'):]
+    nav = nav[:nav.index("</nav>")]
+    assert 'aria-label="검토 결과 안에서 이동"' in nav
+    assert re.search(r"\shidden(?=[\s>])", _opening_tag(html, "result-jump"))
+    assert re.search(r"\shidden(?=[\s>])", _opening_tag(html, "improvement-jump"))
+    targets = re.findall(r'href="#([^"]+)"', nav)
+    assert targets == [
+        "findings-heading", "slots-heading", "questions-heading",
+        "human-review-heading", "improvement-title",
+    ]
+    for target in targets:
+        assert f'id="{target}"' in html, target
+    # Easy mode shows only the change-summary link; expert sections are advanced-only.
+    assert nav.count('class="advanced-only"') == 4
+    assert html.index('id="placeholder-notice"') < html.index('id="result-jump"') < html.index('id="easy-result"')
+
+    # Label in name (WCAG 2.5.3): the visible words are inside the accessible name.
+    undo = _opening_tag(html, "posting-undo")
+    assert "되돌리기" in re.search(r'aria-label="([^"]*)"', undo).group(1)
+    for tag, name, visible in re.findall(
+        r'<(button|summary)\b[^>]*\baria-label="([^"]*)"[^>]*>\s*([^<]*?)\s*<', html
+    ):
+        if visible and not set(visible) <= set("×⧉"):
+            assert visible.replace(" ", "") in name.replace(" ", ""), (tag, name, visible)
+
+
 def test_posting_improvement_code_keeps_local_boundaries() -> None:
     app = _read("web/app.js")
     # Storage writes stay the role-review store and the view-mode preference.
@@ -188,6 +243,12 @@ def test_posting_improvement_code_keeps_local_boundaries() -> None:
     assert "window.FAIRPOST_POSTING_TEMPLATES" in app
     assert 'input.dispatchEvent(new Event("input"))' in app
     assert "개선 완료" not in app
+    # The review outcome is announced as counts of work items, never a verdict.
+    announcement = app[app.index("function reviewAnnouncement("):]
+    announcement = announcement[:announcement.index("\n  }\n")]
+    assert not re.search(r"완료|통과|점수|합격", announcement)
+    # Rewrite summary: accessible name starts with the visible words.
+    assert 'aria-label="이 줄 고쳐 쓰기, ${number}번 표현이 있는 줄">이 줄 고쳐 쓰기</summary>' in app
 
 
 def test_posting_improvement_styles_wrap_and_stay_readable() -> None:
@@ -204,3 +265,12 @@ def test_posting_improvement_styles_wrap_and_stay_readable() -> None:
     assert "overflow-wrap:anywhere;" in compact
     assert ".button[aria-disabled=\"true\"]{" in compact
     assert "font-size:16px;" in compact[compact.index(".rewrite-contenttextarea{"):]
+
+    # Focus visibility: rings of summaries stay inside the clipping pane or card,
+    # and keyboard focus scrolling keeps controls clear of the fixed toast.
+    flat = "".join(css.split())
+    assert "summary:focus-visible{outline-offset:-3px;}" in flat
+    assert "html{scroll-padding-bottom:" in flat
+    for heading in ("#comparison-title", "#improvement-title", "#assisted-review-heading"):
+        assert f"{heading}:focus-visible" in css, heading
+    assert ".result-jump{margin:" in compact

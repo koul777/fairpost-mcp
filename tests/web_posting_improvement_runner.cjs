@@ -112,7 +112,10 @@ const escapeHtml = (value) => String(value)
   .replaceAll("'", "&#039;");
 const count = (text, needle) => (needle ? String(text).split(needle).length - 1 : 0);
 
-function boot({ search = "", templates = "file", storedMode = null, location = "present" } = {}) {
+function boot({
+  search = "", templates = "file", storedMode = null, location = "present",
+  layout = false, clipboard: clipboardMode = "ok",
+} = {}) {
   const elements = new Map();
   const el = (id) => {
     if (!elements.has(id)) {
@@ -125,14 +128,16 @@ function boot({ search = "", templates = "file", storedMode = null, location = "
   const storageWrites = [];
   const fetchCalls = [];
   const clipboard = { text: null };
+  // Timers are collected, not run, so a test decides when the toast fades.
+  const timers = [];
   const sandbox = {
     console,
     URL,
     URLSearchParams,
     TextEncoder,
     setImmediate,
-    setTimeout: () => 1,
-    clearTimeout: () => {},
+    setTimeout: (callback) => { timers.push(callback); return timers.length; },
+    clearTimeout: (id) => { if (Number.isInteger(id) && id > 0) timers[id - 1] = null; },
     HTMLTextAreaElement: FakeTextAreaElement,
     Event: class Event { constructor(type) { this.type = type; } },
     document: {
@@ -149,7 +154,14 @@ function boot({ search = "", templates = "file", storedMode = null, location = "
       },
       removeItem: (key) => storage.delete(key),
     },
-    navigator: { clipboard: { async writeText(value) { clipboard.text = value; } } },
+    navigator: {
+      clipboard: {
+        async writeText(value) {
+          if (clipboardMode === "refuse") throw new Error("Clipboard API refused");
+          clipboard.text = value;
+        },
+      },
+    },
     fetch: async (url, options = {}) => {
       fetchCalls.push({ url, method: options.method || "GET" });
       return {
@@ -183,6 +195,30 @@ function boot({ search = "", templates = "file", storedMode = null, location = "
       get search() { throw new Error("SecurityError: location blocked"); },
     };
   }
+  const layoutLog = { appended: 0, removed: 0, copyCommands: 0 };
+  if (layout || clipboardMode === "refuse") {
+    sandbox.document.createElement = () => {
+      const node = new FakeTextAreaElement();
+      node.style = {};
+      node.appendChild = (child) => { node.marker = child; };
+      node.remove = () => { layoutLog.removed += 1; };
+      return node;
+    };
+  }
+  if (layout) {
+    // A line-based stand-in for browser layout: every "\n" starts a 20px line.
+    sandbox.getComputedStyle = () => ({ lineHeight: "20px" });
+    sandbox.document.body = {
+      appendChild(node) {
+        layoutLog.appended += 1;
+        if (node.marker) node.marker.offsetTop = (node.textContent.split("\n").length - 1) * 20;
+      },
+    };
+  }
+  if (clipboardMode === "refuse") {
+    // The legacy copy command works; focus must come back after it.
+    sandbox.document.execCommand = () => { layoutLog.copyCommands += 1; return true; };
+  }
   sandbox.window = sandbox;
   vm.createContext(sandbox);
   const run = (relative) => vm.runInContext(sources[relative], sandbox, { filename: relative });
@@ -197,8 +233,14 @@ function boot({ search = "", templates = "file", storedMode = null, location = "
   run("web/engine.js");
   run("web/app.js");
   const posting = el("posting-input");
+  if (layout) {
+    posting.clientHeight = 100;
+    posting.clientWidth = 300;
+    posting.scrollTop = 0;
+  }
   const helpers = {
-    sandbox, el, posting, storage, storageWrites, fetchCalls, clipboard,
+    sandbox, el, posting, storage, storageWrites, fetchCalls, clipboard, layoutLog, timers,
+    flushTimers() { timers.splice(0).forEach((callback) => { if (callback) callback(); }); },
     type(value) {
       // A reader edit: value, caret at the end, then the input event.
       posting.value = value;
@@ -252,6 +294,32 @@ function templateText(templates, slotId, componentId = "") {
 
 const insertMarker = (where, slot, component = "") =>
   `data-template-insert="${where}" data-template-slot="${slot}" data-template-component="${component}"`;
+
+// WCAG 2.5.3: a control's accessible name has to contain its visible label,
+// or a speech-input user cannot say what they see on the button.
+function assertLabelsContainVisibleText(markup, label) {
+  const squash = (value) => value.replace(/\s+/gu, "");
+  const controls = [...markup.matchAll(/<(summary|button)\b[^>]*?\baria-label="([^"]*)"[^>]*>([^<]*)</gu)];
+  controls.forEach(([, tag, name, visible]) => {
+    if (!visible.trim()) return;
+    assert.ok(
+      squash(name).includes(squash(visible)),
+      `${label}: <${tag}> name "${name}" does not contain its visible text "${visible.trim()}"`
+    );
+  });
+  return controls.length;
+}
+
+// Writes to a live-region element, in order, so tests can tell a rewrite of
+// unchanged text (announced again) from a real change.
+function traceWrites(element, name, log) {
+  let value = element.textContent;
+  Object.defineProperty(element, "textContent", {
+    configurable: true,
+    get: () => value,
+    set: (next) => { log.push({ name, text: next }); value = next; },
+  });
+}
 
 function assertUniqueIds(app, label) {
   const ids = [...app.markup().matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
@@ -316,11 +384,28 @@ const PRIVATE_MARK = "개선흐름-PRIVATE-DRAFT";
   app.check();
   await tick();
   const firstResult = app.sandbox.FairpostEngine.check(BASE_POSTING);
+  // The results heading takes focus after a review but says nothing about what
+  // it found, so a polite status carries counts of work items (no verdict).
+  const firstAnnouncement = app.el("review-live").textContent;
+  assert.equal(
+    firstAnnouncement,
+    `검토 메모를 새로 만들었습니다. 표현 검토 후보 ${firstResult.counts.findings}개, 공고문에서 찾지 못한 안내 ${firstResult.counts.not_found}개.`
+  );
+  assert.equal(app.el("results-title").focused, true);
+  // No change summary yet: the jump bar stays hidden in easy mode.
+  assert.equal(app.el("improvement-jump").hidden, true);
+  assert.equal(app.el("result-jump").hidden, true);
   const missing = firstResult.slots.filter((slot) => !slot.found);
   const withTemplate = missing.filter((slot) => templateText(templates, slot.slot));
   assert.ok(withTemplate.length > 0, "at least one missing slot has an example sentence");
   let easy = app.el("easy-result").innerHTML;
   assert.ok(easy.includes(escapeHtml(templates.notice)));
+  assert.ok(
+    easy.includes('aria-label="이 줄 고쳐 쓰기, 1번 표현이 있는 줄">이 줄 고쳐 쓰기<'),
+    "rewrite summary name starts with its visible text"
+  );
+  const labelledControls = assertLabelsContainVisibleText(app.markup(), "easy markup");
+  assert.ok(labelledControls >= 3, "labelled summaries and buttons are checked");
   withTemplate.forEach((slot) => {
     const template = templates.slots[slot.slot];
     assert.ok(easy.includes(insertMarker("end", slot.slot)), `end button ${slot.slot}`);
@@ -438,6 +523,18 @@ const PRIVATE_MARK = "개선흐름-PRIVATE-DRAFT";
   assert.ok(memoAfterInsert.includes("[공고문 변경 내역]"));
   assert.ok(memoAfterInsert.includes(`+ ${firstTemplateLine}`));
   assert.ok(memoAfterInsert.includes("삭제한 줄 0"));
+  // The re-review is announced with the blank boundary and the change summary.
+  const addedLines = Number(/바꾸거나 추가한 줄 (\d+)/u.exec(memoAfterInsert)[1]);
+  const recheckAnnouncement = app.el("review-live").textContent;
+  assert.ok(recheckAnnouncement.startsWith("검토 메모를 새로 만들었습니다. 표현 검토 후보 "));
+  if (blanks) assert.ok(recheckAnnouncement.includes(app.el("placeholder-notice").textContent));
+  assert.ok(recheckAnnouncement.endsWith(
+    `공고문 고친 내용 정리가 있습니다. 바꾸거나 추가한 줄 ${addedLines}개, 삭제한 줄 0개.`
+  ));
+  assert.ok(!/완료|통과|점수|합격|✓|✔/u.test(recheckAnnouncement));
+  assert.equal(app.el("improvement-jump").hidden, false);
+  assert.equal(app.el("result-jump").hidden, false);
+  assertLabelsContainVisibleText(app.markup(), "re-reviewed markup");
   await app.el("copy-posting-button").trigger("click");
   const postingCopy = { equalsPosting: app.clipboard.text === app.posting.value, toast: app.toast() };
   assert.equal(postingCopy.equalsPosting, true);
@@ -462,8 +559,12 @@ const PRIVATE_MARK = "개선흐름-PRIVATE-DRAFT";
   assert.equal(app.el("improvement-panel").hidden, false, "fresh again after typing back");
 
   // Undo restores the posting before the insert and then disappears.
+  app.posting.focused = false;
   app.el("posting-undo").trigger("click");
   assert.equal(app.posting.value, BASE_POSTING);
+  // Focus lands in the field, with the caret where the undone text had been.
+  assert.equal(app.posting.focused, true);
+  assert.deepEqual([app.posting.selectionStart, app.posting.selectionEnd], [BASE_POSTING.length, BASE_POSTING.length]);
   assert.equal(app.toast(), "되돌렸습니다. '검토 메모 만들기'를 다시 눌러 확인하세요.");
   assert.equal(app.el("posting-undo").hidden, true);
   app.check();
@@ -682,6 +783,170 @@ const PRIVATE_MARK = "개선흐름-PRIVATE-DRAFT";
     assert.equal(state.blankNotice, true, label);
     assert.equal(state.hintMentionsTemplates, false, label);
   });
+
+  // 6. Accessibility regressions: live regions, focus, scrolling, names.
+  const a11y = {};
+  const endSlotId = withTemplate[0].slot;
+
+  // 6a. Status regions are written only when their text changes, so typing in
+  // the posting field does not make a screen reader repeat the same status.
+  const quiet = boot({ templates: "file" });
+  quiet.type(BASE_POSTING);
+  quiet.check();
+  const quietLog = [];
+  traceWrites(quiet.el("comparison-status"), "comparison-status", quietLog);
+  traceWrites(quiet.el("human-review-status"), "human-review-status", quietLog);
+  traceWrites(quiet.el("answer-progress"), "answer-progress", quietLog);
+  quiet.type(`${BASE_POSTING}a`);
+  quiet.type(`${BASE_POSTING}ab`);
+  quiet.type(`${BASE_POSTING}abc`);
+  const staleWrites = quietLog.map((entry) => entry.name).sort();
+  assert.deepEqual(staleWrites, ["comparison-status", "human-review-status"],
+    "each stale status is announced once while typing");
+  quietLog.length = 0;
+  quiet.check();
+  quiet.check(); // the same text again: the unchanged statuses stay silent
+  const repeated = quietLog.filter((entry) => entry.name === "answer-progress").length;
+  assert.ok(repeated <= 1, "answer progress is not rewritten when it did not change");
+  const afterFirstRecheck = quietLog.length;
+  quiet.check();
+  assert.equal(quietLog.length, afterFirstRecheck, "a repeated review rewrites no status");
+  a11y.staleStatusWrites = staleWrites;
+
+  // 6b. The toast naming what happened is announced before the status writes
+  // that the edit itself triggers.
+  const ordered = boot({ templates: "file" });
+  ordered.type(BASE_POSTING);
+  ordered.check();
+  const orderLog = [];
+  traceWrites(ordered.el("toast"), "toast", orderLog);
+  traceWrites(ordered.el("comparison-status"), "comparison-status", orderLog);
+  traceWrites(ordered.el("human-review-status"), "human-review-status", orderLog);
+  ordered.insert(endSlotId, "end");
+  assert.equal(orderLog[0].name, "toast", "insert: toast first");
+  orderLog.length = 0;
+  ordered.el("posting-undo").trigger("click");
+  assert.equal(orderLog[0].name, "toast", "undo: toast first");
+  orderLog.length = 0;
+  ordered.check();
+  ordered.draft(0, "- 직무 수행에 필요한 경력 2년 이상");
+  orderLog.length = 0;
+  ordered.apply(0);
+  assert.equal(orderLog[0].name, "toast", "apply: toast first");
+  a11y.toastFirst = true;
+
+  // 6c. Resetting the comparison baseline disables the focused button and hides
+  // the change summary; focus moves into the panel instead of dropping to <body>.
+  const rebase = boot({ templates: "file" });
+  rebase.type(BASE_POSTING);
+  rebase.check();
+  rebase.type(`${BASE_POSTING}\n담당자가 덧붙인 줄`);
+  rebase.check();
+  assert.equal(rebase.el("comparison-reset").disabled, false);
+  assert.equal(rebase.el("improvement-panel").hidden, false);
+  rebase.el("comparison-title").focused = false;
+  rebase.el("comparison-reset").trigger("click");
+  assert.equal(rebase.el("comparison-reset").disabled, true);
+  assert.equal(rebase.el("improvement-panel").hidden, true);
+  assert.equal(rebase.el("improvement-jump").hidden, true);
+  assert.equal(rebase.el("comparison-title").focused, true);
+  a11y.baselineResetFocus = "comparison-title";
+
+  // 6d. Expert mode lists its sections in the jump bar from the first review.
+  const expert = boot({ templates: "file" });
+  expert.el("mode-expert").trigger("click");
+  expert.type(BASE_POSTING);
+  expert.check();
+  assert.equal(expert.el("result-jump").hidden, false);
+  assert.equal(expert.el("improvement-jump").hidden, true);
+  expert.el("mode-easy").trigger("click");
+  assert.equal(expert.el("result-jump").hidden, true);
+  expert.el("clear-button").trigger("click");
+  assert.equal(expert.el("improvement-jump").hidden, true);
+  a11y.jumpBar = { expertShown: true, easyHiddenWithoutSummary: true };
+
+  // 6e. A selection set from script is scrolled into view inside a short field.
+  const tall = boot({ templates: "file", layout: true });
+  const filler = Array.from({ length: 30 }, (_, index) => `참고 줄 ${index + 1}`).join("\n");
+  const tallPosting = `${filler}\n${BASE_POSTING}`;
+  tall.type(tallPosting);
+  tall.check();
+  const caretAtLine3 = tallPosting.indexOf("참고 줄 3");
+  tall.posting.selectionStart = caretAtLine3;
+  tall.posting.selectionEnd = caretAtLine3;
+  tall.posting.trigger("select");
+  tall.posting.scrollTop = 900; // far below the caret
+  tall.insert(endSlotId, "cursor");
+  const lineTop = (value, offset) => (value.slice(0, offset).split("\n").length - 1) * 20;
+  const insertedTop = lineTop(tall.posting.value, tall.posting.selectionStart);
+  assert.equal(tall.posting.scrollTop, Math.max(0, insertedTop - Math.round(100 / 3)),
+    "inserted text is scrolled into view");
+  assert.ok(tall.layoutLog.appended >= 1);
+  assert.equal(tall.layoutLog.removed, tall.layoutLog.appended, "the measuring copy is removed");
+  // A line that is already visible does not move the field.
+  tall.check();
+  tall.posting.scrollTop = Math.max(0, insertedTop - 40);
+  const keptScroll = tall.posting.scrollTop;
+  const visibleOffset = tall.posting.value.indexOf("\n", tall.posting.selectionStart) + 1;
+  const selectTarget = {
+    dataset: { selectStart: String(visibleOffset), selectEnd: String(visibleOffset + 2) },
+    closest: (selector) => (selector === "[data-select-start]" ? selectTarget : null),
+  };
+  tall.el("easy-result").trigger("click", { target: selectTarget });
+  assert.equal(tall.posting.scrollTop, keptScroll, "a visible selection leaves the field where it is");
+  // "공고문에서 이 부분 선택" far from the viewport scrolls there too.
+  const farOffset = tall.posting.value.length - 4;
+  const farTarget = {
+    dataset: { selectStart: String(farOffset), selectEnd: String(farOffset + 2) },
+    closest: (selector) => (selector === "[data-select-start]" ? farTarget : null),
+  };
+  tall.posting.scrollTop = 0;
+  tall.el("easy-result").trigger("click", { target: farTarget });
+  assert.equal(tall.posting.scrollTop, Math.max(0, lineTop(tall.posting.value, farOffset) - Math.round(100 / 3)));
+  // Undo puts the caret where the undone text had been and shows that line.
+  tall.posting.scrollTop = 900;
+  tall.el("posting-undo").trigger("click");
+  assert.equal(tall.posting.value, tallPosting);
+  assert.deepEqual([tall.posting.selectionStart, tall.posting.selectionEnd], [caretAtLine3, caretAtLine3]);
+  assert.equal(tall.posting.scrollTop, Math.max(0, lineTop(tallPosting, caretAtLine3) - Math.round(100 / 3)));
+  // Without usable layout the edit still happens.
+  const noLayout = boot({ templates: "file", layout: true });
+  noLayout.sandbox.getComputedStyle = () => { throw new Error("no layout"); };
+  noLayout.type(BASE_POSTING);
+  noLayout.insert(endSlotId, "end");
+  assert.ok(noLayout.posting.value.length > BASE_POSTING.length);
+  assert.equal(noLayout.layoutLog.appended, 0);
+  a11y.scrollIntoView = true;
+
+  // 6f. The legacy copy path hands focus back to the button that was pressed.
+  const refused = boot({ templates: "file", clipboard: "refuse" });
+  refused.type(BASE_POSTING);
+  refused.check();
+  refused.type(`${BASE_POSTING}\n담당자가 덧붙인 줄`);
+  refused.check();
+  const copyPosting = refused.el("copy-posting-button");
+  refused.sandbox.document.activeElement = copyPosting;
+  copyPosting.focused = false;
+  await copyPosting.trigger("click");
+  assert.equal(refused.layoutLog.copyCommands, 1, "the legacy copy command ran");
+  assert.ok(refused.toast().startsWith("고친 공고문을 복사했습니다"));
+  assert.equal(copyPosting.focused, true, "focus returns to the copy button");
+  a11y.legacyCopyFocus = true;
+
+  // 6g. A faded toast leaves no old message behind for screen readers.
+  const fading = boot({ templates: "file" });
+  fading.type(BASE_POSTING);
+  fading.insert(endSlotId, "end");
+  assert.ok(fading.toast().length > 0);
+  fading.flushTimers();
+  assert.equal(fading.toast(), "");
+  a11y.toastCleared = true;
+
+  summary.a11y = {
+    reviewAnnouncement: firstAnnouncement,
+    labelledControlsChecked: labelledControls,
+    ...a11y,
+  };
 
   console.log(JSON.stringify(summary));
 })().catch((error) => {

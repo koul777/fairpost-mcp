@@ -1,3 +1,4 @@
+const nodeAssert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
@@ -315,7 +316,11 @@ for (const relative of appSources) {
     hint: elements.get("assisted-review-run-hint").textContent,
     panelHidden: elements.get("assisted-review-panel").hidden,
   };
+  // The run button disables itself while the request is in flight; focus must
+  // move to the result panel instead of dropping to <body>.
+  elements.get("assisted-review-heading").focused = false;
   runButton.trigger("click");
+  nodeAssert.equal(elements.get("assisted-review-heading").focused, true);
   const whileRunning = {
     live: live(),
     runDisabled: runButton.disabled,
@@ -750,7 +755,12 @@ for (const relative of appSources) {
   const thirdComparison = elements.get("comparison-groups").innerHTML;
   elements.get("check-button").trigger("click");
   const unchangedComparison = elements.get("comparison-groups").innerHTML;
+  // The reset button disables itself once the baseline is the current result;
+  // focus moves to the panel heading instead of dropping to <body>.
+  elements.get("comparison-title").focused = false;
   elements.get("comparison-reset").trigger("click");
+  nodeAssert.equal(elements.get("comparison-reset").disabled, true);
+  nodeAssert.equal(elements.get("comparison-title").focused, true);
   const resetComparison = elements.get("comparison-groups").innerHTML;
   posting.value += "\n여성만 지원 가능";
   posting.dispatchEvent(new Event("input"));
