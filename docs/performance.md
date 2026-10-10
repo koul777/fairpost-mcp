@@ -45,9 +45,15 @@ python tools/benchmark_engine.py `
 
 엔진과 규칙 로딩은 측정에서 제외한다. 각 `engine.check()` 호출의 직전과 직후를
 단조 증가 시계인 `time.perf_counter()`로 측정한다. `elapsed_seconds`는 모든
-개별 호출 시간의 합이고, `postings_per_second`는 측정 호출 수를 이 합으로 나눈
-값이다. 지연 시간은 밀리초 단위의 최솟값, 평균, p50, p95, p99, 최댓값으로
-집계하며 백분위는 nearest-rank 방식을 사용한다. 집계 순서와 반올림 규칙은
+개별 호출 시간의 합이다. 처리량은 반복마다 따로 계산해 `metrics.repeat_postings_per_second`에
+반복 순서대로 남기고, 대표값 `postings_per_second`는 이 반복별 처리량의 중앙값이다
+(`configuration.throughput_aggregation`: `median_of_repeats`). 한 번의 반복이
+일시적인 부하(메모리 압박, 다른 프로세스)로 느려져도 대표값은 흔들리지 않는다.
+`pooled_postings_per_second`는 이전 대표값 정의(전체 측정 호출 수 ÷ `elapsed_seconds`)이며,
+`throughput_aggregation`이 없는 이전 보고서의 `postings_per_second`가 이 값이다.
+반복별 값이 크게 갈리면 측정 중에 부하가 있었다는 뜻이므로 다시 측정한다.
+지연 시간은 모든 반복의 전체 표본에 대해 밀리초 단위의 최솟값, 평균, p50, p95,
+p99, 최댓값으로 집계하며 백분위는 nearest-rank 방식을 사용한다. 집계 순서와 반올림 규칙은
 고정돼 있지만 운영체제 부하, CPU 전원 상태, Python 버전에 따라 실측값은 달라질
 수 있다.
 
