@@ -16,6 +16,7 @@ selection_stages:
     - "면접 전형"
     - "필기 전형"
     - "서류 검토"
+    - "서류 리뷰"
   search_sections: [ 전형절차, 일정 ]
   components:
     - id: document_stage
@@ -24,6 +25,7 @@ selection_stages:
         - 서류 심사
         - 서류접수
         - 지원서 리뷰
+        - 서류 리뷰
         - 서류 전형
     - id: interview_stage
       patterns:

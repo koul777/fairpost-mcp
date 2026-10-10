@@ -64,6 +64,15 @@ BASE_POSTINGS = {
     ),
 }
 
+# Postings that end with a duty list. A duty heading must not swallow an example
+# added after it, whether it goes at the end (after a blank line) or at the cursor
+# directly below the last duty line, with or without bullets.
+DUTY_ENDING_POSTINGS = {
+    "bulleted-duties": "행정직 채용\n주요 업무\n- 인사 행정 지원",
+    "plain-duties": "행정직 채용\n주요 업무\n인사 행정 지원",
+}
+INSERTION_SEPARATORS = {"end": "\n\n", "cursor": "\n"}
+
 # Cross-detection is a defect for the person pasting a template: it would make the
 # engine stop reporting a gap that the pasted text does not actually fill. Anything
 # that is unavoidable has to be listed here on purpose.
@@ -424,6 +433,33 @@ def test_template_makes_its_slot_found_without_new_law_findings(
     assert leaked == set(), f"{slot_id}: 다른 슬롯까지 채운 것으로 탐지됩니다 {sorted(leaked)}"
 
 
+def _after_duties(base_name: str, insertion: str, slot_id: str) -> str:
+    return (
+        DUTY_ENDING_POSTINGS[base_name]
+        + INSERTION_SEPARATORS[insertion]
+        + DOCUMENT["slots"][slot_id]["text"]
+    )
+
+
+@pytest.mark.parametrize("base_name", sorted(DUTY_ENDING_POSTINGS))
+@pytest.mark.parametrize("insertion", sorted(INSERTION_SEPARATORS))
+@pytest.mark.parametrize("slot_id", SLOT_IDS)
+def test_template_after_a_duty_list_makes_its_slot_found(
+    engine: FairpostEngine, slot_id: str, insertion: str, base_name: str
+) -> None:
+    before = engine.check(DUTY_ENDING_POSTINGS[base_name])
+    assert _found_slots(before) == set()
+
+    after = engine.check(_after_duties(base_name, insertion, slot_id))
+
+    assert slot_id in _found_slots(after), (
+        f"{slot_id}: 담당 업무 뒤에 넣은 템플릿 문구가 탐지되지 않습니다"
+    )
+    assert _finding_ids(after) - _finding_ids(before) == set()
+    leaked = _found_slots(after) - {slot_id} - ALLOWED_CROSS_DETECTION.get(slot_id, set())
+    assert leaked == set(), f"{slot_id}: 다른 슬롯까지 채운 것으로 탐지됩니다 {sorted(leaked)}"
+
+
 @pytest.mark.parametrize("slot_id", SLOT_IDS)
 def test_template_text_alone_is_detected(engine: FairpostEngine, slot_id: str) -> None:
     result = engine.check(DOCUMENT["slots"][slot_id]["text"])
@@ -533,6 +569,38 @@ def test_web_engine_agrees_on_template_with_all_supplements(
 ) -> None:
     text = _full_text(slot_id)
     assert _web_check(text) == engine.check(text).to_dict()
+
+
+@pytest.mark.requires_node
+def test_web_engine_agrees_on_templates_after_a_duty_list(
+    engine: FairpostEngine, tmp_path: Path
+) -> None:
+    labels = [
+        (base_name, insertion, slot_id)
+        for base_name in sorted(DUTY_ENDING_POSTINGS)
+        for insertion in sorted(INSERTION_SEPARATORS)
+        for slot_id in SLOT_IDS
+    ]
+    texts = [_after_duties(*label) for label in labels]
+    batch = tmp_path / "web-batch.json"
+    batch.write_text(
+        json.dumps([base64.b64encode(t.encode("utf-8")).decode("ascii") for t in texts]),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        ["node", "tests/js_runner.cjs", "--batch", str(batch)],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    web_results = json.loads(completed.stdout)
+    assert len(web_results) == len(texts)
+    for label, text, web_result in zip(labels, texts, web_results, strict=True):
+        web_found = {slot["slot"] for slot in web_result["slots"] if slot["found"]}
+        assert label[2] in web_found, label
+        assert web_result == engine.check(text).to_dict(), label
 
 
 @pytest.mark.requires_node

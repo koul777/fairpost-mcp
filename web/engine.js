@@ -35,7 +35,8 @@
       "필요 지식 및 기술",
       "자격조건 및 필요지식",
       "Required Skills",
-      "이런 분과 함께하고 싶어요"
+      "이런 분과 함께하고 싶어요",
+      "자격요건의 직무 관련성"
     ]
   ],
   [
@@ -62,7 +63,9 @@
       "이렇게 합류해요",
       "전형절차 및 일정",
       "전형 절차 및 안내 사항",
-      "전형절차 및 기타사항"
+      "전형절차 및 기타사항",
+      "평가 기준",
+      "인공지능 활용 안내"
     ]
   ],
   [
@@ -70,7 +73,8 @@
     [
       "전형일정",
       "채용일정",
-      "일정", "접수기간", "모집기간", "공고기간", "접수 마감일"
+      "일정", "접수기간", "모집기간", "공고기간", "접수 마감일",
+      "결과 안내"
     ]
   ],
   [
@@ -97,7 +101,10 @@
     [
       "유의사항",
       "주의사항",
-      "꼭 확인해 주세요"
+      "꼭 확인해 주세요",
+      "이의제기 안내",
+      "채용서류 반환ㆍ파기 안내",
+      "채용서류 반환·파기 안내"
     ]
   ],
   [
@@ -467,7 +474,7 @@
 
   // Same pattern as core.extractor._HEADING_DECORATION, with Python semantics.
   const HEADING_DECORATION = pythonRegex(
-    "^[\\s#>*\\-–—\\d.()①-⑳\\[\\]■]+|[\\s:：\\[\\]]+$",
+    "^[\\s#>*\\-–—\\d.()①-⑳\\[\\]■●○◆◇▶▷□◎※【】<]+|[\\s:：\\[\\]】>]+$",
     "gu"
   );
   const WHITESPACE_RUN = pythonRegex("\\s+", "gu");
@@ -614,14 +621,26 @@
   }
 
   const DUTY_HEADINGS = ["담당업무","주요업무","업무내용","What You'll Do","What You’ll Do","합류하면 함께할 업무에요","이런 일을 해요"];
-  const HIRING_CONTEXT = ["지원자","응시자","서류전형","면접","인터뷰","역량검사","전형절차","채용과정"];
+  // Same as _HIRING_CONTEXT: a bare "인터뷰" counts only through hiringContext.
+  const HIRING_CONTEXT = ["지원자","응시자","서류전형","면접","역량검사","전형절차","채용과정","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰"];
   const DUTY_CONTEXT = ["re:(?:알고리즘|임직원|직원|제품|서비스|고객).{0,80}(?:연구|개발|설계|운영|개선|평가)"];
   const CONTACT_CONTEXT = ["문의","연락","인사팀","채용팀","인사부","담당 부서","전화","전자우편","re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}","re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}"];
   const CONTACT_NON_CHANNEL = ["결과","통보","기재","등록","발송","지원서","모집"];
   // Keep identical to _DEFERRED_BODY in core/extractor.py (see the comment there).
   const DEFERRED_BODY = ["re:^(?:(?:추후|차후|나중에|미정)[^\\n]*|(?![^\\n]*(?:(?:19|20)\\d{2}\\s*[./-]\\s*\\d{1,2}|\\d{1,2}\\s*[./]\\s*\\d{1,2}|\\d{1,4}\\s*(?:년|월|일|시|주)|\\d[\\d,.]{0,15}\\s*(?:[천백만억]\\s*)*원))(?:(?:별도|상세|예정)[^\\n]*(?:안내|공지|협의|예정|미정|문의|통보|참조|확인)[^\\n]*|예정[^\\n]{0,12}|별도|상세))$"];
-  const DATE_CONTENT = ["re:\\d{1,4}[./-]\\d{1,2}","re:\\d+\\s*(?:년|월|일|시|주)","상시","수시", "채용시까지", "채용 시까지"];
-  const STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토"];
+  const DATE_CONTENT = ["re:\\d{1,4}[./-]\\d{1,2}|(?:19|20)\\d{2}\\s*[./-]\\s*\\d{1,2}","re:\\d+\\s*(?:년|월|일|시|주)","상시","수시", "채용시까지", "채용 시까지"];
+  const STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토", "AI 영상면접"];
+  // Keep identical to _BARE_STAGE_TERMS, _STAGE_SECTIONS, _STAGE_MARKERS,
+  // _LINE_MARKER and _SENTENCE_END in core/extractor.py.
+  const BARE_STAGE_TERMS = ["인터뷰", "서류접수", "서류 검토", "서류 리뷰"];
+  const STAGE_SECTIONS = ["전형절차", "일정"];
+  const STAGE_MARKERS = ["re:→|⇒|▶|▷|->|=>|>", "re:\\d\\s*단계", "re:\\d\\s*차(?![가-힣])", "re:\\d\\s*차\\s*(?:인터뷰|면접|전형|심사|평가|합격|과제|테스트|서류)", "전형", "re:(?:채용|선발|합류)\\s*(?:절차|과정|프로세스)", "re:최종\\s*합격"];
+  const LINE_MARKER = pythonRegex(
+    "^\\s*(?:([-–—‐−*•·ㆍ∙‧▪◦+－＊・･])|(\\d{1,2})\\s*([.)．）])(?!\\d)|([(（]\\s*\\d{1,2}\\s*[)）])|([①-⑳])|([가나다라마바사아자차카타파하])\\s*[.)．）]|([●○◆◇▶▷□■◎])|(※)|([\\[【<#［〈《]))",
+    "u"
+  );
+  const SENTENCE_END = ".!?。다요음함임";
+  const DUTY_BLOCK_CACHE = new Map();
   const ATTACHMENT_SUFFIX = pythonRegex("\\.(?:pdf|hwpx?|hml|docx?|zip)\\s*$", "iu");
 
   function lineBounds(text, start, end) {
@@ -630,17 +649,112 @@
     return [left, right === -1 ? text.length : right];
   }
 
-  function isDutySection(section) {
-    const first = section.text.split("\n", 1)[0];
-    return DUTY_HEADINGS.some((h) => compactHeading(h) === compactHeading(first));
+  function stripTags(value) {
+    return value.replace(/<[^>]+>/gu, "");
   }
 
-  function contextAllowed(slotId, line, section) {
-    if (slotId !== "qualification_rationale" && isDutySection(section)) return false;
+  // Mirrors _line_marker: [kind, style] of a line's leading bullet, number or mark.
+  function lineMarker(line) {
+    const match = LINE_MARKER.exec(Array.from(line).filter((ch) => !ZERO_WIDTH.has(ch)).join(""));
+    if (!match) return ["", ""];
+    const [, bullet, number, numberEnd, paren, circled, hangul, mark, note, bracket] = match;
+    if (bullet) return ["item", bullet];
+    if (number) return ["item", ".．".includes(numberEnd) ? "1." : "1)"];
+    if (paren) return ["item", "(1)"];
+    if (circled) return ["item", "①"];
+    if (hangul) return ["item", "가."];
+    if (mark) return ["mark", mark];
+    if (note) return ["note", note];
+    return ["bracket", bracket];
+  }
+
+  function indentOf(line) {
+    let count = 0;
+    while (count < line.length && isPythonWhitespace(line[count])) count += 1;
+    return count;
+  }
+
+  function headingLike(line) {
+    const cleaned = Array.from(stripHeadingDecoration(line));
+    return cleaned.length > 0 && cleaned.length <= 30 && !SENTENCE_END.includes(cleaned[cleaned.length - 1]);
+  }
+
+  // Mirrors _duty_block_end_in: where the duty list under a duty heading ends.
+  function dutyBlockEnd(text) {
+    if (DUTY_BLOCK_CACHE.has(text)) return DUTY_BLOCK_CACHE.get(text);
+    const lines = text.split("\n");
+    let result = text.length;
+    if (!DUTY_HEADINGS.some((h) => compactHeading(h) === compactHeading(lines[0]))) {
+      result = 0;
+    } else {
+      const [headingKind, headingStyle] = lineMarker(lines[0]);
+      const headingIndent = indentOf(stripTags(lines[0]));
+      let itemStyle = null;
+      let offset = lines[0].length + 1;
+      for (let index = 1; index < lines.length; index += 1) {
+        const line = lines[index];
+        const raw = stripTags(line);
+        const plain = trimPythonWhitespace(raw);
+        if (!plain) {
+          if (itemStyle !== null) {
+            const following = lines.slice(index + 1).map((rest) => trimPythonWhitespace(stripTags(rest))).find((rest) => rest) ?? null;
+            if (!(following !== null && itemStyle && lineMarker(following)[1] === itemStyle)) {
+              result = offset;
+              break;
+            }
+          }
+          offset += line.length + 1;
+          continue;
+        }
+        const [kind, style] = lineMarker(raw);
+        if (itemStyle === null) {
+          itemStyle = style;
+        } else if (style !== itemStyle && indentOf(raw) <= headingIndent && headingLike(plain)) {
+          if (kind === "mark" || kind === "bracket" || (kind === "" && itemStyle) || (headingKind && style === headingStyle)) {
+            result = offset;
+            break;
+          }
+        }
+        offset += line.length + 1;
+      }
+    }
+    if (DUTY_BLOCK_CACHE.size > 256) DUTY_BLOCK_CACHE.clear();
+    DUTY_BLOCK_CACHE.set(text, result);
+    return result;
+  }
+
+  function inDutyBlock(section, offset) {
+    return offset < dutyBlockEnd(section.text);
+  }
+
+  // Mirrors _stage_context.
+  function stageContext(section, sentence) {
+    if (section && STAGE_SECTIONS.includes(section.name)) return true;
+    const bare = BARE_STAGE_TERMS.map((term) => compactHeading(term));
+    const named = STAGE_EVENTS.filter((event) => !bare.includes(compactHeading(event)));
+    return Boolean(findFirst(stripTags(sentence), [...STAGE_MARKERS, ...named, "면접"]));
+  }
+
+  // Mirrors _bare_stage_match.
+  function bareStageMatch(text, start, end) {
+    const bare = BARE_STAGE_TERMS.map((term) => compactHeading(term));
+    if (!bare.includes(compactHeading(text.slice(start, end)))) return false;
+    const named = STAGE_EVENTS.filter((event) => !bare.includes(compactHeading(event)));
+    const [left, right] = lineBounds(text, start, end);
+    return !findMatches(text.slice(left, right), named).some((m) => left + m.start <= start && end <= left + m.end);
+  }
+
+  function hiringContext(line, section) {
+    if (findFirst(line, HIRING_CONTEXT)) return true;
+    return Boolean(findFirst(line, ["인터뷰"])) && stageContext(section, line);
+  }
+
+  function contextAllowed(slotId, line, section, offset) {
+    if (slotId !== "qualification_rationale" && inDutyBlock(section, offset)) return false;
     if (slotId === "selection_stages" && findFirst(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"])) return false;
     if (["ai_disclosure", "evaluation_criteria", "selection_stages"].includes(slotId)) {
       if (["자격요건", "우대사항"].includes(section.name) && findFirst(line, ["경험", "경력", "설계", "연구", "개발", "운영"]) && !findFirst(line, ["지원자", "응시자", "채용 과정", "전형 절차", "실시", "참여", "진행"])) return false;
-      if (findFirst(line, DUTY_CONTEXT) && !findFirst(line, HIRING_CONTEXT)) return false;
+      if (findFirst(line, DUTY_CONTEXT) && !hiringContext(line, section)) return false;
     }
     if (slotId === "qualification_rationale" && ATTACHMENT_SUFFIX.test(line)) return false;
     if (slotId === "compensation" && line.includes("유지보수") && !findFirst(line.replaceAll("유지보수", ""), ["급여", "보수", "연봉", "월급", "시급", "임금"])) return false;
@@ -660,8 +774,9 @@
     for (const match of findMatches(section.text, definition.accept_patterns || [])) {
       const [left, right] = lineBounds(section.text, match.start, match.end);
       const line = section.text.slice(left, right);
+      if (slotId === "selection_stages" && bareStageMatch(section.text, match.start, match.end) && !stageContext(section, evidenceLine(section.text, match.start, match.end))) continue;
       let heading = headingName(line) !== null || compactHeading(line) === compactHeading(match.text);
-      if (["selection_stages", "ai_disclosure"].includes(slotId) && findFirst(line, STAGE_EVENTS)) heading = false;
+      if (["selection_stages", "ai_disclosure"].includes(slotId) && (findFirst(line, STAGE_EVENTS) || (headingName(line) === null && ["item", "mark", "note"].includes(lineMarker(line)[0])))) heading = false;
       if (slotId === "contact_point" && findFirst(line, ["re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}", "re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}"])) heading = false;
       if (heading) {
         if (["selection_stages", "ai_disclosure", "qualification_rationale"].includes(slotId)) continue;
@@ -687,9 +802,9 @@
         const support = [...(definition.accept_patterns || []), ...(definition.components || []).flatMap((c) => c.patterns || [])];
         if (slotId === "schedule") support.push(...DATE_CONTENT);
         if (!findFirst(body, support) && !(["preference_items", "evaluation_criteria"].includes(slotId) && Array.from(trimPythonWhitespace(body)).length >= 4)) continue;
-        if (!contextAllowed(slotId, body, section)) continue;
+        if (!contextAllowed(slotId, body, section, match.start)) continue;
         units.push({start:bodyStart, end, context:line + "\n" + body});
-      } else if (contextAllowed(slotId, line, section) && contextAllowed(slotId, evidenceLine(section.text, match.start, match.end), section)) {
+      } else if (contextAllowed(slotId, line, section, match.start) && contextAllowed(slotId, evidenceLine(section.text, match.start, match.end), section, match.start)) {
         units.push({start:match.start, end:match.end, context:line});
       }
     }
@@ -842,8 +957,9 @@
     const section = sections.find((s) => s.start <= match.start && match.start < s.end);
     if (findFirst(match.text, SENSITIVE_CANDIDATE) && !findFirst(match.text, NOT_AN_INFORMATION_ITEM) && protectiveClauseGoverns(source, match)) return false;
     if (layer === "question" && findFirst(match.text, ["면접", "인터뷰"])) {
-      if (section && isDutySection(section)) return false;
+      if (section && inDutyBlock(section, match.start - section.start)) return false;
       if (findFirst(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"])) return false;
+      if (bareStageMatch(source, match.start, match.end) && findFirst(line, DUTY_CONTEXT) && !hiringContext(line, section)) return false;
     }
     if (layer === "question" && findFirst(match.text, ["북한이탈주민", "북한이탈 주민", "탈북자"])) {
       const rowStart = source.lastIndexOf("<tr", match.start);

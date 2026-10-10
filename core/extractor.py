@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import re
 import unicodedata
 from typing import Any
@@ -13,29 +14,45 @@ SECTION_VERSION = "sections-v5-ranked-evidence-negation-context"
 
 _SENTENCE_BOUNDARIES = ".!?。！？"
 _EVIDENCE_WINDOW_CODEPOINTS = 238
-_HEADING_DECORATION = re.compile(r"^[\s#>*\-–—\d.()①-⑳\[\]■]+|[\s:：\[\]]+$")
+# Leading bullets, numbering and heading marks (●, ◆, ▶, □, ※, 【, < ...) and
+# trailing colons or closing brackets are decoration around a heading name.
+# web/engine.js HEADING_DECORATION must stay identical.
+_HEADING_DECORATION = re.compile(r"^[\s#>*\-–—\d.()①-⑳\[\]■●○◆◇▶▷□◎※【】<]+|[\s:：\[\]】>]+$")
 _WHITESPACE = re.compile(r"\s+")
 
 
 SECTION_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("개요", ("채용개요", "모집개요", "공고개요", "담당업무", "주요업무", "주요 업무", "담당 업무", "업무내용", "What You'll Do", "What You’ll Do", "합류하면 함께할 업무에요", "이런 일을 해요",)),
-    ("자격요건", ("자격요건", "지원자격", "응시자격", "필수요건", "자격조건", "필요지식", "필요 지식 및 기술", "자격조건 및 필요지식", "Required Skills", "이런 분과 함께하고 싶어요",)),
+    # 자격요건의 직무 관련성, 평가 기준, 인공지능 활용 안내, 결과 안내, 이의제기 안내 and
+    # 채용서류 반환ㆍ파기 안내 are the titles of the example sentences in
+    # data/posting_templates.yaml, so a pasted example forms its own section
+    # instead of joining the block above it (e.g. a duty list).
+    ("자격요건", ("자격요건", "지원자격", "응시자격", "필수요건", "자격조건", "필요지식", "필요 지식 및 기술", "자격조건 및 필요지식", "Required Skills", "이런 분과 함께하고 싶어요", "자격요건의 직무 관련성",)),
     ("우대사항", ("우대사항", "우대내용", "가점사항", "우대조건", "Preferred Skills", "이런 분이면 더 좋아요!", "이런 경험이 있으면 더 좋아요",)),
-    ("전형절차", ("전형절차/방법", "전형절차", "전형방법", "선발절차", "채용절차", "합류 여정", "이렇게 합류해요", "전형절차 및 일정", "전형 절차 및 안내 사항", "전형절차 및 기타사항",)),
-    ("일정", ("전형일정", "채용일정", "일정", "접수기간", "모집기간", "공고기간", "접수 마감일",)),
+    ("전형절차", ("전형절차/방법", "전형절차", "전형방법", "선발절차", "채용절차", "합류 여정", "이렇게 합류해요", "전형절차 및 일정", "전형 절차 및 안내 사항", "전형절차 및 기타사항", "평가 기준", "인공지능 활용 안내",)),
+    ("일정", ("전형일정", "채용일정", "일정", "접수기간", "모집기간", "공고기간", "접수 마감일", "결과 안내",)),
     ("근무조건", ("근무조건", "근로조건", "보수", "급여", "고용형태", "근무형태",)),
     ("제출서류", ("제출서류", "지원서류", "구비서류",)),
-    ("유의사항", ("유의사항", "주의사항", "꼭 확인해 주세요",)),
+    ("유의사항", ("유의사항", "주의사항", "꼭 확인해 주세요", "이의제기 안내", "채용서류 반환ㆍ파기 안내", "채용서류 반환·파기 안내",)),
     ("문의처", ("문의처", "문의", "연락처",)),
     ("기타", ("기타",)),
 )
+
+
+def _normalized_heading(line: str) -> str:
+    return "".join(
+        unicodedata.normalize("NFKC", char) for char in line if char not in ZERO_WIDTH
+    )
+
+
 _SECTION_BY_COMPACT_ALIAS: dict[str, str] = {}
 for _canonical, _aliases in SECTION_ALIASES:
     for _alias in _aliases:
         # setdefault preserves the original first-match behavior if aliases
-        # ever overlap across canonical sections.
+        # ever overlap across canonical sections. Keys are NFKC-normalized like
+        # the heading lines they are compared with (NFKC maps U+318D "ㆍ").
         _SECTION_BY_COMPACT_ALIAS.setdefault(
-            _WHITESPACE.sub("", _alias).casefold(), _canonical
+            _WHITESPACE.sub("", _normalized_heading(_alias)).casefold(), _canonical
         )
 
 
@@ -45,12 +62,6 @@ class Section:
     start: int
     end: int
     text: str
-
-
-def _normalized_heading(line: str) -> str:
-    return "".join(
-        unicodedata.normalize("NFKC", char) for char in line if char not in ZERO_WIDTH
-    )
 
 
 def _heading_name(line: str) -> str | None:
@@ -130,7 +141,9 @@ def _evidence_line(text: str, start: int, end: int) -> str:
 
 
 _DUTY_HEADINGS = ["담당업무","주요업무","업무내용","What You'll Do","What You’ll Do","합류하면 함께할 업무에요","이런 일을 해요"]
-_HIRING_CONTEXT = ["지원자","응시자","서류전형","면접","인터뷰","역량검사","전형절차","채용과정"]
+# A bare "인터뷰" is not hiring context by itself ("고객 인터뷰를 통해 서비스를 개선"); it
+# counts through _hiring_context only in a stage context. Named interview stages do.
+_HIRING_CONTEXT = ["지원자","응시자","서류전형","면접","역량검사","전형절차","채용과정","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰"]
 _DUTY_CONTEXT = ["re:(?:알고리즘|임직원|직원|제품|서비스|고객).{0,80}(?:연구|개발|설계|운영|개선|평가)"]
 _CONTACT_CONTEXT = ["문의","연락","인사팀","채용팀","인사부","담당 부서","전화","전자우편","re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}","re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}"]
 _CONTACT_NON_CHANNEL = ["결과","통보","기재","등록","발송","지원서","모집"]
@@ -140,8 +153,22 @@ _CONTACT_NON_CHANNEL = ["결과","통보","기재","등록","발송","지원서"
 # ("상세 일정: 8월 1일 ~", "별도 협의 없이 4,000만원") is kept.
 # web/engine.js DEFERRED_BODY must stay identical.
 _DEFERRED_BODY = ["re:^(?:(?:추후|차후|나중에|미정)[^\\n]*|(?![^\\n]*(?:(?:19|20)\\d{2}\\s*[./-]\\s*\\d{1,2}|\\d{1,2}\\s*[./]\\s*\\d{1,2}|\\d{1,4}\\s*(?:년|월|일|시|주)|\\d[\\d,.]{0,15}\\s*(?:[천백만억]\\s*)*원))(?:(?:별도|상세|예정)[^\\n]*(?:안내|공지|협의|예정|미정|문의|통보|참조|확인)[^\\n]*|예정[^\\n]{0,12}|별도|상세))$"]
-_DATE_CONTENT = ["re:\\d{1,4}[./-]\\d{1,2}","re:\\d+\\s*(?:년|월|일|시|주)","상시","수시", "채용시까지", "채용 시까지"]
-_STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토"]
+# The first pattern also reads the official spaced form "2026. 8. 1." (as
+# _DEFERRED_BODY does). web/engine.js DATE_CONTENT must stay identical.
+_DATE_CONTENT = ["re:\\d{1,4}[./-]\\d{1,2}|(?:19|20)\\d{2}\\s*[./-]\\s*\\d{1,2}","re:\\d+\\s*(?:년|월|일|시|주)","상시","수시", "채용시까지", "채용 시까지"]
+_STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토", "AI 영상면접"]
+# Words that also name ordinary work ("고객 인터뷰", "민원 서류접수", "계약 서류 검토").
+# They count as a selection stage only in a stage context (_stage_context) unless
+# they are part of a named stage such as "실무 인터뷰".
+_BARE_STAGE_TERMS = ["인터뷰", "서류접수", "서류 검토", "서류 리뷰"]
+_STAGE_SECTIONS = {"전형절차", "일정"}
+# Order and step markers that make a sentence a list of stages.
+_STAGE_MARKERS = ["re:→|⇒|▶|▷|->|=>|>", "re:\\d\\s*단계", "re:\\d\\s*차(?![가-힣])", "re:\\d\\s*차\\s*(?:인터뷰|면접|전형|심사|평가|합격|과제|테스트|서류)", "전형", "re:(?:채용|선발|합류)\\s*(?:절차|과정|프로세스)", "re:최종\\s*합격"]
+# Line markers, read on the raw line: a bullet or a list number starts an item;
+# a heading mark (●, ○, □ ...) starts a heading or an item; ※ starts a note; a
+# bracket or a hash starts a heading. web/engine.js LINE_MARKER must stay identical.
+_LINE_MARKER = re.compile(r"^\s*(?:([-–—‐−*•·ㆍ∙‧▪◦+－＊・･])|(\d{1,2})\s*([.)．）])(?!\d)|([(（]\s*\d{1,2}\s*[)）])|([①-⑳])|([가나다라마바사아자차카타파하])\s*[.)．）]|([●○◆◇▶▷□■◎])|(※)|([\[【<#［〈《]))")
+_SENTENCE_END = ".!?。다요음함임"
 
 def _line_bounds(text: str, start: int, end: int) -> tuple[int, int]:
     left = text.rfind("\n", 0, start) + 1
@@ -153,14 +180,124 @@ def _compact(value: str) -> str:
     return _WHITESPACE.sub("", _HEADING_DECORATION.sub("", _normalized_heading(value).strip())).casefold()
 
 
-def _is_duty_section(section: Section) -> bool:
-    first = section.text.split("\n", 1)[0]
-    return _compact(first) in {_compact(h) for h in _DUTY_HEADINGS}
+def _strip_tags(value: str) -> str:
+    return re.sub(r"<[^>]+>", "", value)
 
 
-def _context_allowed(slot_id: str, line: str, section: Section) -> bool:
+def _line_marker(line: str) -> tuple[str, str]:
+    """Return (kind, style) of a line's leading bullet, number or heading mark.
+
+    kind is "item" for a bullet or a list number, "mark" for a mark that starts a
+    heading or an item (●, ○, □ ...), "note" for ※, "bracket" for [, 【, < or #,
+    and "" for a plain line. style tells markers apart ("-" and "•", "1." and "1)").
+    """
+    match = _LINE_MARKER.match("".join(char for char in line if char not in ZERO_WIDTH))
+    if match is None:
+        return "", ""
+    bullet, number, number_end, paren, circled, hangul, mark, note, bracket = match.groups()
+    if bullet:
+        return "item", bullet
+    if number:
+        return "item", "1." if number_end in ".．" else "1)"
+    if paren:
+        return "item", "(1)"
+    if circled:
+        return "item", "①"
+    if hangul:
+        return "item", "가."
+    if mark:
+        return "mark", mark
+    if note:
+        return "note", note
+    return "bracket", bracket
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip())
+
+
+def _heading_like(line: str) -> bool:
+    """A short line that is not a sentence, so it can title the block below it."""
+    cleaned = _HEADING_DECORATION.sub("", _normalized_heading(line).strip())
+    return 0 < len(cleaned) <= 30 and cleaned[-1] not in _SENTENCE_END
+
+
+@lru_cache(maxsize=256)
+def _duty_block_end_in(text: str) -> int:
+    """Offset in a section's text where its duty list ends (0: not a duty section).
+
+    A duty heading (담당업무, 주요 업무 ...) covers only the block directly under
+    it, not everything up to the next known heading. The block ends at a blank
+    line (unless the same list continues after it), or at a short title line no
+    more indented than the heading that does not continue the item list: one
+    with a heading mark or bracket ("● 채용 안내", "[채용 안내]"), one numbered
+    like the heading ("2. 채용 안내" after "1. 담당업무"), or a plain one after
+    marked items ("채용 안내" after "- 사무 보조"). Items, sentences, indented
+    lines and ※ notes stay in the block. web/engine.js dutyBlockEnd must stay
+    identical.
+    """
+    lines = text.split("\n")
+    if _compact(lines[0]) not in {_compact(h) for h in _DUTY_HEADINGS}:
+        return 0
+    heading_kind, heading_style = _line_marker(lines[0])
+    heading_indent = _indent(_strip_tags(lines[0]))
+    item_style: str | None = None
+    offset = len(lines[0]) + 1
+    for index in range(1, len(lines)):
+        line = lines[index]
+        raw = _strip_tags(line)
+        plain = raw.strip()
+        if not plain:
+            if item_style is not None:
+                following = next((rest for rest in (_strip_tags(r).strip() for r in lines[index + 1:]) if rest), None)
+                if not (following is not None and item_style and _line_marker(following)[1] == item_style):
+                    return offset
+            offset += len(line) + 1
+            continue
+        kind, style = _line_marker(raw)
+        if item_style is None:
+            item_style = style
+        elif style != item_style and _indent(raw) <= heading_indent and _heading_like(plain):
+            if kind in {"mark", "bracket"} or (kind == "" and item_style) or (heading_kind and style == heading_style):
+                return offset
+        offset += len(line) + 1
+    return len(text)
+
+
+def _in_duty_block(section: Section, offset: int) -> bool:
+    return offset < _duty_block_end_in(section.text)
+
+
+def _stage_context(section: Section | None, sentence: str) -> bool:
+    """A selection-procedure section, or a sentence that orders stages or names
+    another one ("서류 검토 → 인터뷰", "1차 인터뷰", "서류 검토 후 면접")."""
+    if section is not None and section.name in _STAGE_SECTIONS:
+        return True
+    bare = {_compact(term) for term in _BARE_STAGE_TERMS}
+    named = [event for event in _STAGE_EVENTS if _compact(event) not in bare]
+    return bool(find_first(_strip_tags(sentence), _STAGE_MARKERS + named + ["면접"]))
+
+
+def _bare_stage_match(text: str, start: int, end: int) -> bool:
+    """text[start:end] is a bare stage term that is not part of a named stage."""
+    bare = {_compact(term) for term in _BARE_STAGE_TERMS}
+    if _compact(text[start:end]) not in bare:
+        return False
+    named = [event for event in _STAGE_EVENTS if _compact(event) not in bare]
+    left, right = _line_bounds(text, start, end)
+    return not any(left + m.start() <= start and end <= left + m.end()
+                   for m in find_matches(text[left:right], named))
+
+
+def _hiring_context(line: str, section: Section | None) -> bool:
+    if find_first(line, _HIRING_CONTEXT):
+        return True
+    return bool(find_first(line, ["인터뷰"])) and _stage_context(section, line)
+
+
+def _context_allowed(slot_id: str, line: str, section: Section, offset: int) -> bool:
     # Duties describe work, not the employer's own applicant assessment.
-    if slot_id != "qualification_rationale" and _is_duty_section(section):
+    if slot_id != "qualification_rationale" and _in_duty_block(section, offset):
         return False
     if slot_id == "selection_stages" and find_first(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"]):
         return False
@@ -168,7 +305,7 @@ def _context_allowed(slot_id: str, line: str, section: Section) -> bool:
         if section.name in {"자격요건", "우대사항"} and find_first(line, ["경험", "경력", "설계", "연구", "개발", "운영"]):
             if not find_first(line, ["지원자", "응시자", "채용 과정", "전형 절차", "실시", "참여", "진행"]):
                 return False
-        if find_first(line, _DUTY_CONTEXT) and not find_first(line, _HIRING_CONTEXT):
+        if find_first(line, _DUTY_CONTEXT) and not _hiring_context(line, section):
             return False
     if slot_id == "qualification_rationale" and re.search(r"\.(?:pdf|hwpx?|hml|docx?|zip)\s*$", line, re.I):
         return False  # An attachment filename does not disclose its body.
@@ -192,9 +329,16 @@ def _candidate_units(section: Section, definition: dict[str, Any], slot_id: str)
     for match in find_matches(section.text, definition.get("accept_patterns", [])):
         left, right = _line_bounds(section.text, match.start(), match.end())
         line = section.text[left:right]
+        if (slot_id == "selection_stages"
+                and _bare_stage_match(section.text, match.start(), match.end())
+                and not _stage_context(section, _evidence_line(section.text, match.start(), match.end()))):
+            continue  # "고객 인터뷰", "민원 서류접수": work, not an applicant stage.
         heading = _heading_name(line) is not None or _compact(line) == _compact(match.group(0))
-        if slot_id in {"selection_stages", "ai_disclosure"} and find_first(line, _STAGE_EVENTS):
-            heading = False  # A named stage is evidence even in an unheaded list.
+        if slot_id in {"selection_stages", "ai_disclosure"} and (
+            find_first(line, _STAGE_EVENTS)
+            or (_heading_name(line) is None and _line_marker(line)[0] in {"item", "mark", "note"})
+        ):
+            heading = False  # A named stage, or a list item ("- 인터뷰"), is evidence.
         if slot_id == "contact_point" and find_first(line, [r"re:0\d{1,2}[- )]\d{3,4}[- ]\d{4}", r"re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}"]):
             heading = False
         if heading:
@@ -230,11 +374,11 @@ def _candidate_units(section: Section, definition: dict[str, Any], slot_id: str)
                 support += _DATE_CONTENT
             if not find_first(body, support) and not (slot_id in {"preference_items", "evaluation_criteria"} and len(body.strip()) >= 4):
                 continue
-            if not _context_allowed(slot_id, body, section):
+            if not _context_allowed(slot_id, body, section, match.start()):
                 continue
             units.append((body_start, end, line + "\n" + body))
-        elif (_context_allowed(slot_id, line, section)
-              and _context_allowed(slot_id, _evidence_line(section.text, match.start(), match.end()), section)):
+        elif (_context_allowed(slot_id, line, section, match.start())
+              and _context_allowed(slot_id, _evidence_line(section.text, match.start(), match.end()), section, match.start())):
             units.append((match.start(), match.end(), line))
     return units
 
@@ -394,9 +538,13 @@ def source_candidate_allowed(source: str, start: int, end: int, sections: list[S
             and _protective_clause_governs(source, start, end)):
         return False
     if layer == "question" and find_first(candidate, ["면접", "인터뷰"]):
-        if section is not None and _is_duty_section(section):
+        if section is not None and _in_duty_block(section, start - section.start):
             return False
         if find_first(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"]):
+            return False
+        # "고객 인터뷰를 통해 서비스를 개선": an unheaded duty, not an applicant interview.
+        if (_bare_stage_match(source, start, end) and find_first(line, _DUTY_CONTEXT)
+                and not _hiring_context(line, section)):
             return False
     if layer == "question" and find_first(candidate, ["북한이탈주민", "북한이탈 주민", "탈북자"]):
         row_start = source.rfind("<tr", 0, start)
