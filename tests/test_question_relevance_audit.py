@@ -411,6 +411,7 @@ def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
         for name, net in (
             ("slot_evidence_context_recount", 259),
             ("detection_fix_recount", -1),
+            ("review_followup_recount", -16),
         )
     ]
     for recount, net in recounts:

@@ -43,7 +43,7 @@
     "SEX-001": 0,
     "SEX-002": 0
   },
-  "matching_version": "match-44f9f875d92ffb8b",
+  "matching_version": "match-855c428507688a18",
   "question_posting_hits": {
     "Q-DIST-001": 65,
     "Q-DIST-002": 196,
@@ -64,7 +64,7 @@
     "Q-DIST-017": 0,
     "Q-INFO-001": 197,
     "Q-INFO-002": 167,
-    "Q-INFO-003": 176,
+    "Q-INFO-003": 173,
     "Q-INFO-004": 196,
     "Q-INFO-005": 209,
     "Q-INFO-006": 64,
@@ -83,7 +83,7 @@
     "Q-INTER-005": 209,
     "Q-INTER-006": 209,
     "Q-INTER-007": 145,
-    "Q-PROC-001": 96,
+    "Q-PROC-001": 83,
     "Q-PROC-002": 194,
     "Q-PROC-003": 62,
     "Q-PROC-004": 1,
@@ -98,18 +98,18 @@
     "Q-PROC-013": 209,
     "Q-PROC-014": 1
   },
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-c58a2b1fcbe3",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-b5cea04dd38f",
   "slot_found_posting_hits": {
     "ai_disclosure": 1,
     "appeal_channel": 13,
     "compensation": 146,
-    "contact_point": 34,
+    "contact_point": 37,
     "document_return": 14,
     "evaluation_criteria": 16,
     "preference_items": 145,
     "qualification_rationale": 16,
     "result_notice": 43,
     "schedule": 148,
-    "selection_stages": 114
+    "selection_stages": 127
   }
 }
