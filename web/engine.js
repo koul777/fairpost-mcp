@@ -35,7 +35,8 @@
       "필요 지식 및 기술",
       "자격조건 및 필요지식",
       "Required Skills",
-      "이런 분과 함께하고 싶어요"
+      "이런 분과 함께하고 싶어요",
+      "자격요건의 직무 관련성"
     ]
   ],
   [
@@ -62,7 +63,9 @@
       "이렇게 합류해요",
       "전형절차 및 일정",
       "전형 절차 및 안내 사항",
-      "전형절차 및 기타사항"
+      "전형절차 및 기타사항",
+      "평가 기준",
+      "인공지능 활용 안내"
     ]
   ],
   [
@@ -70,7 +73,8 @@
     [
       "전형일정",
       "채용일정",
-      "일정", "접수기간", "모집기간", "공고기간", "접수 마감일"
+      "일정", "접수기간", "모집기간", "공고기간", "접수 마감일",
+      "결과 안내"
     ]
   ],
   [
@@ -97,7 +101,10 @@
     [
       "유의사항",
       "주의사항",
-      "꼭 확인해 주세요"
+      "꼭 확인해 주세요",
+      "이의제기 안내",
+      "채용서류 반환ㆍ파기 안내",
+      "채용서류 반환·파기 안내"
     ]
   ],
   [
@@ -467,7 +474,7 @@
 
   // Same pattern as core.extractor._HEADING_DECORATION, with Python semantics.
   const HEADING_DECORATION = pythonRegex(
-    "^[\\s#>*\\-–—\\d.()①-⑳\\[\\]■]+|[\\s:：\\[\\]]+$",
+    "^[\\s#>*\\-–—\\d.()①-⑳\\[\\]■●○◆◇▶▷□◎※【】<]+|[\\s:：\\[\\]】>]+$",
     "gu"
   );
   const WHITESPACE_RUN = pythonRegex("\\s+", "gu");
@@ -614,13 +621,26 @@
   }
 
   const DUTY_HEADINGS = ["담당업무","주요업무","업무내용","What You'll Do","What You’ll Do","합류하면 함께할 업무에요","이런 일을 해요"];
-  const HIRING_CONTEXT = ["지원자","응시자","서류전형","면접","인터뷰","역량검사","전형절차","채용과정"];
+  // Same as _HIRING_CONTEXT: a bare "인터뷰" counts only through hiringContext.
+  const HIRING_CONTEXT = ["지원자","응시자","서류전형","면접","역량검사","전형절차","채용과정","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰"];
   const DUTY_CONTEXT = ["re:(?:알고리즘|임직원|직원|제품|서비스|고객).{0,80}(?:연구|개발|설계|운영|개선|평가)"];
   const CONTACT_CONTEXT = ["문의","연락","인사팀","채용팀","인사부","담당 부서","전화","전자우편","re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}","re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}"];
   const CONTACT_NON_CHANNEL = ["결과","통보","기재","등록","발송","지원서","모집"];
-  const DEFERRED_BODY = ["re:^(?:추후|차후|나중에|별도|미정|예정|상세).*(?:안내|공지|협의|예정|미정)?$"];
-  const DATE_CONTENT = ["re:\\d{1,4}[./-]\\d{1,2}","re:\\d+\\s*(?:년|월|일|시|주)","상시","수시", "채용시까지", "채용 시까지"];
-  const STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토"];
+  // Keep identical to _DEFERRED_BODY in core/extractor.py (see the comment there).
+  const DEFERRED_BODY = ["re:^(?:(?:추후|차후|나중에|미정)[^\\n]*|(?![^\\n]*(?:(?:19|20)\\d{2}\\s*[./-]\\s*\\d{1,2}|\\d{1,2}\\s*[./]\\s*\\d{1,2}|\\d{1,4}\\s*(?:년|월|일|시|주)|\\d[\\d,.]{0,15}\\s*(?:[천백만억]\\s*)*원))(?:(?:별도|상세|예정)[^\\n]*(?:안내|공지|협의|예정|미정|문의|통보|참조|확인)[^\\n]*|예정[^\\n]{0,12}|별도|상세))$"];
+  const DATE_CONTENT = ["re:\\d{1,4}[./-]\\d{1,2}|(?:19|20)\\d{2}\\s*[./-]\\s*\\d{1,2}","re:\\d+\\s*(?:년|월|일|시|주)","상시","수시", "채용시까지", "채용 시까지"];
+  const STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토", "AI 영상면접"];
+  // Keep identical to _BARE_STAGE_TERMS, _STAGE_SECTIONS, _STAGE_MARKERS,
+  // _LINE_MARKER and _SENTENCE_END in core/extractor.py.
+  const BARE_STAGE_TERMS = ["인터뷰", "서류접수", "서류 검토", "서류 리뷰"];
+  const STAGE_SECTIONS = ["전형절차", "일정"];
+  const STAGE_MARKERS = ["re:→|⇒|▶|▷|->|=>|>", "re:\\d\\s*단계", "re:\\d\\s*차(?![가-힣])", "re:\\d\\s*차\\s*(?:인터뷰|면접|전형|심사|평가|합격|과제|테스트|서류)", "전형", "re:(?:채용|선발|합류)\\s*(?:절차|과정|프로세스)", "re:최종\\s*합격"];
+  const LINE_MARKER = pythonRegex(
+    "^\\s*(?:([-–—‐−*•·ㆍ∙‧▪◦+－＊・･])|(\\d{1,2})\\s*([.)．）])(?!\\d)|([(（]\\s*\\d{1,2}\\s*[)）])|([①-⑳])|([가나다라마바사아자차카타파하])\\s*[.)．）]|([●○◆◇▶▷□■◎])|(※)|([\\[【<#［〈《]))",
+    "u"
+  );
+  const SENTENCE_END = ".!?。다요음함임";
+  const DUTY_BLOCK_CACHE = new Map();
   const ATTACHMENT_SUFFIX = pythonRegex("\\.(?:pdf|hwpx?|hml|docx?|zip)\\s*$", "iu");
 
   function lineBounds(text, start, end) {
@@ -629,17 +649,112 @@
     return [left, right === -1 ? text.length : right];
   }
 
-  function isDutySection(section) {
-    const first = section.text.split("\n", 1)[0];
-    return DUTY_HEADINGS.some((h) => compactHeading(h) === compactHeading(first));
+  function stripTags(value) {
+    return value.replace(/<[^>]+>/gu, "");
   }
 
-  function contextAllowed(slotId, line, section) {
-    if (slotId !== "qualification_rationale" && isDutySection(section)) return false;
+  // Mirrors _line_marker: [kind, style] of a line's leading bullet, number or mark.
+  function lineMarker(line) {
+    const match = LINE_MARKER.exec(Array.from(line).filter((ch) => !ZERO_WIDTH.has(ch)).join(""));
+    if (!match) return ["", ""];
+    const [, bullet, number, numberEnd, paren, circled, hangul, mark, note, bracket] = match;
+    if (bullet) return ["item", bullet];
+    if (number) return ["item", ".．".includes(numberEnd) ? "1." : "1)"];
+    if (paren) return ["item", "(1)"];
+    if (circled) return ["item", "①"];
+    if (hangul) return ["item", "가."];
+    if (mark) return ["mark", mark];
+    if (note) return ["note", note];
+    return ["bracket", bracket];
+  }
+
+  function indentOf(line) {
+    let count = 0;
+    while (count < line.length && isPythonWhitespace(line[count])) count += 1;
+    return count;
+  }
+
+  function headingLike(line) {
+    const cleaned = Array.from(stripHeadingDecoration(line));
+    return cleaned.length > 0 && cleaned.length <= 30 && !SENTENCE_END.includes(cleaned[cleaned.length - 1]);
+  }
+
+  // Mirrors _duty_block_end_in: where the duty list under a duty heading ends.
+  function dutyBlockEnd(text) {
+    if (DUTY_BLOCK_CACHE.has(text)) return DUTY_BLOCK_CACHE.get(text);
+    const lines = text.split("\n");
+    let result = text.length;
+    if (!DUTY_HEADINGS.some((h) => compactHeading(h) === compactHeading(lines[0]))) {
+      result = 0;
+    } else {
+      const [headingKind, headingStyle] = lineMarker(lines[0]);
+      const headingIndent = indentOf(stripTags(lines[0]));
+      let itemStyle = null;
+      let offset = lines[0].length + 1;
+      for (let index = 1; index < lines.length; index += 1) {
+        const line = lines[index];
+        const raw = stripTags(line);
+        const plain = trimPythonWhitespace(raw);
+        if (!plain) {
+          if (itemStyle !== null) {
+            const following = lines.slice(index + 1).map((rest) => trimPythonWhitespace(stripTags(rest))).find((rest) => rest) ?? null;
+            if (!(following !== null && itemStyle && lineMarker(following)[1] === itemStyle)) {
+              result = offset;
+              break;
+            }
+          }
+          offset += line.length + 1;
+          continue;
+        }
+        const [kind, style] = lineMarker(raw);
+        if (itemStyle === null) {
+          itemStyle = style;
+        } else if (style !== itemStyle && indentOf(raw) <= headingIndent && headingLike(plain)) {
+          if (kind === "mark" || kind === "bracket" || (kind === "" && itemStyle) || (headingKind && style === headingStyle)) {
+            result = offset;
+            break;
+          }
+        }
+        offset += line.length + 1;
+      }
+    }
+    if (DUTY_BLOCK_CACHE.size > 256) DUTY_BLOCK_CACHE.clear();
+    DUTY_BLOCK_CACHE.set(text, result);
+    return result;
+  }
+
+  function inDutyBlock(section, offset) {
+    return offset < dutyBlockEnd(section.text);
+  }
+
+  // Mirrors _stage_context.
+  function stageContext(section, sentence) {
+    if (section && STAGE_SECTIONS.includes(section.name)) return true;
+    const bare = BARE_STAGE_TERMS.map((term) => compactHeading(term));
+    const named = STAGE_EVENTS.filter((event) => !bare.includes(compactHeading(event)));
+    return Boolean(findFirst(stripTags(sentence), [...STAGE_MARKERS, ...named, "면접"]));
+  }
+
+  // Mirrors _bare_stage_match.
+  function bareStageMatch(text, start, end) {
+    const bare = BARE_STAGE_TERMS.map((term) => compactHeading(term));
+    if (!bare.includes(compactHeading(text.slice(start, end)))) return false;
+    const named = STAGE_EVENTS.filter((event) => !bare.includes(compactHeading(event)));
+    const [left, right] = lineBounds(text, start, end);
+    return !findMatches(text.slice(left, right), named).some((m) => left + m.start <= start && end <= left + m.end);
+  }
+
+  function hiringContext(line, section) {
+    if (findFirst(line, HIRING_CONTEXT)) return true;
+    return Boolean(findFirst(line, ["인터뷰"])) && stageContext(section, line);
+  }
+
+  function contextAllowed(slotId, line, section, offset) {
+    if (slotId !== "qualification_rationale" && inDutyBlock(section, offset)) return false;
     if (slotId === "selection_stages" && findFirst(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"])) return false;
     if (["ai_disclosure", "evaluation_criteria", "selection_stages"].includes(slotId)) {
       if (["자격요건", "우대사항"].includes(section.name) && findFirst(line, ["경험", "경력", "설계", "연구", "개발", "운영"]) && !findFirst(line, ["지원자", "응시자", "채용 과정", "전형 절차", "실시", "참여", "진행"])) return false;
-      if (findFirst(line, DUTY_CONTEXT) && !findFirst(line, HIRING_CONTEXT)) return false;
+      if (findFirst(line, DUTY_CONTEXT) && !hiringContext(line, section)) return false;
     }
     if (slotId === "qualification_rationale" && ATTACHMENT_SUFFIX.test(line)) return false;
     if (slotId === "compensation" && line.includes("유지보수") && !findFirst(line.replaceAll("유지보수", ""), ["급여", "보수", "연봉", "월급", "시급", "임금"])) return false;
@@ -659,8 +774,9 @@
     for (const match of findMatches(section.text, definition.accept_patterns || [])) {
       const [left, right] = lineBounds(section.text, match.start, match.end);
       const line = section.text.slice(left, right);
+      if (slotId === "selection_stages" && bareStageMatch(section.text, match.start, match.end) && !stageContext(section, evidenceLine(section.text, match.start, match.end))) continue;
       let heading = headingName(line) !== null || compactHeading(line) === compactHeading(match.text);
-      if (["selection_stages", "ai_disclosure"].includes(slotId) && findFirst(line, STAGE_EVENTS)) heading = false;
+      if (["selection_stages", "ai_disclosure"].includes(slotId) && (findFirst(line, STAGE_EVENTS) || (headingName(line) === null && ["item", "mark", "note"].includes(lineMarker(line)[0])))) heading = false;
       if (slotId === "contact_point" && findFirst(line, ["re:0\\d{1,2}[- )]\\d{3,4}[- ]\\d{4}", "re:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}"])) heading = false;
       if (heading) {
         if (["selection_stages", "ai_disclosure", "qualification_rationale"].includes(slotId)) continue;
@@ -686,9 +802,9 @@
         const support = [...(definition.accept_patterns || []), ...(definition.components || []).flatMap((c) => c.patterns || [])];
         if (slotId === "schedule") support.push(...DATE_CONTENT);
         if (!findFirst(body, support) && !(["preference_items", "evaluation_criteria"].includes(slotId) && Array.from(trimPythonWhitespace(body)).length >= 4)) continue;
-        if (!contextAllowed(slotId, body, section)) continue;
+        if (!contextAllowed(slotId, body, section, match.start)) continue;
         units.push({start:bodyStart, end, context:line + "\n" + body});
-      } else if (contextAllowed(slotId, line, section) && contextAllowed(slotId, evidenceLine(section.text, match.start, match.end), section)) {
+      } else if (contextAllowed(slotId, line, section, match.start) && contextAllowed(slotId, evidenceLine(section.text, match.start, match.end), section, match.start)) {
         units.push({start:match.start, end:match.end, context:line});
       }
     }
@@ -712,24 +828,138 @@
     }));
   }
 
+  // --- protective clauses: same patterns and steps as core.extractor -----------
+  // A protective verb silences a sensitive candidate only inside the candidate's
+  // own clause (sentence mark, ";", a connective ending, or a comma that neither
+  // follows a conditional nor joins one noun list). An omission penalty
+  // ("미기재 시 탈락") is a requirement, not a protection.
+  const SENSITIVE_CANDIDATE = ["출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족"];
+  const NOT_AN_INFORMATION_ITEM = ["re:가족\\s*같은"];
+  const PROTECTIVE = [
+    "re:(?:수집|기재|작성)\\s*(?:금지|불가|불필요|하지|받지)",
+    "re:(?:포함|제공)\\s*하지",
+    "re:(?:기재|표현)[^.!?\\n]{0,100}(?:평가대상에서\\s*제외|부적합|탈락처리)",
+    "re:블라인드[^.!?\\n]{0,80}미준수",
+  ];
+  const PROTECTIVE_INDIFFERENT = ["re:^\\s*(?:(?:과|와|은|는|의|에)\\s*)?(?:무관|관계\\s*없|상관\\s*없|불문|제한\\s*없)"];
+  const PROTECTIVE_OMISSION_PENALTY = [
+    "re:(?:(?:미기재|미작성|미제출|누락)\\s*(?:시|하면|할\\s*경우|된\\s*경우)|(?:기재|작성|제출)\\s*하지\\s*않(?:으면|을\\s*경우|는\\s*경우|은))[^.!?\\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)(?![^.!?\\n,]{0,12}(?:없|않|아니))",
+  ];
+  const PROTECTIVE_REQUIREMENT = [
+    "re:(?:필수|요구|제출해야|제출\\s*필수)",
+    "re:(?:기재|작성)해야|기재하(?:십시오|세요)|기재해\\s*주(?:세요|십시오)|제출하(?:십시오|세요)",
+    "re:(?:수집|기재|작성|포함|제공)\\s*(?:하지|받지)\\s*(?:않는\\s*것(?:은|이|을)?\\s*(?:허용되지\\s*않|허용하지\\s*않|금지|불가)|않을\\s*수\\s*없)",
+  ];
+  const PROTECTIVE_CLAUSE_END = [
+    "re:;",
+    "re:(?:(?:하|되|않|마시|말|주시|하시|받|있|없|이)고|(?<=[가-힣])며|(?:되|으)나|(?<=[가-힣])하나|지만)(?=[\\s,]|$)",
+  ];
+  const PROTECTIVE_COMMA = ["re:(?<!\\d),|,(?!\\d)"];
+  const PROTECTIVE_CONDITIONAL_TAIL = [
+    "re:(?:경우|때|으면|하면|되면|이면|라면|다면|(?:기재|작성|제출|포함|표기|노출|기입|명시|지원|위반|적발|확인|발견|누락)\\s*시)[)\\]）】」』\\s]*$",
+  ];
+  const PROTECTIVE_PREDICATE_TAIL = [
+    "re:(?:[다요음함됨임]|시오|며|고|나|지만|되|아도|어도|해도|여도|이상|이하|미만|초과|이내|우대|필수|가능|불가|금지|불필요|무관|환영|제외|요망|바람|선호|필요|요구|탈락|처리|부적합|기재|작성|제출|첨부|입력|명시|표기|확인|진행|실시|모집|채용|접수|포함|요청|\\d\\S*)[)\\]）】」』\\s]*$",
+  ];
+  const PROTECTIVE_NON_LIST_HEAD = [
+    "re:^(?:\\S*(?:에|에서|에게|께|께서|으로|로|부터|까지|보다|에는|에도|에선|에서는|으로는|로는)|반드시|꼭|단|다만|또한|그리고|하지만|그러나|특히|함께|바로)$",
+  ];
+  const PROTECTIVE_DIRECT_GAP = ["re:^\\S*(?:\\s+(?:일체|절대|절대로|모두|전혀|별도로|따로|굳이))*\\s*$"];
+  const PROTECTIVE_TOKEN = ["re:\\S+"];
+  const PROTECTIVE_LIST_ITEM_TOKENS = 4;
+
+  function protectiveCommaJoins(left, right, item) {
+    if (findFirst(left, PROTECTIVE_CONDITIONAL_TAIL)) return true;
+    if (findFirst(left, PROTECTIVE_PREDICATE_TAIL)) return false;
+    const head = findFirst(right, PROTECTIVE_TOKEN);
+    if (!head || findFirst(head.text, PROTECTIVE_NON_LIST_HEAD)) return false;
+    return item === null || findMatches(item, PROTECTIVE_TOKEN).length <= PROTECTIVE_LIST_ITEM_TOKENS;
+  }
+
+  function protectiveClause(source, start, end) {
+    const lineStart = lastNewlineBefore(source, start) + 1;
+    const next = source.indexOf("\n", end);
+    const lineEnd = next === -1 ? source.length : next;
+    const boundaries = [".", "!", "?", "。", "！", "？"];
+    const marks = [];
+    for (let i = lineStart; i < lineEnd; i += 1) {
+      if (boundaries.includes(source[i]) && !(source[i] === "." && i > 0 && (/^\p{Nd}$/u.test(codePointEndingAt(source, i)) || (/[A-Za-z0-9]/u.test(source[i - 1]) && /[A-Za-z0-9]/u.test(source[i + 1] || ""))))) marks.push(i);
+    }
+    const before = marks.filter((i) => i < start);
+    const after = marks.filter((i) => i >= end);
+    let left = before.length ? before[before.length - 1] + 1 : lineStart;
+    let right = after.length ? after[0] + 1 : lineEnd;
+    const codePoints = Array.from(source.slice(left, right));
+    if (codePoints.length > 238) {
+      // Never look further than the evidence window the reviewer is shown.
+      const relativeStart = Array.from(source.slice(left, start)).length;
+      const relativeEnd = Array.from(source.slice(left, end)).length;
+      let windowStart = Math.max(0, relativeStart - 96);
+      const windowEnd = Math.min(codePoints.length, Math.max(relativeEnd + 96, windowStart + 238));
+      windowStart = Math.max(0, windowEnd - 238);
+      const base = left;
+      left = base + codePoints.slice(0, windowStart).join("").length;
+      right = base + codePoints.slice(0, windowEnd).join("").length;
+    }
+    const sentence = source.slice(left, right);
+    const s = start - left;
+    const e = end - left;
+    const ends = findMatches(sentence, PROTECTIVE_CLAUSE_END);
+    let lo = ends.filter((m) => m.end <= s).reduce((best, m) => Math.max(best, m.end), 0);
+    let hi = ends.filter((m) => m.start >= e).reduce((best, m) => Math.min(best, m.end), sentence.length);
+    const commas = findMatches(sentence, PROTECTIVE_COMMA).map((m) => m.start).filter((c) => lo <= c && c < hi && !(s <= c && c < e));
+    const following = commas.filter((c) => c >= e);
+    let previous = null;
+    for (let index = 0; index < following.length; index += 1) {
+      const comma = following[index];
+      const nextCut = index + 1 < following.length ? following[index + 1] : hi;
+      const segmentStart = previous === null ? s : previous + 1;
+      const itemStart = previous === null ? e : previous + 1;
+      if (!protectiveCommaJoins(sentence.slice(segmentStart, comma), sentence.slice(comma + 1, nextCut), sentence.slice(itemStart, comma))) {
+        hi = comma;
+        break;
+      }
+      previous = comma;
+    }
+    const preceding = commas.filter((c) => c < s);
+    for (let index = preceding.length - 1; index >= 0; index -= 1) {
+      const comma = preceding[index];
+      const later = commas.filter((c) => c > comma);
+      const nextCut = later.length ? later[0] : hi;
+      const earlier = index ? preceding[index - 1] : null;
+      const segment = sentence.slice(earlier === null ? lo : earlier + 1, comma);
+      // The first list item may carry a lead-in ("수집 금지 항목: 부모 직업").
+      if (!protectiveCommaJoins(segment, sentence.slice(comma + 1, nextCut), earlier === null ? null : segment)) {
+        lo = comma + 1;
+        break;
+      }
+    }
+    return [left + lo, left + hi];
+  }
+
+  function protectiveClauseGoverns(source, match) {
+    const [clauseStart, clauseEnd] = protectiveClause(source, match.start, match.end);
+    if (findFirst(source.slice(match.end, clauseEnd), PROTECTIVE_INDIFFERENT)) return true;
+    const clause = source.slice(clauseStart, clauseEnd);
+    if (findFirst(clause, PROTECTIVE_OMISSION_PENALTY)) return false;
+    if (!findFirst(clause, PROTECTIVE)) return false;
+    const tail = Array.from(source.slice(match.end, clauseEnd)).slice(0, 60).join("");
+    const requirement = findFirst(tail, PROTECTIVE_REQUIREMENT);
+    if (!requirement) return true;
+    // A protection directly after the candidate governs it; a later
+    // requirement then belongs to another item.
+    const following = findFirst(tail, PROTECTIVE);
+    return Boolean(following) && following.start < requirement.start && Boolean(findFirst(tail.slice(0, following.start), PROTECTIVE_DIRECT_GAP));
+  }
+
   function sourceCandidateAllowed(source, match, sections, layer) {
     const line = evidenceLine(source, match.start, match.end);
     const section = sections.find((s) => s.start <= match.start && match.start < s.end);
-    if (findFirst(match.text, ["출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족"])) {
-      const protective = [
-        "re:(?:수집|기재|작성)\\s*(?:금지|불가|불필요|하지|받지)",
-        "re:(?:포함|제공)\\s*하지",
-        "re:(?:기재|표현)[^.!?\\n]{0,100}(?:평가대상에서\\s*제외|부적합|탈락처리)",
-        "re:블라인드[^.!?\\n]{0,80}미준수",
-      ];
-      const localTail = Array.from(source.slice(match.end).split("\n", 1)[0].split(".", 1)[0].split(";", 1)[0].split(",", 1)[0]).slice(0, 60).join("");
-      const directRequirement = findFirst(localTail, ["re:(?:필수|요구|제출해야|제출\\s*필수)"]);
-      const indirectRequirement = findFirst(localTail, ["re:(?:수집|기재|작성|포함|제공)\\s*(?:하지|받지)\\s*(?:않는\\s*것(?:은|이|을)?\\s*(?:허용되지\\s*않|허용하지\\s*않|금지|불가)|않을\\s*수\\s*없)"]);
-      if (findFirst(line, protective) && !directRequirement && !indirectRequirement) return false;
-    }
+    if (findFirst(match.text, SENSITIVE_CANDIDATE) && !findFirst(match.text, NOT_AN_INFORMATION_ITEM) && protectiveClauseGoverns(source, match)) return false;
     if (layer === "question" && findFirst(match.text, ["면접", "인터뷰"])) {
-      if (section && isDutySection(section)) return false;
+      if (section && inDutyBlock(section, match.start - section.start)) return false;
       if (findFirst(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"])) return false;
+      if (bareStageMatch(source, match.start, match.end) && findFirst(line, DUTY_CONTEXT) && !hiringContext(line, section)) return false;
     }
     if (layer === "question" && findFirst(match.text, ["북한이탈주민", "북한이탈 주민", "탈북자"])) {
       const rowStart = source.lastIndexOf("<tr", match.start);

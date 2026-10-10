@@ -106,7 +106,7 @@
       "records": 0
     }
   ],
-  "matching_version": "match-5da2f1b8f61bf87d",
+  "matching_version": "match-44f9f875d92ffb8b",
   "privacy_boundary": {
     "contains_organization_identifiers": false,
     "contains_personal_identifiers": false,
@@ -307,8 +307,8 @@
     },
     {
       "id": "Q-PROC-001",
-      "rate": 0.934286,
-      "records": 1962
+      "rate": 0.934762,
+      "records": 1963
     },
     {
       "id": "Q-PROC-002",
@@ -376,7 +376,7 @@
       "records": 0
     }
   ],
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-0fa75d41155c",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-c58a2b1fcbe3",
   "schema_version": "private-fairness-audit-v1",
   "slots_found": [
     {
@@ -431,8 +431,8 @@
     },
     {
       "id": "selection_stages",
-      "rate": 0.065714,
-      "records": 138
+      "rate": 0.065238,
+      "records": 137
     }
   ],
   "slots_missing": [
@@ -488,8 +488,8 @@
     },
     {
       "id": "selection_stages",
-      "rate": 0.934286,
-      "records": 1962
+      "rate": 0.934762,
+      "records": 1963
     }
   ],
   "summary": {
@@ -531,8 +531,8 @@
       },
       {
         "id": "selection_stages",
-        "rate": 0.934286,
-        "records": 1962
+        "rate": 0.934762,
+        "records": 1963
       }
     ],
     "high_frequency_questions": [
@@ -588,8 +588,8 @@
       },
       {
         "id": "Q-PROC-001",
-        "rate": 0.934286,
-        "records": 1962
+        "rate": 0.934762,
+        "records": 1963
       },
       {
         "id": "Q-PROC-002",

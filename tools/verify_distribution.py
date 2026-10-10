@@ -226,6 +226,9 @@ SYNTHETIC_PRIVACY_EXAMPLES = {
         b"cleaneye:2026",
     ),
     "tests/test_engine.py": (b"recruit@example.com", b"02-1234-5678"),
+    "tests/test_heading_duty_regressions.py": (b"02-1234-5678",),
+    "tests/test_notice_deferred_regressions.py": (b"02-1234-5678",),
+    "tests/test_protective_clause_regressions.py": (b"02-123-4567",),
     "tests/test_review_packet.py": (
         b"reviewer@example.com",
         b"010-1234-5678",
