@@ -713,21 +713,134 @@
     }));
   }
 
+  // --- protective clauses: same patterns and steps as core.extractor -----------
+  // A protective verb silences a sensitive candidate only inside the candidate's
+  // own clause (sentence mark, ";", a connective ending, or a comma that neither
+  // follows a conditional nor joins one noun list). An omission penalty
+  // ("미기재 시 탈락") is a requirement, not a protection.
+  const SENSITIVE_CANDIDATE = ["출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족"];
+  const NOT_AN_INFORMATION_ITEM = ["re:가족\\s*같은"];
+  const PROTECTIVE = [
+    "re:(?:수집|기재|작성)\\s*(?:금지|불가|불필요|하지|받지)",
+    "re:(?:포함|제공)\\s*하지",
+    "re:(?:기재|표현)[^.!?\\n]{0,100}(?:평가대상에서\\s*제외|부적합|탈락처리)",
+    "re:블라인드[^.!?\\n]{0,80}미준수",
+  ];
+  const PROTECTIVE_INDIFFERENT = ["re:^\\s*(?:(?:과|와|은|는|의|에)\\s*)?(?:무관|관계\\s*없|상관\\s*없|불문|제한\\s*없)"];
+  const PROTECTIVE_OMISSION_PENALTY = [
+    "re:(?:(?:미기재|미작성|미제출|누락)\\s*(?:시|하면|할\\s*경우|된\\s*경우)|(?:기재|작성|제출)\\s*하지\\s*않(?:으면|을\\s*경우|는\\s*경우|은))[^.!?\\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)(?![^.!?\\n,]{0,12}(?:없|않|아니))",
+  ];
+  const PROTECTIVE_REQUIREMENT = [
+    "re:(?:필수|요구|제출해야|제출\\s*필수)",
+    "re:(?:기재|작성)해야|기재하(?:십시오|세요)|기재해\\s*주(?:세요|십시오)|제출하(?:십시오|세요)",
+    "re:(?:수집|기재|작성|포함|제공)\\s*(?:하지|받지)\\s*(?:않는\\s*것(?:은|이|을)?\\s*(?:허용되지\\s*않|허용하지\\s*않|금지|불가)|않을\\s*수\\s*없)",
+  ];
+  const PROTECTIVE_CLAUSE_END = [
+    "re:;",
+    "re:(?:(?:하|되|않|마시|말|주시|하시|받|있|없|이)고|(?<=[가-힣])며|(?:되|으)나|(?<=[가-힣])하나|지만)(?=[\\s,]|$)",
+  ];
+  const PROTECTIVE_COMMA = ["re:(?<!\\d),|,(?!\\d)"];
+  const PROTECTIVE_CONDITIONAL_TAIL = [
+    "re:(?:경우|때|으면|하면|되면|이면|라면|다면|(?:기재|작성|제출|포함|표기|노출|기입|명시|지원|위반|적발|확인|발견|누락)\\s*시)[)\\]）】」』\\s]*$",
+  ];
+  const PROTECTIVE_PREDICATE_TAIL = [
+    "re:(?:[다요음함됨임]|시오|며|고|나|지만|되|아도|어도|해도|여도|이상|이하|미만|초과|이내|우대|필수|가능|불가|금지|불필요|무관|환영|제외|요망|바람|선호|필요|요구|탈락|처리|부적합|기재|작성|제출|첨부|입력|명시|표기|확인|진행|실시|모집|채용|접수|포함|요청|\\d\\S*)[)\\]）】」』\\s]*$",
+  ];
+  const PROTECTIVE_NON_LIST_HEAD = [
+    "re:^(?:\\S*(?:에|에서|에게|께|께서|으로|로|부터|까지|보다|에는|에도|에선|에서는|으로는|로는)|반드시|꼭|단|다만|또한|그리고|하지만|그러나|특히|함께|바로)$",
+  ];
+  const PROTECTIVE_DIRECT_GAP = ["re:^\\S*(?:\\s+(?:일체|절대|절대로|모두|전혀|별도로|따로|굳이))*\\s*$"];
+  const PROTECTIVE_TOKEN = ["re:\\S+"];
+  const PROTECTIVE_LIST_ITEM_TOKENS = 4;
+
+  function protectiveCommaJoins(left, right, item) {
+    if (findFirst(left, PROTECTIVE_CONDITIONAL_TAIL)) return true;
+    if (findFirst(left, PROTECTIVE_PREDICATE_TAIL)) return false;
+    const head = findFirst(right, PROTECTIVE_TOKEN);
+    if (!head || findFirst(head.text, PROTECTIVE_NON_LIST_HEAD)) return false;
+    return item === null || findMatches(item, PROTECTIVE_TOKEN).length <= PROTECTIVE_LIST_ITEM_TOKENS;
+  }
+
+  function protectiveClause(source, start, end) {
+    const lineStart = lastNewlineBefore(source, start) + 1;
+    const next = source.indexOf("\n", end);
+    const lineEnd = next === -1 ? source.length : next;
+    const boundaries = [".", "!", "?", "。", "！", "？"];
+    const marks = [];
+    for (let i = lineStart; i < lineEnd; i += 1) {
+      if (boundaries.includes(source[i]) && !(source[i] === "." && i > 0 && (/^\p{Nd}$/u.test(codePointEndingAt(source, i)) || (/[A-Za-z0-9]/u.test(source[i - 1]) && /[A-Za-z0-9]/u.test(source[i + 1] || ""))))) marks.push(i);
+    }
+    const before = marks.filter((i) => i < start);
+    const after = marks.filter((i) => i >= end);
+    let left = before.length ? before[before.length - 1] + 1 : lineStart;
+    let right = after.length ? after[0] + 1 : lineEnd;
+    const codePoints = Array.from(source.slice(left, right));
+    if (codePoints.length > 238) {
+      // Never look further than the evidence window the reviewer is shown.
+      const relativeStart = Array.from(source.slice(left, start)).length;
+      const relativeEnd = Array.from(source.slice(left, end)).length;
+      let windowStart = Math.max(0, relativeStart - 96);
+      const windowEnd = Math.min(codePoints.length, Math.max(relativeEnd + 96, windowStart + 238));
+      windowStart = Math.max(0, windowEnd - 238);
+      const base = left;
+      left = base + codePoints.slice(0, windowStart).join("").length;
+      right = base + codePoints.slice(0, windowEnd).join("").length;
+    }
+    const sentence = source.slice(left, right);
+    const s = start - left;
+    const e = end - left;
+    const ends = findMatches(sentence, PROTECTIVE_CLAUSE_END);
+    let lo = ends.filter((m) => m.end <= s).reduce((best, m) => Math.max(best, m.end), 0);
+    let hi = ends.filter((m) => m.start >= e).reduce((best, m) => Math.min(best, m.end), sentence.length);
+    const commas = findMatches(sentence, PROTECTIVE_COMMA).map((m) => m.start).filter((c) => lo <= c && c < hi && !(s <= c && c < e));
+    const following = commas.filter((c) => c >= e);
+    let previous = null;
+    for (let index = 0; index < following.length; index += 1) {
+      const comma = following[index];
+      const nextCut = index + 1 < following.length ? following[index + 1] : hi;
+      const segmentStart = previous === null ? s : previous + 1;
+      const itemStart = previous === null ? e : previous + 1;
+      if (!protectiveCommaJoins(sentence.slice(segmentStart, comma), sentence.slice(comma + 1, nextCut), sentence.slice(itemStart, comma))) {
+        hi = comma;
+        break;
+      }
+      previous = comma;
+    }
+    const preceding = commas.filter((c) => c < s);
+    for (let index = preceding.length - 1; index >= 0; index -= 1) {
+      const comma = preceding[index];
+      const later = commas.filter((c) => c > comma);
+      const nextCut = later.length ? later[0] : hi;
+      const earlier = index ? preceding[index - 1] : null;
+      const segment = sentence.slice(earlier === null ? lo : earlier + 1, comma);
+      // The first list item may carry a lead-in ("수집 금지 항목: 부모 직업").
+      if (!protectiveCommaJoins(segment, sentence.slice(comma + 1, nextCut), earlier === null ? null : segment)) {
+        lo = comma + 1;
+        break;
+      }
+    }
+    return [left + lo, left + hi];
+  }
+
+  function protectiveClauseGoverns(source, match) {
+    const [clauseStart, clauseEnd] = protectiveClause(source, match.start, match.end);
+    if (findFirst(source.slice(match.end, clauseEnd), PROTECTIVE_INDIFFERENT)) return true;
+    const clause = source.slice(clauseStart, clauseEnd);
+    if (findFirst(clause, PROTECTIVE_OMISSION_PENALTY)) return false;
+    if (!findFirst(clause, PROTECTIVE)) return false;
+    const tail = Array.from(source.slice(match.end, clauseEnd)).slice(0, 60).join("");
+    const requirement = findFirst(tail, PROTECTIVE_REQUIREMENT);
+    if (!requirement) return true;
+    // A protection directly after the candidate governs it; a later
+    // requirement then belongs to another item.
+    const following = findFirst(tail, PROTECTIVE);
+    return Boolean(following) && following.start < requirement.start && Boolean(findFirst(tail.slice(0, following.start), PROTECTIVE_DIRECT_GAP));
+  }
+
   function sourceCandidateAllowed(source, match, sections, layer) {
     const line = evidenceLine(source, match.start, match.end);
     const section = sections.find((s) => s.start <= match.start && match.start < s.end);
-    if (findFirst(match.text, ["출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족"])) {
-      const protective = [
-        "re:(?:수집|기재|작성)\\s*(?:금지|불가|불필요|하지|받지)",
-        "re:(?:포함|제공)\\s*하지",
-        "re:(?:기재|표현)[^.!?\\n]{0,100}(?:평가대상에서\\s*제외|부적합|탈락처리)",
-        "re:블라인드[^.!?\\n]{0,80}미준수",
-      ];
-      const localTail = Array.from(source.slice(match.end).split("\n", 1)[0].split(".", 1)[0].split(";", 1)[0].split(",", 1)[0]).slice(0, 60).join("");
-      const directRequirement = findFirst(localTail, ["re:(?:필수|요구|제출해야|제출\\s*필수)"]);
-      const indirectRequirement = findFirst(localTail, ["re:(?:수집|기재|작성|포함|제공)\\s*(?:하지|받지)\\s*(?:않는\\s*것(?:은|이|을)?\\s*(?:허용되지\\s*않|허용하지\\s*않|금지|불가)|않을\\s*수\\s*없)"]);
-      if (findFirst(line, protective) && !directRequirement && !indirectRequirement) return false;
-    }
+    if (findFirst(match.text, SENSITIVE_CANDIDATE) && !findFirst(match.text, NOT_AN_INFORMATION_ITEM) && protectiveClauseGoverns(source, match)) return false;
     if (layer === "question" && findFirst(match.text, ["면접", "인터뷰"])) {
       if (section && isDutySection(section)) return false;
       if (findFirst(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"])) return false;

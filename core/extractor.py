@@ -260,24 +260,139 @@ def _component_present(slot_id: str, component: dict[str, Any], contexts: list[s
     return False
 
 
+# --- protective clauses ---------------------------------------------------------
+# A protective verb ("기재하지 마세요", "수집 금지") silences a sensitive candidate
+# only when it governs that candidate, i.e. sits in the same clause. A clause
+# ends at a sentence mark, ";" or a connective ending (되나, 지만, (으)며,
+# 마시고, 않으나 ...). A comma ends it too, unless it follows a conditional
+# ("기재할 경우,") or joins the items of one noun list ("출신학교, 가족관계 등
+# 인적사항은 기재 금지"). A connective must end a word and 고/나 need a verb
+# stem before them, so 고객, 공고, 나이, 며칠 or the particle (이)나 never split.
+# A penalty for leaving the item out ("미기재 시 탈락") is a requirement, not a
+# protection. web/engine.js keeps the same patterns (PROTECTIVE_* constants).
+_SENSITIVE_CANDIDATE = ["출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족"]
+_NOT_AN_INFORMATION_ITEM = [r"re:가족\s*같은"]
+_PROTECTIVE = [
+    r"re:(?:수집|기재|작성)\s*(?:금지|불가|불필요|하지|받지)",
+    r"re:(?:포함|제공)\s*하지",
+    r"re:(?:기재|표현)[^.!?\n]{0,100}(?:평가대상에서\s*제외|부적합|탈락처리)",
+    r"re:블라인드[^.!?\n]{0,80}미준수",
+]
+_PROTECTIVE_INDIFFERENT = [r"re:^\s*(?:(?:과|와|은|는|의|에)\s*)?(?:무관|관계\s*없|상관\s*없|불문|제한\s*없)"]
+_PROTECTIVE_OMISSION_PENALTY = [
+    r"re:(?:(?:미기재|미작성|미제출|누락)\s*(?:시|하면|할\s*경우|된\s*경우)|(?:기재|작성|제출)\s*하지\s*않(?:으면|을\s*경우|는\s*경우|은))[^.!?\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)(?![^.!?\n,]{0,12}(?:없|않|아니))"
+]
+_PROTECTIVE_REQUIREMENT = [
+    r"re:(?:필수|요구|제출해야|제출\s*필수)",
+    r"re:(?:기재|작성)해야|기재하(?:십시오|세요)|기재해\s*주(?:세요|십시오)|제출하(?:십시오|세요)",
+    r"re:(?:수집|기재|작성|포함|제공)\s*(?:하지|받지)\s*(?:않는\s*것(?:은|이|을)?\s*(?:허용되지\s*않|허용하지\s*않|금지|불가)|않을\s*수\s*없)",
+]
+_PROTECTIVE_CLAUSE_END = [
+    r"re:;",
+    r"re:(?:(?:하|되|않|마시|말|주시|하시|받|있|없|이)고|(?<=[가-힣])며|(?:되|으)나|(?<=[가-힣])하나|지만)(?=[\s,]|$)",
+]
+_PROTECTIVE_COMMA = [r"re:(?<!\d),|,(?!\d)"]
+_PROTECTIVE_CONDITIONAL_TAIL = [
+    r"re:(?:경우|때|으면|하면|되면|이면|라면|다면|(?:기재|작성|제출|포함|표기|노출|기입|명시|지원|위반|적발|확인|발견|누락)\s*시)[)\]）】」』\s]*$"
+]
+_PROTECTIVE_PREDICATE_TAIL = [
+    r"re:(?:[다요음함됨임]|시오|며|고|나|지만|되|아도|어도|해도|여도|이상|이하|미만|초과|이내|우대|필수|가능|불가|금지|불필요|무관|환영|제외|요망|바람|선호|필요|요구|탈락|처리|부적합|기재|작성|제출|첨부|입력|명시|표기|확인|진행|실시|모집|채용|접수|포함|요청|\d\S*)[)\]）】」』\s]*$"
+]
+_PROTECTIVE_NON_LIST_HEAD = [
+    r"re:^(?:\S*(?:에|에서|에게|께|께서|으로|로|부터|까지|보다|에는|에도|에선|에서는|으로는|로는)|반드시|꼭|단|다만|또한|그리고|하지만|그러나|특히|함께|바로)$"
+]
+_PROTECTIVE_DIRECT_GAP = [r"re:^\S*(?:\s+(?:일체|절대|절대로|모두|전혀|별도로|따로|굳이))*\s*$"]
+_PROTECTIVE_TOKEN = [r"re:\S+"]
+_PROTECTIVE_LIST_ITEM_TOKENS = 4
+
+
+def _protective_comma_joins(left: str, right: str, item: str | None) -> bool:
+    """Whether a comma keeps `left` and `right` in one clause."""
+    if find_first(left, _PROTECTIVE_CONDITIONAL_TAIL):
+        return True
+    if find_first(left, _PROTECTIVE_PREDICATE_TAIL):
+        return False
+    head = find_first(right, _PROTECTIVE_TOKEN)
+    if head is None or find_first(head.group(0), _PROTECTIVE_NON_LIST_HEAD):
+        return False
+    return item is None or len(find_matches(item, _PROTECTIVE_TOKEN)) <= _PROTECTIVE_LIST_ITEM_TOKENS
+
+
+def _protective_clause(source: str, start: int, end: int) -> tuple[int, int]:
+    """Source span of the clause around source[start:end], inside its evidence window."""
+    line_start = source.rfind("\n", 0, start) + 1
+    line_end = source.find("\n", end)
+    line_end = len(source) if line_end == -1 else line_end
+    before = _sentence_marks(source, line_start, start)
+    after = _sentence_marks(source, end, line_end)
+    left = before[-1] + 1 if before else line_start
+    right = after[0] + 1 if after else line_end
+    if right - left > _EVIDENCE_WINDOW_CODEPOINTS:
+        # Never look further than the evidence window the reviewer is shown.
+        window_start = max(0, start - left - 96)
+        window_end = min(right - left, max(end - left + 96, window_start + _EVIDENCE_WINDOW_CODEPOINTS))
+        window_start = max(0, window_end - _EVIDENCE_WINDOW_CODEPOINTS)
+        left, right = left + window_start, left + window_end
+    sentence = source[left:right]
+    s, e = start - left, end - left
+    ends = find_matches(sentence, _PROTECTIVE_CLAUSE_END)
+    lo = max((m.end() for m in ends if m.end() <= s), default=0)
+    hi = min((m.end() for m in ends if m.start() >= e), default=len(sentence))
+    commas = [m.start() for m in find_matches(sentence, _PROTECTIVE_COMMA) if lo <= m.start() < hi and not s <= m.start() < e]
+    following = [c for c in commas if c >= e]
+    previous: int | None = None
+    for index, comma in enumerate(following):
+        next_cut = following[index + 1] if index + 1 < len(following) else hi
+        segment_start = s if previous is None else previous + 1
+        item_start = e if previous is None else previous + 1
+        if not _protective_comma_joins(sentence[segment_start:comma], sentence[comma + 1:next_cut], sentence[item_start:comma]):
+            hi = comma
+            break
+        previous = comma
+    preceding = [c for c in commas if c < s]
+    for index in range(len(preceding) - 1, -1, -1):
+        comma = preceding[index]
+        later = [c for c in commas if c > comma]
+        next_cut = later[0] if later else hi
+        earlier = preceding[index - 1] if index else None
+        segment = sentence[(lo if earlier is None else earlier + 1):comma]
+        # The first list item may carry a lead-in ("수집 금지 항목: 부모 직업").
+        if not _protective_comma_joins(segment, sentence[comma + 1:next_cut], None if earlier is None else segment):
+            lo = comma + 1
+            break
+    return left + lo, left + hi
+
+
+def _protective_clause_governs(source: str, start: int, end: int) -> bool:
+    """Whether a protective expression governs the sensitive candidate source[start:end]."""
+    clause_start, clause_end = _protective_clause(source, start, end)
+    if find_first(source[end:clause_end], _PROTECTIVE_INDIFFERENT):
+        return True  # "신체 조건과 무관하게"
+    clause = source[clause_start:clause_end]
+    if find_first(clause, _PROTECTIVE_OMISSION_PENALTY):
+        return False  # "부모 직업 미기재 시 탈락" requires the item.
+    if not find_first(clause, _PROTECTIVE):
+        return False
+    tail = source[end:clause_end][:60]
+    requirement = find_first(tail, _PROTECTIVE_REQUIREMENT)
+    if requirement is None:
+        return True
+    # "출신학교 기재 금지 상태로 부모 학력을 기재해 주세요": a protection that
+    # directly follows the candidate (only a particle or adverb between) governs
+    # it, and the later requirement belongs to another item.
+    following = find_first(tail, _PROTECTIVE)
+    return (following is not None and following.start() < requirement.start()
+            and find_first(tail[:following.start()], _PROTECTIVE_DIRECT_GAP) is not None)
+
+
 def source_candidate_allowed(source: str, start: int, end: int, sections: list[Section], layer: str) -> bool:
     """Reject a context reversal while still considering later real candidates."""
     line = _evidence_line(source, start, end)
     candidate = source[start:end]
     section = next((s for s in sections if s.start <= start < s.end), None)
-    sensitive = ["출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족"]
-    if find_first(candidate, sensitive):
-        protective = [
-            r"re:(?:수집|기재|작성)\s*(?:금지|불가|불필요|하지|받지)",
-            r"re:(?:포함|제공)\s*하지",
-            r"re:(?:기재|표현)[^.!?\n]{0,100}(?:평가대상에서\s*제외|부적합|탈락처리)",
-            r"re:블라인드[^.!?\n]{0,80}미준수",
-        ]
-        local_tail = source[end:].split("\n", 1)[0].split(".", 1)[0].split(";", 1)[0].split(",", 1)[0][:60]
-        direct_requirement = find_first(local_tail, [r"re:(?:필수|요구|제출해야|제출\s*필수)"])
-        indirect_requirement = find_first(local_tail, [r"re:(?:수집|기재|작성|포함|제공)\s*(?:하지|받지)\s*(?:않는\s*것(?:은|이|을)?\s*(?:허용되지\s*않|허용하지\s*않|금지|불가)|않을\s*수\s*없)"])
-        if find_first(line, protective) and not direct_requirement and not indirect_requirement:
-            return False
+    if (find_first(candidate, _SENSITIVE_CANDIDATE) and not find_first(candidate, _NOT_AN_INFORMATION_ITEM)
+            and _protective_clause_governs(source, start, end)):
+        return False
     if layer == "question" and find_first(candidate, ["면접", "인터뷰"]):
         if section is not None and _is_duty_section(section):
             return False
