@@ -8,25 +8,25 @@
     "timing_source": "time.perf_counter (monotonic)",
     "warmup_passes": 1
   },
-  "generated_at": "2026-10-10T12:25:57.221518+00:00",
+  "generated_at": "2026-10-10T14:07:38.814905+00:00",
   "input": {
     "records": 500,
     "sha256": "551cd8997556d05520a2e47b224b2aecae96fa0ea52bb3b48d507d6a72faeb2e",
     "split": "train_only"
   },
-  "matching_version": "match-5da2f1b8f61bf87d",
+  "matching_version": "match-44f9f875d92ffb8b",
   "metrics": {
-    "elapsed_seconds": 13.303162,
+    "elapsed_seconds": 24.477058,
     "latency_ms": {
-      "max": 86.3078,
-      "mean": 5.321265,
-      "min": 0.9384,
-      "p50": 3.0785,
-      "p95": 13.8866,
-      "p99": 25.2646,
+      "max": 127.1208,
+      "mean": 9.790823,
+      "min": 1.057,
+      "p50": 5.7712,
+      "p95": 26.5225,
+      "p99": 43.8713,
       "samples": 2500
     },
-    "postings_per_second": 187.925
+    "postings_per_second": 102.136
   },
   "privacy": {
     "contains_organization_data": false,
@@ -35,7 +35,7 @@
     "contains_record_ids": false
   },
   "production_sla_claim": false,
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-0fa75d41155c",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-c58a2b1fcbe3",
   "runtime": {
     "machine": "AMD64",
     "operating_system": "Windows",

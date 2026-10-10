@@ -41,7 +41,7 @@
     "SEX-001": 629,
     "SEX-002": 0
   },
-  "matching_version": "match-5da2f1b8f61bf87d",
+  "matching_version": "match-44f9f875d92ffb8b",
   "question_posting_hits": {
     "Q-DIST-001": 760,
     "Q-DIST-002": 2082,
@@ -81,7 +81,7 @@
     "Q-INTER-005": 2100,
     "Q-INTER-006": 2100,
     "Q-INTER-007": 520,
-    "Q-PROC-001": 1962,
+    "Q-PROC-001": 1963,
     "Q-PROC-002": 2099,
     "Q-PROC-003": 1,
     "Q-PROC-004": 0,
@@ -96,7 +96,7 @@
     "Q-PROC-013": 2100,
     "Q-PROC-014": 0
   },
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-0fa75d41155c",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-c58a2b1fcbe3",
   "slot_found_posting_hits": {
     "ai_disclosure": 0,
     "appeal_channel": 0,
@@ -108,6 +108,6 @@
     "qualification_rationale": 20,
     "result_notice": 234,
     "schedule": 2099,
-    "selection_stages": 138
+    "selection_stages": 137
   }
 }
