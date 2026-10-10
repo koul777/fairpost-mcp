@@ -405,6 +405,25 @@ def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
         == related_question_linkage["net_question_instances"]
         == 23
     )
+    slot_recount = manual["subsequent_train_only_changes"][
+        "slot_evidence_context_recount"
+    ]
+    recount_ids = {
+        key.removesuffix("_before")
+        for key in slot_recount
+        if key.endswith("_before")
+    }
+    assert recount_ids == {
+        key.removesuffix("_after") for key in slot_recount if key.endswith("_after")
+    }
+    assert (
+        sum(
+            slot_recount[f"{question_id}_after"] - slot_recount[f"{question_id}_before"]
+            for question_id in recount_ids
+        )
+        == slot_recount["net_question_instances"]
+        == 259
+    )
     assert (
         before["question_instances_total"] - current["question_instances_total"]
         == 104
@@ -416,6 +435,7 @@ def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
         - military_proxy_review["net_question_instances"]
         - new_questions["net_question_instances"]
         - related_question_linkage["net_question_instances"]
+        - slot_recount["net_question_instances"]
     )
     current_by_id = {
         row["question_id"]: row["activated_records"]
@@ -443,15 +463,20 @@ def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
         assert current_by_id[question_id] == new_questions[
             f"{question_id}_after"
         ]
-    assert current_by_id["Q-DIST-002"] == related_question_linkage[
-        "Q-DIST-002_after"
+    # The recount is the latest change, so it starts where earlier entries end.
+    assert related_question_linkage["Q-DIST-002_after"] == slot_recount[
+        "Q-DIST-002_before"
     ]
+    for question_id in recount_ids:
+        assert current_by_id[question_id] == slot_recount[f"{question_id}_after"]
+    snapshot = before["question_activation_records"]
     assert sum(
         before_count - current_by_id[question_id]
-        for question_id, before_count in before[
-            "question_activation_records"
-        ].items()
-    ) == 104
+        for question_id, before_count in snapshot.items()
+    ) == 104 - sum(
+        slot_recount[f"{question_id}_after"] - slot_recount[f"{question_id}_before"]
+        for question_id in recount_ids & set(snapshot)
+    )
     groups = current["question_instances_by_presentation_group"]
     assert sum(groups.values()) == current["question_instances_total"]
     assert current["slot_detail_questions"]["question_ids"] == [

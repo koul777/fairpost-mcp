@@ -8,25 +8,25 @@
     "timing_source": "time.perf_counter (monotonic)",
     "warmup_passes": 1
   },
-  "generated_at": "2026-10-04T03:53:50.881785+00:00",
+  "generated_at": "2026-10-10T12:25:57.221518+00:00",
   "input": {
     "records": 500,
     "sha256": "551cd8997556d05520a2e47b224b2aecae96fa0ea52bb3b48d507d6a72faeb2e",
     "split": "train_only"
   },
-  "matching_version": "match-8cc4dbbcae8c00fa",
+  "matching_version": "match-5da2f1b8f61bf87d",
   "metrics": {
-    "elapsed_seconds": 8.155443,
+    "elapsed_seconds": 13.303162,
     "latency_ms": {
-      "max": 14.2175,
-      "mean": 3.262177,
-      "min": 0.7801,
-      "p50": 1.988,
-      "p95": 9.8223,
-      "p99": 11.8299,
+      "max": 86.3078,
+      "mean": 5.321265,
+      "min": 0.9384,
+      "p50": 3.0785,
+      "p95": 13.8866,
+      "p99": 25.2646,
       "samples": 2500
     },
-    "postings_per_second": 306.544
+    "postings_per_second": 187.925
   },
   "privacy": {
     "contains_organization_data": false,
@@ -35,7 +35,7 @@
     "contains_record_ids": false
   },
   "production_sla_claim": false,
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-da8f450a87f4",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-0fa75d41155c",
   "runtime": {
     "machine": "AMD64",
     "operating_system": "Windows",
@@ -43,8 +43,5 @@
     "python_version": "3.12.7"
   },
   "schema_version": 1,
-  "scope": "development_train_benchmark",
-  "evidence_status": "historical",
-  "historical_reason": "규칙셋 da8f450a87f4 기준으로 비공개 학습 코퍼스에서 만든 집계. 6ff67c6(2026-10-09)의 질문ㆍ슬롯 변경으로 규칙셋이 0fa75d41155c가 되어, 같은 코퍼스로 python tools/refresh_evidence.py를 다시 실행하기 전까지 현재 증거로 쓰지 않음",
-  "historical_marked_at": "2026-10-10T12:57:33+09:00"
+  "scope": "development_train_benchmark"
 }
