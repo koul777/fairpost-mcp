@@ -129,6 +129,34 @@ def test_posting_improvement_flow_runs_locally() -> None:
         assert a11y[key] is True, key
     assert a11y["jumpBar"] == {"expertShown": True, "easyHiddenWithoutSummary": True}
 
+    # Cursor inserts keep examples on their own lines (also after a script-set
+    # selection and for a caret inside a line); line-based paths use the same
+    # boundaries as the engine; the easy headline reports blanks without a verdict.
+    follow_up = result["followUp"]
+    assert follow_up["cursorInsert"] == {
+        "secondInsertBelowFirst": True,
+        "midLineKeptWhole": True,
+        "undoRestoresCaret": True,
+        "boundariesChecked": 8,
+    }
+    assert follow_up["lineBoundaries"]["checked"] == [
+        "form feed",
+        "lone CR",
+        "CRLF",
+        "U+2028",
+        "U+2029",
+        "vertical tab",
+        "U+001C",
+        "U+0085",
+    ]
+    headlines = follow_up["headline"]
+    for text in headlines.values():
+        assert not re.search(r"발견되지 않|모두 찾|완료|통과|점수|합격|불합격", text), text
+    assert re.search(r"채우지 않은 빈칸\(○○\) <strong>\d+곳</strong>이 남아 있습니다\.$", headlines["withBlanks"])
+    assert re.search(r"채우지 않은 빈칸\(○○\) <strong>2곳</strong>이 남아 있습니다\.$", headlines["allFoundWithBlanks"])
+    assert headlines["allFoundClean"].endswith("내용의 충분성과 실제 운영은 별도 확인이 필요합니다.")
+    assert "채우지 않은 빈칸" not in headlines["allFoundClean"]
+
     privacy = result["privacy"]
     assert privacy["posts"] == 0
     assert privacy["postingStored"] is False
@@ -249,6 +277,16 @@ def test_posting_improvement_code_keeps_local_boundaries() -> None:
     assert not re.search(r"완료|통과|점수|합격", announcement)
     # Rewrite summary: accessible name starts with the visible words.
     assert 'aria-label="이 줄 고쳐 쓰기, ${number}번 표현이 있는 줄">이 줄 고쳐 쓰기</summary>' in app
+    # Posting lines are split at the engine's boundaries (str.splitlines), not
+    # at "\n" alone: rewrite blocks, blank-line numbers, the change summary and
+    # the cursor insert all go through the shared helpers.
+    assert 'const LINE_BREAK_PATTERN = /\\r\\n|[\\n\\r\\v\\f\\x1c\\x1d\\x1e\\x85\\u2028\\u2029]/u;' in app
+    for name in ("findingLineRange", "placeholderLinesLabel", "postingLineDiff", "insertTemplate"):
+        body = app[app.index(f"function {name}("):]
+        body = body[: body.index("\n  }\n")]
+        assert not re.search(r'\.split\("\\n"\)|indexOf\("\\n"|lastIndexOf\("\\n"|endsWith\("\\n"\)|startsWith\("\\n"\)|split\(/\\r\?\\n/', body), name
+    # Script-set selections are not the reader's caret.
+    assert "programSelection" in app
 
 
 def test_posting_improvement_styles_wrap_and_stay_readable() -> None:

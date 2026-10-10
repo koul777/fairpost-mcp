@@ -294,6 +294,9 @@
   // Posting-improvement state lives in tab memory only; nothing here is
   // written to browser storage or sent anywhere.
   let lastPostingSelection = null;
+  // A range this script selected (an inserted blank, a rewritten line). Browsers
+  // report it through the same "select" event as a reader's own selection.
+  let programSelection = null;
   let postingUndo = null;
   const rewriteDrafts = new Map();
   const rewriteTargets = new Map();
@@ -1340,12 +1343,63 @@
     }
   }
 
+  // Lines are split like Python's str.splitlines() and web/engine.js: \n, \r,
+  // \r\n (one boundary), \v, \f, U+001C-U+001E, U+0085, U+2028 and U+2029. A
+  // textarea stores only "\n", but a pasted form feed or U+2028 stays in the
+  // text, and rewrite blocks, blank-line numbers and the change summary have
+  // to agree with the engine about where a line ends.
+  const LINE_BREAK_CHARS = new Set([
+    "\n", "\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029",
+  ]);
+  const LINE_BREAK_PATTERN = /\r\n|[\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029]/u;
+
+  // One entry per line, in UTF-16 code units: [start, end) is the line without
+  // its boundary and `next` is where the following line starts.
+  function lineSpans(text) {
+    const spans = [];
+    let start = 0;
+    for (let index = 0; index < text.length; index += 1) {
+      if (!LINE_BREAK_CHARS.has(text[index])) continue;
+      const width = text[index] === "\r" && text[index + 1] === "\n" ? 2 : 1;
+      spans.push({ start, end: index, next: index + width });
+      start = index + width;
+      index += width - 1;
+    }
+    if (start < text.length) spans.push({ start, end: text.length, next: text.length });
+    return spans;
+  }
+
+  // The line holding `position`. A position inside a "\r\n" belongs to the
+  // line before it; the position after a final boundary is an empty line.
+  function lineAt(spans, position, textLength) {
+    let low = 0;
+    let high = spans.length - 1;
+    while (low <= high) {
+      const middle = (low + high) >> 1;
+      const span = spans[middle];
+      // The last line has no boundary, so the end of the text still belongs to it.
+      const limit = span.end === span.next ? span.next + 1 : span.next;
+      if (position < span.start) high = middle - 1;
+      else if (position >= limit) low = middle + 1;
+      else return span;
+    }
+    return { start: textLength, end: textLength, next: textLength };
+  }
+
+  function endsWithLineBreak(text) {
+    return text.length > 0 && LINE_BREAK_CHARS.has(text[text.length - 1]);
+  }
+
+  function startsWithLineBreak(text) {
+    return text.length > 0 && LINE_BREAK_CHARS.has(text[0]);
+  }
+
   // Slot results carry only their first evidence line, so blanks are located
   // by posting line instead of being attributed to individual slots.
   function placeholderLinesLabel(text) {
     if (typeof text !== "string" || !text || !PLACEHOLDER) return "";
     const numbers = text
-      .split("\n")
+      .split(LINE_BREAK_PATTERN)
       .map((line, index) => (line.includes(PLACEHOLDER) ? index + 1 : 0))
       .filter(Boolean);
     if (!numbers.length) return "";
@@ -1398,15 +1452,19 @@
     </details>`;
   }
 
-  // The whole line(s) holding a finding, in UTF-16 code units of `text`.
-  function findingLineRange(text, finding) {
+  // The whole line(s) holding a finding, in UTF-16 code units of `text`. The
+  // range stops before the line's boundary, so applying a rewrite keeps the
+  // boundary characters (\n, \f, a lone \r, U+2028, ...) exactly as they were.
+  function findingLineRange(text, finding, spans = lineSpans(text)) {
     const start = codePointsToCodeUnits(text, finding.offset[0]);
     const end = codePointsToCodeUnits(text, finding.offset[1]);
-    const lineStart = start > 0 ? text.lastIndexOf("\n", start - 1) + 1 : 0;
-    let lineEnd = text.indexOf("\n", Math.max(start, end - 1));
-    if (lineEnd === -1) lineEnd = text.length;
-    if (lineEnd > lineStart && text[lineEnd - 1] === "\r") lineEnd -= 1;
-    return { start: lineStart, end: lineEnd, original: text.slice(lineStart, lineEnd) };
+    const first = lineAt(spans, start, text.length);
+    const last = lineAt(spans, Math.max(start, end - 1), text.length);
+    return {
+      start: first.start,
+      end: last.end,
+      original: text.slice(first.start, last.end),
+    };
   }
 
   function rewriteBlock(index, finding) {
@@ -1435,9 +1493,19 @@
   function rememberPostingSelection() {
     const start = input.selectionStart;
     const end = input.selectionEnd;
-    if (Number.isInteger(start) && Number.isInteger(end)) {
-      lastPostingSelection = { start, end, value: input.value };
+    if (!Number.isInteger(start) || !Number.isInteger(end)) return;
+    // A range that script selected is not the reader's caret. Browsers fire
+    // "select" for it too; keeping it would make the next "커서 위치에 넣기"
+    // land inside the example that was just inserted.
+    if (
+      programSelection &&
+      programSelection.value === input.value &&
+      programSelection.start === start &&
+      programSelection.end === end
+    ) {
+      return;
     }
+    lastPostingSelection = { start, end, value: input.value };
   }
 
   // A remembered caret counts only while the posting is exactly what it was
@@ -1504,8 +1572,12 @@
     }
   }
 
-  function selectPostingRange(start, end) {
+  // Selects [start, end) after a program edit. The next "커서 위치에 넣기" then
+  // starts from `caret` (the end of the text just put in, a line end), not
+  // from the selected range.
+  function selectPostingRange(start, end, caret = end) {
     input.focus();
+    programSelection = { start, end, value: input.value };
     if (typeof input.setSelectionRange === "function") {
       try {
         input.setSelectionRange(start, end);
@@ -1514,16 +1586,18 @@
       }
     }
     revealPostingPosition(start);
-    rememberPostingSelection();
+    lastPostingSelection = { start: caret, end: caret, value: input.value };
   }
 
   // Every program edit of the posting goes through here: one undo step, then
   // the regular input event so stale handling (memo copy lock etc.) runs.
-  function applyProgramChange(next) {
+  // `restoreSelection` is where undo puts the caret back; without it undo
+  // places the caret at the first changed character.
+  function applyProgramChange(next, restoreSelection = null) {
     const before = input.value;
     input.value = next;
     // Read back what the textarea stored, so undo compares like with like.
-    postingUndo = { before, after: input.value };
+    postingUndo = { before, after: input.value, restoreSelection };
     input.dispatchEvent(new Event("input"));
   }
 
@@ -1534,18 +1608,28 @@
     const cursor = where === "cursor" ? knownPostingCursor() : null;
     let next;
     let insertedAt;
+    let restoreSelection = null;
     if (cursor === null) {
       const base = value.replace(/\s+$/u, "");
       next = base ? `${base}\n\n${text}` : text;
       insertedAt = base ? base.length + 2 : 0;
     } else {
-      // Keep the inserted block on its own lines without deleting anything.
-      const before = value.slice(0, cursor);
-      const after = value.slice(cursor);
-      const lead = before && !before.endsWith("\n") ? "\n" : "";
-      const trail = after && !after.startsWith("\n") ? "\n" : "";
+      // The block goes on its own lines and nothing is deleted or split: a
+      // caret at the start of a line puts it above that line, any other
+      // caret (mid-line or at the line's end) puts it below that line.
+      const line = lineAt(lineSpans(value), cursor, value.length);
+      const at = cursor === line.start ? line.start : line.end;
+      const before = value.slice(0, at);
+      const after = value.slice(at);
+      const lead = before && !endsWithLineBreak(before) ? "\n" : "";
+      const trail = after && !startsWithLineBreak(after) ? "\n" : "";
       next = `${before}${lead}${text}${trail}${after}`;
       insertedAt = before.length + lead.length;
+      // Undo gives the reader back the caret or selection they had.
+      restoreSelection = {
+        start: lastPostingSelection.start,
+        end: lastPostingSelection.end,
+      };
     }
     const blanks = countPlaceholders(text);
     const fallbackNote = where === "cursor" && cursor === null
@@ -1559,12 +1643,13 @@
           ? `예시 문장을 넣었습니다. ${PLACEHOLDER} 빈칸 ${blanks}곳을 실제 내용으로 바꾼 뒤 '검토 메모 만들기'를 다시 누르세요.`
           : "예시 문장을 넣었습니다. 조직의 실제 내용과 맞게 고친 뒤 '검토 메모 만들기'를 다시 누르세요.")
     );
-    applyProgramChange(next);
+    applyProgramChange(next, restoreSelection);
+    const insertedEnd = insertedAt + text.length;
     const blank = next.indexOf(PLACEHOLDER, insertedAt);
-    if (blank >= 0 && blank + PLACEHOLDER.length <= insertedAt + text.length) {
-      selectPostingRange(blank, blank + PLACEHOLDER.length);
+    if (blank >= 0 && blank + PLACEHOLDER.length <= insertedEnd) {
+      selectPostingRange(blank, blank + PLACEHOLDER.length, insertedEnd);
     } else {
-      selectPostingRange(insertedAt + text.length, insertedAt + text.length);
+      selectPostingRange(insertedEnd, insertedEnd);
     }
   }
 
@@ -1589,7 +1674,8 @@
       showToast("고쳐 쓸 내용을 입력하세요. 줄을 지우려면 공고문에서 직접 지우세요.");
       return;
     }
-    if (replacement === target.original) {
+    // The field shows "\n" where the posting may hold \r; same text, same line.
+    if (replacement === target.original.replace(/\r\n?/gu, "\n")) {
       showToast("고쳐 쓴 내용이 지금 줄과 같습니다. 바꿀 내용을 직접 쓴 뒤 반영하세요.");
       return;
     }
@@ -1625,6 +1711,7 @@
     }
     const restored = postingUndo.before;
     const undone = postingUndo.after;
+    const restoreSelection = postingUndo.restoreSelection;
     postingUndo = null;
     // The undone text is announced first; the status writes that the edit
     // triggers (stale result, locked memo) follow it.
@@ -1636,24 +1723,38 @@
     input.value = restored;
     input.dispatchEvent(new Event("input"));
     lastPostingSelection = null;
-    // Put the caret where the undone text was, so the field shows the change.
-    let changedAt = 0;
-    while (
-      changedAt < restored.length &&
-      changedAt < undone.length &&
-      restored[changedAt] === undone[changedAt]
+    programSelection = null;
+    // Put the caret back: where the reader had it before a cursor insert, else
+    // where the undone text was, so the field shows the change.
+    let caretStart = 0;
+    let caretEnd = 0;
+    if (
+      restoreSelection &&
+      restoreSelection.start >= 0 &&
+      restoreSelection.start <= restoreSelection.end &&
+      restoreSelection.end <= restored.length
     ) {
-      changedAt += 1;
+      caretStart = restoreSelection.start;
+      caretEnd = restoreSelection.end;
+    } else {
+      while (
+        caretStart < restored.length &&
+        caretStart < undone.length &&
+        restored[caretStart] === undone[caretStart]
+      ) {
+        caretStart += 1;
+      }
+      caretEnd = caretStart;
     }
     input.focus();
     if (typeof input.setSelectionRange === "function") {
       try {
-        input.setSelectionRange(changedAt, changedAt);
+        input.setSelectionRange(caretStart, caretEnd);
       } catch (_error) {
         // Placing the caret is a convenience; the posting is already restored.
       }
     }
-    revealPostingPosition(changedAt);
+    revealPostingPosition(caretStart);
   }
 
   function updateRewriteControls() {
@@ -1669,8 +1770,8 @@
   // Line-level difference between two postings: LCS over non-blank lines,
   // ignoring whitespace-only changes. Large postings are not summarized.
   function postingLineDiff(beforeText, afterText) {
-    const beforeRaw = beforeText.split(/\r?\n/u);
-    const afterRaw = afterText.split(/\r?\n/u);
+    const beforeRaw = beforeText.split(LINE_BREAK_PATTERN);
+    const afterRaw = afterText.split(LINE_BREAK_PATTERN);
     if (beforeRaw.length > IMPROVEMENT_MAX_LINES || afterRaw.length > IMPROVEMENT_MAX_LINES) {
       return { tooMany: true, added: [], removed: [] };
     }
@@ -1829,15 +1930,22 @@
         left.offset[0] - right.offset[0] || left.offset[1] - right.offset[1]
     );
     const missing = result.slots.filter((slot) => !slot.found);
-    const headline = orderedFindings.length
+    // Example sentences leave blanks behind; a found instruction with a blank
+    // in it is not a finished one, so the count belongs in the headline.
+    const blankCount = countPlaceholders(text);
+    const blankNote = blankCount
+      ? ` 채우지 않은 빈칸(${escapeHtml(PLACEHOLDER)}) <strong>${blankCount}곳</strong>이 남아 있습니다.`
+      : "";
+    const headline = (orderedFindings.length
       ? `다시 살펴볼 표현 <strong>${orderedFindings.length}개</strong>, 공고문에서 찾지 못한 안내 <strong>${missing.length}개</strong>가 있습니다.`
       : missing.length
-      ? `법 조항과 연결된 표현은 발견되지 않았습니다. 공고문에서 찾지 못한 안내 <strong>${missing.length}개</strong>를 확인해 보세요.`
-      : "법 조항과 연결된 표현은 발견되지 않았고, 점검하는 안내 항목도 공고문에서 모두 찾았습니다.";
+      ? `법령 조항과 함께 표시할 표현이 확인되지 않았습니다. 공고문에서 찾지 못한 안내 <strong>${missing.length}개</strong>를 확인해 보세요.`
+      : `법령 조항과 함께 표시할 표현이 확인되지 않았습니다. 점검하는 안내 항목 ${result.slots.length}개의 관련 문구를 찾았습니다. 내용의 충분성과 실제 운영은 별도 확인이 필요합니다.`) + blankNote;
     // Line targets belong to this checked text; a new review replaces them.
     rewriteTargets.clear();
+    const spans = lineSpans(text);
     orderedFindings.forEach((finding, index) => {
-      rewriteTargets.set(index, findingLineRange(text, finding));
+      rewriteTargets.set(index, findingLineRange(text, finding, spans));
     });
     const findingCards = orderedFindings
       .map((finding, index) => {
@@ -1878,7 +1986,7 @@
             .map((slot) => `<li>${escapeHtml(slot.label)}${slot.slot === "ai_disclosure" ? '<small>공고에 AI 언급이 없다고 실제 사용 여부를 알 수 없습니다. 담당자가 AI 사용 여부와 안내 적용 여부를 확인하세요.</small>' : ""}${templateBlock(slot.slot, slot.label)}</li>`)
             .join("")}</ul></details>
         </section>`
-      : `<section class="easy-section" aria-labelledby="easy-missing-heading"><h3 id="easy-missing-heading">공고문 안내 확인</h3><p class="easy-hint">점검하는 안내 항목 ${result.slots.length}개를 공고문에서 모두 찾았습니다.</p></section>`;
+      : `<section class="easy-section" aria-labelledby="easy-missing-heading"><h3 id="easy-missing-heading">공고문 안내 확인</h3><p class="easy-hint">점검하는 안내 항목 ${result.slots.length}개의 관련 문구를 찾았습니다. 내용의 충분성과 실제 운영은 별도 확인이 필요합니다.</p></section>`;
     const found = result.slots.filter((slot) => slot.found);
     const blankLines = placeholderLinesLabel(text);
     const followUps = found
@@ -2453,6 +2561,7 @@
     easyResult.replaceChildren();
     postingUndo = null;
     lastPostingSelection = null;
+    programSelection = null;
     rewriteDrafts.clear();
     rewriteTargets.clear();
     improvementCache = null;

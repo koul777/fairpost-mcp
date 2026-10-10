@@ -942,11 +942,308 @@ const PRIVATE_MARK = "개선흐름-PRIVATE-DRAFT";
   assert.equal(fading.toast(), "");
   a11y.toastCleared = true;
 
+  // 7. Follow-up fixes. (a) "커서 위치에 넣기" keeps examples on their own lines
+  // whatever the caret was, including the blank a previous insert selected;
+  // (b) the easy headline never reads like a verdict while blanks remain;
+  // (c) rewrite, blank-line numbers and the change summary split lines at the
+  // same boundaries as the engine (Python str.splitlines).
+  const followUp = {};
+  const exampleSlots = Object.keys(templates.slots).filter((id) => templateText(templates, id));
+  assert.ok(exampleSlots.length >= 2, "two example sentences are needed");
+  const [slotA, slotB] = exampleSlots;
+  const textA = templateText(templates, slotA);
+  const textB = templateText(templates, slotB);
+  const CURSOR_BASE = [
+    "행정직 채용 안내",
+    "",
+    "- 행정 업무 경력 2년 이상",
+    "- 서류전형 후 면접",
+    "문의는 인사팀",
+  ].join("\n");
+  const placeCaret = (target, start, end = start) => {
+    target.posting.selectionStart = start;
+    target.posting.selectionEnd = end;
+    target.posting.trigger("select");
+  };
+  const caretOf = (target) => [target.posting.selectionStart, target.posting.selectionEnd];
+  const bootCursor = (text) => {
+    const target = boot({ templates: "file" });
+    target.type(text);
+    target.check();
+    return target;
+  };
+  const undoClick = (target) => target.el("posting-undo").trigger("click");
+
+  // 7a-1. A second insert after the first one selected its blank. Browsers
+  // report that script-set selection through select/keyup/click as well.
+  const stageStart = CURSOR_BASE.indexOf("- 서류전형");
+  const stageHead = CURSOR_BASE.slice(0, stageStart);
+  const stageTail = CURSOR_BASE.slice(stageStart);
+  [false, true].forEach((browserEvents) => {
+    const twice = bootCursor(CURSOR_BASE);
+    placeCaret(twice, stageStart);
+    twice.insert(slotA, "cursor");
+    assert.equal(twice.posting.value, `${stageHead}${textA}\n${stageTail}`);
+    const endOfA = stageHead.length + textA.length;
+    const blankInA = twice.posting.value.indexOf(placeholder, stageHead.length);
+    if (blankInA >= 0 && blankInA + placeholder.length <= endOfA) {
+      assert.deepEqual(caretOf(twice), [blankInA, blankInA + placeholder.length],
+        "the first blank of the example is selected");
+    }
+    if (browserEvents) ["select", "keyup", "click"].forEach((type) => twice.posting.trigger(type));
+    twice.insert(slotB, "cursor");
+    assert.equal(twice.posting.value, `${stageHead}${textA}\n${textB}\n${stageTail}`,
+      `second insert stays below the first example (browser events ${browserEvents})`);
+    assert.ok(!twice.toast().startsWith("커서 위치를 알 수 없어"), "the caret is known");
+    // Undo gives back the text and the caret from before the second insert.
+    undoClick(twice);
+    assert.equal(twice.posting.value, `${stageHead}${textA}\n${stageTail}`);
+    assert.deepEqual(caretOf(twice), [endOfA, endOfA]);
+    assert.equal(twice.posting.focused, true);
+    assert.equal(twice.el("posting-undo").hidden, true);
+  });
+
+  // 7a-2. Undo of the first insert restores the text and the reader's caret.
+  const undoFirst = bootCursor(CURSOR_BASE);
+  placeCaret(undoFirst, stageStart);
+  undoFirst.insert(slotA, "cursor");
+  undoClick(undoFirst);
+  assert.equal(undoFirst.posting.value, CURSOR_BASE);
+  assert.deepEqual(caretOf(undoFirst), [stageStart, stageStart]);
+
+  // 7a-3. A caret inside a line never splits it: the example goes on its own
+  // lines after that line.
+  const jobLine = "- 행정 업무 경력 2년 이상";
+  const midLine = CURSOR_BASE.indexOf("경력") + 2;
+  const jobLineEnd = CURSOR_BASE.indexOf("\n", midLine);
+  const midInsert = bootCursor(CURSOR_BASE);
+  placeCaret(midInsert, midLine);
+  midInsert.insert(slotA, "cursor");
+  assert.equal(midInsert.posting.value,
+    `${CURSOR_BASE.slice(0, jobLineEnd)}\n${textA}${CURSOR_BASE.slice(jobLineEnd)}`);
+  assert.ok(midInsert.posting.value.split("\n").includes(jobLine), "the reader's line is intact");
+  undoClick(midInsert);
+  assert.equal(midInsert.posting.value, CURSOR_BASE);
+  assert.deepEqual(caretOf(midInsert), [midLine, midLine], "undo restores the mid-line caret");
+  assert.equal(midInsert.posting.focused, true);
+
+  // A selection across two lines: the example goes after the line holding its end.
+  const rangeInsert = bootCursor(CURSOR_BASE);
+  const rangeStart = CURSOR_BASE.indexOf("업무");
+  const rangeEnd = CURSOR_BASE.indexOf("후 면접");
+  const rangeLineEnd = CURSOR_BASE.indexOf("\n", rangeEnd);
+  placeCaret(rangeInsert, rangeStart, rangeEnd);
+  rangeInsert.insert(slotA, "cursor");
+  assert.equal(rangeInsert.posting.value,
+    `${CURSOR_BASE.slice(0, rangeLineEnd)}\n${textA}${CURSOR_BASE.slice(rangeLineEnd)}`);
+  undoClick(rangeInsert);
+  assert.equal(rangeInsert.posting.value, CURSOR_BASE);
+  assert.deepEqual(caretOf(rangeInsert), [rangeStart, rangeEnd]);
+
+  // Caret inside the last line (no final newline), at the very start, and after
+  // a final newline.
+  const lastInsert = bootCursor(CURSOR_BASE);
+  placeCaret(lastInsert, CURSOR_BASE.length - 2);
+  lastInsert.insert(slotA, "cursor");
+  assert.equal(lastInsert.posting.value, `${CURSOR_BASE}\n${textA}`);
+  const topInsert = bootCursor(CURSOR_BASE);
+  placeCaret(topInsert, 0);
+  topInsert.insert(slotA, "cursor");
+  assert.equal(topInsert.posting.value, `${textA}\n${CURSOR_BASE}`);
+  const afterFinalBreak = bootCursor(`${CURSOR_BASE}\n`);
+  placeCaret(afterFinalBreak, CURSOR_BASE.length + 1);
+  afterFinalBreak.insert(slotA, "cursor");
+  assert.equal(afterFinalBreak.posting.value, `${CURSOR_BASE}\n${textA}`);
+
+  // Every line boundary the engine knows keeps the reader's line whole and
+  // survives the insert; the example is cut off by the original boundary.
+  const FORM_FEED = "\f";
+  const LONE_CR = "\r";
+  const LINE_SEP = String.fromCodePoint(0x2028);
+  const PARA_SEP = String.fromCodePoint(0x2029);
+  const NEXT_LINE = String.fromCodePoint(0x85);
+  const BOUNDARIES = [
+    ["form feed", FORM_FEED], ["lone CR", LONE_CR], ["CRLF", "\r\n"],
+    ["U+2028", LINE_SEP], ["U+2029", PARA_SEP], ["vertical tab", "\v"],
+    ["U+001C", "\x1c"], ["U+0085", NEXT_LINE],
+  ];
+  BOUNDARIES.forEach(([label, boundary]) => {
+    const text = `앞줄${boundary}${jobLine}${boundary}뒷줄`;
+    const lineEnd = text.indexOf(jobLine) + jobLine.length;
+    const bounded = bootCursor(text);
+    placeCaret(bounded, text.indexOf("경력") + 2);
+    bounded.insert(slotA, "cursor");
+    assert.equal(bounded.posting.value, `${text.slice(0, lineEnd)}\n${textA}${text.slice(lineEnd)}`, label);
+    undoClick(bounded);
+    assert.equal(bounded.posting.value, text, label);
+    // A caret at the start of a line puts the example above that line.
+    const atStart = bootCursor(text);
+    const startOfJob = text.indexOf(jobLine);
+    placeCaret(atStart, startOfJob);
+    atStart.insert(slotA, "cursor");
+    assert.equal(atStart.posting.value, `${text.slice(0, startOfJob)}${textA}\n${text.slice(startOfJob)}`, label);
+  });
+  // A caret between the CR and the LF of one CRLF boundary is still on the line before it.
+  const crlfText = `앞줄\r\n${jobLine}\r\n뒷줄`;
+  const insideCrlf = bootCursor(crlfText);
+  placeCaret(insideCrlf, crlfText.indexOf("\r\n") + 1);
+  insideCrlf.insert(slotA, "cursor");
+  assert.equal(insideCrlf.posting.value, `앞줄\n${textA}\r\n${jobLine}\r\n뒷줄`);
+
+  // After a rewrite the next cursor insert goes below the rewritten line.
+  const afterRewrite = bootCursor(BASE_POSTING);
+  afterRewrite.draft(0, "- 직무 수행에 필요한 행정 경력 2년 이상");
+  afterRewrite.apply(0);
+  afterRewrite.insert(slotA, "cursor");
+  assert.equal(afterRewrite.posting.value,
+    BASE_POSTING.replace("- 용모 단정한 20대 지원자 우대",
+      `- 직무 수행에 필요한 행정 경력 2년 이상\n${textA}`));
+  followUp.cursorInsert = {
+    secondInsertBelowFirst: true,
+    midLineKeptWhole: true,
+    undoRestoresCaret: true,
+    boundariesChecked: BOUNDARIES.length,
+  };
+
+  // 7b. The easy headline. Real engine first, then a stubbed all-found result
+  // so the branch stays covered whatever the example sentences contain.
+  const headlineOf = (target) =>
+    /<p class="easy-headline">([\s\S]*?)<\/p>/u.exec(target.el("easy-result").innerHTML)[1];
+  const VERDICT_WORDS = /발견되지 않|모두 찾|완료|통과|점수|합격|문제 없|이상 없/u;
+  const blankNote = (blanks) =>
+    ` 채우지 않은 빈칸(${escapeHtml(placeholder)}) <strong>${blanks}곳</strong>이 남아 있습니다.`;
+  const bookEasy = boot({ templates: "file", search: "?entry=book" });
+  assert.equal(bookEasy.el("app-body").dataset.mode, "easy");
+  bookEasy.type("행정직 채용 안내");
+  bookEasy.check();
+  const plainResult = bookEasy.sandbox.FairpostEngine.check("행정직 채용 안내");
+  const plainMissing = plainResult.slots.filter((slot) => !slot.found).length;
+  assert.equal(headlineOf(bookEasy),
+    `법령 조항과 함께 표시할 표현이 확인되지 않았습니다. 공고문에서 찾지 못한 안내 <strong>${plainMissing}개</strong>를 확인해 보세요.`);
+  exampleSlots.forEach((id) => bookEasy.insert(id, "end"));
+  const allBlanks = count(bookEasy.posting.value, placeholder);
+  assert.ok(allBlanks > 0, "the examples leave blanks");
+  bookEasy.check();
+  const insertedHeadline = headlineOf(bookEasy);
+  assert.ok(insertedHeadline.endsWith(blankNote(allBlanks)), insertedHeadline);
+  assert.ok(!VERDICT_WORDS.test(insertedHeadline), insertedHeadline);
+  const insertedResult = bookEasy.sandbox.FairpostEngine.check(bookEasy.posting.value);
+  if (!insertedResult.findings.length && insertedResult.slots.every((slot) => slot.found)) {
+    // The scenario that read "점검하는 안내 항목도 공고문에서 모두 찾았습니다".
+    assert.equal(insertedHeadline,
+      `법령 조항과 함께 표시할 표현이 확인되지 않았습니다. 점검하는 안내 항목 ${insertedResult.slots.length}개의 관련 문구를 찾았습니다. 내용의 충분성과 실제 운영은 별도 확인이 필요합니다.${blankNote(allBlanks)}`);
+  }
+  // Findings and blanks together.
+  const withFindings = boot({ templates: "file", search: "?entry=book" });
+  withFindings.type(BASE_POSTING);
+  withFindings.insert(slotA, "end");
+  withFindings.check();
+  const findingsHeadline = headlineOf(withFindings);
+  assert.ok(findingsHeadline.startsWith("다시 살펴볼 표현 <strong>"), findingsHeadline);
+  assert.ok(findingsHeadline.endsWith(blankNote(count(withFindings.posting.value, placeholder))));
+  assert.ok(!VERDICT_WORDS.test(findingsHeadline));
+
+  // Every slot found, no finding: hedged wording, and the blank count only
+  // while blanks remain.
+  const stubAllFound = (target) => {
+    const realCheck = target.sandbox.FairpostEngine.check;
+    target.sandbox.FairpostEngine.check = (text) => {
+      const result = realCheck(text);
+      return {
+        ...result,
+        findings: [],
+        slots: result.slots.map((slot) => ({ ...slot, found: true, evidence: slot.evidence || "공고문 원문" })),
+        counts: { ...result.counts, findings: 0, not_found: 0 },
+      };
+    };
+  };
+  const hedged = (slotCount) =>
+    `법령 조항과 함께 표시할 표현이 확인되지 않았습니다. 점검하는 안내 항목 ${slotCount}개의 관련 문구를 찾았습니다. 내용의 충분성과 실제 운영은 별도 확인이 필요합니다.`;
+  const stubbedBlank = boot({ templates: "file", search: "?entry=book" });
+  stubAllFound(stubbedBlank);
+  stubbedBlank.type(`행정직 채용 안내\n문의: ${placeholder}팀 ${placeholder}`);
+  stubbedBlank.check();
+  const slotCount = plainResult.slots.length;
+  assert.equal(headlineOf(stubbedBlank), `${hedged(slotCount)}${blankNote(2)}`);
+  const stubbedClean = boot({ templates: "file", search: "?entry=book" });
+  stubAllFound(stubbedClean);
+  stubbedClean.type("행정직 채용 안내\n문의는 인사팀");
+  stubbedClean.check();
+  assert.equal(headlineOf(stubbedClean), hedged(slotCount));
+  const foundHint = /<h3 id="easy-missing-heading">[\s\S]*?<\/p>/u.exec(stubbedClean.el("easy-result").innerHTML)[0];
+  assert.ok(foundHint.includes("내용의 충분성과 실제 운영은 별도 확인이 필요합니다"), foundHint);
+  assert.ok(!VERDICT_WORDS.test(foundHint), foundHint);
+  followUp.headline = {
+    withBlanks: insertedHeadline,
+    allFoundWithBlanks: headlineOf(stubbedBlank),
+    allFoundClean: headlineOf(stubbedClean),
+  };
+
+  // 7c. Rewrite, blank-line numbers and the change summary use the engine's
+  // line boundaries. The draft is one line, apply changes only that line, the
+  // original boundary characters stay, and undo restores everything.
+  const REWRITE_LINES = [
+    "행정직 채용 안내",
+    "- 용모 단정한 20대 지원자 우대",
+    "- 관련 행정 업무 경험",
+    "문의는 인사팀",
+  ];
+  const rewriteTarget = REWRITE_LINES[1];
+  const rewriteDraft = "- 직무 수행에 필요한 행정 경력 3년 이상";
+  BOUNDARIES.forEach(([label, boundary]) => {
+    const joined = REWRITE_LINES.join(boundary);
+    const rewriting = boot({ templates: "file" });
+    rewriting.type(joined);
+    rewriting.check();
+    const markup = rewriting.el("easy-result").innerHTML;
+    assert.ok(markup.includes(`>${escapeHtml(rewriteTarget)}</textarea>`),
+      `${label}: the draft is exactly the finding's line`);
+    rewriting.draft(0, rewriteDraft);
+    rewriting.apply(0);
+    const expected = REWRITE_LINES.map((line, index) => (index === 1 ? rewriteDraft : line)).join(boundary);
+    assert.equal(rewriting.posting.value, expected, `${label}: only the finding's line changes`);
+    const lineStart = REWRITE_LINES[0].length + boundary.length;
+    assert.deepEqual(caretOf(rewriting), [lineStart, lineStart + rewriteDraft.length], label);
+    assert.equal(rewriting.toast(), "반영했습니다. '검토 메모 만들기'를 다시 눌러 확인하세요.");
+    undoClick(rewriting);
+    assert.equal(rewriting.posting.value, joined, `${label}: undo restores the posting`);
+    assert.equal(rewriting.posting.focused, true);
+  });
+
+  // Blank-line numbers count lines the way the engine does.
+  BOUNDARIES.forEach(([label, boundary]) => {
+    const text = ["행정직 채용 안내", `문의: ${placeholder}`, "본문", `기타: ${placeholder}`, "끝"].join(boundary);
+    const numbered = boot({ templates: "file" });
+    numbered.type(text);
+    numbered.check();
+    assert.ok(numbered.el("placeholder-notice").textContent.includes("(2, 4번째 줄)"),
+      `${label}: ${numbered.el("placeholder-notice").textContent}`);
+  });
+
+  // The change summary lists one changed line, not the whole posting.
+  const SUMMARY_LINES = ["행정직 채용 안내", "접수 기간은 5월까지", "면접은 개별 통보", "문의는 인사팀"];
+  const summaryChanged = "면접 일정은 이메일로 안내";
+  BOUNDARIES.forEach(([label, boundary]) => {
+    const summarized = boot({ templates: "file" });
+    summarized.type(SUMMARY_LINES.join(boundary));
+    summarized.check();
+    summarized.type(SUMMARY_LINES.map((line, index) => (index === 2 ? summaryChanged : line)).join(boundary));
+    summarized.check();
+    const list = summarized.el("improvement-content").innerHTML;
+    assert.ok(list.includes(escapeHtml(summaryChanged)), label);
+    assert.ok(list.includes(escapeHtml(SUMMARY_LINES[2])), label);
+    assert.ok(!list.includes(escapeHtml(SUMMARY_LINES[0])), `${label}: unchanged lines are not listed`);
+    assert.ok(!list.includes(escapeHtml(SUMMARY_LINES[3])), `${label}: unchanged lines are not listed`);
+  });
+  followUp.lineBoundaries = { checked: BOUNDARIES.map(([label]) => label) };
+
   summary.a11y = {
     reviewAnnouncement: firstAnnouncement,
     labelledControlsChecked: labelledControls,
     ...a11y,
   };
+
+  summary.followUp = followUp;
 
   console.log(JSON.stringify(summary));
 })().catch((error) => {
