@@ -68,7 +68,7 @@ PRD 4.5의 완전한 기기 내 처리로 간주하지 않고 화면ㆍ운영 �
 | 질문 관련성 감사 | 충족 | train-only 420건 익명 집계, 공통 체크리스트와 누락 슬롯 중복 분리, 명백한 문맥 오발동 104개 감소. `docs/question-relevance-audit.md` |
 | 민간 반복 공정성 감사 자동화 | 충족 | `tools/run_private_fairness_cycle.py`의 train-only snapshot→익명 audit→기준선 drift→로컬 review queue 단일 실행, 경로 충돌ㆍrollbackㆍ익명 출력ㆍ버전 호환성 검증 |
 | 민간 사람 검토 성능 게이트 | 미충족 | 도구는 구현됐으나 사람 라벨이 없다. queue, 오프라인 검토 UI와 summary 도구, 규칙별 최소 검토 수ㆍ정밀도 임계값ㆍ누락 규칙 경보, 원본 snapshot 해시ㆍ외부 기대 규칙 결합을 구현. 현재 232건 미라벨로 summary `alert`, precision `null`이며 G1ㆍG2 증거가 아님 |
-| 봉인 홀드아웃 평가 | 미충족 | 오염 차단, 정식 180건 로컬 라벨링 화면과 완전 라벨 강제는 구현. `reports/human_labeling_handoff.json` 생성, 사람 정답 데이터 없음 |
+| 봉인 홀드아웃 평가 | 미충족 | 오염 차단, 정식 180건 로컬 라벨링 화면과 완전 라벨 강제는 구현. `reports/human_labeling_handoff.json`(2026-10-10부터 historical, 재생성 필요) 생성, 사람 정답 데이터 없음 |
 
 ## 수용 기준
 

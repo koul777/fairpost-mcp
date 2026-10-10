@@ -104,7 +104,7 @@
 5,668개로 9개 증가했고, 복수 직렬ㆍ공인어학 질문까지 포함한 당시 전체는
 5,673개였다. 이후 민간 공정성ㆍ면접 운영ㆍAI 감사 질문과 관련질문 연결이
 추가된 2026-08-30 현재 전체는 6,806개이며 최신 집계는
-`reports/question_relevance_audit.json`에서 확인한다.
+`reports/question_relevance_audit.json`(2026-10-10부터 historical, 재생성 필요)에서 확인한다.
 
 ## 반대 근거와 한계
 

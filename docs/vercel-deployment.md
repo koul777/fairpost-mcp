@@ -206,7 +206,7 @@ python tools/verify_vercel_deployment.py --allow-write-check
 Vercel의 민감 환경변수는 pull 시 `[SENSITIVE]` 자리표시자만 반환하므로 이것을 토큰으로
 사용하거나 기존 운영 토큰을 임의 교체하지 않는다. 올바른 토큰으로 위 검증기를 다시
 실행하기 전까지 `reports/vercel_deployment_audit.json`은 과거 증거로 유지한다.
-이번 공개 상태ㆍ웹 검증과 인증 차단은 `reports/production_rollout.json`에 분리해 기록한다.
+이번 공개 상태ㆍ웹 검증과 인증 차단은 `reports/production_rollout.json`(2026-10-10부터 historical, 재생성 필요)에 분리해 기록한다.
 
 ## 개인정보 처리 경계
 
