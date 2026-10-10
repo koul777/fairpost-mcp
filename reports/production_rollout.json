@@ -1,7 +1,7 @@
 {
   "schema_version": "fairpost-production-rollout-v1",
   "checked_at": "2026-10-04T06:06:45.997079+00:00",
-  "evidence_status": "current",
+  "evidence_status": "historical",
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-da8f450a87f4",
   "matching_version": "match-8cc4dbbcae8c00fa",
   "runtime_source_fingerprint": "runtime-de4fda98b279d6ecc6c26532fcb07240cdc441d4013c596935764d9034fe6246",
@@ -87,5 +87,7 @@
     "web_parity_mismatches": 0,
     "statute_snapshot_hashes_verified": 6,
     "official_statute_comparison_performed": false
-  }
+  },
+  "historical_reason": "2026-10-04 운영 배포(2b22889)와 그 시점 화면의 기록. 이후 커밋은 아직 운영에 배포ㆍ검증되지 않았으므로 재배포 후 다시 기록하기 전까지 현재 증거로 쓰지 않음",
+  "historical_marked_at": "2026-10-10T12:57:33+09:00"
 }

@@ -12,5 +12,8 @@
   "passed": true,
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-da8f450a87f4",
   "schema_version": "fairpost-web-engine-parity-v1",
-  "web_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-da8f450a87f4"
+  "web_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-da8f450a87f4",
+  "evidence_status": "historical",
+  "historical_reason": "규칙셋 da8f450a87f4 기준으로 비공개 학습 코퍼스에서 만든 집계. 6ff67c6(2026-10-09)의 질문ㆍ슬롯 변경으로 규칙셋이 0fa75d41155c가 되어, 같은 코퍼스로 python tools/refresh_evidence.py를 다시 실행하기 전까지 현재 증거로 쓰지 않음",
+  "historical_marked_at": "2026-10-10T12:57:33+09:00"
 }
