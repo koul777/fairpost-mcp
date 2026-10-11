@@ -496,3 +496,195 @@ def test_assisted_review_http_endpoint_requires_explicit_toggle(
 
     anyio.run(exercise)
     assert calls == [("여성만 지원 가능", "gemini")]
+
+
+# --- malformed profiles, AI time budget and privacy-safe logging -----------
+class _RetrievedArticleVerifier:
+    config = SimpleNamespace(transport="http")
+
+    async def verify(self, findings, _statutes):
+        finding = findings[0]
+        return [
+            LawVerificationResult(
+                finding_ids=[finding.id],
+                law=finding.basis.law or "",
+                article=finding.basis.article or "",
+                statute_id=finding.basis.statute_id or "",
+                snapshot_date=finding.basis.snapshot_date or "",
+                snapshot_effective_date=finding.basis.effective_date or "",
+                official_source_url=None,
+                official_id=None,
+                request=LawMcpRequest(
+                    search_tool="search_law",
+                    search_arguments={"query": finding.basis.law or ""},
+                    text_tool="get_law_text",
+                    text_arguments_after_search={"mst": "1", "jo": "제7조"},
+                ),
+                status="current_article_retrieved",
+                checked_at="2026-10-11T00:00:00+00:00",
+                current_law_id="1",
+                current_mst="1",
+                current_text="제7조 조문",
+                response_truncated=False,
+                note="현행 조문을 조회했습니다.",
+            )
+        ]
+
+
+def _reviewer(handler, *, timeout_seconds: int = 30) -> AiReviewer:
+    return AiReviewer(
+        AiApiConfig(
+            url="https://api.openai.com/v1/responses",
+            api_key="provider-secret-key",
+            model="review-model",
+            provider="openai",
+            timeout_seconds=timeout_seconds,
+        ),
+        transport=httpx.MockTransport(handler),
+    )
+
+
+@pytest.mark.parametrize(
+    ("profile", "message"),
+    [
+        ({"sector": []}, "sector은 문자열"),
+        ({"size": {"x": 1}}, "size은 문자열"),
+        ({"public_entity_type": 3}, "public_entity_type은 문자열"),
+        (["public"], "객체여야"),
+        ({"sector": "government"}, "알 수 없는 기관 유형"),
+    ],
+)
+def test_malformed_organization_profile_is_a_korean_value_error(profile, message):
+    from mcp_server.assisted_review import _organization_profile
+
+    with pytest.raises(ValueError, match=message):
+        _organization_profile(profile)
+
+
+def test_malformed_organization_profile_returns_400_not_500(monkeypatch) -> None:
+    from mcp_server import remote
+
+    monkeypatch.setattr(
+        remote,
+        "assisted_review_capability",
+        lambda: {"ready": True, "ai_configured": True},
+    )
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_TOKEN", "fake-assist-token")
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_REQUESTS_PER_MINUTE", "1000")
+
+    async def exercise() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=remote.app), base_url="http://test"
+        ) as client:
+            return await client.post(
+                remote.ASSISTED_REVIEW_PATH,
+                headers={"Authorization": "Bearer fake-assist-token"},
+                json={
+                    "assist_enabled": True,
+                    "text": "여성만 지원 가능",
+                    "organization_profile": {"sector": []},
+                },
+            )
+
+    response = anyio.run(exercise)
+
+    assert response.status_code == 400
+    assert "sector은 문자열" in response.json()["reason"]
+
+
+def test_ai_timeout_is_clamped_to_the_remaining_budget() -> None:
+    reviewer = _reviewer(lambda _request: httpx.Response(200), timeout_seconds=300)
+
+    assert reviewer.effective_timeout(None) == 300
+    assert reviewer.effective_timeout(40.0) == 40.0
+    assert reviewer.effective_timeout(0.01) == 1.0
+
+
+def test_vercel_uses_a_total_budget_and_local_runs_do_not(monkeypatch) -> None:
+    from mcp_server.assisted_review import (
+        VERCEL_ASSISTED_REVIEW_BUDGET_SECONDS,
+        assisted_review_budget_seconds,
+    )
+
+    monkeypatch.setenv("VERCEL", "1")
+    assert assisted_review_budget_seconds() == VERCEL_ASSISTED_REVIEW_BUDGET_SECONDS < 60
+    monkeypatch.delenv("VERCEL")
+    assert assisted_review_budget_seconds() is None
+
+
+def test_slow_ai_provider_stops_at_the_budget() -> None:
+    import time
+
+    async def slow(_request: httpx.Request) -> httpx.Response:
+        await anyio.sleep(30)
+        return httpx.Response(200, json={})
+
+    async def exercise():
+        return await prepare_assisted_review(
+            FairpostEngine(),
+            "여성만 지원 가능",
+            verifier=_RetrievedArticleVerifier(),  # type: ignore[arg-type]
+            reviewer=_reviewer(slow, timeout_seconds=300),
+            budget_seconds=1.5,
+        )
+
+    started = time.monotonic()
+    result = anyio.run(exercise)
+
+    assert time.monotonic() - started < 10
+    assert result.status == "ai_unavailable"
+    assert result.ai_called is True
+    assert "제한 시간" in result.notice
+
+
+def test_exhausted_budget_skips_the_ai_call() -> None:
+    def fail_if_called(_request: httpx.Request) -> httpx.Response:
+        raise AssertionError("AI API must not be called without budget")
+
+    async def exercise():
+        return await prepare_assisted_review(
+            FairpostEngine(),
+            "여성만 지원 가능",
+            verifier=_RetrievedArticleVerifier(),  # type: ignore[arg-type]
+            reviewer=_reviewer(fail_if_called),
+            budget_seconds=0.0,
+        )
+
+    result = anyio.run(exercise)
+
+    assert result.status == "ai_unavailable"
+    assert result.ai_called is False
+    assert "시간 예산" in result.notice
+
+
+def test_ai_429_is_logged_with_status_and_without_private_values(caplog) -> None:
+    import logging
+
+    caplog.set_level(logging.INFO, logger="fairpost")
+    marker = "private-posting-marker"
+
+    async def rate_limited(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, json={"error": "rate limited"})
+
+    async def exercise():
+        return await prepare_assisted_review(
+            FairpostEngine(),
+            f"여성만 지원 가능 {marker}",
+            verifier=_RetrievedArticleVerifier(),  # type: ignore[arg-type]
+            reviewer=_reviewer(rate_limited),
+        )
+
+    result = anyio.run(exercise)
+
+    assert result.status == "ai_unavailable"
+    assert "HTTP 429" in result.notice
+    failures = [r for r in caplog.records if "ai_review_failed" in r.getMessage()]
+    assert len(failures) == 1
+    line = failures[0].getMessage()
+    assert "provider=openai" in line
+    assert "exception=HTTPStatusError" in line
+    assert "upstream_status=429" in line
+    assert "elapsed_ms=" in line
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    for private in ("provider-secret-key", marker, "여성만", "api.openai.com"):
+        assert private not in logged

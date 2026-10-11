@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from contextlib import asynccontextmanager
+import functools
 import hmac
+import ipaddress
 import json
+import logging
 import os
 from threading import Lock
 import time
@@ -50,6 +53,61 @@ ASSISTED_REVIEW_ORIGIN_OR_TOKEN_REQUIRED = (
     "보강 실행은 허용된 FairPost 웹 화면(동일 출처) 또는 사내 클라이언트 "
     "인증으로만 요청할 수 있습니다."
 )
+PUBLIC_RATE_LIMIT_REASON = "요청이 너무 많습니다. 1분 뒤 다시 시도하세요."
+ASSISTED_RATE_LIMIT_REASON = (
+    "AI·현행 법령 보강 요청이 너무 많습니다. 1분 뒤 다시 시도하세요. "
+    "로컬 검토 결과는 그대로 사용할 수 있습니다."
+)
+UNAUTHORIZED_REASON = (
+    "인증되지 않은 요청입니다. Authorization: Bearer 토큰을 확인하세요."
+)
+REMOTE_MCP_NOT_CONFIGURED_REASON = (
+    "원격 MCP 인증이 설정되지 않아 요청을 받지 않습니다."
+)
+PUBLIC_CLAUDE_MCP_DISABLED_REASON = "공개 Claude 호환 MCP가 활성화되지 않았습니다."
+AMBIGUOUS_LENGTH_REASON = "요청 길이 헤더가 모호해 처리할 수 없습니다."
+INVALID_CONTENT_LENGTH_REASON = "Content-Length 헤더가 올바르지 않습니다."
+SERVER_CONFIGURATION_REASON = "서버 설정 오류로 요청을 처리할 수 없습니다."
+
+# JSON-RPC server error codes for middleware rejections on MCP paths. The
+# HTTP status carries the same meaning for clients that ignore the body.
+JSONRPC_UNAUTHORIZED = -32001
+JSONRPC_NOT_CONFIGURED = -32002
+JSONRPC_RATE_LIMITED = -32003
+JSONRPC_REQUEST_TOO_LARGE = -32004
+JSONRPC_INVALID_REQUEST = -32600
+JSONRPC_INTERNAL_ERROR = -32603
+
+# Vercel overwrites X-Forwarded-For with the connecting client and does not
+# forward client-supplied values ("to prevent IP spoofing"); it sends the same
+# address as x-vercel-forwarded-for and x-real-ip
+# (https://vercel.com/docs/headers/request-headers, checked 2026-10-11).
+# Those headers are trusted only when the VERCEL runtime variable is set.
+# Anywhere else the ASGI peer address is used, because an unproxied client
+# could put any value in them.
+VERCEL_CLIENT_IP_HEADERS = (
+    b"x-vercel-forwarded-for",
+    b"x-real-ip",
+    b"x-forwarded-for",
+)
+
+
+def _body_too_large_reason(max_bytes: int) -> str:
+    return f"요청 본문이 너무 큽니다. 최대 {max_bytes:,}바이트까지 보낼 수 있습니다."
+
+
+def _configure_vercel_logging() -> None:
+    """Send FairPost's privacy-safe event lines to the Vercel runtime log."""
+
+    fairpost_logger = logging.getLogger("fairpost")
+    if os.environ.get("VERCEL") and not fairpost_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s %(name)s %(message)s"))
+        fairpost_logger.addHandler(handler)
+        fairpost_logger.setLevel(logging.INFO)
+
+
+_configure_vercel_logging()
 
 
 def _public_requests_per_minute() -> int:
@@ -65,6 +123,13 @@ def _public_requests_per_minute() -> int:
     if not 1 <= value <= 10_000:
         raise ValueError("invalid public request rate limit")
     return value
+
+
+def _public_requests_per_minute_or_default() -> int:
+    try:
+        return _public_requests_per_minute()
+    except ValueError:
+        return DEFAULT_PUBLIC_REQUESTS_PER_MINUTE
 
 
 def _assisted_review_requests_per_minute() -> int:
@@ -203,6 +268,28 @@ def _is_endpoint_path(path: str, endpoint: str) -> bool:
     return path == endpoint or path.startswith(f"{endpoint}/")
 
 
+def _client_identity(scope: Scope) -> str:
+    """Client address used only as an ephemeral rate-limit key, never stored."""
+
+    if os.environ.get("VERCEL"):
+        headers = scope.get("headers", [])
+        for name in VERCEL_CLIENT_IP_HEADERS:
+            value = _single_header(headers, name)
+            if not value:
+                continue
+            try:
+                candidate = value.decode("ascii").split(",", 1)[0].strip()
+                return str(ipaddress.ip_address(candidate))
+            except (UnicodeDecodeError, ValueError):
+                continue
+    client = scope.get("client")
+    return (
+        str(client[0])
+        if isinstance(client, (list, tuple)) and client
+        else "unknown"
+    )
+
+
 class _AnonymousRateLimiter:
     """Bound anonymous requests without retaining client addresses or content."""
 
@@ -213,15 +300,16 @@ class _AnonymousRateLimiter:
         self._window: int | None = None
 
     def allow(self, scope: Scope, path: str, *, limit: int) -> bool:
-        client = scope.get("client")
-        client_host = (
-            str(client[0])
-            if isinstance(client, (list, tuple)) and client
-            else "unknown"
-        )
+        """Count one request against the (client, bucket) fixed window.
+
+        ``path`` names the bucket. Callers use separate buckets for
+        authorized and unauthorized attempts so junk traffic can never drain
+        an authorized caller's budget.
+        """
+
         key = hmac.digest(
             self._key,
-            f"{client_host}\0{path}".encode("utf-8", errors="replace"),
+            f"{_client_identity(scope)}\0{path}".encode("utf-8", errors="replace"),
             "sha256",
         )
         window = int(time.monotonic() // 60)
@@ -261,14 +349,40 @@ def _public_claude_remote_mode() -> bool:
     ).casefold() in {"1", "true", "yes"}
 
 
+@functools.lru_cache(maxsize=1)
+def _runtime_identity() -> tuple[str, dict[str, str]]:
+    """Hash the deployed sources once per process.
+
+    A Vercel deployment is immutable, so recomputing the fingerprint and
+    manifest on every health request only spent about 200 ms of CPU.
+    """
+
+    fingerprint = runtime_source_fingerprint(
+        ruleset_version=engine.ruleset.version,
+        matching_version=engine.ruleset.matching_version,
+    )
+    return fingerprint, runtime_source_manifest()
+
+
+def _tool_names(server: Any) -> list[str]:
+    return sorted(tool.name for tool in server._tool_manager.list_tools())
+
+
+@functools.lru_cache(maxsize=1)
+def _remote_tools() -> dict[str, list[str]]:
+    """Tool names each network MCP endpoint exposes (names only, no secrets)."""
+
+    return {
+        MCP_PATH: _tool_names(public_mcp),
+        CLAUDE_MCP_PATH: _tool_names(claude_mcp),
+    }
+
+
 async def health(_request: Any) -> JSONResponse:
     token_required = bool(os.environ.get("FAIRPOST_MCP_TOKEN"))
     public = _public_remote_mode()
     claude_public = _public_claude_remote_mode()
-    source_fingerprint = runtime_source_fingerprint(
-        ruleset_version=engine.ruleset.version,
-        matching_version=engine.ruleset.matching_version,
-    )
+    source_fingerprint, source_manifest = _runtime_identity()
     try:
         public_requests_per_minute = _public_requests_per_minute()
     except ValueError:
@@ -291,6 +405,9 @@ async def health(_request: Any) -> JSONResponse:
             ),
             "answer_store": "disabled_on_remote_endpoint",
             "remote_tool_profile": "read_only",
+            "remote_tools": {
+                endpoint: list(names) for endpoint, names in _remote_tools().items()
+            },
             "anonymous_access_controls": {
                 "enabled": public or claude_public,
                 "strategy": "per_instance_client_fixed_window",
@@ -304,7 +421,7 @@ async def health(_request: Any) -> JSONResponse:
             "ruleset_version": engine.ruleset.version,
             "matching_version": engine.ruleset.matching_version,
             "runtime_source_fingerprint": source_fingerprint,
-            "runtime_source_manifest": runtime_source_manifest(),
+            "runtime_source_manifest": dict(source_manifest),
             "processing_notice": (
                 "공고문은 이 Vercel 배포의 서버 함수에서 처리되며 "
                 "FairPost는 공고문 원문을 영속 저장하지 않습니다."
@@ -363,44 +480,38 @@ async def _run_assisted_review(
         )
     content_type = request.headers.get("content-type", "").split(";", 1)[0]
     if content_type.casefold() != "application/json":
-        return JSONResponse(
-            {"error": "Content-Type must be application/json"},
-            status_code=415,
-            headers={"Cache-Control": "no-store"},
+        return _assisted_error(
+            415,
+            "Content-Type must be application/json",
+            "요청 형식은 application/json이어야 합니다.",
         )
     try:
         payload = await request.json()
     except (UnicodeDecodeError, json.JSONDecodeError):
-        return JSONResponse(
-            {"error": "Invalid JSON body"},
-            status_code=400,
-            headers={"Cache-Control": "no-store"},
+        return _assisted_error(
+            400, "Invalid JSON body", "요청 본문이 올바른 JSON이 아닙니다."
         )
     if not isinstance(payload, dict) or payload.get("assist_enabled") is not True:
-        return JSONResponse(
-            {"error": "Assisted review must be explicitly enabled"},
-            status_code=400,
-            headers={"Cache-Control": "no-store"},
+        return _assisted_error(
+            400,
+            "Assisted review must be explicitly enabled",
+            "보강 실행은 사용자가 명시적으로 켠 경우에만 처리합니다.",
         )
     text = payload.get("text")
     if not isinstance(text, str) or not text.strip():
-        return JSONResponse(
-            {"error": "Posting text is required"},
-            status_code=400,
-            headers={"Cache-Control": "no-store"},
+        return _assisted_error(
+            400, "Posting text is required", "검토할 공고문을 입력하세요."
         )
     if len(text) > MAX_ASSISTED_POSTING_CHARS:
-        return JSONResponse(
-            {"error": "Posting text is too large"},
-            status_code=413,
-            headers={"Cache-Control": "no-store"},
+        return _assisted_error(
+            413,
+            "Posting text is too large",
+            f"공고문은 최대 {MAX_ASSISTED_POSTING_CHARS:,}자까지 보강 검토할 수 있습니다.",
         )
     ai_provider = payload.get("ai_provider")
     if ai_provider is not None and not isinstance(ai_provider, str):
-        return JSONResponse(
-            {"error": "AI provider must be a string"},
-            status_code=400,
-            headers={"Cache-Control": "no-store"},
+        return _assisted_error(
+            400, "AI provider must be a string", "AI 제공자 값이 올바르지 않습니다."
         )
     try:
         result = await prepare_assisted_review(
@@ -410,12 +521,19 @@ async def _run_assisted_review(
             ai_provider=ai_provider or None,
         )
     except ValueError as exc:
-        return JSONResponse(
-            {"error": str(exc)},
-            status_code=400,
-            headers={"Cache-Control": "no-store"},
-        )
+        # Validation messages are fixed Korean strings without request content.
+        return _assisted_error(400, str(exc), str(exc))
     return JSONResponse(result.to_dict(), headers={"Cache-Control": "no-store"})
+
+
+def _assisted_error(status: int, error: str, reason: str) -> JSONResponse:
+    """``error`` stays a stable code; the web screen shows the Korean ``reason``."""
+
+    return JSONResponse(
+        {"error": error, "reason": reason},
+        status_code=status,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 class RemoteSecurityMiddleware:
@@ -431,27 +549,46 @@ class RemoteSecurityMiddleware:
         path = str(scope.get("path", ""))
         mcp_request = _is_endpoint_path(path, MCP_PATH)
         claude_mcp_request = _is_endpoint_path(path, CLAUDE_MCP_PATH)
+        any_mcp_request = mcp_request or claude_mcp_request
         token = os.environ.get("FAIRPOST_MCP_TOKEN", "")
         public_remote = _public_remote_mode()
         public_claude_remote = _public_claude_remote_mode()
+
+        async def reject(
+            status: int,
+            *,
+            code: int,
+            error: str,
+            reason: str,
+            extra_headers: list[tuple[bytes, bytes]] | None = None,
+        ) -> None:
+            # MCP clients parse JSON-RPC, so MCP paths get an error envelope;
+            # other paths keep {"error", "reason"}. HTTP status is unchanged.
+            payload: dict[str, Any] = (
+                {
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": code,
+                        "message": reason,
+                        "data": {"error": error},
+                    },
+                    "id": None,
+                }
+                if any_mcp_request
+                else {"error": error, "reason": reason}
+            )
+            await self._json(send, status, payload, extra_headers=extra_headers)
+
         if (
             mcp_request
             and not token
             and not public_remote
         ):
-            await self._json(
-                send,
+            await reject(
                 503,
-                {
-                    "jsonrpc": "2.0",
-                    "error": {
-                        "code": -32002,
-                        "message": (
-                            "Remote MCP authentication is not configured"
-                        ),
-                    },
-                    "id": None,
-                },
+                code=JSONRPC_NOT_CONFIGURED,
+                error="Remote MCP authentication is not configured",
+                reason=REMOTE_MCP_NOT_CONFIGURED_REASON,
             )
             return
         if (
@@ -459,22 +596,14 @@ class RemoteSecurityMiddleware:
             and not token
             and not public_claude_remote
         ):
-            await self._json(
-                send,
+            await reject(
                 503,
-                {
-                    "jsonrpc": "2.0",
-                    "error": {
-                        "code": -32002,
-                        "message": (
-                            "Public Claude MCP is not enabled"
-                        ),
-                    },
-                    "id": None,
-                },
+                code=JSONRPC_NOT_CONFIGURED,
+                error="Public Claude MCP is not enabled",
+                reason=PUBLIC_CLAUDE_MCP_DISABLED_REASON,
             )
             return
-        if token and (mcp_request or claude_mcp_request):
+        if token and any_mcp_request:
             authorization_values = [
                 value
                 for key, value in scope.get("headers", [])
@@ -487,17 +616,27 @@ class RemoteSecurityMiddleware:
             )
             expected = f"Bearer {token}".encode("utf-8")
             if not hmac.compare_digest(supplied, expected):
-                await self._json(
-                    send,
+                # Failed attempts are charged to their own pre-auth bucket;
+                # authorized callers are never rate limited here.
+                endpoint = CLAUDE_MCP_PATH if claude_mcp_request else MCP_PATH
+                if not self._anonymous_rate_limiter.allow(
+                    scope,
+                    f"{endpoint}#unauthorized",
+                    limit=_public_requests_per_minute_or_default(),
+                ):
+                    await reject(
+                        429,
+                        code=JSONRPC_RATE_LIMITED,
+                        error="Public request rate limit exceeded",
+                        reason=PUBLIC_RATE_LIMIT_REASON,
+                        extra_headers=[(b"retry-after", b"60")],
+                    )
+                    return
+                await reject(
                     401,
-                    {
-                        "jsonrpc": "2.0",
-                        "error": {
-                            "code": -32001,
-                            "message": "Unauthorized",
-                        },
-                        "id": None,
-                    },
+                    code=JSONRPC_UNAUTHORIZED,
+                    error="Unauthorized",
+                    reason=UNAUTHORIZED_REASON,
                     extra_headers=[(b"www-authenticate", b"Bearer")],
                 )
                 return
@@ -510,10 +649,11 @@ class RemoteSecurityMiddleware:
             try:
                 requests_per_minute = _public_requests_per_minute()
             except ValueError:
-                await self._json(
-                    send,
+                await reject(
                     500,
-                    {"error": "Invalid public request rate limit"},
+                    code=JSONRPC_INTERNAL_ERROR,
+                    error="Invalid public request rate limit",
+                    reason=SERVER_CONFIGURATION_REASON,
                 )
                 return
             if not self._anonymous_rate_limiter.allow(
@@ -521,10 +661,11 @@ class RemoteSecurityMiddleware:
                 CLAUDE_MCP_PATH if claude_mcp_request else MCP_PATH,
                 limit=requests_per_minute,
             ):
-                await self._json(
-                    send,
+                await reject(
                     429,
-                    {"error": "Public request rate limit exceeded"},
+                    code=JSONRPC_RATE_LIMITED,
+                    error="Public request rate limit exceeded",
+                    reason=PUBLIC_RATE_LIMIT_REASON,
                     extra_headers=[(b"retry-after", b"60")],
                 )
                 return
@@ -533,19 +674,20 @@ class RemoteSecurityMiddleware:
             try:
                 assisted_limit = _assisted_review_requests_per_minute()
             except ValueError:
-                await self._json(
-                    send, 500, {"error": "Invalid assisted review rate limit"}
+                await reject(
+                    500,
+                    code=JSONRPC_INTERNAL_ERROR,
+                    error="Invalid assisted review rate limit",
+                    reason=SERVER_CONFIGURATION_REASON,
                 )
                 return
-            if not self._anonymous_rate_limiter.allow(
-                scope,
-                ASSISTED_REVIEW_PATH,
-                limit=assisted_limit,
-            ):
-                await self._json(
-                    send,
+            bucket, limit = self._assisted_review_bucket(scope, assisted_limit)
+            if not self._anonymous_rate_limiter.allow(scope, bucket, limit=limit):
+                await reject(
                     429,
-                    {"error": "Assisted review rate limit exceeded"},
+                    code=JSONRPC_RATE_LIMITED,
+                    error="Assisted review rate limit exceeded",
+                    reason=ASSISTED_RATE_LIMIT_REASON,
                     extra_headers=[(b"retry-after", b"60")],
                 )
                 return
@@ -557,7 +699,12 @@ class RemoteSecurityMiddleware:
             if max_bytes < 1:
                 raise ValueError
         except ValueError:
-            await self._json(send, 500, {"error": "Invalid request size limit"})
+            await reject(
+                500,
+                code=JSONRPC_INTERNAL_ERROR,
+                error="Invalid request size limit",
+                reason=SERVER_CONFIGURATION_REASON,
+            )
             return
 
         content_lengths = [
@@ -572,23 +719,44 @@ class RemoteSecurityMiddleware:
         if len(content_lengths) > 1 or (
             content_lengths and transfer_encoding_present
         ):
-            await self._json(send, 400, {"error": "Ambiguous request length"})
+            await reject(
+                400,
+                code=JSONRPC_INVALID_REQUEST,
+                error="Ambiguous request length",
+                reason=AMBIGUOUS_LENGTH_REASON,
+            )
             return
         if content_lengths:
             try:
                 declared_length = content_lengths[0].decode("ascii")
                 if not declared_length.isdecimal():
                     raise ValueError
-                if int(declared_length) > max_bytes:
-                    await self._json(send, 413, {"error": "Request body too large"})
-                    return
+                too_large = int(declared_length) > max_bytes
             except (UnicodeDecodeError, ValueError):
-                await self._json(send, 400, {"error": "Invalid Content-Length"})
+                await reject(
+                    400,
+                    code=JSONRPC_INVALID_REQUEST,
+                    error="Invalid Content-Length",
+                    reason=INVALID_CONTENT_LENGTH_REASON,
+                )
+                return
+            if too_large:
+                await reject(
+                    413,
+                    code=JSONRPC_REQUEST_TOO_LARGE,
+                    error="Request body too large",
+                    reason=_body_too_large_reason(max_bytes),
+                )
                 return
 
         bounded_receive = await self._buffer_request(receive, max_bytes=max_bytes)
         if bounded_receive is None:
-            await self._json(send, 413, {"error": "Request body too large"})
+            await reject(
+                413,
+                code=JSONRPC_REQUEST_TOO_LARGE,
+                error="Request body too large",
+                reason=_body_too_large_reason(max_bytes),
+            )
             return
 
         async def secure_send(message: Message) -> None:
@@ -616,6 +784,25 @@ class RemoteSecurityMiddleware:
             await send(message)
 
         await self.app(scope, bounded_receive, secure_send)
+
+    @staticmethod
+    def _assisted_review_bucket(scope: Scope, assisted_limit: int) -> tuple[str, int]:
+        """Separate budgets so unauthorized traffic cannot starve real callers.
+
+        Only POST spends AI provider keys. A POST with the internal bearer
+        token is charged to its own bucket; every other POST (anonymous or
+        browser-origin, whose headers are forgeable) goes to the per-client
+        pre-auth bucket. The capability GET is cheap and uses the general
+        public limit so page loads never consume the POST budget.
+        """
+
+        if str(scope.get("method", "GET")).upper() != "POST":
+            return f"{ASSISTED_REVIEW_PATH}#capability", max(
+                assisted_limit, _public_requests_per_minute_or_default()
+            )
+        if _assisted_review_bearer_matches(scope.get("headers", [])):
+            return f"{ASSISTED_REVIEW_PATH}#token", assisted_limit
+        return ASSISTED_REVIEW_PATH, assisted_limit
 
     @staticmethod
     async def _buffer_request(
