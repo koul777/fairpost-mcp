@@ -1889,9 +1889,16 @@ def test_question_rules_may_not_declare_related_questions(tmp_path: Path) -> Non
 
 
 def test_finding_link_respects_the_questions_own_protective_exclusion() -> None:
-    result = FairpostEngine().check("블라인드 안내: 임신 여부는 기재하지 마세요.")
-    assert any(finding.id == "PREG-001" for finding in result.findings)
-    assert "Q-DIST-017" not in {item.id for item in result.questions}
+    # LOOK-001 links Q-DIST-007, but Q-DIST-007's own wording ("신체 조건") is
+    # protected in its clause, so the link does not pull the question back.
+    result = FairpostEngine().check("용모 단정한 분 우대. 신체 조건은 기재하지 마세요.")
+    assert any(finding.id == "LOOK-001" for finding in result.findings)
+    assert "Q-DIST-007" not in {item.id for item in result.questions}
+    # Since 2026-10-11 a protected pregnancy item is no PREG-001 finding at all.
+    protected = FairpostEngine().check("블라인드 안내: 임신 여부는 기재하지 마세요.")
+    assert not {"PREG-001", "Q-DIST-017"} & (
+        {finding.id for finding in protected.findings} | {item.id for item in protected.questions}
+    )
 
 
 @pytest.mark.parametrize(

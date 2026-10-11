@@ -10,7 +10,7 @@ from .morph import ZERO_WIDTH, find_first, find_matches
 from .schema import SlotStatus
 
 
-SECTION_VERSION = "sections-v6-clause-scoped-protection-duty-block"
+SECTION_VERSION = "sections-v7-sensitive-items-review-stage-wording"
 
 _SENTENCE_BOUNDARIES = ".!?。！？"
 _EVIDENCE_WINDOW_CODEPOINTS = 238
@@ -528,8 +528,17 @@ def _component_present(slot_id: str, component: dict[str, Any], contexts: list[s
 # 없도록/않도록/없게/않게 do not negate a penalty, nor does a 없 inside a word
 # ("빠짐없이"). An indifference ("신체 조건 무관") stops protecting once a
 # contrast follows it in the sentence ("단 키 175cm 이상 필수", "무관하지만").
+# The sensitive items also cover pregnancy, children, birthplace, assets,
+# marital status, photos, appearance and body measurements ("임신 여부는
+# 기재하지 마세요", "사진 부착 불가", "키 170cm 등은 기재하지 마세요"), and
+# "묻지/질문하지/요구하지/평가하지 않", "부착하지 마", "금지됩니다" protect like
+# "기재하지" does; "요구하지 않" is not a requirement.
 # web/engine.js keeps the same patterns (PROTECTIVE_* constants).
-_SENSITIVE_CANDIDATE = ["출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족"]
+_SENSITIVE_CANDIDATE = [
+    "출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족",
+    "임신", "출산", "자녀", "출신지역", "출신 지역", "본적", "고향", "출생지", "재산", "부동산",
+    "미혼", "기혼", "결혼", "사진", "용모", "외모", r"re:(?:키|신장|체중|몸무게)\s*\d",
+]
 _NOT_AN_INFORMATION_ITEM = [r"re:가족\s*같은"]
 _PROTECTIVE = [
     r"re:(?:수집|기재|작성)\s*(?:금지|불가|불필요|하지|받지)",
@@ -537,6 +546,9 @@ _PROTECTIVE = [
     r"re:(?:기재|표현)[^.!?\n]{0,100}(?:평가대상에서\s*제외|부적합|탈락처리)",
     r"re:블라인드[^.!?\n]{0,80}미준수",
     r"re:(?:미기재|미작성|미제출|누락)\s*(?:시|하면|할\s*경우|된\s*경우)[^.!?\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)[^.!?\n,]{0,12}(?:(?<=[\s은는이가도을를지익점락외합])(?:없|않)(?!도록|게)|아니|아닙|아님)",
+    r"re:(?:묻|질문하|요구하|평가하)지\s*(?:는|도)?\s*않",
+    r"re:부착\s*(?:하지\s*마|불가|금지|불필요)",
+    r"re:금지\s*(?:됩니다|됨)",
 ]
 _PROTECTIVE_INDIFFERENT = [r"re:^\s*(?:(?:과|와|은|는|의|에)\s*)?(?:무관|관계\s*없|상관\s*없|불문|제한\s*없)"]
 _PROTECTIVE_CONTRAST = [
@@ -547,7 +559,7 @@ _PROTECTIVE_OMISSION_PENALTY = [
     r"re:(?:(?:미기재|미작성|미제출|누락)\s*(?:시|하면|할\s*경우|된\s*경우)|(?:기재|작성|제출)\s*하지\s*않(?:으면|을\s*경우|는\s*경우|은))[^.!?\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)(?![^.!?\n,]{0,12}(?:(?<=[\s은는이가도을를지익점락외합])(?:없|않)(?!도록|게)|아니|아닙|아님))"
 ]
 _PROTECTIVE_REQUIREMENT = [
-    r"re:(?:필수|요구|제출해야|제출\s*필수)",
+    r"re:(?:필수|요구(?!\s*하지\s*(?:는|도)?\s*않)|제출해야|제출\s*필수)",
     r"re:(?:기재|작성)해야|기재하(?:십시오|세요)|기재해\s*주(?:세요|십시오)|제출하(?:십시오|세요)",
     r"re:(?:수집|기재|작성|포함|제공)\s*(?:하지|받지)\s*(?:않는\s*것(?:은|이|을)?\s*(?:허용되지\s*않|허용하지\s*않|금지|불가)|않을\s*수\s*없)",
 ]
@@ -556,11 +568,14 @@ _PROTECTIVE_CLAUSE_END = [
     r"re:(?:(?:하|되|않|마시|말|주시|하시|받|있|없|이)고|(?<=[가-힣])며|(?:되|으)나|(?<=[가-힣])하나|지만)(?=[\s,]|$)",
 ]
 _PROTECTIVE_COMMA = [r"re:(?<!\d),|,(?!\d)"]
+# "기재한 자," reads like "기재 시,": the penalty or ban after the comma is about
+# that item. Any other person noun after a space ("키 170cm 이상인 자,", "결혼
+# 계획이 없는 분,") closes one qualification, so the comma ends the clause.
 _PROTECTIVE_CONDITIONAL_TAIL = [
-    r"re:(?:경우|때|으면|하면|되면|이면|라면|다면|(?:기재|작성|제출|포함|표기|노출|기입|명시|지원|위반|적발|확인|발견|누락)\s*시)[)\]）】」』\s]*$"
+    r"re:(?:경우|때|으면|하면|되면|이면|라면|다면|(?:기재|작성|제출|포함|표기|노출|기입|명시|지원|위반|적발|확인|발견|누락)\s*시|(?:기재|작성|제출|포함|표기|노출|기입|명시)\s*한\s*(?:자|분|사람))[)\]）】」』\s]*$"
 ]
 _PROTECTIVE_PREDICATE_TAIL = [
-    r"re:(?:[다요음함됨임]|시오|며|고|나|지만|되|아도|어도|해도|여도|이상|이하|미만|초과|이내|우대|필수|가능|불가|금지|불필요|무관|환영|제외|요망|바람|선호|필요|요구|탈락|처리|부적합|기재|작성|제출|첨부|입력|명시|표기|확인|진행|실시|모집|채용|접수|포함|요청|\d\S*)[)\]）】」』\s]*$"
+    r"re:(?:[다요음함됨임]|시오|며|고|나|지만|되|아도|어도|해도|여도|이상|이하|미만|초과|이내|우대|필수|가능|불가|금지|불필요|무관|환영|제외|요망|바람|선호|필요|요구|탈락|처리|부적합|기재|작성|제출|첨부|입력|명시|표기|확인|진행|실시|모집|채용|접수|포함|요청|\d\S*|(?<!\S)(?:자|분|사람))[)\]）】」』\s]*$"
 ]
 _PROTECTIVE_NON_LIST_HEAD = [
     r"re:^(?:\S*(?:에|에서|에게|께|께서|으로|로|부터|까지|보다|에는|에도|에선|에서는|으로는|로는)|반드시|꼭|단|다만|또한|그리고|하지만|그러나|특히|함께|바로)$"
