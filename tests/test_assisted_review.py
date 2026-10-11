@@ -688,3 +688,73 @@ def test_ai_429_is_logged_with_status_and_without_private_values(caplog) -> None
     logged = "\n".join(record.getMessage() for record in caplog.records)
     for private in ("provider-secret-key", marker, "여성만", "api.openai.com"):
         assert private not in logged
+
+
+# --- mask before truncating ------------------------------------------------
+from mcp_server.assisted_review import _redact_external_text  # noqa: E402
+
+PHONE = "010-1234-5678"
+
+
+@pytest.mark.parametrize("start", [988, 990, 995, 999])
+def test_matched_text_is_masked_before_truncation(start: int) -> None:
+    import re
+
+    from mcp_server.assisted_review import (
+        MAX_MATCHED_TEXT_CHARS,
+        _external_matched_text,
+    )
+
+    text = "가" * start + PHONE + "나" * 50
+    # Truncating first would leave a fragment such as "010-12" that no
+    # pattern matches any more.
+    assert re.search("[0-9]", _redact_external_text(text[:MAX_MATCHED_TEXT_CHARS]))
+
+    result = _external_matched_text(text)
+
+    assert len(result) <= MAX_MATCHED_TEXT_CHARS
+    assert not re.search("[0-9]", result)
+    assert result.startswith("가" * start)
+
+
+def test_ai_evidence_uses_masked_then_truncated_matched_text() -> None:
+    import re
+
+    from mcp_server.assisted_review import _ai_evidence
+
+    finding = SimpleNamespace(
+        id="TEST-001",
+        message="메시지",
+        matched_text="가" * 995 + PHONE,
+        severity="high",
+        basis=SimpleNamespace(law="법", article="제1조"),
+        alternatives=[],
+    )
+    packet = SimpleNamespace(
+        check=SimpleNamespace(findings=[finding]),
+        law_verifications=[],
+        ncs_guidance=SimpleNamespace(controls=[]),
+    )
+
+    evidence = _ai_evidence(packet, {"sector": "unspecified"})
+
+    assert not re.search("[0-9]", evidence["findings"][0]["matched_text"])
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "＋８２ １０－１２３４－５６７８",
+        "０１０ １２３４ ５６７８",
+        "recruit＠example.com",
+    ],
+    ids=["fullwidth-plus82", "fullwidth-nbsp", "fullwidth-at"],
+)
+def test_external_evidence_masks_look_alike_identifiers(value: str) -> None:
+    from core.direct_identifiers import contains_direct_identifier_folded
+
+    redacted = _redact_external_text(f"담당 {value} 문의")
+
+    assert redacted.startswith("담당 [")
+    assert redacted.endswith(" 문의")
+    assert not contains_direct_identifier_folded(redacted)

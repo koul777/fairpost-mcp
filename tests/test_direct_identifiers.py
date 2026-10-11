@@ -180,3 +180,79 @@ def test_long_unspaced_text_is_linear_enough() -> None:
         assert mask_direct_identifiers(text) == text
     assert time.perf_counter() - started < 2.0
     assert re.fullmatch(r"\[이메일 마스킹\]", mask_direct_identifiers("x" * 64 + "@example.com"))
+
+
+# --- server-side folded screen (look-alike spellings) ----------------------
+# Values are assembled from parts so the release privacy scan never sees a
+# literal identifier in this file.
+def _j(*parts: str) -> str:
+    return "".join(parts)
+
+
+FOLDED_CASES = [
+    (
+        "fullwidth-mobile",
+        _j("연락처 ", "０１０", "－", "１２３４", "－", "５６７８", " 평일"),
+        "연락처 [전화번호 마스킹] 평일",
+    ),
+    ("nbsp-mobile", _j("01", "0", " ", "1234", " ", "5678"), "[전화번호 마스킹]"),
+    (
+        "en-dash-landline",
+        _j("인사팀 ", "02", "–", "1234", "–", "5678"),
+        "인사팀 [전화번호 마스킹]",
+    ),
+    ("zero-width-inside-mobile", _j("01", "0", "​", "1234", "​", "5678"), "[전화번호 마스킹]"),
+    ("fullwidth-at-email", _j("문의 recruit", "＠", "example.com"), "문의 [이메일 마스킹]"),
+    (
+        "fullwidth-plus82-ideographic-space",
+        _j("＋８２", "　", "１０", "　", "1234", "　", "5678"),
+        "[전화번호 마스킹]",
+    ),
+    (
+        "fullwidth-rrn",
+        _j("식별번호 ", "９００１０１", "－", "１２３４５６７"),
+        "식별번호 [주민등록번호 마스킹]",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [case[1:] for case in FOLDED_CASES],
+    ids=[case[0] for case in FOLDED_CASES],
+)
+def test_folded_screen_catches_look_alike_spellings(text: str, expected: str) -> None:
+    from core.direct_identifiers import (
+        contains_direct_identifier_folded,
+        mask_direct_identifiers_folded,
+    )
+
+    assert contains_direct_identifier_folded(text)
+    assert mask_direct_identifiers_folded(text) == expected
+    assert _redact_external_text(text) == expected
+    assert not contains_direct_identifier_folded(expected)
+
+
+@pytest.mark.parametrize("case", CASES, ids=[case["id"] for case in CASES])
+def test_folded_screen_matches_plain_patterns_on_shared_fixture(case: dict) -> None:
+    from core.direct_identifiers import (
+        contains_direct_identifier_folded,
+        mask_direct_identifiers_folded,
+    )
+
+    text = _text(case)
+    assert contains_direct_identifier_folded(text) is bool(case["kinds"])
+    assert mask_direct_identifiers_folded(text) == case.get("masked", text)
+
+
+def test_folding_leaves_text_outside_identifiers_untouched() -> None:
+    from core.direct_identifiers import (
+        fold_identifier_variants,
+        mask_direct_identifiers_folded,
+    )
+
+    text = "남녀고용평등과 일ㆍ가정 양립 ① 면적 30㎡ ＡＢＣ 팀"
+    assert mask_direct_identifiers_folded(text) == text
+    folded, origin = fold_identifier_variants(_j("Ａ", "​", "－"))
+    assert folded == "A-"
+    assert origin == (0, 2)

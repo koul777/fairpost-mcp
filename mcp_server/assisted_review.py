@@ -12,7 +12,7 @@ import anyio
 import httpx
 
 from core import FairpostEngine
-from core.direct_identifiers import mask_direct_identifiers
+from core.direct_identifiers import mask_direct_identifiers_folded
 from core.organization_guidance import load_organization_guidance_catalog
 from .review import (
     LiveLawVerifier,
@@ -542,8 +542,20 @@ def _organization_profile(value: Any) -> dict[str, str]:
 
 
 def _redact_external_text(value: str) -> str:
-    # Same patterns that reject role-review notes (core.direct_identifiers).
-    return mask_direct_identifiers(value)
+    # Same patterns that reject role-review notes (core.direct_identifiers),
+    # matched on a folded copy so full-width digits, Unicode dashes and
+    # no-break spaces cannot slip a value past them.
+    return mask_direct_identifiers_folded(value)
+
+
+def _external_matched_text(value: str | None) -> str:
+    """Mask first, then truncate.
+
+    Truncating first could cut a phone number in half at the limit
+    ("...010-12"), and the partial value would no longer match a pattern.
+    """
+
+    return _redact_external_text(value or "")[:MAX_MATCHED_TEXT_CHARS]
 
 
 def _ai_evidence(
@@ -589,9 +601,7 @@ def _ai_evidence(
             {
                 "id": finding.id,
                 "message": finding.message,
-                "matched_text": _redact_external_text(
-                    (finding.matched_text or "")[:MAX_MATCHED_TEXT_CHARS]
-                ),
+                "matched_text": _external_matched_text(finding.matched_text),
                 "severity": finding.severity,
                 "law": finding.basis.law,
                 "article": finding.basis.article,

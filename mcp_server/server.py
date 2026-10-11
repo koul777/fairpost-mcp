@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+import logging
 import os
 from typing import Annotated, Any, Literal
 import uuid
@@ -22,9 +23,17 @@ from core.review_packet import (
 from core.schema import CheckResult, Finding, Question, SlotStatus
 from .review import HrReviewPacket, prepare_hr_review_packet
 from .storage import (
+    AnswerStoreCorruptError,
     LocalReviewPacketStore,
     UnavailableRemoteAnswerStore,
     build_answer_store,
+)
+
+
+logger = logging.getLogger("fairpost.mcp")
+ANSWER_STORE_UNREADABLE_NOTICE = (
+    "저장된 답변 파일을 읽을 수 없어 저장된 답변 없이 점검했습니다. 답변 파일을 "
+    "확인하거나 fairpost purge-answers로 정리한 뒤 다시 저장하십시오."
 )
 
 
@@ -440,21 +449,35 @@ def _question_ids() -> frozenset[str]:
     )
 
 
-def _saved_answers(org_id: str | None) -> dict[str, str]:
+def _load_saved_answers(org_id: str | None) -> tuple[dict[str, str], str | None]:
     """Look up previously saved answers, degrading gracefully when unavailable.
 
     An unconfigured remote answer store must still fail loudly for
     save_answer (a write claiming persistence it can't provide), but here
     it's only an optional enrichment for check_job_posting/next_review_question.
     Letting it raise would take down the entire fairness check over a
-    disabled remote answer store unrelated to the check itself.
+    disabled remote answer store unrelated to the check itself. A damaged
+    local answer file likewise yields no answers plus a Korean notice.
     """
     if not org_id or isinstance(answer_store, UnavailableRemoteAnswerStore):
-        return {}
-    return answer_store.get(org_id)
+        return {}, None
+    try:
+        return answer_store.get(org_id), None
+    except (AnswerStoreCorruptError, OSError) as exc:
+        # The path, organization and answers stay out of the log.
+        logger.warning(
+            "event=answer_store_unreadable exception=%s", type(exc).__name__
+        )
+        return {}, ANSWER_STORE_UNREADABLE_NOTICE
 
 
-def _format_check_result_text(result: CheckResult) -> str:
+def _saved_answers(org_id: str | None) -> dict[str, str]:
+    return _load_saved_answers(org_id)[0]
+
+
+def _format_check_result_text(
+    result: CheckResult, *, notice: str | None = None
+) -> str:
     """Render CheckResult as a complete, human-readable plain-text digest.
 
     check_job_posting returns this string directly (structured_output=False)
@@ -469,6 +492,7 @@ def _format_check_result_text(result: CheckResult) -> str:
     lines: list[str] = [
         result.disclaimer,
         "",
+        *([f"알림: {notice}", ""] if notice else []),
         f"채용공고 점검 결과 — 발견 {len(result.findings)}건, "
         f"검토 질문 {len(result.questions)}건, "
         f"확인된 안내 항목 {sum(1 for slot in result.slots if slot.found)}건"
@@ -601,9 +625,9 @@ def check_job_posting(text: PostingText, org_id: LocalOrgId = None) -> str:
     every prior representation of this result render as a raw JSON dump.
     """
     text = _validated_posting_text(text)
-    answers = _saved_answers(org_id)
+    answers, notice = _load_saved_answers(org_id)
     result = engine.check(text, saved_answers=answers)
-    return _format_check_result_text(result)
+    return _format_check_result_text(result, notice=notice)
 
 
 @claude_mcp.tool(
@@ -898,10 +922,13 @@ def next_review_question(
 ) -> dict[str, Any]:
     """Advance the one-question-at-a-time review without leaving the dictionary."""
     text = _validated_posting_text(text)
-    answers = _saved_answers(org_id)
+    answers, notice = _load_saved_answers(org_id)
     result = engine.check(text, saved_answers=answers)
     answered = {item.id for item in result.questions if item.saved_answer}
-    return _next_question_response(result, answered)
+    response = _next_question_response(result, answered)
+    if notice:
+        response["notice"] = notice
+    return response
 
 
 def _next_question_response(result: CheckResult, answered: set[str]) -> dict[str, Any]:

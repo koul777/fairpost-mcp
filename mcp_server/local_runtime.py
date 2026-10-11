@@ -1,4 +1,4 @@
-"""FairPost local screen, with optional assisted review and compatible MCP."""
+"""FairPost 로컬 화면(web)과 로컬 MCP(mcp, stdio)를 실행합니다."""
 from __future__ import annotations
 
 import argparse
@@ -27,9 +27,42 @@ CONFIG_KEYS = frozenset({
     "FAIRPOST_KOREAN_LAW_MCP_CWD", "FAIRPOST_KOREAN_LAW_MCP_ENV_ALLOWLIST",
     "FAIRPOST_KOREAN_LAW_SEARCH_TOOL", "FAIRPOST_KOREAN_LAW_TEXT_TOOL",
 })
+# These keys make FairPost start a local process (and pass environment values
+# to it). A settings file that merely sits in the current folder could come
+# from anywhere, so they are honored only from a file the user named with
+# --config or from one under ~/.fairpost/.
+COMMAND_CONFIG_KEYS = frozenset({
+    "FAIRPOST_KOREAN_LAW_MCP_COMMAND", "FAIRPOST_KOREAN_LAW_MCP_ARGS",
+    "FAIRPOST_KOREAN_LAW_MCP_CWD", "FAIRPOST_KOREAN_LAW_MCP_ENV_ALLOWLIST",
+})
+IGNORED_COMMAND_KEYS_NOTICE = (
+    "fairpost: 현재 폴더의 설정 파일에 있는 법령 MCP 실행 명령 설정"
+    "({keys})은 무시했습니다. 실행 명령은 --config로 직접 지정한 파일이나 "
+    "~/.fairpost/ 아래 설정 파일에서만 사용합니다."
+)
 
 
-def load_local_settings(path: Path) -> bool:
+def trusted_config_dir() -> Path:
+    return Path.home() / ".fairpost"
+
+
+def _is_under_trusted_dir(path: Path) -> bool:
+    try:
+        return path.resolve().is_relative_to(trusted_config_dir().resolve())
+    except (OSError, RuntimeError):
+        return False
+
+
+def default_config_path() -> tuple[Path, bool]:
+    """The settings file used without --config, and whether it is trusted."""
+
+    local = Path.cwd() / LOCAL_CONFIG_NAME
+    if local.is_file():
+        return local, _is_under_trusted_dir(local)
+    return trusted_config_dir() / LOCAL_CONFIG_NAME, True
+
+
+def load_local_settings(path: Path, *, allow_command_keys: bool = True) -> bool:
     """Load only when explicitly launched locally; existing environment wins."""
     if not path.is_file():
         return False
@@ -42,8 +75,15 @@ def load_local_settings(path: Path) -> bool:
         for key, value in payload.items()
     ):
         raise ValueError("Local settings contain unsupported keys or values")
+    ignored = sorted(
+        key for key in payload if key in COMMAND_CONFIG_KEYS and not allow_command_keys
+    )
     for key, value in payload.items():
-        os.environ.setdefault(key, value)
+        if key not in ignored:
+            os.environ.setdefault(key, value)
+    if ignored:
+        # Key names only; values (commands, paths) are never echoed.
+        print(IGNORED_COMMAND_KEYS_NOTICE.format(keys=", ".join(ignored)), file=sys.stderr)
     return True
 
 
@@ -207,20 +247,30 @@ def _serve_web(app: Starlette, port: int, *, open_browser: bool = False) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", nargs="?", choices=("web", "mcp", "stdio"), default="web")
-    parser.add_argument("--config", type=Path, default=Path.cwd() / LOCAL_CONFIG_NAME,
-                        help="선택 AI·법령 연동 설정 JSON 파일")
+    parser.add_argument("mode", nargs="?", choices=("web", "mcp", "stdio"), default="web",
+                        help="실행 모드: web(기본, 로컬 화면), mcp(HTTP MCP), stdio(stdio MCP)")
+    parser.add_argument("--config", type=Path, default=None,
+                        help=(f"선택 AI·법령 연동 설정 JSON 파일 (기본: 현재 폴더의 {LOCAL_CONFIG_NAME}, "
+                              f"없으면 ~/.fairpost/{LOCAL_CONFIG_NAME}). 법령 MCP 실행 명령 설정은 "
+                              "직접 지정한 파일이나 ~/.fairpost/ 아래 파일에서만 사용합니다"))
     parser.add_argument("--port", type=int, default=None, help="로컬 화면 포트 (기본: 8000)")
     parser.add_argument("--open-browser", action="store_true", help="서버 준비 뒤 기본 브라우저 열기")
     args = parser.parse_args(argv)
     port = args.port if args.port is not None else 8000
     if not 1 <= port <= 65535:
-        parser.error("port must be between 1 and 65535")
+        parser.error("--port는 1~65535 범위여야 합니다")
     if args.mode != "web" and (args.port is not None or args.open_browser):
-        parser.error("--port and --open-browser are only available in web mode; MCP uses FAIRPOST_MCP_PORT")
+        parser.error(
+            "--port와 --open-browser는 web 모드에서만 사용할 수 있습니다. "
+            "MCP 포트는 FAIRPOST_MCP_PORT로 지정합니다"
+        )
+    if args.config is not None:
+        config_path, config_trusted = args.config, True
+    else:
+        config_path, config_trusted = default_config_path()
     assisted_review_enabled = True
     try:
-        load_local_settings(args.config)
+        load_local_settings(config_path, allow_command_keys=config_trusted)
     except (OSError, ValueError):
         if args.mode != "web":
             parser.error("로컬 선택 연동 설정을 읽을 수 없습니다. JSON 파일을 확인하세요.")

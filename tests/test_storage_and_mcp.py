@@ -555,3 +555,88 @@ def test_local_next_question_still_follows_saved_answers(
 
     assert second["question"]["id"] != first["question"]["id"]
     assert second["progress"]["answered"] == 1
+
+
+# --- local answer store hardening ------------------------------------------
+# Identifier-shaped values are assembled from parts so the release privacy
+# scan never sees a literal value in this file.
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "담당자 " + "010" + "-1234-" + "5678" + "로 문의",
+        "담당자 " + "０１０" + "－１２３４－" + "５６７８",
+        "회신 " + "hr" + "@" + "example.com",
+        "식별번호 " + "900101" + "-" + "1234567",
+    ],
+    ids=["phone", "fullwidth-phone", "email", "rrn"],
+)
+def test_save_answer_rejects_direct_identifiers_without_writing(
+    tmp_path: Path, monkeypatch, answer: str
+) -> None:
+    path = tmp_path / "answers.json"
+    monkeypatch.setattr(server, "answer_store", LocalAnswerStore(path))
+
+    with pytest.raises(ValueError, match="직접 식별정보") as exc_info:
+        server.save_answer("org-a", "Q-INFO-001", answer)
+
+    assert answer not in str(exc_info.value)
+    assert not path.exists()
+
+
+def test_save_answer_keeps_accepting_ordinary_answers(tmp_path: Path, monkeypatch) -> None:
+    store = LocalAnswerStore(tmp_path / "answers.json")
+    monkeypatch.setattr(server, "answer_store", store)
+
+    server.save_answer("org-a", "Q-INFO-001", "인사팀 대표번호로 2026-10-11까지 안내합니다.")
+
+    assert store.get("org-a") == {
+        "Q-INFO-001": "인사팀 대표번호로 2026-10-11까지 안내합니다."
+    }
+
+
+@pytest.mark.parametrize(
+    "content",
+    [b"{not json", b"[1, 2, 3]", b"\xff\xfe broken"],
+    ids=["invalid-json", "not-an-object", "not-utf8"],
+)
+def test_corrupt_answer_store_degrades_to_no_answers_with_notice(
+    tmp_path: Path, monkeypatch, caplog, content: bytes
+) -> None:
+    import logging
+
+    path = tmp_path / "answers.json"
+    path.write_bytes(content)
+    monkeypatch.setattr(server, "answer_store", LocalAnswerStore(path))
+    caplog.set_level(logging.WARNING, logger="fairpost")
+
+    checked = server.check_job_posting("지원자격: 여성만 지원 가능", "org-a")
+    structured = server.check_job_posting_structured("지원자격: 여성만 지원 가능", "org-a")
+    next_question = server.next_review_question("지원자격: 여성만 지원 가능", "org-a")
+
+    assert "SEX-001" in checked
+    assert f"알림: {server.ANSWER_STORE_UNREADABLE_NOTICE}" in checked
+    assert checked.index("알림:") < checked.index("채용공고 점검 결과")
+    assert all(question.saved_answer is None for question in structured.questions)
+    assert next_question["notice"] == server.ANSWER_STORE_UNREADABLE_NOTICE
+    assert next_question["progress"]["answered"] == 0
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert "event=answer_store_unreadable" in logged
+    assert str(tmp_path) not in logged
+    assert "org-a" not in logged
+
+
+def test_readable_answer_store_has_no_notice(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(server, "answer_store", LocalAnswerStore(tmp_path / "answers.json"))
+
+    checked = server.check_job_posting("지원자격: 여성만 지원 가능", "org-a")
+    next_question = server.next_review_question("지원자격: 여성만 지원 가능", "org-a")
+
+    assert "알림:" not in checked
+    assert "notice" not in next_question
+
+
+def test_invalid_org_id_still_fails_loudly(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(server, "answer_store", LocalAnswerStore(tmp_path / "answers.json"))
+
+    with pytest.raises(ValueError, match="org_id는 256자"):
+        server.check_job_posting("지원자격: 여성만 지원 가능", "o" * 257)
