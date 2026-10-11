@@ -111,8 +111,16 @@ globalThis.document = {
     return execCopyResult;
   },
 };
-window.setTimeout = () => 1;
-window.clearTimeout = () => {};
+// Timers are recorded and never run on their own; a test fires the one it
+// needs (for example the assisted-review deadline).
+const scheduledTimeouts = [];
+window.setTimeout = (callback, delay) => {
+  scheduledTimeouts.push({ callback, delay, cleared: false });
+  return scheduledTimeouts.length;
+};
+window.clearTimeout = (id) => {
+  if (scheduledTimeouts[id - 1]) scheduledTimeouts[id - 1].cleared = true;
+};
 
 const localReviewValues = new Map();
 const workingStorage = {
@@ -176,6 +184,16 @@ let assistedPostMode = "ok";
 globalThis.location = { protocol: "https:" };
 globalThis.fetch = async (url, options = {}) => {
   assistedFetchCalls.push({ url, options });
+  if ((options.method || "GET") === "POST" && assistedPostMode === "hang") {
+    // The server never answers; only the request's own deadline ends it.
+    return new Promise((_resolve, reject) => {
+      options.signal.addEventListener("abort", () => {
+        const error = new Error("This operation was aborted");
+        error.name = "AbortError";
+        reject(error);
+      });
+    });
+  }
   if ((options.method || "GET") === "POST" && assistedPostMode === "unavailable") {
     return {
       ok: false,
@@ -241,20 +259,36 @@ for (const relative of appSources) {
   answer.value = "원문을 직무 요건 중심으로 수정합니다.\n담당자 재확인 완료";
   elements.get("result-content").trigger("input", { target: answer });
   const progressAfterAnswer = elements.get("answer-progress").textContent;
+  // The count is split into this posting's questions and the common checklist.
+  {
+    const answered = result.questions.filter((question) => question.id === questionId);
+    const isCommon = (question) => question.review_scope === "common";
+    const split = (list) => `${answered.filter((q) => list.includes(q)).length}/${list.length}`;
+    nodeAssert.equal(
+      progressAfterAnswer,
+      `담당자 답변 1/${result.questions.length} (공고별 ${split(result.questions.filter((q) => !isCommon(q)))} · 공통 ${split(result.questions.filter(isCommon))})`
+    );
+  }
 
   await elements.get("copy-button").trigger("click");
   const copiedWithAnswer = copied;
 
+  // Emptying the field by hand is an edit: the result turns stale, but the
+  // answers, the result and the comparison baseline are not wiped.
   posting.value = "";
   posting.dispatchEvent(new Event("input"));
   const manuallyCleared = {
     progress: elements.get("answer-progress").textContent,
     resultHidden: elements.get("result-content").hidden,
-    copyDisabled: elements.get("copy-button").disabled,
+    copyAriaDisabled: elements.get("copy-button").getAttribute("aria-disabled"),
+    comparisonHidden: elements.get("comparison-panel").hidden,
+    bannerText: elements.get("stale-banner-text").textContent,
   };
 
+  // Typing the same posting back makes the result current again, answers intact.
   posting.value = "여성만 지원 가능";
   posting.dispatchEvent(new Event("input"));
+  const staleBannerAfterTypingBack = elements.get("stale-banner-text").textContent;
   elements.get("check-button").trigger("click");
   const progressAfterRerun = elements.get("answer-progress").textContent;
   await elements.get("copy-button").trigger("click");
@@ -265,7 +299,10 @@ for (const relative of appSources) {
   await elements.get("copy-button").trigger("click");
   const copyFailureToast = elements.get("toast").textContent;
 
+  // "×" is the one reset: it asks first because an answer exists.
+  const promptsBeforeClear = confirmPrompts.length;
   elements.get("clear-button").trigger("click");
+  const clearPrompt = confirmPrompts.slice(promptsBeforeClear);
   const cleared = {
     input: posting.value,
     progress: elements.get("answer-progress").textContent,
@@ -273,7 +310,16 @@ for (const relative of appSources) {
     copyDisabled: elements.get("copy-button").disabled,
     dynamicContainersCleared: ["findings-list", "slots-list", "questions-list"]
       .every((id) => elements.get(id).replaced),
+    prompts: clearPrompt.length,
+    promptMentionsAnswers: clearPrompt.length === 1 && clearPrompt[0].includes("담당자 답변 1개"),
+    undoOffered: elements.get("posting-undo").hidden === false &&
+      elements.get("posting-undo").textContent === "방금 지운 공고문 되돌리기",
   };
+  // The cleared posting comes back with one click; the answers do not.
+  elements.get("posting-undo").trigger("click");
+  cleared.undoRestoresPosting = posting.value === "여성만 지원 가능";
+  cleared.answersStayCleared = elements.get("answer-progress").textContent.startsWith("담당자 답변 0/0");
+  cleared.resultStillHidden = elements.get("result-content").hidden;
 
   clipboardShouldFail = false;
   execCopyResult = true;
@@ -399,9 +445,34 @@ for (const relative of appSources) {
   elements.get("mode-expert").trigger("click");
   assistedToggle.checked = true;
   assistedToggle.trigger("change");
-  const postsBeforeUnavailable = posts().length;
 
-  // The server reporting "not configured" disables the toggle with a reason.
+  // A server that never answers: the request carries a 60 s deadline and
+  // stops there with a Korean message; the local review stays usable.
+  assistedPostMode = "hang";
+  runButton.trigger("click");
+  const hangingPost = assistedFetchCalls[assistedFetchCalls.length - 1];
+  const deadlineTimer = scheduledTimeouts.find((entry) => entry.delay === 60000 && !entry.cleared);
+  const timeoutFlow = {
+    signalSent: Boolean(hangingPost.options.signal) && typeof hangingPost.options.signal.aborted === "boolean",
+    deadlineMs: deadlineTimer ? deadlineTimer.delay : null,
+    waitingBadge: elements.get("assisted-review-result-status").textContent,
+  };
+  deadlineTimer.callback();
+  await tick();
+  await tick();
+  timeoutFlow.aborted = hangingPost.options.signal.aborted;
+  timeoutFlow.badge = elements.get("assisted-review-result-status").textContent;
+  timeoutFlow.output = elements.get("assisted-review-output").textContent;
+  timeoutFlow.notice = elements.get("assisted-review-notice").textContent;
+  timeoutFlow.live = live();
+  timeoutFlow.runEnabledAgain = !runButton.disabled;
+  timeoutFlow.deadlineCleared = scheduledTimeouts.filter((entry) => entry.delay === 60000).every(
+    (entry) => entry.cleared || entry === deadlineTimer
+  );
+
+  // The server reporting "not configured" disables the toggle; readers are
+  // told the operator has to turn it on, not the server's configuration hint.
+  const postsBeforeUnavailable = posts().length;
   assistedPostMode = "unavailable";
   runButton.trigger("click");
   await tick();
@@ -442,14 +513,18 @@ for (const relative of appSources) {
     afterOff,
     autoDisabled,
     emptyInput,
+    timeoutFlow,
   };
 
   await tick();
-  const roleFingerprint = readStore().packets[0].posting_fingerprint;
-  const currentPacket = () =>
-    readStore().packets.find(
-      (packet) => packet.posting_fingerprint === roleFingerprint
-    );
+  // Reviews alone (the many checks above) save no role packet: the packet
+  // stays in memory until the reader records a first event.
+  const unsavedPacket = {
+    stored: localReviewValues.has(STORE_KEY),
+    status: elements.get("role-review-status").textContent,
+    notice: elements.get("role-review-notice").textContent,
+    panelHidden: elements.get("role-review-panel").hidden,
+  };
   const initialRoleProgress = elements.get("role-review-progress").textContent;
   elements.get("role-review-role").value = "auditor";
   elements.get("role-review-stage").value = "evaluation";
@@ -457,6 +532,12 @@ for (const relative of appSources) {
   elements.get("role-review-note").value = "릴리스 전 재현성 근거와 사람 검토 이력을 확인합니다.";
   elements.get("role-review-evidence").value = "Q-DIST-002, ncs-process";
   elements.get("role-review-record").trigger("click");
+  // The first event saves the packet.
+  const roleFingerprint = readStore().packets[0].posting_fingerprint;
+  const currentPacket = () =>
+    readStore().packets.find(
+      (packet) => packet.posting_fingerprint === roleFingerprint
+    );
   elements.get("role-review-note").value = "reviewer@example.com";
   elements.get("role-review-record").trigger("click");
   const roleReviewAfterSensitiveNote = {
@@ -523,6 +604,13 @@ for (const relative of appSources) {
   localReviewValues.set(STORE_KEY, JSON.stringify(driftStore));
   elements.get("check-button").trigger("click");
   await tick();
+  const driftNotice = elements.get("role-review-notice").textContent;
+  const storedBeforeFirstEvent = readStore().packets.length;
+  // The new packet is saved with its first recorded event, not by the check.
+  elements.get("role-review-action").value = "note";
+  elements.get("role-review-action").trigger("change");
+  elements.get("role-review-note").value = "새 규칙셋 기준으로 다시 확인했습니다.";
+  elements.get("role-review-record").trigger("click");
   const afterDrift = readStore();
   const roleReviewAfterVersionDrift = {
     newPacket: afterDrift.packets.some(
@@ -531,19 +619,26 @@ for (const relative of appSources) {
     oldPacketKept: afterDrift.packets.some(
       (packet) => packet.packet_id === priorPacketId && packet.events.length === 4
     ),
+    storedBeforeFirstEvent,
     packetCount: afterDrift.packets.length,
-    notice: elements.get("role-review-notice").textContent,
+    notice: driftNotice,
     progress: elements.get("role-review-progress").textContent,
   };
 
-  // A different posting (one character changed) gets its own packet.
+  // A different posting (one character changed) gets its own packet, saved
+  // once the reader records something in it.
   posting.value = "여성만 지원 가능.";
   posting.dispatchEvent(new Event("input"));
   elements.get("check-button").trigger("click");
   await tick();
+  const otherPostingNotice = elements.get("role-review-notice").textContent;
+  const storedBeforeOtherEvent = readStore().packets.length;
+  elements.get("role-review-note").value = "다른 공고문의 첫 기록입니다.";
+  elements.get("role-review-record").trigger("click");
   const otherPosting = {
+    storedBeforeFirstEvent: storedBeforeOtherEvent,
     packetCount: readStore().packets.length,
-    notice: elements.get("role-review-notice").textContent,
+    notice: otherPostingNotice,
   };
 
   // One invalid stored event is dropped with a warning; valid ones stay.
@@ -605,6 +700,7 @@ for (const relative of appSources) {
   };
 
   // Deleting asks first and removes only this posting's packet.
+  const promptsBeforeDelete = confirmPrompts.length;
   confirmAnswer = false;
   elements.get("role-review-clear").trigger("click");
   const cancelledDelete = {
@@ -615,7 +711,7 @@ for (const relative of appSources) {
   confirmAnswer = true;
   elements.get("role-review-clear").trigger("click");
   const confirmedDelete = {
-    prompts: confirmPrompts.length,
+    prompts: confirmPrompts.length - promptsBeforeDelete,
     packetCount: readStore().packets.length,
     currentRemoved: !readStore().packets.some(
       (packet) => packet.packet_id === priorPacketId
@@ -645,14 +741,88 @@ for (const relative of appSources) {
   localReviewValues.set(STORE_KEY, JSON.stringify(fullStore));
   elements.get("check-button").trigger("click");
   await tick();
+  // Checking never writes, so a full store is untouched until a first event.
+  const storeAfterCheck = localReviewValues.get(STORE_KEY);
+  const toastAfterCheck = elements.get("toast").textContent;
+  elements.get("role-review-note").value = "보관 한도 확인용 첫 기록입니다.";
+  elements.get("role-review-record").trigger("click");
   const retention = {
     packetsBefore: fullStore.packets.length,
+    storeUntouchedByCheck: storeAfterCheck === JSON.stringify(fullStore),
+    noToastFromCheck: !toastAfterCheck.includes("보관 한도"),
     packetCount: readStore().packets.length,
     oldestEvicted: !readStore().packets.some(
       (packet) => packet.packet_id === oldestFiller
     ),
     notice: elements.get("role-review-notice").textContent,
   };
+
+  // Packets nobody wrote in are evicted before any packet that holds a
+  // reader's own events, even when those events are older.
+  const userEventPacket = readStore().packets.find(
+    (packet) => packet.events.some((event) => event.actor_ref !== "system-chair")
+  );
+  const keptStore = readStore();
+  keptStore.packets.forEach((packet, index) => {
+    packet.updated_at = packet === userEventPacket
+      ? "2019-01-01T00:00:00.000Z"
+      : `2021-01-01T00:00:${String(index).padStart(2, "0")}.000Z`;
+  });
+  const oldestOwnId = userEventPacket.packet_id;
+  const emptyIdsBefore = keptStore.packets
+    .filter((packet) => packet.events.every((event) => event.actor_ref === "system-chair"))
+    .map((packet) => packet.packet_id);
+  localReviewValues.set(STORE_KEY, JSON.stringify(keptStore));
+  posting.value = "여성만 지원 가능 (보관 우선순위 확인)";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  await tick();
+  elements.get("role-review-note").value = "보관 우선순위 확인용 기록입니다.";
+  elements.get("role-review-record").trigger("click");
+  const afterPriority = readStore();
+  const evictionPriority = {
+    packetCount: afterPriority.packets.length,
+    ownRecordsKept: afterPriority.packets.some((packet) => packet.packet_id === oldestOwnId),
+    oneEmptyPacketEvicted: emptyIdsBefore.filter(
+      (id) => !afterPriority.packets.some((packet) => packet.packet_id === id)
+    ).length === 1,
+  };
+
+  // Many reviews in a row leave storage exactly as it was.
+  const storeBeforeLoop = localReviewValues.get(STORE_KEY);
+  const toastBeforeLoop = elements.get("toast").textContent;
+  for (let index = 0; index < 25; index += 1) {
+    posting.value = `여성만 지원 가능 (반복 검토 ${index})`;
+    posting.dispatchEvent(new Event("input"));
+    elements.get("check-button").trigger("click");
+    await tick();
+  }
+  const repeatedChecks = {
+    storeUnchanged: localReviewValues.get(STORE_KEY) === storeBeforeLoop,
+    toastUnchanged: elements.get("toast").textContent === toastBeforeLoop ||
+      !elements.get("toast").textContent.includes("보관 한도"),
+  };
+
+  // "이 브라우저의 모든 역할 기록 삭제": asks first, then removes every packet.
+  confirmAnswer = false;
+  const promptsBeforeAll = confirmPrompts.length;
+  elements.get("role-review-clear-all").trigger("click");
+  const clearAllCancelled = {
+    stored: localReviewValues.has(STORE_KEY),
+    prompt: confirmPrompts.slice(promptsBeforeAll)[0] || "",
+    panelHidden: elements.get("role-review-panel").hidden,
+  };
+  confirmAnswer = true;
+  elements.get("role-review-clear-all").trigger("click");
+  const clearAllDone = {
+    stored: localReviewValues.has(STORE_KEY),
+    legacyStored: localReviewValues.has(LEGACY_KEY),
+    panelHidden: elements.get("role-review-panel").hidden,
+    toast: elements.get("toast").textContent,
+  };
+  elements.get("check-button").trigger("click");
+  await tick();
+  clearAllDone.nextReviewSavesNothing = !localReviewValues.has(STORE_KEY);
 
   // Corrupt stored data is never overwritten.
   localReviewValues.set(STORE_KEY, "{not json");
@@ -685,6 +855,11 @@ for (const relative of appSources) {
 
   const roleReview = {
     ...roleReviewBeforeVersionDrift,
+    unsavedPacket,
+    evictionPriority,
+    repeatedChecks,
+    clearAllCancelled,
+    clearAllDone,
     initialProgress: initialRoleProgress,
     afterSensitiveNote: roleReviewAfterSensitiveNote,
     noteErrorClearedOnInput,
@@ -738,7 +913,10 @@ for (const relative of appSources) {
   posting.value = "비교원문-PRIVATE-SESSION\n성별 무관\n만 30세 이하";
   posting.dispatchEvent(new Event("input"));
   const staleComparison = {
-    copyDisabled: elements.get("copy-button").disabled,
+    // Locked but explained: aria-disabled, not a silent `disabled`.
+    copyDisabled: elements.get("copy-button").disabled ||
+      elements.get("copy-button").getAttribute("aria-disabled") === "true",
+    copyAriaDisabled: elements.get("copy-button").getAttribute("aria-disabled"),
     resetDisabled: elements.get("comparison-reset").disabled,
     status: elements.get("comparison-status").textContent,
   };
@@ -766,6 +944,46 @@ for (const relative of appSources) {
   posting.dispatchEvent(new Event("input"));
   elements.get("check-button").trigger("click");
   const rebasedComparison = elements.get("comparison-groups").innerHTML;
+
+  // A short posting that is only edited keeps its comparison (one edited line
+  // leaves no line in common, so characters decide).
+  posting.value = "여성만 지원 가능";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  posting.value = "여성만 지원 가능 (신입)";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  const tinyEdit = {
+    status: elements.get("comparison-status").textContent,
+    kept: elements.get("comparison-groups").innerHTML !== "",
+  };
+
+  // A different posting pasted over the baseline starts a new baseline: no
+  // before/after list between two unrelated postings, in the panel or the memo.
+  posting.value = [
+    "청소년 상담사 채용", "", "담당업무", "- 지역 청소년 상담과 사례관리",
+    "- 상담 기록 작성", "", "근무조건", "- 주 5일 근무", "", "접수 방법", "- 이메일 접수",
+  ].join("\n");
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  const unrelatedStatus = elements.get("comparison-status").textContent;
+  const unrelatedPaste = {
+    status: unrelatedStatus,
+    groups: elements.get("comparison-groups").innerHTML,
+    panelHidden: elements.get("comparison-panel").hidden,
+    announcement: elements.get("review-live").textContent,
+    improvementHidden: elements.get("improvement-panel").hidden,
+  };
+  await elements.get("copy-button").trigger("click");
+  unrelatedPaste.memoHasComparison = copied.includes("[수정 전후 비교]");
+  unrelatedPaste.memoHasChanges = copied.includes("[공고문 변경 내역]");
+  // The new posting is compared from here on, as usual.
+  posting.value += "\n- 상담 일지 작성";
+  posting.dispatchEvent(new Event("input"));
+  elements.get("check-button").trigger("click");
+  unrelatedPaste.nextEditCompared = elements.get("comparison-status").textContent.includes("비교 기준 이후 항목 변화");
+  unrelatedPaste.nextEditSummaryShown = elements.get("improvement-panel").hidden === false;
+
   const comparisonVersion = window.FAIRPOST_DATA.version;
   window.FAIRPOST_DATA.version = `${comparisonVersion}-comparison-change`;
   elements.get("check-button").trigger("click");
@@ -781,14 +999,18 @@ for (const relative of appSources) {
   const sampleComparisonHidden = elements.get("comparison-panel").hidden;
   elements.get("check-button").trigger("click");
   const sampleComparisonGroups = elements.get("comparison-groups").innerHTML;
+  // Emptying the field by hand only makes the result stale; "×" resets.
   posting.value = "";
   posting.dispatchEvent(new Event("input"));
+  const manualEmptyComparisonHidden = elements.get("comparison-panel").hidden;
+  elements.get("clear-button").trigger("click");
   const clearedComparisonHidden = elements.get("comparison-panel").hidden;
   const comparisonFlow = {
     firstComparison, staleComparison, changedComparison, comparisonReport,
     thirdComparison, unchangedComparison, resetComparison, rebasedComparison,
+    tinyEdit, unrelatedPaste,
     versionComparison, comparisonStored, sampleComparisonHidden,
-    sampleComparisonGroups, clearedComparisonHidden,
+    sampleComparisonGroups, manualEmptyComparisonHidden, clearedComparisonHidden,
     postsAdded: posts().length - comparisonPostsBefore,
   };
 
@@ -855,7 +1077,12 @@ for (const relative of appSources) {
   posting.value += "\n요건을 보완한 공고";
   posting.dispatchEvent(new Event("input"));
   assert.equal(elements.get("human-review-reason").disabled, true);
-  assert.equal(elements.get("copy-button").disabled, true);
+  // Locked but explained: the copy button stays focusable (aria-disabled) and
+  // points at the banner that says the posting changed.
+  assert.equal(elements.get("copy-button").getAttribute("aria-disabled"), "true");
+  assert.equal(elements.get("copy-button").getAttribute("aria-describedby"), "stale-banner-text");
+  assert.ok(elements.get("stale-banner-text").textContent.startsWith("공고문이 바뀌었습니다"));
+  assert.equal(elements.get("stale-recheck").hidden, false);
   assert.ok(elements.get("human-review-status").textContent.includes("수정 전 공고 기준"));
   readerAnswer.value = "stale answer must not replace the prior answer";
   elements.get("result-content").trigger("input", { target: readerAnswer });
@@ -908,8 +1135,25 @@ for (const relative of appSources) {
   assert.ok(!boundedMarkup.includes("retained-review-1-END"));
   assert.ok(boundedMarkup.includes("retained-review-2-END"));
   assert.ok(boundedMarkup.includes("retained-review-11-END"));
+  // Numbers follow the order records were made, so they do not shift when the
+  // oldest ones are dropped at the cap; the counter shows the cap; times are
+  // local and the rule-set label is short.
+  const recordNumbers = [...boundedMarkup.matchAll(/수정 전 기록 (\d+)번/g)].map((match) => Number(match[1]));
+  assert.equal(recordNumbers.length, 10);
+  assert.ok(recordNumbers[0] > 1, "the oldest records were dropped, numbers kept");
+  recordNumbers.slice(1).forEach((number, index) => assert.equal(number, recordNumbers[index] + 1));
+  assert.ok(boundedMarkup.includes("보관 중 10/10개"));
+  assert.ok(!/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(boundedMarkup), "no raw UTC time");
+  assert.ok(!boundedMarkup.includes(window.FAIRPOST_DATA.version), "no full rule-set ID");
+  assert.ok(/검토 기준 \d{4}\.\d{2} · [0-9a-f]{8}/.test(boundedMarkup));
+  const recordTimes = [...boundedMarkup.matchAll(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}) · 검토 기준/g)];
+  assert.equal(recordTimes.length, 10);
 
+  // "예시 입력" asks first because 10 earlier records would be dropped.
+  const promptsBeforeSample = confirmPrompts.length;
   elements.get("sample-button").trigger("click");
+  assert.equal(confirmPrompts.length, promptsBeforeSample + 1);
+  assert.ok(confirmPrompts[promptsBeforeSample].includes("수정 전 기록 10개"));
   assert.equal(elements.get("previous-review-records").hidden, true);
   assert.equal(elements.get("human-review-evidence").value, "");
   elements.get("check-button").trigger("click");
@@ -948,6 +1192,7 @@ for (const relative of appSources) {
     progressAfterAnswer,
     copiedWithAnswer,
     manuallyCleared,
+    staleBannerAfterTypingBack,
     progressAfterRerun,
     copiedAfterRerun,
     copyFailureToast,

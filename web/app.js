@@ -57,6 +57,65 @@
 (function () {
   "use strict";
 
+  // A script that failed to load (blocked, offline, half-updated cache) must
+  // not leave a silent, dead page: name what is missing and turn the check off.
+  function missingBundleFiles() {
+    const missing = [];
+    const data = window.FAIRPOST_DATA;
+    if (
+      !data ||
+      !Array.isArray(data.rules) ||
+      !data.rules.length ||
+      typeof data.version !== "string"
+    ) {
+      missing.push("data.js");
+    }
+    if (!window.FairpostEngine || typeof window.FairpostEngine.check !== "function") {
+      missing.push("engine.js");
+    }
+    return missing;
+  }
+
+  function showLoadFailure(missing) {
+    const notice = document.getElementById("load-error");
+    const text = document.getElementById("load-error-text");
+    const message = `검토 도구를 불러오지 못했습니다(확인이 필요한 파일: ${missing.join(", ")}). 페이지를 새로 고쳐 보세요. 계속 같다면 인터넷 연결과 광고 차단 같은 브라우저 확장 프로그램을 확인하거나 다른 브라우저에서 열어 보세요. 입력한 내용은 어디에도 전송되지 않았습니다.`;
+    if (text) text.textContent = message;
+    if (notice) notice.hidden = false;
+    const bootNotice = document.getElementById("boot-notice");
+    if (bootNotice) bootNotice.hidden = true;
+    ["check-button", "sample-button", "clear-button", "mode-easy", "mode-expert"].forEach((id) => {
+      const control = document.getElementById(id);
+      if (!control) return;
+      control.disabled = true;
+      control.setAttribute("aria-disabled", "true");
+    });
+    const checkControl = document.getElementById("check-button");
+    if (checkControl) {
+      checkControl.setAttribute("title", "검토 도구를 불러오지 못해 지금은 사용할 수 없습니다.");
+    }
+    const version = document.getElementById("ruleset-version");
+    if (version) version.textContent = "불러오지 못함";
+    const reload = document.getElementById("load-error-reload");
+    if (reload) {
+      reload.addEventListener("click", () => {
+        try {
+          window.location.reload();
+        } catch (_error) {
+          // Reloading is a convenience; the message already says what to do.
+        }
+      });
+    }
+  }
+
+  const missingFiles = missingBundleFiles();
+  if (missingFiles.length) {
+    showLoadFailure(missingFiles);
+    return;
+  }
+  const bootNoticeElement = document.getElementById("boot-notice");
+  if (bootNoticeElement) bootNoticeElement.hidden = true;
+
   const input = document.getElementById("posting-input");
   const checkButton = document.getElementById("check-button");
   const clearButton = document.getElementById("clear-button");
@@ -151,6 +210,14 @@
   const improvementContent = document.getElementById("improvement-content");
   const improvementRemaining = document.getElementById("improvement-remaining");
   const copyPostingButton = document.getElementById("copy-posting-button");
+  const staleBanner = document.getElementById("stale-banner");
+  const staleBannerText = document.getElementById("stale-banner-text");
+  const staleRecheckButton = document.getElementById("stale-recheck");
+  const postingSizeHint = document.getElementById("posting-size-hint");
+  const bookEntryMore = document.getElementById("book-entry-more");
+  const bookEntryStart = document.getElementById("book-entry-start");
+  const bookEntrySample = document.getElementById("book-entry-sample");
+  const roleReviewClearAll = document.getElementById("role-review-clear-all");
   const FAIRNESS_PERSPECTIVES = Object.freeze([
     { dimension: "분배", key: "distribution", title: "기회와 요건", meaning: "지원 기회와 자격·우대 요건이 직무에 맞는지 살펴봅니다." },
     { dimension: "절차", key: "procedure", title: "기준과 재검토", meaning: "기준과 진행 절차가 설명되고, 이의를 말할 통로가 있는지 살펴봅니다." },
@@ -160,6 +227,8 @@
   const HUMAN_RECORD_LABELS = Object.freeze({ evidence: "확인한 사실·근거", reason: "수정 여부와 이유", next: "남은 확인사항·담당자·다음 행동" });
   let humanReviewRecord = { evidence: "", reason: "", next: "" };
   let previousReviewRecords = [];
+  const PREVIOUS_RECORD_LIMIT = 10;
+  let previousRecordSerial = 0;
   const VIEW_MODE_STORAGE_KEY = "fairpost.view-mode.v1";
   const VIEW_MODES = new Set(["easy", "expert"]);
   const SLOT_EMBEDDED_QUESTION_ALLOWLIST = new Set(
@@ -240,7 +309,7 @@
     "위원장 조정 흐름이 생성되었습니다. 각 역할의 독립 검토를 추가하십시오.";
   const ROLE_REVIEW_SELF_REPORT = "이 브라우저의 자기 기록 · 결재 아님";
   const ROLE_REVIEW_PRIVACY_LINE =
-    "fingerprint와 역할 이벤트만 이 브라우저에 저장합니다. 원문·지원자 정보는 저장하지 않습니다.";
+    "공고문 요약값(해시)과 역할 기록만 이 브라우저에 저장합니다. 원문·지원자 정보는 저장하지 않습니다.";
   const GUIDANCE_CATALOG_VERSION =
     typeof window.FAIRPOST_DATA.guidance_catalog_version === "string" &&
     window.FAIRPOST_DATA.guidance_catalog_version
@@ -303,6 +372,17 @@
   const rewriteTargets = new Map();
   let improvementCache = null;
   let improvementRendered = null;
+  // Long postings paint a "검토 중…" state before the engine runs; very long
+  // ones get a soft size hint. The engine itself has no length limit.
+  const BUSY_PAINT_MIN_CHARS = 10000;
+  const SOFT_SIZE_WARNING_CHARS = 30000;
+  const CHECK_BUSY_LABEL = "검토 중…";
+  let checkPending = false;
+  let checkButtonLabel = "";
+  let bookEntryCollapsed = false;
+  // True for the review that replaced the comparison baseline because the
+  // pasted posting had little in common with the old one.
+  let comparisonRebased = false;
 
   const sample = `2026년 행정직 채용
 
@@ -582,10 +662,15 @@
       evicted.push(null);
       return true;
     }
+    // Packets nobody wrote in go first (oldest first); a packet that holds a
+    // reader's own role events is evicted only when nothing else is left.
+    const hasOwnEvents = (packet) => (roleReviewUserEvents(packet).length ? 1 : 0);
     const candidates = store.packets
       .filter((packet) => roleReviewPacketKey(packet) !== protectedKey)
-      .sort((left, right) =>
-        String(left.updated_at).localeCompare(String(right.updated_at))
+      .sort(
+        (left, right) =>
+          hasOwnEvents(left) - hasOwnEvents(right) ||
+          String(left.updated_at).localeCompare(String(right.updated_at))
       );
     if (!candidates.length) return false;
     store.packets = store.packets.filter((packet) => packet !== candidates[0]);
@@ -695,10 +780,15 @@
         .map((packet) => packet.updated_at)
         .sort()
         .slice(-1)[0];
+      const withOwnEvents = packets.filter(
+        (packet) => roleReviewUserEvents(packet).length
+      ).length;
       parts.push(
         `가장 오래된 역할 기록 패킷 ${packets.length}개(마지막 기록 ${roleReviewTimeLabel(
           newest
-        )}${packets.length > 1 ? " 이하" : ""})`
+        )}${packets.length > 1 ? " 이하" : ""}${
+          withOwnEvents ? `, 직접 남긴 기록이 있는 패킷 ${withOwnEvents}개 포함` : ""
+        })`
       );
     }
     if (unreadable) parts.push(`읽을 수 없던 패킷 ${unreadable}개`);
@@ -893,7 +983,7 @@
     roleReviewState = null;
     roleReviewPanel.hidden = false;
     roleReviewNotice.textContent =
-      "공고 fingerprint를 만드는 중입니다. 원문·지원자 정보는 역할 기록에 저장하지 않습니다.";
+      "공고문 요약값(해시)을 만드는 중입니다. 원문·지원자 정보는 역할 기록에 저장하지 않습니다.";
     setAssistBadge(roleReviewStatus, "준비 중");
     const fingerprint = await sha256Hex(text);
     if (
@@ -957,14 +1047,35 @@
       const olderVersions = store.packets.filter(
         (packet) => packet.posting_fingerprint === fingerprint
       ).length;
+      // A packet nobody has written in yet stays in memory: saving one per
+      // review would crowd out the records readers deliberately made.
       lead.push(
         olderVersions
           ? `규칙셋 또는 지침 버전이 바뀌어 새 패킷을 시작했습니다. 같은 공고문의 이전 버전 패킷 ${olderVersions}개는 이 브라우저에 그대로 보관합니다.`
           : "이 공고문의 새 역할 기록 패킷을 시작했습니다. 원문이 한 글자라도 다르면 별도 패킷으로 보관하며 이전 패킷은 지우지 않습니다."
       );
     }
-    if (!existing || store.legacyPending) {
+    if (existing && store.legacyPending) {
       persistRoleReviewState(lead);
+    } else if (!existing) {
+      // Moving a v1 packet into the v2 store never needs the empty new packet.
+      const migrated = store.legacyPending
+        ? writeRoleReviewStore(() => {}, key)
+        : null;
+      const writable = migrated ? migrated.ok : store.writable;
+      const problem = migrated ? migrated.problem : store.problem;
+      roleReviewPersistent = false;
+      roleReviewNotice.textContent = [
+        ...lead,
+        writable
+          ? "역할 기록을 처음 남길 때 이 브라우저에 저장하며, 그 전에는 저장하지 않습니다."
+          : roleReviewStorageMessage({ ok: false, problem, evicted: [], storedCount: 0, store }),
+      ].join(" ");
+      setAssistBadge(
+        roleReviewStatus,
+        writable ? "저장 전" : "세션 기록",
+        writable ? "" : "error"
+      );
     } else {
       roleReviewPersistent = store.writable;
       roleReviewNotice.textContent = [
@@ -1130,6 +1241,15 @@
       removedFromStorage = outcome.ok;
       storedCount = outcome.storedCount;
     }
+    dropRoleReviewPanel();
+    showToast(
+      removedFromStorage
+        ? `이 공고의 역할 기록을 삭제했습니다. 다른 패킷 ${storedCount}개는 유지됩니다.`
+        : "이 공고의 현재 세션 역할 기록을 지웠습니다."
+    );
+  }
+
+  function dropRoleReviewPanel() {
     roleReviewSequence += 1;
     roleReviewState = null;
     roleReviewPersistent = false;
@@ -1138,10 +1258,55 @@
     roleReviewMissing.textContent = "";
     setAssistBadge(roleReviewStatus, "삭제됨");
     roleReviewProgress.textContent = `자기 기록 역할 0/7 · 이벤트 0개 (${ROLE_REVIEW_SELF_REPORT})`;
+  }
+
+  // Removes every role-review packet this browser holds, for every posting.
+  // The per-posting delete above keeps the others; this is the way to leave
+  // nothing behind (for example on a shared computer).
+  function clearAllRoleReviews() {
+    const storage = roleReviewStorage();
+    const store = readRoleReviewStore();
+    const packetCount = store.packets.length + store.unreadable.length;
+    const eventCount = store.packets.reduce(
+      (total, packet) => total + roleReviewUserEvents(packet).length,
+      0
+    );
+    let confirmed = false;
+    try {
+      confirmed =
+        typeof window.confirm === "function" &&
+        window.confirm(
+          `이 브라우저에 저장된 모든 공고의 역할 기록(패킷 ${packetCount}개, 직접 남긴 이벤트 ${eventCount}개)을 삭제할까요? 되돌릴 수 없습니다.${
+            store.problem === "corrupt" ? " 읽을 수 없는 저장 데이터도 함께 지웁니다." : ""
+          }`
+        ) === true;
+    } catch (_error) {
+      confirmed = false;
+    }
+    if (!confirmed) {
+      roleReviewNotice.textContent =
+        "삭제를 취소했습니다. 이 브라우저의 역할 기록은 그대로 있습니다.";
+      return;
+    }
+    let removed = !storage;
+    if (storage) {
+      try {
+        storage.removeItem(ROLE_REVIEW_STORE_KEY);
+        storage.removeItem(ROLE_REVIEW_LEGACY_KEY);
+        removed = true;
+      } catch (_error) {
+        removed = false;
+      }
+    }
+    if (!removed) {
+      roleReviewNotice.textContent =
+        "브라우저 저장소를 지우지 못했습니다. 브라우저 설정에서 이 사이트의 저장 데이터를 삭제하세요.";
+      showToast("브라우저 저장소를 지우지 못했습니다.");
+      return;
+    }
+    dropRoleReviewPanel();
     showToast(
-      removedFromStorage
-        ? `이 공고의 역할 기록을 삭제했습니다. 다른 패킷 ${storedCount}개는 유지됩니다.`
-        : "이 공고의 현재 세션 역할 기록을 지웠습니다."
+      `이 브라우저의 모든 역할 기록(패킷 ${packetCount}개)을 삭제했습니다. 다시 검토하면 새 기록을 시작합니다.`
     );
   }
 
@@ -1221,13 +1386,17 @@
       .map((question) => ({ id: question.id, question: question.question, answer: reviewAnswers.get(question.id) }));
     if (!answers.length && !humanRecordHasContent(humanReviewRecord)) return;
     // No posting text or fingerprint is kept with these session-only drafts.
+    // `serial` numbers the records for the whole session, so a record keeps its
+    // number when the oldest ones are dropped at the cap.
+    previousRecordSerial += 1;
     previousReviewRecords.push({
+      serial: previousRecordSerial,
       at: new Date().toISOString(),
       ruleset: latestResult.ruleset_version,
       record: { ...humanReviewRecord },
       answers,
     });
-    previousReviewRecords = previousReviewRecords.slice(-10);
+    previousReviewRecords = previousReviewRecords.slice(-PREVIOUS_RECORD_LIMIT);
   }
 
   function updateHumanReviewState() {
@@ -1242,13 +1411,44 @@
         ? "공고문이 바뀌었습니다. 아래 답변과 기록은 수정 전 공고 기준입니다. 다시 검토한 뒤 현재 답변을 남기세요. 메모 복사는 재검토 뒤 가능합니다."
         : "현재 검토에 연결된 자기 기록입니다. 입력만으로 검증 완료를 뜻하지 않습니다."
     );
+    updateStaleState();
+  }
+
+  const STALE_BANNER_TEXT =
+    "공고문이 바뀌었습니다 · 아래 결과와 메모는 바뀌기 전 공고문 기준입니다. 메모 복사, 답변, 줄 반영은 다시 검토한 뒤 할 수 있습니다.";
+
+  // The banner under the results toolbar says why the copy, answer and
+  // rewrite controls are locked, and offers the one action that unlocks them.
+  // The copy button stays focusable (aria-disabled) so its reason is read.
+  function updateStaleState() {
+    const stale = Boolean(latestResult) && latestCheckedText !== input.value;
+    setLiveText(staleBannerText, stale ? STALE_BANNER_TEXT : "");
+    if (stale) staleBanner.classList.add("is-stale");
+    else staleBanner.classList.remove("is-stale");
+    staleRecheckButton.hidden = !stale;
+    copyButton.disabled = !latestResult;
+    if (stale) {
+      copyButton.setAttribute("aria-disabled", "true");
+      copyButton.setAttribute("aria-describedby", "stale-banner-text");
+    } else {
+      copyButton.removeAttribute("aria-disabled");
+      copyButton.removeAttribute("aria-describedby");
+    }
+  }
+
+  // "2026.07-local-v5-…-b5cea04dd38f" -> "2026.07 · b5cea04d": the person
+  // reading a record needs to tell rule sets apart, not to read the full ID.
+  function shortRulesetLabel(ruleset) {
+    const match = /^(\d{4}\.\d{2}).*-([0-9a-f]{8,})$/u.exec(String(ruleset));
+    return match ? `${match[1]} · ${match[2].slice(0, 8)}` : String(ruleset);
   }
 
   function renderPreviousHumanReviews() {
     previousRecordsPanel.hidden = !previousReviewRecords.length;
-    previousRecordsContent.innerHTML = previousReviewRecords.map((entry, index) => `<article class="previous-record">
-      <h4>수정 전 기록 ${index + 1} · 현재 공고에 자동 적용되지 않음</h4>
-      <p>${escapeHtml(entry.at)} · 검토 기준 ${escapeHtml(entry.ruleset)}</p>
+    const counter = `<p class="previous-record-count">보관 중 ${previousReviewRecords.length}/${PREVIOUS_RECORD_LIMIT}개 · 가득 차면 가장 오래된 기록부터 지웁니다. 번호는 이 탭에서 남긴 순서입니다.</p>`;
+    previousRecordsContent.innerHTML = counter + previousReviewRecords.map((entry) => `<article class="previous-record">
+      <h4>수정 전 기록 ${entry.serial}번 · 현재 공고에 자동 적용되지 않음</h4>
+      <p>${escapeHtml(roleReviewTimeLabel(entry.at))} · 검토 기준 ${escapeHtml(shortRulesetLabel(entry.ruleset))}</p>
       ${Object.entries(entry.record).filter(([, value]) => value.trim()).map(([key, value]) => `<p><strong>${HUMAN_RECORD_LABELS[key]}</strong></p><pre>${escapeHtml(value)}</pre>`).join("")}
       ${entry.answers.map((answer) => `<p><strong>${escapeHtml(answer.id)}</strong> ${escapeHtml(answer.question)}</p><pre>${escapeHtml(answer.answer)}</pre>`).join("")}
     </article>`).join("");
@@ -1443,7 +1643,7 @@
       <div class="template-content">
         <p class="template-notice">${escapeHtml(POSTING_TEMPLATES.notice)}</p>
         ${template.condition ? `<p class="template-condition"><strong>넣기 전 확인</strong> ${escapeHtml(template.condition)}</p>` : ""}
-        <pre class="template-text" tabindex="0" role="region" aria-label="${escapeHtml(name)} 예시 문장">${escapeHtml(text)}</pre>
+        <pre class="template-text" tabindex="0" role="group" aria-label="${escapeHtml(name)} 예시 문장">${escapeHtml(text)}</pre>
         ${sources}
         <div class="template-actions">
           <button type="button" class="button button-secondary" data-template-insert="end" ${data} aria-label="${escapeHtml(name)} 예시 문장 공고 끝에 넣기">공고 끝에 넣기</button>
@@ -1484,6 +1684,7 @@
         <textarea id="rewrite-${index}" data-rewrite-draft="${index}" rows="3" spellcheck="false" aria-describedby="rewrite-hint-${index}">${escapeHtml(draft)}</textarea>
         ${guide}
         <p id="rewrite-hint-${index}" class="rewrite-hint">대안 지침은 고칠 방향입니다. 그대로 붙이지 말고 실제 직무 조건에 맞게 직접 고쳐 쓰세요. 검토한 공고문이 그대로일 때만 이 줄을 바꾸며, 반영한 뒤에는 다시 검토해야 합니다.</p>
+        <p id="rewrite-stale-${index}" class="rewrite-stale-note" data-rewrite-stale hidden>공고문이 바뀌어 지금은 이 줄을 반영할 수 없습니다. '다시 검토'를 누른 뒤 반영하세요.</p>
         <div class="template-actions">
           <button type="button" class="button button-secondary" data-rewrite-apply="${index}" aria-label="${number}번 표현이 있는 줄 공고에 반영">공고에 반영</button>
         </div>
@@ -1686,6 +1887,18 @@
     selectPostingRange(target.start, target.start + replacement.length);
   }
 
+  const UNDO_EDIT_LABEL = "되돌리기";
+  const UNDO_EDIT_NAME = "공고문에 넣거나 반영한 마지막 변경 되돌리기";
+  const UNDO_DISCARD_LABEL = "방금 지운 공고문 되돌리기";
+
+  // After "×" or "예시 입력" replaced the posting, the old text stays one
+  // click away (answers, records and the comparison baseline do not come back).
+  function offerDiscardedPosting(discarded) {
+    if (!discarded || !discarded.trim()) return;
+    postingUndo = { before: discarded, after: input.value, restoreSelection: null, kind: "discard" };
+    updateUndoState();
+  }
+
   function updateUndoState() {
     undoButton.hidden = !postingUndo;
     if (!postingUndo) {
@@ -1693,21 +1906,34 @@
       undoButton.removeAttribute("title");
       return;
     }
+    const discard = postingUndo.kind === "discard";
+    const label = discard ? UNDO_DISCARD_LABEL : UNDO_EDIT_LABEL;
+    if (undoButton.textContent !== label) undoButton.textContent = label;
+    undoButton.setAttribute("aria-label", discard ? UNDO_DISCARD_LABEL : UNDO_EDIT_NAME);
     const usable = input.value === postingUndo.after;
     // aria-disabled keeps the button focusable so the reason can be shown.
     undoButton.setAttribute("aria-disabled", String(!usable));
     undoButton.setAttribute(
       "title",
       usable
-        ? "예시 문장 넣기나 줄 반영으로 바뀐 마지막 내용을 되돌립니다."
+        ? discard
+          ? "지우거나 예시로 바꾸기 전의 공고문을 다시 불러옵니다. 답변과 비교 기준은 되살아나지 않습니다."
+          : "예시 문장 넣기나 줄 반영으로 바뀐 마지막 내용을 되돌립니다."
+        : discard
+        ? "그 뒤 공고문을 직접 고쳐서 되돌릴 수 없습니다. 새로 쓴 내용을 지키기 위해 자동으로 덮어쓰지 않습니다."
         : "넣거나 반영한 뒤 공고문을 직접 고쳐서 되돌릴 수 없습니다. 직접 고친 내용을 지키기 위해 자동으로 되돌리지 않습니다."
     );
   }
 
   function undoPostingChange() {
     if (!postingUndo) return;
+    const discard = postingUndo.kind === "discard";
     if (input.value !== postingUndo.after) {
-      showToast("넣거나 반영한 뒤 공고문을 직접 고쳐서 되돌리지 않습니다. 필요한 부분은 공고문에서 직접 고치세요.");
+      showToast(
+        discard
+          ? "그 뒤 공고문을 직접 고쳐서 되돌리지 않습니다. 새로 쓴 내용을 지키기 위해 덮어쓰지 않습니다."
+          : "넣거나 반영한 뒤 공고문을 직접 고쳐서 되돌리지 않습니다. 필요한 부분은 공고문에서 직접 고치세요."
+      );
       return;
     }
     const restored = postingUndo.before;
@@ -1717,7 +1943,9 @@
     // The undone text is announced first; the status writes that the edit
     // triggers (stale result, locked memo) follow it.
     showToast(
-      latestResult && latestCheckedText === restored
+      discard
+        ? "지웠던 공고문을 되돌렸습니다. 답변과 비교 기준은 초기화된 상태이니 '검토 메모 만들기'를 다시 눌러 확인하세요."
+        : latestResult && latestCheckedText === restored
         ? "되돌렸습니다. 마지막으로 검토한 공고문과 같아 현재 결과를 그대로 볼 수 있습니다."
         : "되돌렸습니다. '검토 메모 만들기'를 다시 눌러 확인하세요."
     );
@@ -1758,14 +1986,27 @@
     revealPostingPosition(caretStart);
   }
 
+  // While the posting differs from the reviewed one, a line draft cannot be
+  // edited and "공고에 반영" does not act. Both stay focusable (read-only,
+  // aria-disabled) and point at the note that says why.
   function updateRewriteControls() {
     if (typeof easyResult.querySelectorAll !== "function") return;
     const fresh = Boolean(latestResult) && latestCheckedText === input.value;
-    easyResult
-      .querySelectorAll("[data-rewrite-draft], [data-rewrite-apply]")
-      .forEach((control) => {
-        control.disabled = !fresh;
-      });
+    easyResult.querySelectorAll("[data-rewrite-draft]").forEach((field) => {
+      field.readOnly = !fresh;
+    });
+    easyResult.querySelectorAll("[data-rewrite-apply]").forEach((button) => {
+      if (fresh) {
+        button.removeAttribute("aria-disabled");
+        button.removeAttribute("aria-describedby");
+      } else {
+        button.setAttribute("aria-disabled", "true");
+        button.setAttribute("aria-describedby", `rewrite-stale-${button.dataset.rewriteApply}`);
+      }
+    });
+    easyResult.querySelectorAll("[data-rewrite-stale]").forEach((note) => {
+      note.hidden = fresh;
+    });
   }
 
   // Line-level difference between two postings: LCS over non-blank lines,
@@ -1891,16 +2132,16 @@
       baselineFindingIds.has(finding.id)
     ).length;
     const newlyShown = latestResult.findings.length - continuing;
-    const unanswered = latestResult.questions.filter(
-      (question) => !(reviewAnswers.get(question.id) || "").trim()
-    ).length;
+    const progress = answerProgressCounts(latestResult.questions);
+    const unanswered = progress.postingTotal - progress.postingAnswered;
+    const unansweredCommon = progress.commonTotal - progress.commonAnswered;
     const missing = latestResult.slots.filter((slot) => !slot.found).length;
     improvementRemaining.innerHTML = [
       `채우지 않은 빈칸(${escapeHtml(PLACEHOLDER)}) <strong>${countPlaceholders(latestCheckedText)}곳</strong>`,
       `계속 표시된 표현 <strong>${continuing}개</strong>`,
       newlyShown ? `새로 표시된 표현 <strong>${newlyShown}개</strong>` : "",
       `공고문에서 찾지 못한 안내 <strong>${missing}개</strong>`,
-      `답하지 않은 질문 <strong>${unanswered}개</strong>`,
+      `답하지 않은 질문 <strong>${unanswered}개</strong> (공고별) · 공통 체크리스트 <strong>${unansweredCommon}개</strong>`,
     ]
       .filter(Boolean)
       .map((item) => `<li>${item}</li>`)
@@ -1923,6 +2164,29 @@
     } catch (_error) {
       return false;
     }
+  }
+
+  const CONTEXT_SIDE_CHARS = 36;
+  // The list of missing guidance is the next step of the loop; a short one is
+  // shown open, a long one stays folded so it does not push the questions away.
+  const EASY_GUIDANCE_OPEN_MAX = 6;
+
+  // The posting line that holds a finding, with the matched words marked, so
+  // each card shows where the wording sits without opening the whole posting.
+  // `line` is the finding's line range and the offsets are UTF-16 code units.
+  function findingContextLine(text, unitStart, unitEnd, line) {
+    if (!line || unitEnd <= unitStart) return "";
+    const clip = (value, fromEnd) => {
+      const points = Array.from(value);
+      if (points.length <= CONTEXT_SIDE_CHARS) return value;
+      return fromEnd
+        ? `…${points.slice(-CONTEXT_SIDE_CHARS).join("")}`
+        : `${points.slice(0, CONTEXT_SIDE_CHARS).join("")}…`;
+    };
+    const before = clip(text.slice(line.start, unitStart), true);
+    const matched = text.slice(unitStart, unitEnd);
+    const after = clip(text.slice(unitEnd, line.end), false);
+    return `<p class="easy-context"><span class="easy-context-label">공고문의 해당 줄</span><span class="easy-context-line">${escapeHtml(before)}<mark class="easy-mark">${escapeHtml(matched)}</mark>${escapeHtml(after)}</span></p>`;
   }
 
   function renderEasy(result, text) {
@@ -1950,6 +2214,8 @@
     });
     const findingCards = orderedFindings
       .map((finding, index) => {
+        const unitStart = codePointsToCodeUnits(text, finding.offset[0]);
+        const unitEnd = codePointsToCodeUnits(text, finding.offset[1]);
         const alternatives = finding.alternatives.length
           ? `<div class="easy-fix"><strong>이렇게 바꿔 보세요</strong><ul>${finding.alternatives
               .map((alternative) => `<li>${escapeHtml(alternative)}</li>`)
@@ -1961,11 +2227,12 @@
             <q class="easy-quote">${escapeHtml(finding.matched_text)}</q>
             <span class="severity-tag severity-${escapeHtml(finding.severity)}">${escapeHtml(reviewPriorityLabel(finding.severity))}</span>
           </div>
+          ${findingContextLine(text, unitStart, unitEnd, rewriteTargets.get(index))}
           <p class="easy-why"><strong>왜 다시 볼까요?</strong> ${escapeHtml(finding.message)}</p>
           ${alternatives}
           <div class="easy-finding-foot">
             <span>관련 법: ${escapeHtml(finding.basis.law)} ${escapeHtml(finding.basis.article)}</span>
-            <button type="button" class="button button-quiet" data-select-start="${codePointsToCodeUnits(text, finding.offset[0])}" data-select-end="${codePointsToCodeUnits(text, finding.offset[1])}">공고문에서 이 부분 선택</button>
+            <button type="button" class="button button-quiet" data-select-start="${unitStart}" data-select-end="${unitEnd}">공고문에서 이 부분 선택</button>
           </div>
           ${rewriteBlock(index, finding)}
         </li>`;
@@ -1975,7 +2242,8 @@
       ? `<section class="easy-section" aria-labelledby="easy-findings-heading">
           <h3 id="easy-findings-heading">1. 다시 살펴볼 표현</h3>
           <p class="easy-hint">노란색 표시는 법 조항과 함께 다시 볼 만한 표현입니다. 고쳐야 한다는 판정이 아니라, 직무에 꼭 필요한 조건인지 확인해 보라는 뜻입니다.</p>
-          <details class="easy-source-detail"><summary>표시된 공고문 펼치기</summary><pre class="easy-posting" tabindex="0" role="region" aria-label="표시된 공고문">${highlightedPosting(text, orderedFindings)}</pre></details>
+          <p class="easy-hint easy-one-per-rule">같은 유형의 표현이 다른 줄에도 있으면 고친 뒤 다시 검토할 때 이어서 표시됩니다.</p>
+          <details class="easy-source-detail"><summary>표시된 공고문 펼치기</summary><pre class="easy-posting" tabindex="0" role="group" aria-label="표시된 공고문">${highlightedPosting(text, orderedFindings)}</pre></details>
           <ol class="easy-findings">${findingCards}</ol>
         </section>`
       : "";
@@ -1983,7 +2251,7 @@
       ? `<section class="easy-section" aria-labelledby="easy-missing-heading">
           <h3 id="easy-missing-heading">${orderedFindings.length ? "2" : "1"}. 공고문에서 찾지 못한 안내</h3>
           <p class="easy-hint">공고문에서 아래 안내를 찾지 못했습니다. 절차가 없다는 뜻이 아니므로, 실제로 운영 중이면 공고문에 적어 주세요.${POSTING_TEMPLATES ? " '예시 문장 보기'에서 빈칸(" + escapeHtml(PLACEHOLDER) + ")이 있는 출발 문장을 공고에 넣고 실제 사실로 채울 수 있습니다." : ""}</p>
-          <details class="easy-guidance-detail"><summary>안내 ${missing.length}개와 적용 여부 확인</summary><ul class="easy-missing">${missing
+          <details class="easy-guidance-detail"${missing.length <= EASY_GUIDANCE_OPEN_MAX ? " open" : ""}><summary>안내 ${missing.length}개와 적용 여부 확인</summary><ul class="easy-missing">${missing
             .map((slot) => `<li>${escapeHtml(slot.label)}${slot.slot === "ai_disclosure" ? '<small>공고에 AI 언급이 없다고 실제 사용 여부를 알 수 없습니다. 담당자가 AI 사용 여부와 안내 적용 여부를 확인하세요.</small>' : ""}${templateBlock(slot.slot, slot.label)}</li>`)
             .join("")}</ul></details>
         </section>`
@@ -2031,6 +2299,13 @@
     `;
   }
 
+  // A long message needs longer on screen than a short one: 4 s for a short
+  // line, about 70 ms more per character after the first 30, up to 12 s.
+  function toastDuration(message) {
+    const length = String(message).length;
+    return Math.min(12000, Math.max(4000, 4000 + (length - 30) * 70));
+  }
+
   function showToast(message) {
     toast.textContent = message;
     toast.classList.add("visible");
@@ -2040,7 +2315,7 @@
       // Faded out only visually: empty it so a screen reader reading the page
       // later does not meet an old message at the end.
       toast.textContent = "";
-    }, 4000);
+    }, toastDuration(message));
   }
 
   // The results heading takes focus after a review but says nothing about what
@@ -2059,6 +2334,9 @@
     ];
     if (!placeholderNotice.hidden && placeholderNotice.textContent) {
       parts.push(placeholderNotice.textContent);
+    }
+    if (comparisonRebased) {
+      parts.push("새 공고로 보고 비교 기준을 새로 잡았습니다.");
     }
     const changes = !improvementPanel.hidden ? postingChanges() : null;
     if (changes) {
@@ -2195,16 +2473,28 @@
     };
   }
 
+  // Answers counted for this posting's own questions and for the common
+  // checklist apart, so a long common list does not read as unanswered work
+  // specific to the posting.
+  function answerProgressCounts(questions) {
+    const isAnswered = (question) => Boolean((reviewAnswers.get(question.id) || "").trim());
+    const common = questions.filter((question) => question.review_scope === "common");
+    const posting = questions.filter((question) => question.review_scope !== "common");
+    return {
+      total: questions.length,
+      answered: questions.filter(isAnswered).length,
+      postingTotal: posting.length,
+      postingAnswered: posting.filter(isAnswered).length,
+      commonTotal: common.length,
+      commonAnswered: common.filter(isAnswered).length,
+    };
+  }
+
   function updateAnswerProgress() {
-    const total = latestResult ? latestResult.questions.length : 0;
-    const answered = latestResult
-      ? latestResult.questions.filter((question) =>
-          Boolean((reviewAnswers.get(question.id) || "").trim())
-        ).length
-      : 0;
+    const counts = answerProgressCounts(latestResult ? latestResult.questions : []);
     setLiveText(
       document.getElementById("answer-progress"),
-      `담당자 답변 ${answered}/${total}`
+      `담당자 답변 ${counts.answered}/${counts.total} (공고별 ${counts.postingAnswered}/${counts.postingTotal} · 공통 ${counts.commonAnswered}/${counts.commonTotal})`
     );
   }
 
@@ -2285,6 +2575,38 @@
       "AI 보강 켜짐 · '보강 실행'을 누를 때만 공고문을 FairPost 서버로 전송(AI 제공자에게는 마스킹된 탐지 표현과 근거만)";
   }
 
+  // The server's "reason" text is meant for whoever runs the server (it can
+  // name configuration keys or be English). People using the page are told,
+  // in plain Korean, that the operator has to turn the feature on.
+  const ASSISTED_OPERATOR_MESSAGE =
+    "이 서버에서는 AI·현행 법령 보강이 켜져 있지 않습니다. 서비스를 운영하는 쪽에서 기능을 설정해야 쓸 수 있습니다. 기본 검사는 그대로 사용할 수 있습니다.";
+  const ASSISTED_REQUEST_TIMEOUT_MS = 60000;
+  const ASSISTED_AVAILABILITY_TIMEOUT_MS = 15000;
+
+  // Only Korean text is shown to readers; browser errors such as "Failed to
+  // fetch" are replaced by the fallback.
+  function koreanErrorMessage(error, fallback) {
+    return error instanceof Error && /[가-힣]/u.test(error.message) ? error.message : fallback;
+  }
+
+  // A deadline for one request: `signal` aborts the fetch when it passes.
+  function startDeadline(timeoutMs) {
+    if (typeof AbortController !== "function") {
+      return { signal: undefined, expired: () => false, done() {} };
+    }
+    const controller = new AbortController();
+    let expired = false;
+    const timer = window.setTimeout(() => {
+      expired = true;
+      controller.abort();
+    }, timeoutMs);
+    return {
+      signal: controller.signal,
+      expired: () => expired,
+      done: () => window.clearTimeout(timer),
+    };
+  }
+
   async function responseJson(response) {
     try {
       return await response.json();
@@ -2348,24 +2670,27 @@
     }
     assistedToggle.disabled = true;
     setAssistBadge(assistedBadge, "확인 중");
+    const deadline = startDeadline(ASSISTED_AVAILABILITY_TIMEOUT_MS);
     try {
       const response = await fetch("/api/assisted-review", {
         method: "GET",
         headers: { Accept: "application/json" },
         cache: "no-store",
+        signal: deadline.signal,
       });
       const capability = await responseJson(response);
+      if (response.status === 503 || (response.ok && capability.ready !== true)) {
+        // The server's own "reason" is an operator hint (configuration names);
+        // the reader is told who can change it instead.
+        throw new Error(ASSISTED_OPERATOR_MESSAGE);
+      }
       if (!response.ok) {
         throw new Error(
-          capability.reason ||
-            capability.error ||
-            `이 서버에는 보강 검토 API가 없습니다(응답 ${response.status}).`
+          `이 서버에는 보강 검토 API가 없습니다(응답 ${response.status}).`
         );
       }
-      if (capability.ready !== true || !availableAssistedProviders(capability).length) {
-        throw new Error(
-          capability.reason || "서버에 사용할 수 있는 AI 제공자가 설정되지 않았습니다."
-        );
+      if (!availableAssistedProviders(capability).length) {
+        throw new Error(ASSISTED_OPERATOR_MESSAGE);
       }
       assistedAvailable = true;
       configureAssistedProviders(capability);
@@ -2375,11 +2700,12 @@
       assistedStatus.textContent =
         "사용할 수 있습니다. 켜도 바로 전송하지 않으며, 전송 범위를 확인한 뒤 '보강 실행'을 눌러야 요청합니다.";
     } catch (error) {
-      const message =
-        error instanceof Error && error.message
-          ? error.message
-          : "서버 설정을 확인하지 못했습니다.";
+      const message = deadline.expired()
+        ? `서버가 ${ASSISTED_AVAILABILITY_TIMEOUT_MS / 1000}초 안에 응답하지 않았습니다. 잠시 뒤 페이지를 새로 고쳐 보세요. 기본 검사는 그대로 사용할 수 있습니다.`
+        : koreanErrorMessage(error, "서버에 연결해 설정을 확인하지 못했습니다. 기본 검사는 그대로 사용할 수 있습니다.");
       setAssistedUnavailable(`사용할 수 없음: ${message}`);
+    } finally {
+      deadline.done();
     }
   }
 
@@ -2454,6 +2780,7 @@
     updateResultsNote();
     updateAssistedRunState();
     announceAssisted(`${providerLabel}로 AI·현행 법령 보강을 요청했습니다. 결과를 기다리는 중입니다.`);
+    const deadline = startDeadline(ASSISTED_REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch("/api/assisted-review", {
         method: "POST",
@@ -2462,6 +2789,7 @@
           "Content-Type": "application/json",
         },
         cache: "no-store",
+        signal: deadline.signal,
         body: JSON.stringify({
           assist_enabled: true,
           ai_provider: assistedProvider.value || null,
@@ -2477,14 +2805,16 @@
           "서버에서 AI·현행 법령 보강을 사용할 수 없어 요청을 처리하지 않았습니다. 로컬 검토 결과는 그대로 사용할 수 있습니다.";
         assistedNotice.textContent = "";
         setAssistBadge(assistedResultStatus, "사용 불가", "error");
-        setAssistedUnavailable(
-          `사용할 수 없음: ${result.reason || "서버 설정이 바뀌었습니다."}`,
-          { announce: true }
-        );
+        setAssistedUnavailable(`사용할 수 없음: ${ASSISTED_OPERATOR_MESSAGE}`, { announce: true });
         return;
       }
       if (!response.ok) {
-        throw new Error(result.reason || result.error || "보강 검토 요청이 실패했습니다.");
+        const serverReason = [result.reason, result.error].find(
+          (value) => typeof value === "string" && /[가-힣]/u.test(value)
+        );
+        throw new Error(
+          serverReason || `보강 검토 요청이 실패했습니다(응답 ${response.status}). 잠시 뒤 다시 시도하세요.`
+        );
       }
       const resultProvider = assistedProviderLabels[result.ai_provider] || "AI";
       let view;
@@ -2523,12 +2853,17 @@
     } catch (error) {
       if (requestId !== assistedRequestSequence) return;
       assistedInFlight = false;
-      const message = error instanceof Error ? error.message : "보강 검토를 완료하지 못했습니다.";
+      const timedOut = deadline.expired();
+      const message = timedOut
+        ? `응답이 ${ASSISTED_REQUEST_TIMEOUT_MS / 1000}초 안에 오지 않아 요청을 멈췄습니다. 잠시 뒤 '보강 실행'을 다시 눌러 보세요.`
+        : koreanErrorMessage(error, "서버에 연결하지 못해 보강 검토를 완료하지 못했습니다. 연결을 확인한 뒤 다시 시도하세요.");
       assistedNotice.textContent = "로컬 검토 결과는 그대로 사용할 수 있습니다.";
       assistedOutput.textContent = message;
-      setAssistBadge(assistedResultStatus, "연결 실패", "error");
+      setAssistBadge(assistedResultStatus, timedOut ? "시간 초과" : "연결 실패", "error");
       updateAssistedRunState();
       announceAssisted(`AI·현행 법령 보강 요청이 실패했습니다. ${message}`);
+    } finally {
+      deadline.done();
     }
   }
 
@@ -2552,6 +2887,8 @@
     reviewAnswers.clear();
     humanReviewRecord = { evidence: "", reason: "", next: "" };
     previousReviewRecords = [];
+    previousRecordSerial = 0;
+    comparisonRebased = false;
     humanRecordFields.forEach((field) => { field.value = ""; });
     renderPreviousHumanReviews();
     updateHumanReviewState();
@@ -2835,7 +3172,56 @@
     return items;
   }
 
+  // Below this share of common lines the pasted text is a different posting,
+  // not an edit of the baseline, and comparing the two would only mislead.
+  const UNRELATED_POSTING_OVERLAP = 0.3;
+
+  function characterBigrams(text) {
+    const compact = text.replace(/\s+/gu, "");
+    const grams = new Map();
+    for (let index = 0; index + 1 < compact.length; index += 1) {
+      const gram = compact.slice(index, index + 2);
+      grams.set(gram, (grams.get(gram) || 0) + 1);
+    }
+    return grams;
+  }
+
+  // How much of the smaller posting also appears in the other, 0..1. Whole
+  // lines are compared first (an edit keeps most lines). A posting of only a
+  // few lines has no lines to share after one edit, so those fall back to the
+  // same measure over character pairs.
+  function postingOverlap(beforeText, afterText) {
+    const lineKeys = (text) => new Set(
+      text.split(LINE_BREAK_PATTERN).map((line) => line.replace(/\s+/gu, " ").trim()).filter(Boolean)
+    );
+    const before = lineKeys(beforeText);
+    const after = lineKeys(afterText);
+    const smaller = Math.min(before.size, after.size);
+    if (!smaller) return 1;
+    let shared = 0;
+    before.forEach((line) => {
+      if (after.has(line)) shared += 1;
+    });
+    const lineOverlap = shared / smaller;
+    if (smaller >= 4 || lineOverlap >= UNRELATED_POSTING_OVERLAP) return lineOverlap;
+    const left = characterBigrams(beforeText);
+    const right = characterBigrams(afterText);
+    let common = 0;
+    let leftTotal = 0;
+    let rightTotal = 0;
+    left.forEach((count, gram) => {
+      leftTotal += count;
+      common += Math.min(count, right.get(gram) || 0);
+    });
+    right.forEach((count) => {
+      rightTotal += count;
+    });
+    const smallerTotal = Math.min(leftTotal, rightTotal);
+    return smallerTotal ? Math.max(lineOverlap, common / smallerTotal) : 1;
+  }
+
   function updateComparison(result, text) {
+    comparisonRebased = false;
     const changedVersion = comparisonBaseline &&
       comparisonBaseline.result.ruleset_version !== result.ruleset_version;
     if (!comparisonBaseline || changedVersion) {
@@ -2844,6 +3230,21 @@
       renderComparison(changedVersion
         ? "검토 기준 버전이 바뀌어 현재 결과를 새 비교 기준으로 삼았습니다."
         : "첫 검토를 비교 기준으로 삼았습니다. 공고문을 고친 뒤 다시 검토해 보세요.");
+      return;
+    }
+    if (
+      text !== comparisonBaseline.text &&
+      postingOverlap(comparisonBaseline.text, text) < UNRELATED_POSTING_OVERLAP
+    ) {
+      // A different posting was pasted over the old one. Its answers were
+      // already set aside by the review; the old baseline would only produce
+      // an "improvement" list between two unrelated postings.
+      comparisonBaseline = { result, text };
+      comparison = null;
+      comparisonRebased = true;
+      renderComparison(
+        "새 공고로 보고 비교 기준을 새로 잡았습니다. 이전 공고와의 비교는 보여 주지 않고 메모에도 넣지 않습니다. 이번 검토가 새 기준이며 다음 수정부터 비교합니다."
+      );
       return;
     }
     const before = comparisonItems(comparisonBaseline.result);
@@ -2912,9 +3313,7 @@
   }
 
   function makeReport(result) {
-    const answeredCount = result.questions.filter((question) =>
-      Boolean((reviewAnswers.get(question.id) || "").trim())
-    ).length;
+    const progress = answerProgressCounts(result.questions);
     const blanks = countPlaceholders(latestCheckedText || "");
     const lines = [
       "fairpost 채용공고문 검토 메모",
@@ -2925,7 +3324,7 @@
       `규칙 사전: ${result.ruleset_version}`,
       `법령 기준일: ${result.statute_snapshot_date}`,
       result.statute_notice,
-      `담당자 답변 진행: ${answeredCount}/${result.questions.length}`,
+      `담당자 답변 진행: ${progress.answered}/${progress.total} (공고별 ${progress.postingAnswered}/${progress.postingTotal} · 공통 체크리스트 ${progress.commonAnswered}/${progress.commonTotal})`,
       `조직 조건: ${currentOrganizationProfile().sector_label}${currentOrganizationProfile().sector === "public" ? ` · ${currentOrganizationProfile().public_entity_type_label}` : ""} · ${currentOrganizationProfile().size_label}`,
       ...(blanks
         ? [`[채우지 않은 빈칸] ${PLACEHOLDER} ${blanks}곳 (${placeholderLinesLabel(latestCheckedText)}) · 빈칸이 남은 안내는 찾은 것으로 표시되어도 아직 완성된 안내가 아닙니다.`]
@@ -3033,8 +3432,8 @@
     }
     if (previousReviewRecords.length) {
       lines.push("", "[수정 전 검토 기록 — 현재 공고에 자동 적용되지 않음]", "아래 답변과 기록은 이전 입력 기준입니다. 현재 결과의 답변으로 보지 말고 다시 확인하세요.");
-      previousReviewRecords.forEach((entry, index) => {
-        lines.push(`이전 기록 ${index + 1} · ${entry.at} · 검토 기준 ${entry.ruleset}`);
+      previousReviewRecords.forEach((entry) => {
+        lines.push(`이전 기록 ${entry.serial}번 · ${roleReviewTimeLabel(entry.at)} · 검토 기준 ${entry.ruleset}`);
         Object.entries(entry.record).forEach(([key, value]) => {
           if (value.trim()) lines.push(`  ${HUMAN_RECORD_LABELS[key]}: ${value.trim()}`);
         });
@@ -3099,6 +3498,70 @@
   }
 
   function runCheck() {
+    if (checkPending) return;
+    // A long posting takes a moment: paint "검토 중…" first, then run the
+    // engine, so the page does not look frozen after the button press.
+    if (input.value.length >= BUSY_PAINT_MIN_CHARS) {
+      checkPending = true;
+      setCheckBusy(true);
+      afterPaint(() => {
+        checkPending = false;
+        try {
+          performCheck();
+        } finally {
+          setCheckBusy(false);
+        }
+      });
+      return;
+    }
+    performCheck();
+  }
+
+  function setCheckBusy(busy) {
+    checkButton.setAttribute("aria-busy", String(busy));
+    if (busy) {
+      checkButtonLabel = checkButton.textContent;
+      checkButton.textContent = CHECK_BUSY_LABEL;
+      announceReview("검토 중입니다. 공고문이 길어 몇 초 걸릴 수 있습니다.");
+    } else {
+      checkButton.textContent = checkButtonLabel;
+    }
+  }
+
+  // Runs `callback` once, after the browser has painted the current state.
+  // Animation frames are paused in a background tab or some embedded views, so
+  // a plain timer is the fallback: the review must never wait on a paint that
+  // does not come.
+  function afterPaint(callback) {
+    let done = false;
+    const once = () => {
+      if (done) return;
+      done = true;
+      callback();
+    };
+    const later = () => window.setTimeout(once, 0);
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(later);
+      window.setTimeout(once, 250);
+    } else {
+      later();
+    }
+  }
+
+  // The engine or a render step failed. Nothing was sent anywhere; say so and
+  // leave the page usable instead of failing silently.
+  function reportCheckFailure(error) {
+    if (typeof console !== "undefined" && typeof console.error === "function") {
+      console.error("fairpost check failed:", error);
+    }
+    const message =
+      "검토 중 오류가 발생해 결과를 만들지 못했습니다. 다시 시도하고, 같은 오류가 계속되면 공고문을 나누어 붙여 넣어 보세요. 공고문은 어디에도 전송되지 않았습니다.";
+    setFieldError(input, postingInputError, message);
+    showToast(message);
+    announceReview(message);
+  }
+
+  function performCheck() {
     if (!input.value.trim()) {
       setFieldError(input, postingInputError, "검토할 공고문을 입력하세요.");
       showToast("검토할 공고문을 입력하세요.");
@@ -3106,7 +3569,14 @@
       return;
     }
     setFieldError(input, postingInputError, "");
-    const result = window.FairpostEngine.check(input.value);
+    let result;
+    try {
+      result = window.FairpostEngine.check(input.value);
+    } catch (error) {
+      // Nothing was changed yet: the previous result, if any, stays as it was.
+      reportCheckFailure(error);
+      return;
+    }
     const sameReview = latestResult && latestCheckedText === input.value &&
       latestResult.ruleset_version === result.ruleset_version;
     if (!sameReview) {
@@ -3117,9 +3587,21 @@
       rewriteDrafts.clear();
     }
     latestCheckedText = input.value;
-    render(result);
+    try {
+      render(result);
+    } catch (error) {
+      // A half-drawn result would look current; start from the empty state.
+      try {
+        resetReview();
+      } catch (_resetError) {
+        // The report below still tells the reader what happened.
+      }
+      reportCheckFailure(error);
+      return;
+    }
     resultsTitle.focus();
     announceReview(reviewAnnouncement(result));
+    collapseBookEntry();
     if (
       typeof window.matchMedia === "function" &&
       window.matchMedia("(max-width: 1100px)").matches &&
@@ -3131,14 +3613,34 @@
     markAssistedSettingsChanged("공고문을 다시 검토했습니다.");
   }
 
+  // The book-reader card has done its job after the first review: fold it to
+  // its heading so the result, not the introduction, is what the reader sees.
+  function collapseBookEntry() {
+    if (bookEntryCollapsed || bookEntryPanel.hidden) return;
+    bookEntryCollapsed = true;
+    bookEntryPanel.classList.add("is-compact");
+    bookEntryMore.open = false;
+  }
+
+  function updatePostingSizeHint(length) {
+    const long = length > SOFT_SIZE_WARNING_CHARS;
+    const text = long
+      ? `공고문이 ${length.toLocaleString("ko-KR")}자로 깁니다. 검토에 몇 초 걸릴 수 있으니 '검토 메모 만들기'를 누른 뒤 잠시 기다려 주세요. 공고 여러 개를 함께 붙여 넣은 것은 아닌지도 확인하세요.`
+      : "";
+    if (postingSizeHint.textContent !== text) postingSizeHint.textContent = text;
+    postingSizeHint.hidden = !long;
+  }
+
   input.addEventListener("input", () => {
-    charCount.textContent = `${Array.from(input.value).length.toLocaleString("ko-KR")}자`;
+    const length = Array.from(input.value).length;
+    charCount.textContent = `${length.toLocaleString("ko-KR")}자`;
+    updatePostingSizeHint(length);
     if (input.value.trim()) setFieldError(input, postingInputError, "");
-    if (!input.value.trim()) {
-      resetReview();
-    } else if (latestResult) {
+    // Emptying the field by hand is an edit like any other: the result turns
+    // stale, but answers, records and the comparison baseline stay until the
+    // reader presses "×" (or checks a different posting).
+    if (latestResult) {
       const stale = latestCheckedText !== input.value;
-      copyButton.disabled = stale;
       renderComparison(stale
         ? "공고문이 바뀌었습니다. 다시 검토하면 비교 결과와 메모가 갱신됩니다."
         : "마지막으로 검토한 공고문입니다. 아래 결과와 메모를 사용할 수 있습니다.");
@@ -3209,19 +3711,80 @@
       markAssistedSettingsChanged("조직 조건이 바뀌었습니다.");
     });
   });
-  clearButton.addEventListener("click", () => {
-    input.value = "";
-    input.dispatchEvent(new Event("input"));
-    lastPostingSelection = null;
-    input.focus();
-  });
-  sampleButton.addEventListener("click", () => {
+  // What a reset would take with it: answers, the review record and the
+  // earlier records are tab memory only and cannot be brought back.
+  function reviewWorkSummary() {
+    const answered = [...reviewAnswers.values()].filter((value) => (value || "").trim()).length;
+    const parts = [];
+    if (answered) parts.push(`담당자 답변 ${answered}개`);
+    if (humanRecordHasContent(humanReviewRecord)) parts.push("검토 근거와 다음 행동 기록");
+    if (previousReviewRecords.length) parts.push(`수정 전 기록 ${previousReviewRecords.length}개`);
+    return parts.join(", ");
+  }
+
+  // Asks first only when there is work to lose; the posting itself can always
+  // be brought back with the undo button, so it does not need a question.
+  function confirmDiscardingReviewWork(question) {
+    const summary = reviewWorkSummary();
+    if (!summary) return true;
+    let confirmed = false;
+    try {
+      confirmed =
+        typeof window.confirm === "function" &&
+        window.confirm(
+          `${question}\n\n이 탭의 메모리에만 있어 지우면 되살릴 수 없는 내용: ${summary}.\n공고문은 '방금 지운 공고문 되돌리기'로 다시 불러올 수 있습니다.`
+        ) === true;
+    } catch (_error) {
+      confirmed = false;
+    }
+    if (!confirmed) showToast("취소했습니다. 공고문과 지금까지의 기록은 그대로 있습니다.");
+    return confirmed;
+  }
+
+  // Replaces the posting with `next` and starts the review over, keeping the
+  // old text one click away. Used by "×" and "예시 입력".
+  function replacePostingAndReset(next) {
+    const before = input.value;
+    // Clearing twice (or sample after clear) keeps the text that was cleared first.
+    const recoverable = before.trim()
+      ? before
+      : postingUndo && postingUndo.kind === "discard" && postingUndo.after === before
+      ? postingUndo.before
+      : "";
     resetReview();
-    input.value = sample;
+    input.value = next;
     input.dispatchEvent(new Event("input"));
     // The caret after a programmatic fill is not a reader's choice.
     lastPostingSelection = null;
+    offerDiscardedPosting(recoverable === next ? "" : recoverable);
     input.focus();
+  }
+
+  clearButton.addEventListener("click", () => {
+    if (!confirmDiscardingReviewWork("공고문을 지우고 검토 결과를 처음 상태로 되돌릴까요?")) {
+      return;
+    }
+    replacePostingAndReset("");
+  });
+  function loadSample() {
+    if (!confirmDiscardingReviewWork("예시 공고문으로 바꾸고 검토 결과를 처음 상태로 되돌릴까요?")) {
+      return false;
+    }
+    replacePostingAndReset(sample);
+    return true;
+  }
+  sampleButton.addEventListener("click", loadSample);
+  staleRecheckButton.addEventListener("click", runCheck);
+  bookEntryStart.addEventListener("click", () => {
+    input.focus();
+    if (typeof input.scrollIntoView === "function") {
+      input.scrollIntoView({ behavior: "auto", block: "center" });
+    }
+  });
+  bookEntrySample.addEventListener("click", () => {
+    if (loadSample() && typeof input.scrollIntoView === "function") {
+      input.scrollIntoView({ behavior: "auto", block: "center" });
+    }
   });
   // Clipboard API first, then the legacy copy command. Returns false when
   // the browser refuses both.
@@ -3259,7 +3822,12 @@
     }
   }
   copyButton.addEventListener("click", async () => {
-    if (!latestResult || latestCheckedText !== input.value) return;
+    if (!latestResult) return;
+    if (latestCheckedText !== input.value) {
+      // aria-disabled keeps the button pressable so the reason can be given.
+      showToast("공고문이 바뀌어 지금은 메모를 복사하지 않습니다. '다시 검토'를 누른 뒤 복사하세요.");
+      return;
+    }
     const copied = await writeClipboard(() => makeReport(latestResult));
     showToast(copied ? "검토 메모를 복사했습니다." : "브라우저에서 메모를 복사하지 못했습니다.");
   });
@@ -3321,6 +3889,7 @@
 
   roleReviewRecord.addEventListener("click", recordRoleReviewEvent);
   roleReviewClear.addEventListener("click", clearRoleReview);
+  roleReviewClearAll.addEventListener("click", clearAllRoleReviews);
   roleReviewAction.addEventListener("change", updateRoleReviewResolutionControl);
   roleReviewNote.addEventListener("input", () =>
     setFieldError(roleReviewNote, roleReviewNoteError, "")
@@ -3382,5 +3951,19 @@
   // the stored mode preference is neither read nor overwritten.
   const bookEntry = bookEntryRequested();
   bookEntryPanel.hidden = !bookEntry;
+  if (bookEntry) {
+    // On a phone the introduction starts folded, so the first screen holds
+    // the two ways to begin and the entry field is not pushed far down.
+    try {
+      if (
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(max-width: 599px)").matches
+      ) {
+        bookEntryMore.open = false;
+      }
+    } catch (_error) {
+      // Without media queries the introduction simply stays open.
+    }
+  }
   setViewMode(bookEntry ? "easy" : storedViewMode() || "easy", false);
 })();

@@ -562,7 +562,7 @@ def test_static_web_keeps_optional_assisted_review_off_by_default() -> None:
     assert "확인 ${question.reference.accessed_at}" in app
     assert 'data-question-answer="${escapeHtml(question.id)}"' in app
     assert "reviewAnswers.set(questionId, target.value)" in app
-    assert "담당자 답변 진행: ${answeredCount}/${result.questions.length}" in app
+    assert "담당자 답변 진행: ${progress.answered}/${progress.total}" in app
     assert "서버나 브라우저 저장소로 전송·저장되지 않습니다." in app
     assert "reviewAnswers.clear()" in app
     assert 'document.getElementById(id).replaceChildren()' in app
@@ -598,6 +598,7 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     assert comparison["firstComparison"]["groups"] == ""
     assert "첫 검토" in comparison["firstComparison"]["status"]
     assert comparison["staleComparison"]["copyDisabled"] is True
+    assert comparison["staleComparison"]["copyAriaDisabled"] == "true"
     assert comparison["staleComparison"]["resetDisabled"] is True
     assert comparison["staleComparison"]["copyUnchanged"] is True
     assert "공고문이 바뀌었습니다" in comparison["staleComparison"]["status"]
@@ -616,14 +617,36 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     assert "여성만" in group(comparison["rebasedComparison"], "added")
     assert comparison["versionComparison"]["groups"] == ""
     assert "버전이 바뀌어" in comparison["versionComparison"]["status"]
+    # A short posting that is only edited keeps its comparison.
+    assert comparison["tinyEdit"]["kept"] is True
+    assert "비교 기준 이후 항목 변화" in comparison["tinyEdit"]["status"]
+    # A different posting pasted over the baseline starts a new baseline: the
+    # panel, the announcement and the memo say so and show no old comparison.
+    unrelated = comparison["unrelatedPaste"]
+    assert unrelated["status"].startswith("새 공고로 보고 비교 기준을 새로 잡았습니다")
+    assert unrelated["groups"] == ""
+    assert unrelated["panelHidden"] is False
+    assert unrelated["improvementHidden"] is True
+    assert "새 공고로 보고 비교 기준을 새로 잡았습니다." in unrelated["announcement"]
+    assert unrelated["memoHasComparison"] is False
+    assert unrelated["memoHasChanges"] is False
+    assert unrelated["nextEditCompared"] is True
+    assert unrelated["nextEditSummaryShown"] is True
     assert comparison["comparisonStored"] is False
     assert comparison["postsAdded"] == 0
     assert comparison["sampleComparisonHidden"] is True
     assert comparison["sampleComparisonGroups"] == ""
+    # Emptying the field by hand is an edit (stale); only "×" resets.
+    assert comparison["manualEmptyComparisonHidden"] is False
     assert comparison["clearedComparisonHidden"] is True
-    assert result["progressAfterAnswer"] == (
-        f"담당자 답변 1/{result['questionCount']}"
+    # The count separates this posting's questions from the common checklist.
+    answered = re.fullmatch(
+        r"담당자 답변 1/(\d+) \(공고별 (\d+)/(\d+) · 공통 (\d+)/(\d+)\)",
+        result["progressAfterAnswer"],
     )
+    assert answered is not None, result["progressAfterAnswer"]
+    assert int(answered.group(1)) == result["questionCount"]
+    assert int(answered.group(3)) + int(answered.group(5)) == result["questionCount"]
     assert result["questionId"] in result["copiedWithAnswer"]
     assert "담당자 답변: 원문을 직무 요건 중심으로 수정합니다." in result[
         "copiedWithAnswer"
@@ -631,22 +654,34 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     assert "담당자 재확인 완료" in result["copiedWithAnswer"]
     assert f"- {result['questionId']}" in result["copiedWithAnswer"]
     assert f"0 {result['questionId']}" not in result["copiedWithAnswer"]
-    assert result["manuallyCleared"] == {
-        "progress": "담당자 답변 0/0",
-        "resultHidden": True,
-        "copyDisabled": True,
-    }
-    assert result["progressAfterRerun"] == (
-        f"담당자 답변 0/{result['questionCount']}"
-    )
-    assert "담당자 재확인 완료" not in result["copiedAfterRerun"]
+    assert "담당자 답변 진행: 1/" in result["copiedWithAnswer"]
+    assert "공고별 " in result["copiedWithAnswer"] and "공통 체크리스트 " in result["copiedWithAnswer"]
+    # Manually emptying the field only makes the result stale: nothing is wiped,
+    # the copy button is explained (aria-disabled) and typing the text back
+    # makes the answers current again.
+    stale_empty = result["manuallyCleared"]
+    assert stale_empty["progress"] == result["progressAfterAnswer"]
+    assert stale_empty["resultHidden"] is False
+    assert stale_empty["comparisonHidden"] is False
+    assert stale_empty["copyAriaDisabled"] == "true"
+    assert stale_empty["bannerText"].startswith("공고문이 바뀌었습니다")
+    assert result["staleBannerAfterTypingBack"] == ""
+    assert result["progressAfterRerun"] == result["progressAfterAnswer"]
+    assert "담당자 재확인 완료" in result["copiedAfterRerun"]
     assert result["copyFailureToast"] == "브라우저에서 메모를 복사하지 못했습니다."
+    # "×" asks because an answer exists, resets, and offers the posting back.
     assert result["cleared"] == {
         "input": "",
-        "progress": "담당자 답변 0/0",
+        "progress": "담당자 답변 0/0 (공고별 0/0 · 공통 0/0)",
         "resultHidden": True,
         "copyDisabled": True,
         "dynamicContainersCleared": True,
+        "prompts": 1,
+        "promptMentionsAnswers": True,
+        "undoOffered": True,
+        "undoRestoresPosting": True,
+        "answersStayCleared": True,
+        "resultStillHidden": True,
     }
     assert result["easySelection"] == {
         "selections": [[0, 6]],
@@ -746,9 +781,24 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     assert disabled["toggleChecked"] is False
     assert disabled["toggleDisabled"] is True
     assert disabled["badge"] == "사용 불가"
-    assert "설정 필요: AI API" in disabled["status"]
+    # Readers are told the operator has to enable it, not the server's own
+    # configuration hint ("설정 필요: AI API, Korean Law MCP").
+    assert "운영하는 쪽에서 기능을 설정해야" in disabled["status"]
+    assert "설정 필요" not in disabled["status"]
+    assert "Korean Law MCP" not in disabled["status"]
     assert "자동으로 꺼졌습니다" in disabled["live"]
     assert disabled["runDisabled"] is True
+    # A server that never answers stops at the 60 s deadline with a Korean message.
+    timeout = flow["timeoutFlow"]
+    assert timeout["signalSent"] is True
+    assert timeout["deadlineMs"] == 60000
+    assert timeout["aborted"] is True
+    assert timeout["badge"] == "시간 초과"
+    assert "60초 안에 오지 않아" in timeout["output"]
+    assert "로컬 검토 결과는 그대로" in timeout["notice"]
+    assert "60초 안에 오지 않아" in timeout["live"]
+    assert timeout["runEnabledAgain"] is True
+    assert timeout["deadlineCleared"] is True
     assert flow["emptyInput"] == {
         "error": "검토할 공고문을 입력하세요.",
         "errorHidden": False,
@@ -757,6 +807,13 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     }
     role_review = result["roleReview"]
     self_report = "(이 브라우저의 자기 기록 · 결재 아님)"
+    # Reviews alone save nothing: the packet waits in memory for a first event.
+    unsaved = role_review["unsavedPacket"]
+    assert unsaved["stored"] is False
+    assert unsaved["status"] == "저장 전"
+    assert unsaved["panelHidden"] is False
+    assert "처음 남길 때 이 브라우저에 저장하며, 그 전에는 저장하지 않습니다" in unsaved["notice"]
+    assert "fingerprint" not in unsaved["notice"]
     assert role_review["status"] == "로컬 기록"
     # The auto-created chair event is not participation.
     assert role_review["initialProgress"] == (
@@ -801,14 +858,18 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     assert role_review["reloaded"]["progress"] == role_review["progress"]
     assert "역할 기록(이벤트 3개)을 불러왔습니다" in role_review["reloaded"]["notice"]
     drift = role_review["afterVersionDrift"]
+    assert drift["storedBeforeFirstEvent"] == 1  # the check itself stored nothing
     assert drift["newPacket"] is True
     assert drift["oldPacketKept"] is True
     assert drift["packetCount"] == 2
     assert "규칙셋 또는 지침 버전이 바뀌어 새 패킷을 시작했습니다" in drift["notice"]
     assert "그대로 보관합니다" in drift["notice"]
     assert "분리했습니다" not in drift["notice"]
-    assert role_review["otherPosting"]["packetCount"] == 3
-    assert "이전 패킷은 지우지 않습니다" in role_review["otherPosting"]["notice"]
+    other = role_review["otherPosting"]
+    assert other["storedBeforeFirstEvent"] == 2
+    assert other["packetCount"] == 3
+    assert "이전 패킷은 지우지 않습니다" in other["notice"]
+    assert "그 전에는 저장하지 않습니다" in other["notice"]
     assert "저장된 이벤트 1개는 형식 검사" in role_review["invalidEvent"]["notice"]
     assert role_review["invalidEvent"]["progress"] == role_review["progress"]
     assert role_review["migration"] == {
@@ -830,10 +891,33 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     }
     retention = role_review["retention"]
     assert retention["packetsBefore"] == 20
+    # A check never writes, so a full store is untouched (and silent) until the
+    # reader records the first event of the new packet.
+    assert retention["storeUntouchedByCheck"] is True
+    assert retention["noToastFromCheck"] is True
     assert retention["packetCount"] == 20
     assert retention["oldestEvicted"] is True
     assert "보관 한도 20개" in retention["notice"]
     assert "가장 오래된 역할 기록 패킷 1개" in retention["notice"]
+    assert "fingerprint" not in retention["notice"]
+    # Packets nobody wrote in go first, even when they are newer.
+    assert role_review["evictionPriority"] == {
+        "packetCount": 20,
+        "ownRecordsKept": True,
+        "oneEmptyPacketEvicted": True,
+    }
+    assert role_review["repeatedChecks"] == {"storeUnchanged": True, "toastUnchanged": True}
+    # "이 브라우저의 모든 역할 기록 삭제" asks first, then leaves nothing behind.
+    cancelled_all = role_review["clearAllCancelled"]
+    assert cancelled_all["stored"] is True
+    assert cancelled_all["panelHidden"] is False
+    assert "모든 공고의 역할 기록(패킷 20개" in cancelled_all["prompt"]
+    all_done = role_review["clearAllDone"]
+    assert all_done["stored"] is False
+    assert all_done["legacyStored"] is False
+    assert all_done["panelHidden"] is True
+    assert "모든 역할 기록(패킷 20개)을 삭제했습니다" in all_done["toast"]
+    assert all_done["nextReviewSavesNothing"] is True
     assert role_review["corrupt"]["untouched"] is True
     assert role_review["corrupt"]["status"] == "세션 기록"
     assert "덮어쓰지 않고 현재 세션에만 기록합니다" in role_review["corrupt"]["notice"]
@@ -932,5 +1016,6 @@ def test_book_companion_reader_flow_and_storage_boundaries() -> None:
     assert "담당자가 실제 AI 사용 여부와 안내 적용 여부를 확인" in app
     assert "현재 공고에 자동 적용되지 않음" in app
     assert "sameReview" in app
-    assert "previousReviewRecords.slice(-10)" in app
+    assert "const PREVIOUS_RECORD_LIMIT = 10;" in app
+    assert "previousReviewRecords.slice(-PREVIOUS_RECORD_LIMIT)" in app
     assert "expertPointer" not in app

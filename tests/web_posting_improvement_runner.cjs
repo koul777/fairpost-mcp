@@ -74,7 +74,17 @@ class FakeElement {
     this.dataset = {};
     this.handlers = new Map();
     this.attributes = new Map();
-    this.classList = { add() {}, remove() {}, toggle() {} };
+    this.classes = new Set();
+    this.classList = {
+      add: (name) => { this.classes.add(name); },
+      remove: (name) => { this.classes.delete(name); },
+      toggle: (name, force) => {
+        const on = force === undefined ? !this.classes.has(name) : Boolean(force);
+        if (on) this.classes.add(name); else this.classes.delete(name);
+        return on;
+      },
+      contains: (name) => this.classes.has(name),
+    };
   }
 
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
@@ -114,7 +124,8 @@ const count = (text, needle) => (needle ? String(text).split(needle).length - 1 
 
 function boot({
   search = "", templates = "file", storedMode = null, location = "present",
-  layout = false, clipboard: clipboardMode = "ok",
+  layout = false, clipboard: clipboardMode = "ok", data = "file", engine = "file",
+  quiet = false, phone = false, confirmResult = true,
 } = {}) {
   const elements = new Map();
   const el = (id) => {
@@ -129,15 +140,25 @@ function boot({
   const fetchCalls = [];
   const clipboard = { text: null };
   // Timers are collected, not run, so a test decides when the toast fades.
+  // `timerDelays` keeps the requested delay of each one (same index).
   const timers = [];
+  const timerDelays = [];
+  const confirmLog = [];
+  const confirmState = { result: confirmResult };
   const sandbox = {
-    console,
+    // `quiet` hides the diagnostics the app logs for failures a test provokes.
+    console: quiet ? { ...console, error() {}, warn() {} } : console,
     URL,
     URLSearchParams,
     TextEncoder,
     setImmediate,
-    setTimeout: (callback) => { timers.push(callback); return timers.length; },
+    setTimeout: (callback, delay) => {
+      timers.push(callback);
+      timerDelays.push(delay);
+      return timers.length;
+    },
     clearTimeout: (id) => { if (Number.isInteger(id) && id > 0) timers[id - 1] = null; },
+    confirm: (message) => { confirmLog.push(message); return confirmState.result; },
     HTMLTextAreaElement: FakeTextAreaElement,
     Event: class Event { constructor(type) { this.type = type; } },
     document: {
@@ -219,10 +240,16 @@ function boot({
     // The legacy copy command works; focus must come back after it.
     sandbox.document.execCommand = () => { layoutLog.copyCommands += 1; return true; };
   }
+  if (phone) {
+    // Only the phone-width query matches: the introduction starts folded.
+    sandbox.matchMedia = (query) => ({ matches: query.includes("599px") });
+  }
   sandbox.window = sandbox;
   vm.createContext(sandbox);
   const run = (relative) => vm.runInContext(sources[relative], sandbox, { filename: relative });
-  run("web/data.js");
+  // `data: "none"` / `engine: "none"` model a script file that failed to load.
+  if (data === "file") run("web/data.js");
+  else if (data === "empty") sandbox.FAIRPOST_DATA = { rules: [], version: "empty-bundle" };
   if (templates === "file" && hasTemplateFile) {
     run(TEMPLATE_FILE);
   } else if (templates === "file" || templates === "fixture") {
@@ -230,7 +257,7 @@ function boot({
   } else if (templates !== "none") {
     sandbox.FAIRPOST_POSTING_TEMPLATES = templates;
   }
-  run("web/engine.js");
+  if (engine === "file") run("web/engine.js");
   run("web/app.js");
   const posting = el("posting-input");
   if (layout) {
@@ -240,7 +267,15 @@ function boot({
   }
   const helpers = {
     sandbox, el, posting, storage, storageWrites, fetchCalls, clipboard, layoutLog, timers,
+    timerDelays, confirmLog, confirmState,
     flushTimers() { timers.splice(0).forEach((callback) => { if (callback) callback(); }); },
+    // A reader's own answer to one question card.
+    answer(questionId, value) {
+      const field = new FakeTextAreaElement(`answer-${questionId}`);
+      field.dataset.questionAnswer = questionId;
+      field.value = value;
+      el("result-content").trigger("input", { target: field });
+    },
     type(value) {
       // A reader edit: value, caret at the end, then the input event.
       posting.value = value;
@@ -467,22 +502,44 @@ const PRIVATE_MARK = "개선흐름-PRIVATE-DRAFT";
     const first = afterEnd.indexOf(placeholder, BASE_POSTING.length + 2);
     assert.deepEqual([app.posting.selectionStart, app.posting.selectionEnd], [first, first + placeholder.length]);
   }
+  // The copy button is not `disabled` while stale: it stays focusable with
+  // aria-disabled and points at the banner that gives the reason.
+  const copyButton = app.el("copy-button");
   const staleAfterInsert = {
-    copyDisabled: app.el("copy-button").disabled,
+    copyDisabled: copyButton.disabled || copyButton.getAttribute("aria-disabled") === "true",
+    copyAriaDisabled: copyButton.getAttribute("aria-disabled"),
+    copyNativelyDisabled: copyButton.disabled,
+    copyDescribedBy: copyButton.getAttribute("aria-describedby"),
+    bannerText: app.el("stale-banner-text").textContent,
+    bannerBoxed: app.el("stale-banner").classes.has("is-stale"),
+    recheckShown: app.el("stale-recheck").hidden === false,
     recordDisabled: app.el("human-review-evidence").disabled,
     status: app.el("human-review-status").textContent,
     undoShown: app.el("posting-undo").hidden === false,
     undoUsable: app.el("posting-undo").getAttribute("aria-disabled") === "false",
   };
   assert.equal(staleAfterInsert.copyDisabled, true);
+  assert.equal(staleAfterInsert.copyAriaDisabled, "true");
+  assert.equal(staleAfterInsert.copyNativelyDisabled, false, "explained, not a silent disabled");
+  assert.equal(staleAfterInsert.copyDescribedBy, "stale-banner-text");
+  assert.ok(staleAfterInsert.bannerText.startsWith("공고문이 바뀌었습니다"), staleAfterInsert.bannerText);
+  assert.equal(staleAfterInsert.bannerBoxed, true);
+  assert.equal(staleAfterInsert.recheckShown, true);
   assert.equal(staleAfterInsert.recordDisabled, true);
   assert.ok(staleAfterInsert.status.includes("공고문이 바뀌었습니다"));
   assert.equal(await app.copyMemo(), memoBeforeInsert, "stale memo copy is blocked");
+  // Pressing the explained button says why instead of doing nothing.
+  assert.ok(app.toast().startsWith("공고문이 바뀌어 지금은 메모를 복사하지 않습니다"), app.toast());
   assert.equal(staleAfterInsert.undoShown && staleAfterInsert.undoUsable, true);
 
   // Re-check: blank boundary, change summary and posting copy.
   app.check();
   await tick();
+  assert.equal(app.el("stale-banner-text").textContent, "", "the banner clears with the re-check");
+  assert.equal(app.el("stale-banner").classes.has("is-stale"), false);
+  assert.equal(app.el("stale-recheck").hidden, true);
+  assert.equal(app.el("copy-button").getAttribute("aria-disabled"), null);
+  assert.equal(app.el("copy-button").getAttribute("aria-describedby"), null);
   const blanks = count(app.posting.value, placeholder);
   // Blanks are located by posting line; slot evidence holds only a first line.
   const blankLineNumbers = app.posting.value
@@ -670,17 +727,36 @@ const PRIVATE_MARK = "개선흐름-PRIVATE-DRAFT";
   assertUniqueIds(app, "rewrite expert");
   app.el("mode-easy").trigger("click");
 
-  // Clearing resets every improvement surface.
+  // Clearing resets every improvement surface, but the cleared posting stays
+  // one click away (there was nothing to lose besides it, so no question).
+  const textBeforeClear = app.posting.value;
+  assert.ok(textBeforeClear.length > 0);
   app.el("clear-button").trigger("click");
   const cleared = {
     undoHidden: app.el("posting-undo").hidden,
+    undoLabel: app.el("posting-undo").textContent,
     improvementHidden: app.el("improvement-panel").hidden,
     noticeHidden: app.el("placeholder-notice").hidden,
     postingCopyDisabled: app.el("copy-posting-button").disabled,
   };
-  assert.deepEqual(cleared, { undoHidden: true, improvementHidden: true, noticeHidden: true, postingCopyDisabled: true });
+  assert.deepEqual(cleared, {
+    undoHidden: false,
+    undoLabel: "방금 지운 공고문 되돌리기",
+    improvementHidden: true,
+    noticeHidden: true,
+    postingCopyDisabled: true,
+  });
+  assert.equal(app.confirmLog.length, 0, "no question when nothing but the posting is lost");
+  assert.equal(app.posting.value, "");
+  // "예시 입력" after "×" keeps the first cleared text recoverable.
   app.el("sample-button").trigger("click");
+  assert.ok(app.posting.value.startsWith("2026년 행정직 채용"));
+  assert.equal(app.el("posting-undo").hidden, false);
+  assert.equal(app.el("posting-undo").textContent, "방금 지운 공고문 되돌리기");
+  app.el("posting-undo").trigger("click");
+  assert.equal(app.posting.value, textBeforeClear, "undo brings back the text cleared before the sample");
   assert.equal(app.el("posting-undo").hidden, true);
+  app.el("sample-button").trigger("click");
   app.insert(endSlot, "cursor");
   assert.ok(app.toast().startsWith("커서 위치를 알 수 없어"), "sample fill is not a reader caret");
   await tick();
@@ -1236,6 +1312,384 @@ const PRIVATE_MARK = "개선흐름-PRIVATE-DRAFT";
     assert.ok(!list.includes(escapeHtml(SUMMARY_LINES[3])), `${label}: unchanged lines are not listed`);
   });
   followUp.lineBoundaries = { checked: BOUNDARIES.map(([label]) => label) };
+
+  // 8. Web UX follow-up (WEB-1 ... WEB-8).
+  const ux = {};
+  const SAMPLE_START = "2026년 행정직 채용";
+  const REAL_QUESTION = app.sandbox.FairpostEngine.check(BASE_POSTING).questions[0].id;
+
+  // 8a. WEB-1: "×", "예시 입력" and an emptied field never wipe work silently.
+  {
+    const wipe = boot({ templates: "file" });
+    wipe.type(BASE_POSTING);
+    wipe.check();
+    wipe.answer(REAL_QUESTION, "직접 확인한 답변");
+    assert.ok(wipe.el("answer-progress").textContent.startsWith("담당자 답변 1/"));
+
+    // Declining the question changes nothing, for "×" and for the sample alike.
+    wipe.confirmState.result = false;
+    wipe.el("clear-button").trigger("click");
+    assert.equal(wipe.confirmLog.length, 1);
+    assert.ok(wipe.confirmLog[0].includes("담당자 답변 1개"), wipe.confirmLog[0]);
+    assert.ok(wipe.confirmLog[0].includes("방금 지운 공고문 되돌리기"));
+    assert.equal(wipe.posting.value, BASE_POSTING);
+    assert.ok(wipe.toast().startsWith("취소했습니다"));
+    wipe.el("sample-button").trigger("click");
+    assert.equal(wipe.confirmLog.length, 2);
+    assert.equal(wipe.posting.value, BASE_POSTING);
+    assert.ok(wipe.el("answer-progress").textContent.startsWith("담당자 답변 1/"));
+
+    // Accepting resets the review, but the posting itself can come back.
+    wipe.confirmState.result = true;
+    wipe.el("sample-button").trigger("click");
+    assert.ok(wipe.posting.value.startsWith(SAMPLE_START));
+    assert.equal(wipe.el("posting-undo").hidden, false);
+    assert.equal(wipe.el("posting-undo").textContent, "방금 지운 공고문 되돌리기");
+    assert.equal(wipe.el("posting-undo").getAttribute("aria-label"), "방금 지운 공고문 되돌리기");
+    assert.equal(wipe.el("posting-undo").getAttribute("aria-disabled"), "false");
+    assert.equal(wipe.el("answer-progress").textContent, "담당자 답변 0/0 (공고별 0/0 · 공통 0/0)");
+    wipe.el("posting-undo").trigger("click");
+    assert.equal(wipe.posting.value, BASE_POSTING);
+    assert.ok(wipe.toast().startsWith("지웠던 공고문을 되돌렸습니다"), wipe.toast());
+    assert.equal(wipe.el("posting-undo").hidden, true);
+    assert.equal(wipe.posting.focused, true);
+    wipe.check();
+    assert.ok(wipe.el("answer-progress").textContent.startsWith("담당자 답변 0/"), "answers stay reset");
+
+    // Text written after the sample is never overwritten by the undo.
+    wipe.el("sample-button").trigger("click");
+    wipe.type(`${wipe.posting.value}\n직접 덧붙인 줄`);
+    assert.equal(wipe.el("posting-undo").getAttribute("aria-disabled"), "true");
+    const typed = wipe.posting.value;
+    wipe.el("posting-undo").trigger("click");
+    assert.equal(wipe.posting.value, typed);
+    assert.ok(wipe.toast().includes("덮어쓰지 않습니다"), wipe.toast());
+
+    // Emptying the field by hand is an edit: stale, not reset.
+    const manual = boot({ templates: "file" });
+    manual.type(BASE_POSTING);
+    manual.check();
+    manual.answer(REAL_QUESTION, "직접 확인한 답변");
+    manual.type("");
+    assert.equal(manual.confirmLog.length, 0);
+    assert.equal(manual.el("result-content").hidden, false, "the result is not wiped");
+    assert.equal(manual.el("comparison-panel").hidden, false, "the baseline is kept");
+    assert.ok(manual.el("answer-progress").textContent.startsWith("담당자 답변 1/"));
+    assert.equal(manual.el("copy-button").getAttribute("aria-disabled"), "true");
+    assert.ok(manual.el("stale-banner-text").textContent.startsWith("공고문이 바뀌었습니다"));
+    manual.type(BASE_POSTING);
+    assert.equal(manual.el("stale-banner-text").textContent, "", "typing it back makes the result current");
+    assert.ok(manual.el("answer-progress").textContent.startsWith("담당자 답변 1/"));
+    manual.type("   ");
+    manual.check();
+    assert.equal(manual.el("posting-input-error").textContent, "검토할 공고문을 입력하세요.");
+    assert.equal(manual.el("result-content").hidden, false);
+    manual.el("clear-button").trigger("click");
+    assert.equal(manual.confirmLog.length, 1, "only the × button resets, after a question");
+    assert.equal(manual.el("result-content").hidden, true);
+    assert.equal(manual.el("posting-undo").hidden, true, "whitespace alone is not worth restoring");
+
+    ux.discard = {
+      declinedKeepsPosting: true,
+      sampleUndoRestores: true,
+      typedTextNeverOverwritten: true,
+      manualEmptyingIsStale: true,
+      questionsAsked: wipe.confirmLog.length,
+    };
+  }
+
+  // 8b. WEB-2: a script that did not load is explained, not silent.
+  {
+    const noData = boot({ data: "none", templates: "none" });
+    assert.equal(noData.el("load-error").hidden, false);
+    assert.ok(noData.el("load-error-text").textContent.includes("data.js"));
+    assert.ok(!noData.el("load-error-text").textContent.includes("engine.js"));
+    assert.ok(noData.el("load-error-text").textContent.includes("어디에도 전송되지 않았습니다"));
+    assert.equal(noData.el("boot-notice").hidden, true);
+    ["check-button", "sample-button", "clear-button", "mode-easy", "mode-expert"].forEach((id) => {
+      assert.equal(noData.el(id).disabled, true, id);
+      assert.equal(noData.el(id).getAttribute("aria-disabled"), "true", id);
+    });
+    assert.ok(noData.el("check-button").getAttribute("title").includes("불러오지 못해"));
+    assert.equal(noData.el("ruleset-version").textContent, "불러오지 못함");
+    noData.type(BASE_POSTING);
+    noData.check(); // no listener is attached; nothing throws
+    assert.equal(noData.el("easy-result").innerHTML, "");
+    let reloads = 0;
+    noData.sandbox.location.reload = () => { reloads += 1; };
+    noData.el("load-error-reload").trigger("click");
+    assert.equal(reloads, 1);
+
+    const noEngine = boot({ engine: "none" });
+    assert.ok(noEngine.el("load-error-text").textContent.includes("engine.js"));
+    assert.ok(!noEngine.el("load-error-text").textContent.includes("data.js"));
+    assert.equal(noEngine.el("check-button").disabled, true);
+    const emptyBundle = boot({ data: "empty" });
+    assert.ok(emptyBundle.el("load-error-text").textContent.includes("data.js"));
+    const neither = boot({ data: "none", engine: "none" });
+    assert.ok(neither.el("load-error-text").textContent.includes("data.js, engine.js"));
+
+    const healthy = boot({ templates: "file" });
+    assert.equal(healthy.el("boot-notice").hidden, true, "the loading notice is hidden once the app runs");
+    assert.equal(healthy.el("load-error-text").textContent, "");
+    assert.equal(healthy.el("check-button").disabled, false);
+
+    // An engine that throws: a visible Korean error, nothing half-drawn, and the
+    // page keeps working once the engine does.
+    const failing = boot({ templates: "file", quiet: true });
+    const realCheck = failing.sandbox.FairpostEngine.check;
+    failing.type(BASE_POSTING);
+    failing.sandbox.FairpostEngine.check = () => { throw new Error("engine exploded"); };
+    failing.check();
+    const failure = failing.el("posting-input-error");
+    assert.equal(failure.hidden, false);
+    assert.ok(failure.textContent.startsWith("검토 중 오류가 발생해 결과를 만들지 못했습니다"), failure.textContent);
+    assert.ok(failure.textContent.includes("어디에도 전송되지 않았습니다"));
+    assert.ok(!failure.textContent.includes("engine exploded"), "no raw English message for readers");
+    assert.equal(failing.posting.getAttribute("aria-invalid"), "true");
+    assert.ok(failing.toast().startsWith("검토 중 오류가 발생해"));
+    assert.ok(failing.el("review-live").textContent.startsWith("검토 중 오류가 발생해"));
+    assert.equal(failing.el("easy-result").innerHTML, "");
+    failing.sandbox.FairpostEngine.check = realCheck;
+    failing.check();
+    assert.ok(failing.el("easy-result").innerHTML.includes("easy-headline"));
+    assert.equal(failing.el("posting-input-error").hidden, true, "the error clears with the next good review");
+
+    // A render step that throws leaves the empty state, not a half-drawn result.
+    const brokenRender = boot({ templates: "file", quiet: true });
+    brokenRender.type(BASE_POSTING);
+    let renderWrites = 0;
+    Object.defineProperty(brokenRender.el("easy-result"), "innerHTML", {
+      configurable: true,
+      get: () => "",
+      // Only the first write (the render) fails; the reset that follows works.
+      set: () => { renderWrites += 1; if (renderWrites === 1) throw new Error("render exploded"); },
+    });
+    brokenRender.check();
+    assert.equal(brokenRender.el("result-content").hidden, true);
+    assert.equal(brokenRender.el("copy-button").disabled, true);
+    assert.ok(brokenRender.el("posting-input-error").textContent.startsWith("검토 중 오류가 발생해"));
+
+    // A long posting paints "검토 중…" first and runs the engine afterwards.
+    const long = boot({ templates: "file" });
+    const longText = `${BASE_POSTING}\n`.repeat(Math.ceil(10000 / (BASE_POSTING.length + 1)) + 1);
+    assert.ok(longText.length >= 10000);
+    long.el("check-button").textContent = "검토 메모 만들기";
+    long.type(longText);
+    long.check();
+    assert.equal(long.el("check-button").textContent, "검토 중…");
+    assert.equal(long.el("check-button").getAttribute("aria-busy"), "true");
+    assert.ok(long.el("review-live").textContent.startsWith("검토 중입니다"));
+    assert.equal(long.el("easy-result").innerHTML, "", "the engine has not run before the paint");
+    const pendingTimers = long.timers.filter(Boolean).length;
+    long.check(); // pressing again while it is pending does nothing
+    assert.equal(long.timers.filter(Boolean).length, pendingTimers);
+    long.flushTimers();
+    assert.equal(long.el("check-button").textContent, "검토 메모 만들기");
+    assert.equal(long.el("check-button").getAttribute("aria-busy"), "false");
+    assert.ok(long.el("easy-result").innerHTML.includes("easy-headline"));
+    // Animation frames can be paused (background tab): a timer still runs the
+    // review, once, and the button is usable again afterwards.
+    const paused = boot({ templates: "file" });
+    paused.sandbox.requestAnimationFrame = () => {}; // never fires
+    paused.type(longText);
+    paused.check();
+    assert.equal(paused.el("easy-result").innerHTML, "");
+    paused.flushTimers();
+    assert.ok(paused.el("easy-result").innerHTML.includes("easy-headline"));
+    const afterPaused = paused.el("easy-result").innerHTML;
+    paused.check();
+    paused.flushTimers();
+    assert.equal(paused.el("easy-result").innerHTML, afterPaused);
+    assert.equal(paused.el("check-button").getAttribute("aria-busy"), "false");
+    // A short posting runs at once.
+    const short = boot({ templates: "file" });
+    short.type(BASE_POSTING);
+    short.check();
+    assert.ok(short.el("easy-result").innerHTML.includes("easy-headline"));
+    assert.equal(short.el("check-button").getAttribute("aria-busy"), null);
+
+    // Above about 30,000 characters a soft hint appears; it never blocks.
+    const huge = boot({ templates: "file" });
+    huge.type("가".repeat(30001));
+    assert.equal(huge.el("posting-size-hint").hidden, false);
+    assert.ok(huge.el("posting-size-hint").textContent.includes("30,001자로 깁니다"));
+    huge.type("가".repeat(30000));
+    assert.equal(huge.el("posting-size-hint").hidden, true);
+    assert.equal(huge.el("posting-size-hint").textContent, "");
+
+    ux.loadGuard = {
+      dataMissing: true, engineMissing: true, bothMissing: true, engineThrows: true,
+      renderThrows: true, busyPaint: true, softSizeHint: true, reloadButton: reloads,
+    };
+  }
+
+  // 8c. WEB-3: the stale controls are explained and still do not act.
+  {
+    const stale = boot({ templates: "file" });
+    stale.type(BASE_POSTING);
+    stale.check();
+    const draftField = new FakeTextAreaElement("rewrite-0");
+    draftField.dataset.rewriteDraft = "0";
+    const applyButton = new FakeElement("apply-0");
+    applyButton.dataset.rewriteApply = "0";
+    const staleNote = new FakeElement("rewrite-stale-0");
+    staleNote.hidden = true;
+    const wanted = {
+      "[data-rewrite-draft]": [draftField],
+      "[data-rewrite-apply]": [applyButton],
+      "[data-rewrite-stale]": [staleNote],
+    };
+    stale.el("easy-result").querySelectorAll = (selector) => wanted[selector] || [];
+    assert.ok(stale.markup().includes('id="rewrite-stale-0" class="rewrite-stale-note" data-rewrite-stale hidden'));
+    stale.type(`${BASE_POSTING}\n추가한 줄`);
+    assert.equal(draftField.readOnly, true);
+    assert.equal(applyButton.getAttribute("aria-disabled"), "true");
+    assert.equal(applyButton.getAttribute("aria-describedby"), "rewrite-stale-0");
+    assert.equal(applyButton.disabled, false, "aria-disabled, not a silent disabled");
+    assert.equal(staleNote.hidden, false);
+    const staleBefore = stale.posting.value;
+    stale.apply(0); // pressing it explains and edits nothing
+    assert.equal(stale.posting.value, staleBefore);
+    assert.equal(stale.toast(), "공고문이 바뀌었습니다. 다시 검토한 뒤 반영하세요.");
+    // The banner's own button re-reviews and unlocks everything.
+    assert.equal(stale.el("stale-recheck").hidden, false);
+    stale.el("results-title").focused = false;
+    stale.el("stale-recheck").trigger("click");
+    assert.equal(stale.el("stale-recheck").hidden, true);
+    assert.equal(stale.el("stale-banner-text").textContent, "");
+    assert.equal(stale.el("results-title").focused, true);
+    assert.equal(draftField.readOnly, false);
+    assert.equal(applyButton.getAttribute("aria-disabled"), null);
+    assert.equal(applyButton.getAttribute("aria-describedby"), null);
+    assert.equal(staleNote.hidden, true);
+    assert.equal(stale.el("copy-button").getAttribute("aria-disabled"), null);
+    ux.staleExplained = { copy: true, rewrite: true, recheckButton: true };
+  }
+
+  // 8d. WEB-4 (script part): toast time follows the message; book entry flow.
+  {
+    const toasts = boot({ templates: "file" });
+    toasts.type("");
+    toasts.check();
+    assert.equal(toasts.toast(), "검토할 공고문을 입력하세요.");
+    const shortDelay = toasts.timerDelays[toasts.timerDelays.length - 1];
+    toasts.type(BASE_POSTING);
+    toasts.insert(endSlotId, "end");
+    const longDelay = toasts.timerDelays[toasts.timerDelays.length - 1];
+    assert.equal(shortDelay, 4000);
+    assert.ok(longDelay > 4000 && longDelay <= 12000, String(longDelay));
+    ux.toastDelays = { shortDelay, longDelay };
+
+    const phoneBook = boot({ search: "?entry=book", phone: true, templates: "file" });
+    assert.equal(phoneBook.el("book-entry-more").open, false, "folded on a phone");
+    const deskBook = boot({ search: "?entry=book", templates: "file" });
+    assert.notEqual(deskBook.el("book-entry-more").open, false, "open on a wide screen");
+    phoneBook.posting.focused = false;
+    phoneBook.el("book-entry-start").trigger("click");
+    assert.equal(phoneBook.posting.focused, true);
+    phoneBook.el("book-entry-sample").trigger("click");
+    assert.ok(phoneBook.posting.value.startsWith(SAMPLE_START));
+    assert.equal(phoneBook.el("book-entry").classes.has("is-compact"), false);
+    phoneBook.check();
+    assert.equal(phoneBook.el("book-entry").classes.has("is-compact"), true, "folded after the first review");
+    assert.equal(phoneBook.el("book-entry-more").open, false);
+    deskBook.type(BASE_POSTING);
+    deskBook.check();
+    assert.equal(deskBook.el("book-entry-more").open, false);
+    const notBook = boot({ templates: "file" });
+    notBook.type(BASE_POSTING);
+    notBook.check();
+    assert.equal(notBook.el("book-entry").classes.has("is-compact"), false);
+    ux.bookEntry = { phoneFolded: true, desktopOpen: true, compactAfterCheck: true };
+  }
+
+  // 8e. WEB-7: the finding's line is shown in its card; the guidance list is
+  // open when short; one-finding-per-rule is explained.
+  {
+    const core = boot({ templates: "file" });
+    core.type(BASE_POSTING);
+    core.check();
+    const result = core.sandbox.FairpostEngine.check(BASE_POSTING);
+    const sorted = [...result.findings].sort((a, b) => a.offset[0] - b.offset[0] || a.offset[1] - b.offset[1]);
+    const markup = core.el("easy-result").innerHTML;
+    assert.equal(count(markup, 'class="easy-context"'), sorted.length);
+    sorted.forEach((finding) => {
+      const points = Array.from(BASE_POSTING);
+      const before = points.slice(0, finding.offset[0]).join("");
+      const lineStart = Math.max(before.lastIndexOf("\n") + 1, 0);
+      const lineEnd = BASE_POSTING.indexOf("\n", before.length + finding.matched_text.length);
+      const line = BASE_POSTING.slice(lineStart, lineEnd < 0 ? undefined : lineEnd);
+      const head = BASE_POSTING.slice(lineStart, before.length);
+      const tail = BASE_POSTING.slice(before.length + finding.matched_text.length, lineEnd < 0 ? undefined : lineEnd);
+      assert.ok(line.length < 40, "short lines are shown whole");
+      assert.ok(
+        markup.includes(`<span class="easy-context-line">${escapeHtml(head)}<mark class="easy-mark">${escapeHtml(finding.matched_text)}</mark>${escapeHtml(tail)}</span>`),
+        `context line of ${finding.id}`
+      );
+    });
+    assert.ok(markup.includes("같은 유형의 표현이 다른 줄에도 있으면 고친 뒤 다시 검토할 때 이어서 표시됩니다."));
+
+    // A long line is cut around the match on both sides.
+    const longLine = `${"가".repeat(80)} 여성만 지원 가능 ${"나".repeat(80)}`;
+    const clipped = boot({ templates: "file" });
+    clipped.type(`행정직 채용\n${longLine}\n문의는 인사팀`);
+    clipped.check();
+    const clippedLine = /<span class="easy-context-line">([^<]*)<mark class="easy-mark">([^<]*)<\/mark>([^<]*)<\/span>/u
+      .exec(clipped.el("easy-result").innerHTML);
+    assert.ok(clippedLine, "a context line is shown");
+    assert.ok(clippedLine[1].startsWith("…") && Array.from(clippedLine[1]).length === 37, clippedLine[1]);
+    assert.ok(clippedLine[3].endsWith("…") && Array.from(clippedLine[3]).length === 37, clippedLine[3]);
+
+    // A markup-looking line stays text.
+    const hostile = boot({ templates: "file" });
+    hostile.type("행정직 채용\n- <img src=x onerror=alert(1)> 20대 우대\n문의는 인사팀");
+    hostile.check();
+    assert.ok(!hostile.el("easy-result").innerHTML.includes("<img"));
+
+    // The guidance list is open when it has 6 items or fewer, folded otherwise.
+    const stubMissing = (target, missingCount) => {
+      const realCheck = target.sandbox.FairpostEngine.check;
+      target.sandbox.FairpostEngine.check = (text) => {
+        const checked = realCheck(text);
+        return {
+          ...checked,
+          slots: checked.slots.map((slot, index) => ({
+            ...slot,
+            found: index >= missingCount,
+            evidence: slot.evidence || "공고문 원문",
+          })),
+          counts: { ...checked.counts, not_found: missingCount },
+        };
+      };
+    };
+    const guidance = (missingCount) => {
+      const target = boot({ templates: "file" });
+      stubMissing(target, missingCount);
+      target.type(BASE_POSTING);
+      target.check();
+      return /<details class="easy-guidance-detail"( open)?><summary>안내 (\d+)개/u
+        .exec(target.el("easy-result").innerHTML);
+    };
+    const sixMissing = guidance(6);
+    const sevenMissing = guidance(7);
+    assert.ok(sixMissing && sixMissing[1] === " open", "6 items are shown open");
+    assert.ok(sevenMissing && sevenMissing[1] === undefined, "7 items stay folded");
+    ux.easyCore = { contextLines: sorted.length, hint: true, openAtSix: true, foldedAtSeven: true };
+  }
+
+  // 8f. WEB-8: no duplicate landmark roles for example sentences.
+  {
+    const roles = boot({ templates: "file" });
+    roles.type(BASE_POSTING);
+    roles.check();
+    const markup = roles.markup();
+    assert.ok(markup.includes('role="group"'));
+    assert.ok(!markup.includes('role="region"'), "pre elements are groups, not landmarks");
+    ux.landmarks = true;
+  }
+
+  summary.ux = ux;
 
   summary.a11y = {
     reviewAnnouncement: firstAnnouncement,
