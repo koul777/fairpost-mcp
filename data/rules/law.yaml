@@ -66,6 +66,28 @@
       window: 10
     - term: re:(?:시니어\s*인턴십|노인일자리\s*및\s*사회활동지원사업)
       window: 80
+    # Age categories the law itself defines (제4조의5 3호ㆍ4호): the youth band
+    # of the 청년고용촉진 특별법 (15ㆍ29ㆍ34세) and care-leaver eligibility on the
+    # same line, a retirement clause ("제56조(정년)에 해당하지 않는 자 (임용일
+    # 기준 만60세 미만)"), and the statutory minimum working ages (15ㆍ18세 이상ㆍ
+    # 미만). Clients named by age ("65세 이상의 노인성 질환의 어르신") are not
+    # applicants. Excluding a lower bound lets a later cap ("만18세 이상 및
+    # 만60세 미만") be quoted instead.
+    - overlap_candidate: true
+      term: re:(?:청년\s*고용\s*촉진|자립\s*준비\s*청년)[^\r\n]{0,80}(?:15|29|34)\s*세(?:\s*(?:이상|이하|미만))?
+      window: 120
+    - overlap_candidate: true
+      term: re:(?<!\d)(?:15|29|34)\s*세[^\r\n]{0,80}(?:청년\s*고용\s*촉진|자립\s*준비\s*청년)
+      window: 120
+    - overlap_candidate: true
+      term: re:정년\)?\s*에\s*해당[^\r\n]{0,40}\d{2}\s*세\s*(?:이상|이하|미만)
+      window: 60
+    - overlap_candidate: true
+      term: re:(?<!\d)1[5-8]\s*세\s*(?:이상|미만)
+      window: 20
+    - overlap_candidate: true
+      term: re:\d{2}\s*세\s*(?:이상|이하|미만)\s*(?:의\s*)?(?:자녀|아동|영유아|어린이|학생|청소년|어르신|노인|환자|고객|이용자)
+      window: 20
     patterns:
     - 나이 제한
     - 연령 제한

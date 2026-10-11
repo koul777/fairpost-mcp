@@ -7,6 +7,8 @@ Hand-written cases, not human-labelled gold data (docs/detection-fixes-2026-10-1
   ("반환 요청이 있는 경우 반환됩니다") is a notice.
 * DET-6: Q-INTER-007 shares Q-PROC-011's patterns, and now its pay-negotiation
   exclusions too ("급여는 면접 시 협의").
+* DET-2: AGE-002 wording whose Python expectations live in tests/test_engine.py
+  also runs through the web engine here.
 
 Every case also runs through the browser engine and must match Python exactly.
 """
@@ -165,6 +167,20 @@ def _web_check_batch(texts: list[str], tmp_path: Path) -> list[dict]:
     return results
 
 
+# DET-2 wording (the Python expectations are in tests/test_engine.py).
+AGE_PARITY = {
+    "youth-band-act-first": "지원자격\n청년고용촉진 특별법에서 정한 청년(만 15세 이상 34세 이하)",
+    "youth-band-act-after": "지원자격\n- 만 15~34세 청년 (청년고용촉진 특별법 기준)",
+    "care-leaver": "우대사항\n만 34세 이하(마감일 현재)의 자립준비청년 가점",
+    "retirement-clause": "지원자격\n- 인사규정 제30조(정년)에 해당하지 않는 사람(임용일 현재 만 60세 미만)",
+    "disqualification-minimum": "결격사유\n- 15세 미만인 사람(중학생인 18세 미만 포함)",
+    "client-by-age": "사업소개\n65세 이상의 노인성 질환 어르신을 돌보는 요양시설",
+    "lower-bound-then-cap": "모집요강\n- 만18세 이상 및 만60세 미만",
+    "real-cap": "지원자격\n만 35세 이하",
+    "cap-next-to-act": "지원자격\n「청년고용촉진 특별법」과 별도로 만 39세 이하",
+}
+
+
 def _parity_cases() -> dict[str, str]:
     cases: dict[str, str] = {}
     for prefix, table in (
@@ -173,6 +189,7 @@ def _parity_cases() -> dict[str, str]:
         ("return-notice", {k: v[0] for k, v in RETURN_NOTICES.items()}),
         ("pay-at-interview", PAY_AT_INTERVIEW),
         ("real-interview", REAL_INTERVIEWS),
+        ("age", AGE_PARITY),
     ):
         for key, text in table.items():
             cases[f"{prefix}:{key}"] = text
