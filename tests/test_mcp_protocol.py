@@ -729,11 +729,22 @@ def test_vercel_public_remote_exposes_only_read_only_analysis_tools() -> None:
                         "next_review_question",
                     }
                     for tool in tools.tools:
-                        assert set(tool.inputSchema["properties"]) == {"text"}
+                        # next_review_question advances with client-held IDs
+                        # because the remote profile stores nothing.
+                        expected = (
+                            {"text", "answered_question_ids"}
+                            if tool.name == "next_review_question"
+                            else {"text"}
+                        )
+                        assert set(tool.inputSchema["properties"]) == expected
+                        text_schema = tool.inputSchema["properties"]["text"]
+                        assert text_schema["maxLength"] == 100_000
+                        assert text_schema["description"]
                         description = tool.description or ""
                         assert "human review" in description
                         assert "does not judge fairness, legality" in description
                         assert "does not persist" in description
+                        assert "요약하거나" in description
                     checked = await session.call_tool(
                         "check_job_posting",
                         {"text": "여성만 지원 가능"},
@@ -754,6 +765,26 @@ def test_vercel_public_remote_exposes_only_read_only_analysis_tools() -> None:
                         {"text": "여성만 지원 가능"},
                     )
                     assert next_question.isError is False
+                    first = next_question.structuredContent
+                    advanced = await session.call_tool(
+                        "next_review_question",
+                        {
+                            "text": "여성만 지원 가능",
+                            "answered_question_ids": [first["question"]["id"]],
+                        },
+                    )
+                    assert advanced.isError is False
+                    assert advanced.structuredContent["progress"]["answered"] == 1
+                    assert (
+                        advanced.structuredContent["question"]["id"]
+                        != first["question"]["id"]
+                    )
+
+                    empty = await session.call_tool(
+                        "check_job_posting", {"text": "   "}
+                    )
+                    assert empty.isError is True
+                    assert "검토할 공고문을 입력하세요" in empty.content[0].text
 
         anyio.run(exercise)
     finally:

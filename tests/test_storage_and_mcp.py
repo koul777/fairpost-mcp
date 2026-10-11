@@ -435,3 +435,123 @@ def test_answer_store_rejects_unbounded_values(tmp_path: Path) -> None:
         store.get("o" * 257)
     with pytest.raises(ValueError, match="answer는 10000자"):
         store.save("org", "Q-INFO-001", "a" * 10_001)
+
+
+# --- tool contract for AI clients (descriptions, limits, stateless progress) --
+def _listed_tools(instance):
+    import anyio
+
+    async def exercise():
+        return await instance.list_tools()
+
+    return anyio.run(exercise)
+
+
+@pytest.mark.parametrize("profile", ["mcp", "public_mcp", "claude_mcp"])
+def test_every_tool_argument_has_a_korean_description(profile: str) -> None:
+    import re
+
+    for tool in _listed_tools(getattr(server, profile)):
+        properties = tool.inputSchema.get("properties", {})
+        assert properties, tool.name
+        for name, schema in properties.items():
+            description = schema.get("description", "")
+            assert re.search("[가-힣]", description), (tool.name, name)
+        if "text" in properties:
+            assert properties["text"]["maxLength"] == server.MAX_POSTING_CHARS
+            assert properties["text"]["minLength"] == 1
+            assert "100,000자" in properties["text"]["description"]
+            assert "1 MiB" in properties["text"]["description"]
+
+
+def test_public_descriptions_ask_clients_not_to_summarize() -> None:
+    for tool in _listed_tools(server.public_mcp):
+        assert "요약하거나" in (tool.description or ""), tool.name
+    assert "verbatim" in (server.public_mcp.instructions or "")
+
+
+@pytest.mark.parametrize("text", ["", "   ", "\n\t "])
+def test_empty_posting_text_is_rejected_by_every_tool(text: str) -> None:
+    import anyio
+
+    calls = [
+        lambda: server.check_job_posting(text),
+        lambda: server.check_job_posting_public(text),
+        lambda: server.check_job_posting_readonly(text),
+        lambda: server.check_job_posting_structured(text),
+        lambda: server.check_job_posting_structured_public(text),
+        lambda: server.next_review_question(text),
+        lambda: server.next_review_question_public(text),
+        lambda: anyio.run(server.prepare_hr_review, text),
+    ]
+    for call in calls:
+        with pytest.raises(ValueError, match="검토할 공고문을 입력하세요"):
+            call()
+
+
+def test_over_limit_posting_text_error_is_korean() -> None:
+    text = "가" * (server.MAX_POSTING_CHARS + 1)
+
+    with pytest.raises(ValueError) as exc_info:
+        server.check_job_posting_public(text)
+
+    message = str(exc_info.value)
+    assert "최대 100,000자까지 점검할 수 있습니다" in message
+    assert "100,001자" in message
+    assert server.check_job_posting_public("가" * 10 + " 여성만 지원 가능")
+
+
+def test_public_next_question_advances_with_client_held_ids() -> None:
+    text = "지원자격: 여성만 지원 가능"
+    first = server.next_review_question_public(text)
+    first_id = first["question"]["id"]
+    total = first["progress"]["total"]
+
+    second = server.next_review_question_public(text, [first_id])
+
+    assert first["progress"] == {"total": total, "answered": 0, "remaining": total}
+    assert second["question"]["id"] != first_id
+    assert second["progress"] == {
+        "total": total,
+        "answered": 1,
+        "remaining": total - 1,
+    }
+
+    all_ids = [question.id for question in server.engine.check(text).questions]
+    finished = server.next_review_question_public(text, all_ids)
+    assert finished["question"] is None
+    assert finished["progress"]["remaining"] == 0
+
+    # A valid ID for a question this posting did not raise is not counted.
+    other = next(
+        rule["id"]
+        for rule in server.engine.ruleset.rules
+        if rule["layer"] == "question" and rule["id"] not in all_ids
+    )
+    unrelated = server.next_review_question_public(text, [other])
+    assert unrelated["progress"]["answered"] == 0
+
+
+@pytest.mark.parametrize(
+    "value",
+    [["Q-NOT-A-REAL-QUESTION-private"], "Q-INFO-001", [1], ["Q-INFO-001"] * 257],
+)
+def test_public_next_question_rejects_invalid_ids_without_echo(value) -> None:
+    with pytest.raises(ValueError, match="answered_question_ids") as exc_info:
+        server.next_review_question_public("지원자격: 여성만 지원 가능", value)
+    assert "private" not in str(exc_info.value)
+
+
+def test_local_next_question_still_follows_saved_answers(
+    tmp_path: Path, monkeypatch
+) -> None:
+    store = LocalAnswerStore(tmp_path / "answers.json")
+    monkeypatch.setattr(server, "answer_store", store)
+    text = "지원자격: 여성만 지원 가능"
+    first = server.next_review_question(text, "org-next")
+    store.save("org-next", first["question"]["id"], "검토 완료")
+
+    second = server.next_review_question(text, "org-next")
+
+    assert second["question"]["id"] != first["question"]["id"]
+    assert second["progress"]["answered"] == 1
