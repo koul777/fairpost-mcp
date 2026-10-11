@@ -50,7 +50,7 @@
   layer: law
   message: 특정 연령을 자격 기준으로 제시한 표현이 확인되었습니다.
   provenance:
-    corpus_hits: 33
+    corpus_hits: 15
     corpus_split: public
     method: manual
     reviewed_at: '2026-10-03'
@@ -113,7 +113,7 @@
   layer: law
   message: 특정 성별로 지원 대상을 제한하는 표현이 확인되었습니다.
   provenance:
-    corpus_hits: 629
+    corpus_hits: 628
     corpus_split: private
     method: manual
     reviewed_at: '2026-10-03'
