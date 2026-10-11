@@ -7,8 +7,8 @@ Hand-written cases, not human-labelled gold data (docs/detection-fixes-2026-10-1
   ("반환 요청이 있는 경우 반환됩니다") is a notice.
 * DET-6: Q-INTER-007 shares Q-PROC-011's patterns, and now its pay-negotiation
   exclusions too ("급여는 면접 시 협의").
-* DET-2: AGE-002 wording whose Python expectations live in tests/test_engine.py
-  also runs through the web engine here.
+* DET-2 and DET-4: AGE-002 wording (expectations in tests/test_engine.py) and the
+  portal field layout (tests/test_extractor.py) also run through the web engine.
 
 Every case also runs through the browser engine and must match Python exactly.
 """
@@ -181,6 +181,17 @@ AGE_PARITY = {
 }
 
 
+# DET-4 portal field layout (the Python expectations are in tests/test_extractor.py).
+PORTAL_PARITY = {
+    "portal-fields": (
+        "근무형태\n주5일\n급여조건\n월급\n우대조건\n운전 가능자\n경력사항\n경력 무관\n"
+        "최종학력\n학력 무관\n성별\n남성\n복리후생\n4대보험\n근무지역\n충북\n근무시간\n09:00~18:00\n"
+        "직무내용\n사무 보조, 경력자 우대\n서류전형 → 면접전형 → 최종 합격\n접수기간 시작일\n2026-08-01"
+    ),
+    "method-heading": "7. 심사 방법\n(1차)서류 심사, (2차)면접 심사",
+}
+
+
 def _parity_cases() -> dict[str, str]:
     cases: dict[str, str] = {}
     for prefix, table in (
@@ -190,6 +201,7 @@ def _parity_cases() -> dict[str, str]:
         ("pay-at-interview", PAY_AT_INTERVIEW),
         ("real-interview", REAL_INTERVIEWS),
         ("age", AGE_PARITY),
+        ("portal", PORTAL_PARITY),
     ):
         for key, text in table.items():
             cases[f"{prefix}:{key}"] = text
