@@ -23,6 +23,17 @@ from tools._paths import (
     reject_holdout_path,
 )
 
+@pytest.fixture
+def tmp_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A scratch directory whose name does not come from the test name.
+
+    pytest names tmp_path after the test function, and several tests here have
+    "holdout" in their names; every path below them would then count as a
+    holdout path and the "clean" cases would pass or fail for the wrong reason.
+    """
+    return tmp_path_factory.mktemp("paths")
+
+
 # --- reject_holdout_path -----------------------------------------------------
 
 HOLDOUT_NAMES = [
