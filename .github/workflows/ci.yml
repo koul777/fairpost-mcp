@@ -1,11 +1,21 @@
 name: CI
 
 on:
+  # A pull request runs once, on its own event; pushes are for main. Without
+  # the branch filter every commit pushed to a PR branch ran the full suite twice.
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+# A newer commit on a pull request makes the older run pointless. A run on main
+# is evidence for that commit, so it is never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Linux owns the full evidence pipeline. Windows independently proves that
