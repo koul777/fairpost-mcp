@@ -1,16 +1,13 @@
 """Synthetic second-pass development evidence, never human gold or validation."""
 from __future__ import annotations
 
-import base64
 import json
-from pathlib import Path
-import subprocess
 
 import pytest
 
 from core import FairpostEngine
+from web_engine import web_check_batch
 
-ROOT = Path(__file__).resolve().parents[1]
 CASES = json.loads(r'''[
   {
     "id": "numeric-chain",
@@ -340,14 +337,17 @@ def test_second_context_regression(case: dict) -> None:
     assert_case(case, FairpostEngine().check(case["text"]).to_dict())
 
 
+@pytest.fixture(scope="module")
+def web_results() -> dict[str, dict]:
+    """Every case through the web engine in one Node process, keyed by case id."""
+    ids = [case["id"] for case in CASES]
+    assert len(set(ids)) == len(ids), "case ids must be unique"
+    return dict(zip(ids, web_check_batch([case["text"] for case in CASES]), strict=True))
+
+
 @pytest.mark.requires_node
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case["id"])
-def test_second_context_python_web_parity(case: dict) -> None:
-    encoded = base64.b64encode(case["text"].encode("utf-8")).decode("ascii")
-    completed = subprocess.run(
-        ["node", "tests/js_runner.cjs", encoded], cwd=ROOT,
-        check=True, capture_output=True, text=True, encoding="utf-8",
-    )
-    result = json.loads(completed.stdout)
+def test_second_context_python_web_parity(case: dict, web_results: dict[str, dict]) -> None:
+    result = web_results[case["id"]]
     assert_case(case, result)
     assert result == FairpostEngine().check(case["text"]).to_dict()

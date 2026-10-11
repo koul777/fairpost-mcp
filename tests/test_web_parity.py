@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 import random
 import re
-import shutil
 import subprocess
 
 import pytest
@@ -169,7 +168,7 @@ def test_normalized_regex_exclusions_match_python_core(text: str) -> None:
 
 
 @pytest.mark.requires_node
-def test_seeded_unicode_combinations_match_python_core() -> None:
+def test_seeded_unicode_combinations_match_python_core(tmp_path: Path) -> None:
     rng = random.Random(20260830)
     fragments = [
         "지원자격\n",
@@ -190,43 +189,26 @@ def test_seeded_unicode_combinations_match_python_core() -> None:
         "가" * 257,
     ]
 
-    for case_index in range(64):
-        text = "".join(
-            rng.choice(fragments) for _ in range(rng.randint(1, 12))
+    texts = [
+        "".join(rng.choice(fragments) for _ in range(rng.randint(1, 12)))
+        for _ in range(64)
+    ]
+    engine = FairpostEngine()
+    web_results = _web_check_batch(texts, tmp_path)
+    for case_index, (text, web_result) in enumerate(
+        zip(texts, web_results, strict=True)
+    ):
+        assert web_result == engine.check(text).to_dict(), (
+            f"seeded case {case_index}"
         )
-        encoded = base64.b64encode(text.encode("utf-8")).decode("ascii")
-        completed = subprocess.run(
-            ["node", "tests/js_runner.cjs", encoded],
-            cwd=ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-        )
-        web_result = json.loads(completed.stdout)
-        python_result = FairpostEngine().check(text).to_dict()
-        assert web_result == python_result, f"seeded case {case_index}"
 
 
 def _web_check_batch(texts: list[str], tmp_path: Path) -> list[dict]:
-    batch = tmp_path / "web-batch.json"
-    batch.write_text(
-        json.dumps(
-            [base64.b64encode(text.encode("utf-8")).decode("ascii") for text in texts]
-        ),
-        encoding="utf-8",
-    )
-    completed = subprocess.run(
-        ["node", "tests/js_runner.cjs", "--batch", str(batch)],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    results = json.loads(completed.stdout)
-    assert len(results) == len(texts)
-    return results
+    # One Node process per batch (tests/web_engine.py); imported here so the
+    # module's import block stays untouched.
+    import web_engine
+
+    return web_engine.web_check_batch(texts, tmp_path)
 
 
 def _finding_locations(result: dict) -> list[tuple[str, str, list[int]]]:
