@@ -436,6 +436,13 @@
     if (element && element.textContent !== text) element.textContent = text;
   }
 
+  // While the result is stale the banner under the results toolbar is the one
+  // announcement; the comparison and record status lines update quietly so a
+  // screen reader does not read "공고문이 바뀌었습니다" three times per edit.
+  function setStatusQuiet(element, quiet) {
+    if (element) element.setAttribute("aria-live", quiet ? "off" : "polite");
+  }
+
   function roleReviewStorage() {
     try {
       return window.localStorage || null;
@@ -1405,6 +1412,7 @@
     if (typeof resultContent.querySelectorAll === "function") {
       resultContent.querySelectorAll("[data-question-answer]").forEach((field) => { field.disabled = stale; });
     }
+    setStatusQuiet(humanRecordStatus, stale);
     setLiveText(
       humanRecordStatus,
       stale
@@ -3264,6 +3272,7 @@
     const stale = latestCheckedText !== input.value;
     comparisonReset.disabled = stale || !comparison ||
       comparisonBaseline.text === latestCheckedText;
+    setStatusQuiet(comparisonStatus, stale);
     setLiveText(comparisonStatus, message);
     if (!comparison) {
       comparisonGroups.replaceChildren();

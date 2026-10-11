@@ -1084,6 +1084,8 @@ for (const relative of appSources) {
   assert.ok(elements.get("stale-banner-text").textContent.startsWith("공고문이 바뀌었습니다"));
   assert.equal(elements.get("stale-recheck").hidden, false);
   assert.ok(elements.get("human-review-status").textContent.includes("수정 전 공고 기준"));
+  // Only the banner announces the stale state; the lower status lines go quiet.
+  assert.equal(elements.get("human-review-status").getAttribute("aria-live"), "off");
   readerAnswer.value = "stale answer must not replace the prior answer";
   elements.get("result-content").trigger("input", { target: readerAnswer });
   elements.get("human-review-reason").value = "stale record must not replace the prior record";
@@ -1094,6 +1096,7 @@ for (const relative of appSources) {
   await tick();
   assert.equal(elements.get("human-review-reason").value, "");
   assert.equal(elements.get("human-review-reason").disabled, false);
+  assert.equal(elements.get("human-review-status").getAttribute("aria-live"), "polite");
   assert.equal(elements.get("previous-review-records").hidden, false);
   const previousMarkup = elements.get("previous-review-records-content").innerHTML;
   assert.ok(previousMarkup.includes("현재 공고에 자동 적용되지 않음"));
