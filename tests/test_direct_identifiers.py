@@ -166,7 +166,10 @@ def test_browser_ai_toggle_stays_disabled_without_available_server() -> None:
         assert state["toggleChecked"] is False
         assert state["badge"] == "사용 불가"
         assert state["fetches"] == [{"url": "/api/assisted-review", "method": "GET"}]
-    assert "설정 필요: AI API" in availability["notReady"]["status"]
+    # The server's configuration hint is not shown to readers; they are told
+    # the operator has to turn the feature on.
+    assert "운영하는 쪽에서 기능을 설정해야" in availability["notReady"]["status"]
+    assert "설정 필요" not in availability["notReady"]["status"]
     assert "응답 404" in availability["noApi"]["status"]
 
 

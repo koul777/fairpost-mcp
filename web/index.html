@@ -46,16 +46,35 @@
       </div>
     </header>
 
+    <div class="load-notices">
+      <noscript>
+        <p class="load-notice noscript-notice" role="alert">이 검토 도구는 JavaScript가 있어야 동작합니다. 브라우저에서 JavaScript를 켠 뒤 다시 열어 주세요. 켜지 않은 상태에서는 검토가 실행되지 않으며 입력한 내용도 전송되지 않습니다.</p>
+      </noscript>
+      <p id="boot-notice" class="load-notice boot-notice">검토 도구를 불러오는 중입니다. 몇 초가 지나도 이 안내가 계속 보이면 페이지를 새로 고쳐 주세요.</p>
+      <div id="load-error" class="load-notice load-error" role="alert" hidden>
+        <p id="load-error-text"></p>
+        <button id="load-error-reload" class="button button-secondary" type="button">새로 고침</button>
+      </div>
+    </div>
+
     <main id="workspace" class="workspace">
       <section id="book-entry" class="book-entry" aria-labelledby="book-entry-title" hidden>
         <p class="book-entry-kicker">책 독자용 바로 시작</p>
         <h2 id="book-entry-title">책 부록에서 오신 분께</h2>
-        <p>책 부록에서 ‘채용 공고문 공정성 검토 MCP’ 프로그램으로 소개한 도구입니다. MCP 연결이나 설치 없이 이 화면에서 바로 쓸 수 있습니다. 기본 검사는 이 브라우저 안에서만 실행되고 공고문을 서버로 보내지 않습니다. 점수나 판정 대신 다시 볼 표현, 공고에 더할 안내, 조직이 답할 질문을 보여 줍니다.</p>
-        <ol class="book-entry-steps" aria-label="책 독자 사용 순서">
-          <li><strong>공고 붙여 넣기</strong> 채용공고문을 붙여 넣거나 '예시 입력'을 누릅니다.</li>
-          <li><strong>검토 메모 만들기</strong> 다시 볼 표현, 공고에서 찾지 못한 안내, 조직이 답할 질문을 확인합니다.</li>
-          <li><strong>고쳐서 다시 검토</strong> 예시 문장과 줄 고쳐 쓰기로 공고를 직접 고친 뒤 '검토 메모 만들기'를 다시 누릅니다.</li>
-        </ol>
+        <p class="book-entry-lead">책 부록에서 소개한 검토 도구입니다. 공고문을 붙여 넣으면 다시 볼 표현과 공고에 더할 안내를 보여 줍니다.</p>
+        <div class="book-entry-actions">
+          <button id="book-entry-start" class="button button-primary" type="button">바로 입력하기</button>
+          <button id="book-entry-sample" class="button button-secondary" type="button">예시로 먼저 해보기</button>
+        </div>
+        <details id="book-entry-more" class="book-entry-more" open>
+          <summary>이 도구 소개와 사용 순서 3단계</summary>
+          <p>책 부록에서 ‘채용 공고문 공정성 검토 MCP’ 프로그램으로 소개한 도구입니다. MCP 연결이나 설치 없이 이 화면에서 바로 쓸 수 있습니다. 기본 검사는 이 브라우저 안에서만 실행되고 공고문을 서버로 보내지 않습니다. 점수나 판정 대신 다시 볼 표현, 공고에 더할 안내, 조직이 답할 질문을 보여 줍니다.</p>
+          <ol class="book-entry-steps" aria-label="책 독자 사용 순서">
+            <li><strong>공고 붙여 넣기</strong> 채용공고문을 붙여 넣거나 '예시 입력'을 누릅니다.</li>
+            <li><strong>검토 메모 만들기</strong> 다시 볼 표현, 공고에서 찾지 못한 안내, 조직이 답할 질문을 확인합니다.</li>
+            <li><strong>고쳐서 다시 검토</strong> 예시 문장과 줄 고쳐 쓰기로 공고를 직접 고친 뒤 '검토 메모 만들기'를 다시 누릅니다.</li>
+          </ol>
+        </details>
       </section>
       <section class="editor-pane" aria-labelledby="editor-title">
         <div class="pane-header">
@@ -119,9 +138,10 @@
           spellcheck="false"
           placeholder="채용공고문 원문을 여기에 붙여 넣으세요. 처음이라면 위의 '예시 입력'을 눌러 보세요."
           aria-label="채용공고문 원문"
-          aria-describedby="posting-scope-hint posting-input-error"
+          aria-describedby="posting-scope-hint posting-input-error posting-size-hint"
         ></textarea>
         <p id="posting-input-error" class="field-error" hidden></p>
+        <p id="posting-size-hint" class="input-scope-hint posting-size-hint" hidden></p>
         <div class="assisted-option advanced-only">
           <div class="assisted-option-row">
             <label class="assist-switch" for="assisted-review-toggle">
@@ -189,6 +209,10 @@
             <span aria-hidden="true">⧉</span>
             메모 복사
           </button>
+        </div>
+        <div id="stale-banner" class="stale-banner">
+          <p id="stale-banner-text" class="stale-banner-text" role="status"></p>
+          <button id="stale-recheck" class="button button-primary" type="button" hidden>다시 검토</button>
         </div>
 
         <div id="empty-state" class="empty-state">
@@ -317,7 +341,7 @@
           <section id="comparison-panel" class="comparison-panel" aria-labelledby="comparison-title" hidden>
             <div class="comparison-heading">
               <h3 id="comparison-title" tabindex="-1">수정 전후 비교</h3>
-              <button id="comparison-reset" class="button button-quiet" type="button" disabled>현재 결과를 새 기준으로</button>
+              <button id="comparison-reset" class="button button-quiet" type="button" disabled>현재 결과를 새 비교 기준으로 삼기</button>
             </div>
             <p id="comparison-status" class="comparison-status" role="status" aria-live="polite" aria-atomic="true"></p>
             <div id="comparison-groups" class="comparison-groups"></div>
@@ -348,7 +372,7 @@
               <span id="role-review-status" class="assist-badge">준비 중</span>
             </div>
             <p id="role-review-notice" class="role-review-notice" role="status" aria-live="polite">
-              공고 fingerprint와 역할 이벤트만 이 브라우저에 저장합니다. 원문·지원자 정보는 역할 기록에 저장하지 않습니다.
+              공고문 요약값(해시)과 역할 기록만 이 브라우저에 저장합니다. 원문·지원자 정보는 역할 기록에 저장하지 않습니다.
             </p>
             <p class="role-review-boundary">
               역할 기록은 이 브라우저에서 입력한 <strong>자기 기록</strong>입니다. 본인 확인·위원회 승인·결재를 뜻하지 않습니다.
@@ -404,6 +428,7 @@
             <div class="role-review-actions">
               <button id="role-review-record" class="button button-secondary" type="button">이 역할의 검토 기록</button>
               <button id="role-review-clear" class="button button-quiet" type="button">이 공고의 역할 기록 삭제</button>
+              <button id="role-review-clear-all" class="button button-quiet" type="button">이 브라우저의 모든 역할 기록 삭제</button>
               <strong id="role-review-progress">자기 기록 역할 0/7 · 이벤트 0개</strong>
             </div>
             <p id="role-review-missing" class="role-review-missing" aria-live="polite"></p>

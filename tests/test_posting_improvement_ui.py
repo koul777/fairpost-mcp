@@ -71,7 +71,15 @@ def test_posting_improvement_flow_runs_locally() -> None:
     assert templates["easyIdCount"] > 0
     assert templates["expertIdCount"] > 0
     stale = templates["staleAfterInsert"]
+    # Locked but explained: aria-disabled (still focusable), described by the
+    # banner under the results toolbar, which offers the re-review button.
     assert stale["copyDisabled"] is True
+    assert stale["copyAriaDisabled"] == "true"
+    assert stale["copyNativelyDisabled"] is False
+    assert stale["copyDescribedBy"] == "stale-banner-text"
+    assert stale["bannerText"].startswith("공고문이 바뀌었습니다")
+    assert stale["bannerBoxed"] is True
+    assert stale["recheckShown"] is True
     assert stale["recordDisabled"] is True
     assert stale["undoShown"] is True
     assert stale["undoUsable"] is True
@@ -92,8 +100,11 @@ def test_posting_improvement_flow_runs_locally() -> None:
     assert undo["ariaDisabled"] == "true"
     assert undo["valueKept"] is True
     assert "직접 고쳐서 되돌릴 수 없습니다" in undo["title"]
+    # "×" resets every improvement surface but keeps the cleared posting one
+    # click away.
     assert templates["cleared"] == {
-        "undoHidden": True,
+        "undoHidden": False,
+        "undoLabel": "방금 지운 공고문 되돌리기",
         "improvementHidden": True,
         "noticeHidden": True,
         "postingCopyDisabled": True,
@@ -164,6 +175,37 @@ def test_posting_improvement_flow_runs_locally() -> None:
         "fairpost.view-mode.v1",
         "fairpost.role-review.v2",
     }
+
+    # Web UX follow-up; the runner asserts the details, this pins the scenarios.
+    ux = result["ux"]
+    assert ux["discard"] == {
+        "declinedKeepsPosting": True,
+        "sampleUndoRestores": True,
+        "typedTextNeverOverwritten": True,
+        "manualEmptyingIsStale": True,
+        "questionsAsked": 3,
+    }
+    assert ux["loadGuard"] == {
+        "dataMissing": True,
+        "engineMissing": True,
+        "bothMissing": True,
+        "engineThrows": True,
+        "renderThrows": True,
+        "busyPaint": True,
+        "softSizeHint": True,
+        "reloadButton": 1,
+    }
+    assert ux["staleExplained"] == {"copy": True, "rewrite": True, "recheckButton": True}
+    assert ux["toastDelays"]["shortDelay"] == 4000
+    assert 4000 < ux["toastDelays"]["longDelay"] <= 12000
+    assert ux["bookEntry"] == {
+        "phoneFolded": True,
+        "desktopOpen": True,
+        "compactAfterCheck": True,
+    }
+    assert ux["easyCore"]["contextLines"] >= 1
+    assert ux["easyCore"]["openAtSix"] is True and ux["easyCore"]["foldedAtSeven"] is True
+    assert ux["landmarks"] is True
 
 
 def test_index_loads_templates_after_data_and_before_app() -> None:
@@ -312,3 +354,124 @@ def test_posting_improvement_styles_wrap_and_stay_readable() -> None:
     for heading in ("#comparison-title", "#improvement-title", "#assisted-review-heading"):
         assert f"{heading}:focus-visible" in css, heading
     assert ".result-jump{margin:" in compact
+
+
+def _rule(css: str, selector: str) -> str:
+    """The declarations of every rule whose selector list is exactly `selector`."""
+    compact = "".join(re.sub(r"/\*.*?\*/", "", css, flags=re.S).split())
+    matches = re.findall(rf"(?:^|[{{}}]){re.escape(''.join(selector.split()))}\{{([^}}]*)\}}", compact)
+    assert matches, selector
+    return "".join(matches)
+
+
+def test_web_ux_followup_html_explains_locks_and_load_failures() -> None:
+    html = _read("web/index.html")
+
+    # WEB-3: a status banner under the results toolbar, wired to the re-review.
+    assert html.index('id="results-title"') < html.index('id="stale-banner"') < html.index('id="empty-state"')
+    banner = _opening_tag(html, "stale-banner-text")
+    assert 'role="status"' in banner
+    assert "hidden" not in re.findall(r"\s(hidden)(?=[\s>])", banner), "a live region must exist before it is filled"
+    assert re.search(r"\shidden(?=[\s>])", _opening_tag(html, "stale-recheck"))
+    assert re.search(r">\s*다시 검토\s*</button>", html[html.index('id="stale-recheck"'):])
+    assert "disabled" in _opening_tag(html, "copy-button")
+
+    # WEB-2: a noscript message, a loading notice that only shows late, and a
+    # hidden alert the script fills when a file did not load.
+    notices = html[html.index('class="load-notices"'):html.index("<main")]
+    assert "<noscript>" in notices and "JavaScript" in notices
+    assert "boot-notice" in notices
+    assert 'role="alert"' in _opening_tag(html, "load-error")
+    assert re.search(r"\shidden(?=[\s>])", _opening_tag(html, "load-error"))
+    assert "id=\"load-error-reload\"" in html
+    assert html.index('class="load-notices"') < html.index("<main")
+    assert re.search(r"\shidden(?=[\s>])", _opening_tag(html, "posting-size-hint"))
+    assert "posting-size-hint" in _opening_tag(html, "posting-input")
+
+    # WEB-4: two ways to begin sit above the folded introduction.
+    book = html[html.index('id="book-entry"'):html.index("</section>", html.index('id="book-entry"'))]
+    assert book.index("바로 입력하기") < book.index('id="book-entry-more"')
+    assert book.index("예시로 먼저 해보기") < book.index('id="book-entry-more"')
+    assert re.search(r"<details id=\"book-entry-more\"[^>]*\sopen", book)
+    assert "<summary>" in book[book.index('id="book-entry-more"'):]
+
+    # WEB-5 / WEB-6 / WEB-8 copy.
+    assert "fingerprint" not in html
+    assert "공고문 요약값(해시)" in html
+    assert 'id="role-review-clear-all"' in html
+    assert "이 브라우저의 모든 역할 기록 삭제" in html
+    assert "현재 결과를 새 비교 기준으로 삼기" in html
+    assert "현재 결과를 새 기준으로<" not in html
+
+
+def test_web_ux_followup_app_keeps_boundaries_and_plain_korean() -> None:
+    app = _read("web/app.js")
+    # Readers never see an English technical term for the stored packet's key.
+    shown = [
+        line for line in app.splitlines()
+        if "fingerprint" in line.lower() and re.search("[가-힣]", line)
+    ]
+    assert shown == []
+    # One deadline per request, both requests carry it, and the timeout is Korean.
+    assert "const ASSISTED_REQUEST_TIMEOUT_MS = 60000;" in app
+    assert app.count("signal: deadline.signal") == 2
+    assert "60초 안에 오지 않아" in app or "초 안에 오지 않아 요청을 멈췄습니다" in app
+    # The server's own reason text never reaches the page.
+    assert "capability.reason" not in app
+    assert "result.reason ||" not in app
+    # Answers stay in memory; only the two documented storage writes exist, and
+    # "모든 역할 기록 삭제" only removes.
+    assert app.count(".setItem(") == 2
+    assert app.count(".removeItem(") >= 3
+    # The stale-result locks are explained, not silent, and never act.
+    assert 'copyButton.setAttribute("aria-disabled", "true")' in app
+    assert "copyButton.disabled = stale" not in app
+    assert 'setAttribute("aria-describedby", "stale-banner-text")' in app
+    # An emptied field is stale, not a reset: only the × handler resets.
+    handler = app[app.index('input.addEventListener("input"'):]
+    handler = handler[:handler.index("\n  });")]
+    assert "resetReview()" not in handler
+    # Example sentences and the posting view are groups, not landmark regions.
+    assert 'role="region"' not in app
+
+
+def test_web_ux_followup_styles_cover_phones_toast_and_touch_targets() -> None:
+    css = _read("web/styles.css")
+    compact = "".join(css.split())
+
+    # WEB-4: the toast is pinned to both edges instead of shrinking to half.
+    toast = _rule(css, ".toast")
+    assert "left:16px;" in toast and "right:16px;" in toast
+    assert "width:max-content;" in toast
+    assert "left:50%" not in toast
+    assert "translate(-50%" not in compact
+    assert "max-width:min(460px,calc(100vw-32px));" in toast
+
+    # 44px touch targets: section chips and the footer disclosure.
+    assert "min-height:44px;" in _rule(css, ".review-nav a")
+    assert "min-height:44px;" in _rule(css, ".integration-details > summary")
+    assert "min-height:44px;" in _rule(css, ".book-entry-more > summary")
+
+    # The introduction folds to its heading after the first review and the
+    # two ways to begin stay reachable.
+    assert ".book-entry.is-compact.book-entry-actions" in compact
+    assert "display:none;" in _rule(css, ".book-entry.is-compact .book-entry-lead,.book-entry.is-compact .book-entry-actions")
+    assert (
+        ".mode-option,.button,.icon-button,.role-review-panelselect,.role-review-panelinput,"
+        ".organization-profileselect{min-height:44px;}"
+    ) in compact
+
+    # The stale banner only gets a box while stale; the loading notice is
+    # collapsed for its first seconds and revealed by animation, not script.
+    assert ".stale-banner:not(.is-stale){display:block;}" in compact
+    assert "border:1pxsolidvar(--amber-line)" in _rule(css, ".stale-banner.is-stale")
+    boot = _rule(css, ".boot-notice")
+    assert "max-height:0;" in boot and "animation:boot-notice-reveal" in boot
+    assert "@keyframesboot-notice-reveal" in compact
+    assert ".rewrite-contenttextarea[readonly]{" in compact
+    assert ".easy-context{" in compact
+
+    # Nothing in the new section is smaller than 12px.
+    section = css[css.index("/* Web UX follow-up:"):]
+    sizes = [int(size) for size in re.findall(r"font-size:\s*(\d+)px", section)]
+    assert sizes and min(sizes) >= 12
