@@ -53,6 +53,25 @@ RETURN_NOTICES = {
 }
 
 
+INTERVIEW_QUESTIONS = {"Q-INTER-007", "Q-PROC-011"}
+
+# Pay negotiated at the interview: no interview question from that line.
+PAY_AT_INTERVIEW = {
+    "pay-negotiated-at-interview": "근무조건\n급여: 면접 시 협의",
+    "salary-decided-after-interview": "근무조건\n연봉은 면접 후 결정",
+    "pay-agreed-at-interview": "급여조건\n월급 (면접시 합의)",
+}
+
+# Real interviews still raise Q-INTER-007, also next to a pay line.
+REAL_INTERVIEWS = {
+    "interview-stage": "전형절차\n서류전형 후 면접",
+    "interview-and-pay-on-other-lines": "전형절차\n서류전형 → 면접전형\n근무조건\n급여: 면접 시 협의",
+    "stage-list-after-pay-line": "급여: 면접 후 결정, 선발: 서류전형 후 면접 진행",
+    "hiring-decision-after-interview": "채용 안내\n- 1차 AI 면접 실시 후 대면 면접으로 최종 결정",
+    "interview-schedule": "일정\n면접 일정은 개별 안내합니다.",
+}
+
+
 def _check(text: str) -> dict:
     return FairpostEngine().check(text).to_dict()
 
@@ -102,6 +121,32 @@ def test_refusal_lookahead_is_on_both_return_patterns() -> None:
     assert sum("(?!" in p and "불가|하지|되지" in p for p in patterns) == 2
 
 
+@pytest.mark.parametrize("text", PAY_AT_INTERVIEW.values(), ids=PAY_AT_INTERVIEW.keys())
+def test_pay_negotiated_at_the_interview_raises_no_interview_question(text: str) -> None:
+    assert not INTERVIEW_QUESTIONS & _ids(_check(text))
+
+
+@pytest.mark.parametrize("text", REAL_INTERVIEWS.values(), ids=REAL_INTERVIEWS.keys())
+def test_real_interview_still_raises_the_interview_question(text: str) -> None:
+    question = next(q for q in _check(text)["questions"] if q["id"] == "Q-INTER-007")
+    assert question["trigger_reason"] == "presence"
+    assert "면접" in question["matched_text"]
+
+
+def test_interview_question_exclusions_are_scoped_to_their_candidate() -> None:
+    # The same patterns and pay-negotiation wording as Q-PROC-011, but an
+    # exclusion only removes the 면접 it contains.
+    rules = yaml.safe_load((ROOT / "data" / "rules" / "questions.yaml").read_text(encoding="utf-8"))
+    triggers = {rule["id"]: rule["trigger"] for rule in rules if rule["id"] in INTERVIEW_QUESTIONS}
+    assert triggers["Q-INTER-007"]["patterns"] == triggers["Q-PROC-011"]["patterns"]
+    inter, proc = triggers["Q-INTER-007"]["exclude"], triggers["Q-PROC-011"]["exclude"]
+    assert len(inter) == len(proc) == 2
+    assert inter[0]["term"] == proc[0]["term"]
+    assert inter[1]["term"].replace(
+        "(?<!최종)(?<!최종\\s)(?<!합격)(?<!합격\\s)(?<!채용)(?<!채용\\s)결정", "결정") == proc[1]["term"]
+    assert all(item["overlap_candidate"] is True and item["window"] == 35 for item in inter)
+
+
 # --- Python / web parity ---------------------------------------------------------
 
 
@@ -126,6 +171,8 @@ def _parity_cases() -> dict[str, str]:
         ("return-refusal", RETURN_REFUSALS),
         ("return-not-notice", RETURN_NOT_NOTICE),
         ("return-notice", {k: v[0] for k, v in RETURN_NOTICES.items()}),
+        ("pay-at-interview", PAY_AT_INTERVIEW),
+        ("real-interview", REAL_INTERVIEWS),
     ):
         for key, text in table.items():
             cases[f"{prefix}:{key}"] = text

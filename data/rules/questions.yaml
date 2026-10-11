@@ -1595,6 +1595,17 @@
     reviewed_by: fairpost-maintainers
   question: 면접에서 사적 영역을 묻지 않도록 질문 목록과 진행 규칙을 사전에 정했습니까?
   trigger:
+    # Q-PROC-011's pay-negotiation exclusions ("급여: 면접 시 협의", "면접 후
+    # 결정"), scoped to the candidate they contain: an interview stage on a
+    # nearby line ("전형절차: 서류전형 - 면접") and a hiring decision after the
+    # interview ("면접 후 최종 결정") are still interviews.
+    exclude:
+    - term: re:(?:급여|연봉|보수)[\s\S]{0,20}면접[\s\S]{0,12}(?:협의|합의|결정)
+      window: 35
+      overlap_candidate: true
+    - term: re:면접[\s\S]{0,12}(?:후|시)[\s\S]{0,12}(?:급여|연봉|보수|협의|합의|(?<!최종)(?<!최종\s)(?<!합격)(?<!합격\s)(?<!채용)(?<!채용\s)결정)
+      window: 35
+      overlap_candidate: true
     patterns:
     - 면접
     - 면접전형
