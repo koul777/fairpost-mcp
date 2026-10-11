@@ -3528,11 +3528,21 @@
     }
   }
 
-  // Runs `callback` after the browser has painted the current state.
+  // Runs `callback` once, after the browser has painted the current state.
+  // Animation frames are paused in a background tab or some embedded views, so
+  // a plain timer is the fallback: the review must never wait on a paint that
+  // does not come.
   function afterPaint(callback) {
-    const later = () => window.setTimeout(callback, 0);
+    let done = false;
+    const once = () => {
+      if (done) return;
+      done = true;
+      callback();
+    };
+    const later = () => window.setTimeout(once, 0);
     if (typeof window.requestAnimationFrame === "function") {
       window.requestAnimationFrame(later);
+      window.setTimeout(once, 250);
     } else {
       later();
     }

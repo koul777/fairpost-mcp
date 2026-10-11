@@ -1488,6 +1488,20 @@ const PRIVATE_MARK = "개선흐름-PRIVATE-DRAFT";
     assert.equal(long.el("check-button").textContent, "검토 메모 만들기");
     assert.equal(long.el("check-button").getAttribute("aria-busy"), "false");
     assert.ok(long.el("easy-result").innerHTML.includes("easy-headline"));
+    // Animation frames can be paused (background tab): a timer still runs the
+    // review, once, and the button is usable again afterwards.
+    const paused = boot({ templates: "file" });
+    paused.sandbox.requestAnimationFrame = () => {}; // never fires
+    paused.type(longText);
+    paused.check();
+    assert.equal(paused.el("easy-result").innerHTML, "");
+    paused.flushTimers();
+    assert.ok(paused.el("easy-result").innerHTML.includes("easy-headline"));
+    const afterPaused = paused.el("easy-result").innerHTML;
+    paused.check();
+    paused.flushTimers();
+    assert.equal(paused.el("easy-result").innerHTML, afterPaused);
+    assert.equal(paused.el("check-button").getAttribute("aria-busy"), "false");
     // A short posting runs at once.
     const short = boot({ templates: "file" });
     short.type(BASE_POSTING);
