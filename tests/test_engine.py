@@ -1465,7 +1465,7 @@ def test_question_context_groups_are_candidate_relative(tmp_path: Path) -> None:
     rules = yaml.safe_load(path.read_text(encoding="utf-8"))
     rules.append(
         {
-            "id": "Q-TEST-CONTEXT",
+            "id": "Q-TEST-001",
             "layer": "question",
             "trigger": {
                 "type": "presence",
@@ -1501,12 +1501,12 @@ def test_question_context_groups_are_candidate_relative(tmp_path: Path) -> None:
 
     positive = engine.check("복수 직렬 채용의 공통 지원서에서 학력 기재")
     question = next(
-        item for item in positive.questions if item.id == "Q-TEST-CONTEXT"
+        item for item in positive.questions if item.id == "Q-TEST-001"
     )
     assert question.matched_text == "공통 지원서"
 
     missing_group = engine.check("복수 직렬 채용의 공통 지원서를 사용")
-    assert "Q-TEST-CONTEXT" not in {
+    assert "Q-TEST-001" not in {
         item.id for item in missing_group.questions
     }
 
@@ -1519,7 +1519,7 @@ def test_question_context_groups_are_candidate_relative(tmp_path: Path) -> None:
     question = next(
         item
         for item in first_candidate_is_too_far.questions
-        if item.id == "Q-TEST-CONTEXT"
+        if item.id == "Q-TEST-001"
     )
     assert question.offset is not None
     assert question.offset[0] == second_candidate_text.rfind("공통 지원서")
@@ -1676,7 +1676,7 @@ def test_local_statute_basis_is_rejected(tmp_path: Path) -> None:
     path = tmp_path / "local_rules.yaml"
     path.write_text(
         """
-- id: Q-LOCAL-BAD
+- id: Q-LOCAL-998
   layer: question
   trigger: {type: presence, patterns: [테스트]}
   dimension: 절차
@@ -1772,7 +1772,7 @@ def test_local_rules_can_be_loaded_from_environment(
     path = tmp_path / "local_rules.yaml"
     path.write_text(
         """
-- id: Q-LOCAL-ENV
+- id: Q-LOCAL-999
   layer: question
   trigger: {type: presence, patterns: [환경 규칙 확인]}
   dimension: 절차
@@ -1788,7 +1788,7 @@ def test_local_rules_can_be_loaded_from_environment(
     )
     monkeypatch.setenv("FAIRPOST_LOCAL_RULES_PATH", str(path))
     result = FairpostEngine().check("환경 규칙 확인")
-    question = next(item for item in result.questions if item.id == "Q-LOCAL-ENV")
+    question = next(item for item in result.questions if item.id == "Q-LOCAL-999")
     assert question.review_scope == "posting"
 
 

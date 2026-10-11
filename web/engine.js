@@ -672,12 +672,25 @@
       (a, b) =>
         a.start - b.start ||
         a.end - b.end ||
-        a.text.localeCompare(b.text, "ko")
+        compareCodePoints(a.text, b.text)
     );
   }
 
   function findFirst(text, patterns) {
     return findMatches(text, patterns)[0] || null;
+  }
+
+  // Python's str ordering: code point by code point. Locale collation would
+  // depend on the browser's ICU data and would fold case.
+  function compareCodePoints(a, b) {
+    const length = Math.min(a.length, b.length);
+    for (let index = 0; index < length; index += 1) {
+      const left = a.codePointAt(index);
+      const right = b.codePointAt(index);
+      if (left !== right) return left < right ? -1 : 1;
+      if (left > 0xffff) index += 1;
+    }
+    return a.length === b.length ? 0 : a.length < b.length ? -1 : 1;
   }
 
   function isExcluded(text, match, excludes) {
@@ -1536,9 +1549,9 @@
       });
     });
 
-    findings.sort((a, b) => a.id.localeCompare(b.id));
+    findings.sort((a, b) => compareCodePoints(a.id, b.id));
     questions.sort(
-      (a, b) => a.priority - b.priority || a.id.localeCompare(b.id)
+      (a, b) => a.priority - b.priority || compareCodePoints(a.id, b.id)
     );
     const statuteSnapshotDate = Object.values(data.statutes)
       .map((statute) => statute.snapshot_date)
