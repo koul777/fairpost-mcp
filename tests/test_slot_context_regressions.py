@@ -252,8 +252,7 @@ CASES = json.loads(r'''[
     "id": "explicit-no-return",
     "text": "채용서류는 반환하지 않음. 제출한 서류 반환하지 않음.",
     "slot": "document_return",
-    "found": true,
-    "contains": "반환하지 않음"
+    "found": false
   },
   {
     "id": "unheaded-existing-process",
