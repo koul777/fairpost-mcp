@@ -3,12 +3,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path, PurePosixPath
 import re
 import sys
 import tarfile
-import tempfile
 from typing import Iterable, Sequence
 import zipfile
 
@@ -22,6 +20,7 @@ from mcp_server.build_identity import (  # noqa: E402
     RUNTIME_SOURCE_FILES,
     runtime_source_fingerprint,
 )
+from tools._paths import atomic_write_text, paths_alias  # noqa: E402
 SDIST_REQUIRED = {
     "MANIFEST.in",
     "README.md",
@@ -741,49 +740,14 @@ def _latest(pattern: str) -> Path:
     return candidates[-1]
 
 
-def _paths_alias(left: Path, right: Path) -> bool:
-    """Return whether two paths name the same entry or existing file."""
-
-    try:
-        if left.resolve(strict=False) == right.resolve(strict=False):
-            return True
-    except OSError:
-        pass
-    try:
-        return left.exists() and right.exists() and os.path.samefile(left, right)
-    except OSError:
-        return False
-
-
 def _validate_paths(sdist: Path, wheel: Path, output: Path) -> None:
     labeled = (("sdist", sdist), ("wheel", wheel), ("output", output))
     for index, (left_name, left_path) in enumerate(labeled):
         for right_name, right_path in labeled[index + 1 :]:
-            if _paths_alias(left_path, right_path):
+            if paths_alias(left_path, right_path):
                 raise ValueError(
                     f"{left_name}와 {right_name} 경로는 같거나 같은 파일을 가리킬 수 없습니다"
                 )
-
-
-def _atomic_write_text(path: Path, payload: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, staged_name = tempfile.mkstemp(
-        dir=path.parent,
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-    )
-    staged = Path(staged_name)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(staged, path)
-    except BaseException:
-        try:
-            staged.unlink(missing_ok=True)
-        finally:
-            raise
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -842,7 +806,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "wheel": wheel_report,
         "passed": passed,
     }
-    _atomic_write_text(
+    atomic_write_text(
         args.output,
         json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
     )

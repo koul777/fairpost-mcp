@@ -193,10 +193,12 @@ $env:FAIRPOST_MCP_TOKEN = [Environment]::GetEnvironmentVariable(
 )
 python tools/verify_vercel_deployment.py
 python tools/verify_vercel_deployment.py --allow-write-check
+python tools/verify_vercel_deployment.py --public-only --output tmp/vercel_public_check.json
 ```
 
 - 기본 `verify_vercel_deployment.py`는 읽기/목록/상태만 검증하고 실서버 저장 쓰기는 하지 않는다.
 - `--allow-write-check`는 호환성 플래그이며 원격 저장을 호출하지 않고 쓰기 도구가 목록에 없음을 검증한다.
+- `--public-only`는 토큰 없이 익명 요청만 확인한다: `/api/health`의 규칙ㆍ매칭 버전, 런타임 지문, 파일별 소스 해시를 로컬 빌드와 비교하고, 일반ㆍClaude MCP 경로가 익명 POST에 401과 `WWW-Authenticate: Bearer`로 답하는지, `/book`이 `/web/?entry=book`으로 임시 리디렉션하는지, `/api/*` 응답의 보안 헤더를 본다. 인증 호출과 `/api/assisted-review`는 호출하지 않고 `FAIRPOST_MCP_TOKEN`도 읽지 않는다. 결과는 별도 스키마 `fairpost-vercel-public-check-v1`로 필수 `--output`에 쓰며 `reports/vercel_deployment_audit.json`에는 쓸 수 없다. 운영 토큰 불일치로 인증 검증이 막힌 동안의 공개 상태 확인용이고 인증 검증 증거를 대체하지 않는다.
 - 릴리스 증거를 만들 때는 `--source-commit`, `--verified-by`, `--approval-ref`를 함께 지정한다. 이 값은 배포와 승인 흐름을 추적하는 운영 메타데이터이며 전자서명이나 신원 증명은 아니다.
 - 상태 응답에는 공고문 원문이나 비밀값을 넣지 않는다. `remote_tools`는 엔드포인트별로
   노출하는 도구 이름 목록이며, 런타임 지문과 파일별 해시는 배포가 바뀌지 않으므로

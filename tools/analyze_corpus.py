@@ -12,11 +12,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import FairpostEngine  # noqa: E402
+from tools._paths import reject_holdout_path  # noqa: E402
 
 
 def load_training_records(path: Path) -> list[dict[str, object]]:
-    if "holdout" in {part.casefold() for part in path.parts}:
-        raise ValueError("코퍼스 분석기는 홀드아웃 파일을 읽을 수 없습니다")
+    reject_holdout_path(path, "코퍼스 분석기는 홀드아웃 파일을 읽을 수 없습니다")
 
     records: list[dict[str, object]] = []
     for line_number, line in enumerate(

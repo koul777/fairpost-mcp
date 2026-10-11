@@ -4,6 +4,13 @@ import argparse
 import json
 from pathlib import Path
 import re
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools._paths import reject_holdout_path  # noqa: E402
 
 
 SYSTEM_INSTRUCTION = """당신은 채용공고 표현 후보를 추출하는 사전 구축 보조자입니다.
@@ -15,8 +22,7 @@ process, information, other 중 하나입니다.
 
 
 def read_jsonl(path: Path) -> list[dict]:
-    if "holdout" in {part.casefold() for part in path.parts}:
-        raise ValueError("후보 생성기는 홀드아웃 파일을 읽을 수 없습니다")
+    reject_holdout_path(path, "후보 생성기는 홀드아웃 파일을 읽을 수 없습니다")
     records: list[dict] = []
     for line_number, line in enumerate(
         path.read_text(encoding="utf-8").splitlines(), start=1

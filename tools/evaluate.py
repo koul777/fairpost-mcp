@@ -11,7 +11,6 @@ import os
 from pathlib import Path
 import re
 import sys
-import tempfile
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +18,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import FairpostEngine  # noqa: E402
+from tools._paths import atomic_write_text, paths_alias  # noqa: E402
 
 
 HASH_RE = re.compile(r"[0-9a-f]{64}")
@@ -185,18 +185,6 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _paths_alias(left: Path, right: Path) -> bool:
-    try:
-        if left.resolve(strict=False) == right.resolve(strict=False):
-            return True
-    except OSError:
-        pass
-    try:
-        return left.exists() and right.exists() and os.path.samefile(left, right)
-    except OSError:
-        return False
-
-
 def validate_output_paths(
     *,
     output: Path,
@@ -204,32 +192,15 @@ def validate_output_paths(
     inputs: dict[str, Path | None],
 ) -> None:
     for name, path in inputs.items():
-        if path is not None and _paths_alias(output, path):
+        if path is not None and paths_alias(output, path):
             raise ValueError(f"--output은 {name}과 다른 파일이어야 합니다")
-        if receipt is not None and path is not None and _paths_alias(receipt, path):
+        if receipt is not None and path is not None and paths_alias(receipt, path):
             raise ValueError(f"--evaluation-receipt는 {name}과 다른 파일이어야 합니다")
-    if receipt is not None and _paths_alias(output, receipt):
+    if receipt is not None and paths_alias(output, receipt):
         raise ValueError("--evaluation-receipt와 --output은 다른 파일이어야 합니다")
     for name, path in (("--output", output), ("--evaluation-receipt", receipt)):
         if path is not None and path.exists() and path.is_dir():
             raise ValueError(f"{name}은 파일 경로여야 합니다")
-
-
-def _atomic_write_text(path: Path, payload: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, staged_name = tempfile.mkstemp(
-        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
-    )
-    staged = Path(staged_name)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
-            stream.write(payload)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(staged, path)
-    except BaseException:
-        staged.unlink(missing_ok=True)
-        raise
 
 
 def _dataset_fingerprint(manifest_payload: bytes, records_payload: bytes) -> str:
@@ -394,7 +365,7 @@ def finalize_final_evaluation(
             "튜닝 후 성능 주장은 새 독립 홀드아웃이 필요합니다."
         ),
     }
-    _atomic_write_text(
+    atomic_write_text(
         receipt_path,
         json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
     )
@@ -917,7 +888,7 @@ def main() -> int:
                 receipt_binding,
                 report_sha256=report_sha256,
             )
-        _atomic_write_text(args.output, encoded_report)
+        atomic_write_text(args.output, encoded_report)
         if (
             receipt_path is not None
             and receipt_binding is not None

@@ -14,11 +14,9 @@ Every case also runs through the browser engine and must match Python exactly.
 """
 from __future__ import annotations
 
-import base64
 import json
 from pathlib import Path
 import re
-import subprocess
 
 import pytest
 import yaml
@@ -26,6 +24,7 @@ import yaml
 from core import FairpostEngine
 from core.extractor import _DEFERRED_BODY
 from core.morph import find_first
+from web_engine import web_check_batch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -146,23 +145,6 @@ def _check(text: str) -> dict:
     return FairpostEngine().check(text).to_dict()
 
 
-def _web_check_batch(texts: list[str], tmp_path: Path) -> list[dict]:
-    batch = tmp_path / "web-batch.json"
-    batch.write_text(
-        json.dumps([base64.b64encode(t.encode("utf-8")).decode("ascii") for t in texts]),
-        encoding="utf-8",
-    )
-    completed = subprocess.run(
-        ["node", "tests/js_runner.cjs", "--batch", str(batch)],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    results = json.loads(completed.stdout)
-    assert len(results) == len(texts)
-    return results
 
 
 def _assert_same_result(label: str, python: dict, web: dict) -> None:
@@ -378,21 +360,28 @@ def test_python_and_web_agree_on_every_case(tmp_path: Path) -> None:
     cases = _parity_cases()
     labels = list(cases)
     texts = [cases[label] for label in labels]
-    web_results = _web_check_batch(texts, tmp_path)
+    web_results = web_check_batch(texts, tmp_path)
     engine = FairpostEngine()
     for label, text, web in zip(labels, texts, web_results, strict=True):
         _assert_same_result(label, engine.check(text).to_dict(), web)
 
 
+@pytest.fixture(scope="module")
+def encoding_variant_web_results() -> dict[str, dict]:
+    """Every encoding variant through the web engine in one Node process."""
+    labels = list(ENCODING_VARIANTS)
+    results = web_check_batch([ENCODING_VARIANTS[label][0] for label in labels])
+    return dict(zip(labels, results, strict=True))
+
+
 @pytest.mark.requires_node
-@pytest.mark.parametrize(
-    ("text", "slot_id", "found"), ENCODING_VARIANTS.values(), ids=ENCODING_VARIANTS.keys()
-)
+@pytest.mark.parametrize("label", ENCODING_VARIANTS)
 def test_encoding_variants_reach_the_same_outcome_in_both_engines(
-    text: str, slot_id: str, found: bool, tmp_path: Path
+    label: str, encoding_variant_web_results: dict[str, dict]
 ) -> None:
+    text, slot_id, found = ENCODING_VARIANTS[label]
     python = _check(text)
-    web = _web_check_batch([text], tmp_path)[0]
+    web = encoding_variant_web_results[label]
     assert _slot(python, slot_id)["found"] is found
     assert _slot(web, slot_id)["found"] is found
     _assert_same_result(text, python, web)
@@ -406,7 +395,7 @@ def test_reported_cases_have_identical_slots_questions_and_evidence(tmp_path: Pa
         "접수기간\n상세 일정: 2026년 8월 1일 ~ 8월 12일",
         "연봉\n별도 협의 없이 4,000만원 고정",
     ]
-    web_results = _web_check_batch(texts, tmp_path)
+    web_results = web_check_batch(texts, tmp_path)
     for text, web in zip(texts, web_results, strict=True):
         python = _check(text)
         assert [(s["slot"], s["found"], s["evidence"]) for s in web["slots"]] == [

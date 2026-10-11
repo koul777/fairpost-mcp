@@ -18,6 +18,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import FairpostEngine  # noqa: E402
+from tools._paths import holdout_components, paths_alias  # noqa: E402
 from tools import build_private_review_queue as review_queue  # noqa: E402
 
 
@@ -61,10 +62,6 @@ class ReviewSummaryError(ValueError):
     """A privacy-safe validation or report-writing failure."""
 
 
-def _path_key(path: Path) -> str:
-    return os.path.normcase(str(path.expanduser().resolve(strict=False))).casefold()
-
-
 def _path_variants(path: Path) -> tuple[Path, ...]:
     expanded = path.expanduser()
     try:
@@ -74,6 +71,10 @@ def _path_variants(path: Path) -> tuple[Path, ...]:
 
 
 def _reject_forbidden_path(path: Path, *, argument: str) -> None:
+    if holdout_components(path):
+        raise ReviewSummaryError(
+            f"{argument} is rejected by the train-only path policy"
+        )
     for candidate in _path_variants(path):
         for part in candidate.parts:
             lowered = part.casefold().rstrip(". ")
@@ -115,13 +116,7 @@ def validate_paths(
 
     for index, (left_name, left_path) in enumerate(labeled_paths):
         for right_name, right_path in labeled_paths[index + 1 :]:
-            same = _path_key(left_path) == _path_key(right_path)
-            if not same and left_path.exists() and right_path.exists():
-                try:
-                    same = os.path.samefile(left_path, right_path)
-                except OSError:
-                    pass
-            if same:
+            if paths_alias(left_path, right_path):
                 raise ReviewSummaryError(
                     f"{left_name} and {right_name} must be different files"
                 )

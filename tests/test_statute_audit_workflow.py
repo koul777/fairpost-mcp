@@ -101,6 +101,17 @@ def test_refresh_job_publishes_both_groups_in_pr_body(workflow) -> None:
         assert step_named(workflow, "refresh", name)["if"] == pr_step["if"]
 
 
+def test_verify_step_has_node_and_requires_it(workflow) -> None:
+    # Without Node the Python/JS parity tests would skip and the refreshed
+    # snapshots would be verified by a weaker suite than ci.yml runs.
+    steps = steps_of(workflow, "refresh")
+    node = [s for s in steps if s.get("uses", "").startswith("actions/setup-node@")]
+    assert len(node) == 1 and str(node[0]["with"]["node-version"]) == "22"
+    verify = step_named(workflow, "refresh", "Verify")
+    assert verify["env"]["FAIRPOST_REQUIRE_NODE"] == "1"
+    assert steps.index(node[0]) < steps.index(verify)
+
+
 def test_workflow_actions_are_pinned_to_major_versions(workflow) -> None:
     for job in workflow["jobs"].values():
         for step in job["steps"]:

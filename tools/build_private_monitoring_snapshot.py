@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.collect_corpus import deidentify  # noqa: E402
+from tools._paths import holdout_components, paths_alias  # noqa: E402
 
 
 SOURCE_CATEGORIES = frozenset({"company-career-page", "work24", "licensed-feed"})
@@ -56,17 +57,12 @@ def _path_key(path: Path) -> str:
     return os.path.normcase(str(path.resolve(strict=False))).casefold()
 
 
-def _same_existing_file(left: Path, right: Path) -> bool:
-    if not left.exists() or not right.exists():
-        return False
-    try:
-        return os.path.samefile(left, right)
-    except OSError:
-        return False
-
-
 def reject_non_train_path(path: Path, *, argument: str) -> None:
     """Reject paths explicitly named like evaluation partitions."""
+    if holdout_components(path):
+        raise ValueError(
+            f"{argument} path uses a forbidden evaluation partition name: holdout"
+        )
     for variant in _path_variants(path):
         for part in variant.parts:
             lowered = part.casefold()
@@ -133,13 +129,13 @@ def validate_paths(
         if _path_key(read_path) in keys:
             raise ValueError(f"{read_label} must differ from every output path")
         for write_label, write_path in write_paths.items():
-            if _same_existing_file(read_path, write_path):
+            if paths_alias(read_path, write_path):
                 raise ValueError(f"{read_label} must differ from {write_label}")
 
     write_items = list(write_paths.items())
     for index, (left_label, left_path) in enumerate(write_items):
         for right_label, right_path in write_items[index + 1 :]:
-            if _same_existing_file(left_path, right_path):
+            if paths_alias(left_path, right_path):
                 raise ValueError(f"출력 경로 충돌: {left_label}, {right_label}")
 
 

@@ -3,10 +3,8 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timedelta, timezone
 import json
-import os
 from pathlib import Path
 import sys
-import tempfile
 from typing import Any, Sequence
 
 
@@ -18,6 +16,7 @@ if str(ROOT) not in sys.path:
 from core import load_ruleset  # noqa: E402
 from mcp_server.build_identity import runtime_source_fingerprint  # noqa: E402
 from tools.release_inputs import validation_source_fingerprint  # noqa: E402
+from tools._paths import atomic_write_text, paths_alias  # noqa: E402
 
 
 OPERATIONAL_REPORTS = {
@@ -63,23 +62,11 @@ VALIDATION_FINGERPRINT_PATHS = (
 )
 
 
-def _paths_alias(left: Path, right: Path) -> bool:
-    try:
-        if left.resolve(strict=False) == right.resolve(strict=False):
-            return True
-    except OSError:
-        pass
-    try:
-        return left.exists() and right.exists() and os.path.samefile(left, right)
-    except OSError:
-        return False
-
-
 def validate_output_path(reports_dir: Path, output: Path) -> None:
     for path in reports_dir.glob("*.json"):
         if path.name == "evidence_version_audit.json":
             continue
-        if _paths_alias(path, output):
+        if paths_alias(path, output):
             raise ValueError("증거 버전 감사 출력은 다른 증거 보고서를 덮어쓸 수 없습니다")
     if output.exists() and output.is_dir():
         raise ValueError("증거 버전 감사 출력은 파일 경로여야 합니다")
@@ -279,23 +266,6 @@ def audit(reports_dir: Path, *, scope: str, output: Path) -> dict[str, Any]:
     }
 
 
-def _atomic_write(path: Path, payload: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, staged_name = tempfile.mkstemp(
-        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
-    )
-    staged = Path(staged_name)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(staged, path)
-    except BaseException:
-        staged.unlink(missing_ok=True)
-        raise
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -314,7 +284,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         validate_output_path(args.reports_dir, args.output)
         report = audit(args.reports_dir, scope=args.scope, output=args.output)
-        _atomic_write(
+        atomic_write_text(
             args.output,
             json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
         )

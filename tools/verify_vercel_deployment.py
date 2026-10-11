@@ -24,6 +24,7 @@ from mcp_server.build_identity import (  # noqa: E402
     runtime_source_fingerprint,
     runtime_source_manifest,
 )
+from tools._paths import atomic_write_text, paths_alias  # noqa: E402
 
 
 EXPECTED_PUBLIC_TOOLS = {
@@ -40,6 +41,11 @@ EXPECTED_ARTICLE = "제7조"
 BOOK_ENTRY_PATH = "/book"
 BOOK_ENTRY_TARGET = "/web/?entry=book"
 TEMPORARY_REDIRECT_STATUSES = {302, 307}
+FULL_AUDIT_SCHEMA_VERSION = "fairpost-vercel-deployment-audit-v3"
+# The token-less check has its own schema so it can never be mistaken for the
+# authenticated audit that release evidence is built from.
+PUBLIC_CHECK_SCHEMA_VERSION = "fairpost-vercel-public-check-v1"
+FULL_AUDIT_OUTPUT = Path("reports/vercel_deployment_audit.json")
 
 
 def _book_entry_redirect_is_temporary(
@@ -89,6 +95,134 @@ def _first_text_content(result: Any | None) -> str:
     return ""
 
 
+def _initialize_request(request_id: int) -> dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {
+                "name": "fairpost-deployment-verifier",
+                "version": "1",
+            },
+        },
+    }
+
+
+_MCP_ACCEPT = {"Accept": "application/json, text/event-stream"}
+
+
+async def _fetch_anonymous_surface(
+    client: httpx.AsyncClient, base_url: str
+) -> dict[str, Any]:
+    """The requests that need no token: health, /book, and both MCP gates."""
+
+    endpoint = f"{base_url}/api/mcp"
+    claude_endpoint = f"{base_url}/api/claude-mcp"
+    health_response = await client.get(f"{base_url}/api/health")
+    health_response.raise_for_status()
+    # Do not follow the redirect: the status code and Location are the contract.
+    book_response = await client.get(
+        f"{base_url}{BOOK_ENTRY_PATH}", follow_redirects=False
+    )
+    anonymous = await client.post(
+        endpoint, headers=_MCP_ACCEPT, json=_initialize_request(1)
+    )
+    claude_anonymous = await client.post(
+        claude_endpoint, headers=_MCP_ACCEPT, json=_initialize_request(2)
+    )
+    return {
+        "health_response": health_response,
+        "health": health_response.json(),
+        "book_response": book_response,
+        "anonymous": anonymous,
+        "claude_anonymous": claude_anonymous,
+    }
+
+
+def _security_headers(response: Any) -> dict[str, str | None]:
+    return {
+        "cache_control": response.headers.get("cache-control"),
+        "content_type_options": response.headers.get("x-content-type-options"),
+        "frame_options": response.headers.get("x-frame-options"),
+        "referrer_policy": response.headers.get("referrer-policy"),
+    }
+
+
+def _security_headers_ok(headers: dict[str, str | None]) -> bool:
+    cache_control_values = {
+        value.strip()
+        for value in (headers["cache_control"] or "").split(",")
+        if value.strip()
+    }
+    return (
+        cache_control_values == {"no-store"}
+        and headers["content_type_options"] == "nosniff"
+        and headers["frame_options"] == "DENY"
+        and headers["referrer_policy"] == "no-referrer"
+    )
+
+
+def _expected_claude_authentication(authentication: str | None) -> str:
+    if authentication == "bearer":
+        return "bearer"
+    allowed = os.environ.get("FAIRPOST_ALLOW_PUBLIC_CLAUDE_REMOTE", "").casefold()
+    return "none" if allowed in {"1", "true", "yes"} else "disabled"
+
+
+def _anonymous_access_controls_present(
+    health: dict[str, Any],
+    authentication: str | None,
+    expected_claude_authentication: str,
+) -> bool:
+    if authentication != "none" and expected_claude_authentication != "none":
+        return True
+    controls = health.get("anonymous_access_controls")
+    return (
+        isinstance(controls, dict)
+        and controls.get("enabled") is True
+        and controls.get("strategy") == "per_instance_client_fixed_window"
+        and isinstance(controls.get("requests_per_minute"), int)
+        and controls.get("stores_raw_client_address") is False
+        and controls.get("stores_request_content") is False
+    )
+
+
+def _bearer_challenge(response: Any) -> bool:
+    """True when a 401 names the Bearer scheme in WWW-Authenticate."""
+
+    value = response.headers.get("www-authenticate")
+    return isinstance(value, str) and value.strip().casefold().startswith("bearer")
+
+
+def _anonymous_gate_matches(
+    authentication: str | None, response: Any
+) -> bool:
+    """The anonymous status fits the mode, and a 401 carries the Bearer challenge."""
+
+    return _anonymous_authentication_behavior_matches(
+        authentication, response.status_code
+    ) and (authentication != "bearer" or _bearer_challenge(response))
+
+
+HEALTH_REPORT_KEYS = (
+    "status",
+    "transport",
+    "stateless",
+    "authentication",
+    "claude_readonly_authentication",
+    "answer_store",
+    "remote_tool_profile",
+    "ruleset_version",
+    "matching_version",
+    "runtime_source_fingerprint",
+    "runtime_source_manifest",
+    "anonymous_access_controls",
+)
+
+
 async def verify(
     base_url: str,
     token: str,
@@ -103,45 +237,12 @@ async def verify(
     timeout = httpx.Timeout(60.0)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
-        health_response = await client.get(health_url)
-        health_response.raise_for_status()
-        health = health_response.json()
-        # Do not follow the redirect: the status code and Location are the contract.
-        book_response = await client.get(book_url, follow_redirects=False)
-        anonymous = await client.post(
-            endpoint,
-            headers={"Accept": "application/json, text/event-stream"},
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2025-06-18",
-                    "capabilities": {},
-                    "clientInfo": {
-                        "name": "fairpost-deployment-verifier",
-                        "version": "1",
-                    },
-                },
-            },
-        )
-        claude_anonymous = await client.post(
-            claude_endpoint,
-            headers={"Accept": "application/json, text/event-stream"},
-            json={
-                "jsonrpc": "2.0",
-                "id": 2,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2025-06-18",
-                    "capabilities": {},
-                    "clientInfo": {
-                        "name": "fairpost-deployment-verifier",
-                        "version": "1",
-                    },
-                },
-            },
-        )
+        surface = await _fetch_anonymous_surface(client, base_url)
+    health_response = surface["health_response"]
+    health = surface["health"]
+    book_response = surface["book_response"]
+    anonymous = surface["anonymous"]
+    claude_anonymous = surface["claude_anonymous"]
 
     client_headers = {"Authorization": f"Bearer {token}"} if token else {}
     async with httpx.AsyncClient(
@@ -196,18 +297,7 @@ async def verify(
     tool_names = {tool.name for tool in listed.tools}
     checked_text = _first_text_content(checked)
     authentication = health.get("authentication")
-    expected_claude_authentication = (
-        "bearer"
-        if authentication == "bearer"
-        else (
-            "none"
-            if os.environ.get(
-                "FAIRPOST_ALLOW_PUBLIC_CLAUDE_REMOTE", ""
-            ).casefold()
-            in {"1", "true", "yes"}
-            else "disabled"
-        )
-    )
+    expected_claude_authentication = _expected_claude_authentication(authentication)
     local_ruleset = load_ruleset()
     local_runtime_fingerprint = runtime_source_fingerprint(
         ruleset_version=local_ruleset.version,
@@ -227,19 +317,7 @@ async def verify(
         authentication,
         anonymous.status_code,
     )
-    security_headers = {
-        "cache_control": health_response.headers.get("cache-control"),
-        "content_type_options": health_response.headers.get(
-            "x-content-type-options"
-        ),
-        "frame_options": health_response.headers.get("x-frame-options"),
-        "referrer_policy": health_response.headers.get("referrer-policy"),
-    }
-    cache_control_values = {
-        value.strip()
-        for value in (security_headers["cache_control"] or "").split(",")
-        if value.strip()
-    }
+    security_headers = _security_headers(health_response)
     book_location = book_response.headers.get("location")
     checks = {
         "health_ok": health_response.status_code == 200
@@ -322,30 +400,13 @@ async def verify(
             "runtime_source_manifest"
         )
         == local_runtime_manifest,
-        "security_headers_present": cache_control_values == {"no-store"}
-        and security_headers["content_type_options"] == "nosniff"
-        and security_headers["frame_options"] == "DENY"
-        and security_headers["referrer_policy"] == "no-referrer",
-        "anonymous_access_controls_present": (
-            isinstance(health.get("anonymous_access_controls"), dict)
-            and health["anonymous_access_controls"].get("enabled") is True
-            and health["anonymous_access_controls"].get("strategy")
-            == "per_instance_client_fixed_window"
-            and isinstance(
-                health["anonymous_access_controls"].get("requests_per_minute"),
-                int,
-            )
-            and health["anonymous_access_controls"].get("stores_raw_client_address")
-            is False
-            and health["anonymous_access_controls"].get("stores_request_content")
-            is False
-            if authentication == "none"
-            or expected_claude_authentication == "none"
-            else True
+        "security_headers_present": _security_headers_ok(security_headers),
+        "anonymous_access_controls_present": _anonymous_access_controls_present(
+            health, authentication, expected_claude_authentication
         ),
     }
     return {
-        "schema_version": "fairpost-vercel-deployment-audit-v3",
+        "schema_version": FULL_AUDIT_SCHEMA_VERSION,
         "verified_at": datetime.now(UTC).astimezone(KST).isoformat(
             timespec="seconds"
         ),
@@ -361,23 +422,7 @@ async def verify(
         },
         "deployment_id": deployment_id,
         "deployment_target": "production",
-        "health": {
-            key: health.get(key)
-            for key in (
-                "status",
-                "transport",
-                "stateless",
-                "authentication",
-                "claude_readonly_authentication",
-                "answer_store",
-                "remote_tool_profile",
-                "ruleset_version",
-                "matching_version",
-                "runtime_source_fingerprint",
-                "runtime_source_manifest",
-                "anonymous_access_controls",
-            )
-        },
+        "health": {key: health.get(key) for key in HEALTH_REPORT_KEYS},
         "anonymous_initialize_status": anonymous.status_code,
         "anonymous_claude_initialize_status": claude_anonymous.status_code,
         "server_name": initialized.serverInfo.name,
@@ -418,6 +463,174 @@ async def verify(
     }
 
 
+async def verify_public(
+    base_url: str,
+    deployment_id: str | None = None,
+) -> dict[str, Any]:
+    """Check only what an anonymous caller can see; no token is read or sent.
+
+    The authenticated audit (``verify``) needs the production MCP token, so a
+    token mismatch blocks every kind of evidence. This runs the checks that do
+    not need it: the public health document against the local build, the
+    Bearer challenge on both MCP gates, the permanent-looking ``/book`` address
+    that is printed as a QR code, and the security headers on ``/api/*``.
+    It never calls the MCP tools and never calls ``/api/assisted-review``.
+    """
+
+    base_url = base_url.rstrip("/")
+    endpoint = f"{base_url}/api/mcp"
+    claude_endpoint = f"{base_url}/api/claude-mcp"
+    health_url = f"{base_url}/api/health"
+    book_url = f"{base_url}{BOOK_ENTRY_PATH}"
+
+    # No Authorization header, by construction: the client has no credentials.
+    async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+        surface = await _fetch_anonymous_surface(client, base_url)
+    health_response = surface["health_response"]
+    health = surface["health"]
+    book_response = surface["book_response"]
+    anonymous = surface["anonymous"]
+    claude_anonymous = surface["claude_anonymous"]
+
+    authentication = health.get("authentication")
+    claude_authentication = health.get("claude_readonly_authentication")
+    expected_claude_authentication = _expected_claude_authentication(authentication)
+    local_ruleset = load_ruleset()
+    local_runtime_fingerprint = runtime_source_fingerprint(
+        ruleset_version=local_ruleset.version,
+        matching_version=local_ruleset.matching_version,
+    )
+    local_runtime_manifest = runtime_source_manifest()
+    responses = {
+        "health": health_response,
+        "mcp": anonymous,
+        "claude_mcp": claude_anonymous,
+    }
+    api_security_headers = {
+        name: _security_headers(response) for name, response in responses.items()
+    }
+    book_location = book_response.headers.get("location")
+    checks = {
+        "health_ok": health_response.status_code == 200
+        and health.get("status") == "ok",
+        "ruleset_version_matches_local": health.get("ruleset_version")
+        == local_ruleset.version,
+        "matching_version_matches_local": health.get("matching_version")
+        == local_ruleset.matching_version,
+        "runtime_source_fingerprint_matches_local": health.get(
+            "runtime_source_fingerprint"
+        )
+        == local_runtime_fingerprint,
+        "runtime_source_manifest_matches_local": health.get(
+            "runtime_source_manifest"
+        )
+        == local_runtime_manifest,
+        "book_entry_redirect_is_temporary": _book_entry_redirect_is_temporary(
+            book_response.status_code,
+            book_location,
+            base_url,
+        ),
+        "anonymous_mcp_gate_matches": _anonymous_gate_matches(
+            authentication, anonymous
+        ),
+        "claude_authentication_mode_matches": claude_authentication
+        == expected_claude_authentication,
+        "anonymous_claude_mcp_gate_matches": _anonymous_gate_matches(
+            claude_authentication, claude_anonymous
+        ),
+        "security_headers_present_on_api": all(
+            _security_headers_ok(headers) for headers in api_security_headers.values()
+        ),
+        "anonymous_access_controls_present": _anonymous_access_controls_present(
+            health, authentication, expected_claude_authentication
+        ),
+    }
+    return {
+        "schema_version": PUBLIC_CHECK_SCHEMA_VERSION,
+        "verified_at": datetime.now(UTC).astimezone(KST).isoformat(
+            timespec="seconds"
+        ),
+        "scope": "anonymous requests only",
+        "authenticated_checks_performed": False,
+        "token_used": False,
+        "assisted_review_called": False,
+        "production_url": base_url,
+        "mcp_endpoint": endpoint,
+        "claude_mcp_endpoint": claude_endpoint,
+        "health_endpoint": health_url,
+        "deployment_id": deployment_id,
+        "health": {key: health.get(key) for key in HEALTH_REPORT_KEYS},
+        "book_entry": {
+            "url": book_url,
+            "status_code": book_response.status_code,
+            "location": book_location,
+            "expected_target": BOOK_ENTRY_TARGET,
+        },
+        "anonymous_responses": {
+            "mcp": {
+                "status_code": anonymous.status_code,
+                "www_authenticate": anonymous.headers.get("www-authenticate"),
+            },
+            "claude_mcp": {
+                "status_code": claude_anonymous.status_code,
+                "www_authenticate": claude_anonymous.headers.get("www-authenticate"),
+            },
+        },
+        "api_security_headers": api_security_headers,
+        "local_ruleset": {
+            "ruleset_version": local_ruleset.version,
+            "matching_version": local_ruleset.matching_version,
+            "rule_count": len(local_ruleset.rules),
+            "runtime_source_fingerprint": local_runtime_fingerprint,
+        },
+        "checks": checks,
+        "passed": all(checks.values()),
+        "secret_recorded": False,
+    }
+
+
+def _refuse_full_audit_output(output: Path) -> None:
+    """The token-less report must never replace the authenticated evidence."""
+
+    for protected in (ROOT / FULL_AUDIT_OUTPUT, FULL_AUDIT_OUTPUT):
+        if paths_alias(output, protected):
+            raise ValueError(
+                "--public-only 결과는 reports/vercel_deployment_audit.json에 쓸 수 없습니다. "
+                "그 파일은 인증 검증 증거입니다."
+            )
+
+
+def _run_public_only(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    if args.output is None:
+        parser.error("--public-only에는 --output이 필요합니다")
+    if args.allow_write_check:
+        parser.error("--public-only는 --allow-write-check와 함께 쓸 수 없습니다")
+    try:
+        _refuse_full_audit_output(args.output)
+    except ValueError as error:
+        parser.error(str(error))
+    # FAIRPOST_MCP_TOKEN is deliberately not read here.
+    try:
+        report = anyio.run(verify_public, args.url, args.deployment_id)
+    except httpx.HTTPError as error:
+        raise SystemExit(f"Vercel 공개 검증 요청에 실패했습니다: {error}") from error
+    report["verification_context"] = {
+        "source_commit": args.source_commit,
+        "verified_by": args.verified_by,
+        "approval_ref": args.approval_ref,
+    }
+    atomic_write_text(
+        args.output, json.dumps(report, ensure_ascii=False, indent=2) + "\n"
+    )
+    failed = sorted(name for name, ok in report["checks"].items() if not ok)
+    if failed:
+        raise SystemExit(
+            f"Vercel 공개 검증에 실패했습니다: {', '.join(failed)} ({args.output})"
+        )
+    print(f"Vercel 공개 검증 통과: {report['production_url']} -> {args.output}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Verify the deployed FairPost Vercel MCP without recording secrets."
@@ -445,7 +658,20 @@ def main() -> int:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("reports/vercel_deployment_audit.json"),
+        default=None,
+        help=(
+            "Report path (default reports/vercel_deployment_audit.json). "
+            "Required with --public-only, which may not write that file."
+        ),
+    )
+    parser.add_argument(
+        "--public-only",
+        action="store_true",
+        help=(
+            "Run only the checks that need no token (health against the local build, "
+            "the Bearer challenge on /api/mcp and /api/claude-mcp, /book, security "
+            "headers) and write a separate report; it never reads FAIRPOST_MCP_TOKEN."
+        ),
     )
     parser.add_argument(
         "--allow-write-check",
@@ -456,6 +682,10 @@ def main() -> int:
         ),
     )
     args = parser.parse_args()
+    if args.public_only:
+        return _run_public_only(args, parser)
+    if args.output is None:
+        args.output = FULL_AUDIT_OUTPUT
     token = os.environ.get("FAIRPOST_MCP_TOKEN", "")
     report = anyio.run(
         verify,

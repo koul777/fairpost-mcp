@@ -1,15 +1,13 @@
 """Synthetic development regressions for slot evidence; not human gold labels."""
 from __future__ import annotations
 
-import base64
 import json
-from pathlib import Path
-import subprocess
 
 import pytest
 
 from core import FairpostEngine
 from core.extractor import split_sections
+from web_engine import web_check_batch
 
 CASES = json.loads(r'''[
   {
@@ -348,7 +346,6 @@ CASES = json.loads(r'''[
 for case in CASES:
     if case["text"] == "__SYNTHETIC_PHONE__":
         case["text"] = "-".join(("02", "1234", "5678"))
-ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c["id"])
@@ -365,13 +362,18 @@ def test_slot_context_regression(case: dict) -> None:
         assert slot["components_found"] == []
 
 
+@pytest.fixture(scope="module")
+def web_results() -> dict[str, dict]:
+    """Every case through the web engine in one Node process, keyed by case id."""
+    ids = [case["id"] for case in CASES]
+    assert len(set(ids)) == len(ids), "case ids must be unique"
+    return dict(zip(ids, web_check_batch([case["text"] for case in CASES]), strict=True))
+
+
 @pytest.mark.requires_node
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c["id"])
-def test_slot_context_python_web_parity(case: dict) -> None:
-    encoded = base64.b64encode(case["text"].encode("utf-8")).decode("ascii")
-    completed = subprocess.run(["node", "tests/js_runner.cjs", encoded], cwd=ROOT,
-                               check=True, capture_output=True, text=True, encoding="utf-8")
-    assert json.loads(completed.stdout) == FairpostEngine().check(case["text"]).to_dict()
+def test_slot_context_python_web_parity(case: dict, web_results: dict[str, dict]) -> None:
+    assert web_results[case["id"]] == FairpostEngine().check(case["text"]).to_dict()
 
 
 @pytest.mark.parametrize("heading,canonical", [

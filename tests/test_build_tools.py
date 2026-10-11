@@ -5,9 +5,9 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import re
-import shutil
 import subprocess
 import sys
 import tarfile
@@ -628,13 +628,13 @@ def test_release_report_atomic_failure_preserves_previous_output(
     output = tmp_path / "build-artifact.json"
     output.write_text("previous\n", encoding="utf-8")
     monkeypatch.setattr(
-        module.os,
+        os,
         "replace",
         lambda *_args: (_ for _ in ()).throw(OSError("simulated")),
     )
 
     with pytest.raises(OSError, match="simulated"):
-        module._atomic_write_text(output, "replacement\n")
+        module.atomic_write_text(output, "replacement\n")
 
     assert output.read_text(encoding="utf-8") == "previous\n"
 
@@ -849,13 +849,13 @@ def test_human_labeling_handoff_atomic_failure_preserves_report(
     output = tmp_path / "handoff.json"
     output.write_text("previous\n", encoding="utf-8")
     monkeypatch.setattr(
-        module.os,
+        os,
         "replace",
         lambda *_args: (_ for _ in ()).throw(OSError("simulated")),
     )
 
     with pytest.raises(OSError, match="simulated"):
-        module._atomic_write_text(output, "replacement\n")
+        module.atomic_write_text(output, "replacement\n")
 
     assert output.read_text(encoding="utf-8") == "previous\n"
 
@@ -2060,9 +2060,9 @@ def test_distribution_audit_atomic_write_preserves_existing_report(
     def fail_replace(_source: Path, _target: Path) -> None:
         raise OSError("simulated publish failure")
 
-    monkeypatch.setattr(module.os, "replace", fail_replace)
+    monkeypatch.setattr(os, "replace", fail_replace)
     with pytest.raises(OSError, match="simulated publish failure"):
-        module._atomic_write_text(output, "replacement\n")
+        module.atomic_write_text(output, "replacement\n")
 
     assert output.read_text(encoding="utf-8") == "previous\n"
     assert list(tmp_path.glob(".audit.json.*.tmp")) == []

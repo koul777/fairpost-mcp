@@ -3,11 +3,9 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import json
-import os
 from pathlib import Path
 import statistics
 import sys
-import tempfile
 from typing import Any, Sequence
 
 
@@ -16,6 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import load_ruleset  # noqa: E402
+from tools._paths import atomic_write_text, paths_alias  # noqa: E402
 
 
 ALLOWED_ROW_KEYS = {
@@ -34,20 +33,8 @@ QUESTION_RESULTS = {"actionable", "relevant_no_action", "irrelevant"}
 OUTCOMES = {"edited", "confirmed", "escalated", "no_action"}
 
 
-def _paths_alias(left: Path, right: Path) -> bool:
-    try:
-        if left.resolve(strict=False) == right.resolve(strict=False):
-            return True
-    except OSError:
-        pass
-    try:
-        return left.exists() and right.exists() and os.path.samefile(left, right)
-    except OSError:
-        return False
-
-
 def validate_output_path(input_path: Path, output_path: Path) -> None:
-    if _paths_alias(input_path, output_path):
+    if paths_alias(input_path, output_path):
         raise ValueError("파일럿 집계 출력은 피드백 입력을 덮어쓸 수 없습니다")
     if output_path.exists() and output_path.is_dir():
         raise ValueError("파일럿 집계 출력은 파일 경로여야 합니다")
@@ -256,23 +243,6 @@ def summarize(
     }
 
 
-def _atomic_write(path: Path, payload: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, staged_name = tempfile.mkstemp(
-        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
-    )
-    staged = Path(staged_name)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(staged, path)
-    except BaseException:
-        staged.unlink(missing_ok=True)
-        raise
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="원문 없는 FairPost HR 파일럿 피드백을 익명 집계합니다."
@@ -308,7 +278,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             min_actionable_case_rate=args.min_actionable_case_rate,
             max_irrelevant_question_rate=args.max_irrelevant_question_rate,
         )
-        _atomic_write(
+        atomic_write_text(
             args.output,
             json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
         )

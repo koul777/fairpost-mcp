@@ -12,18 +12,14 @@ and every morph rewrite source at text, line and sentence edges.
 
 from __future__ import annotations
 
-import base64
-import json
 from pathlib import Path
 import random
-import subprocess
 
 import pytest
 
 from core import FairpostEngine
 from core.morph import MORPH_REWRITES
-
-ROOT = Path(__file__).resolve().parents[1]
+from web_engine import web_check_batch
 
 ZWSP, ZWNJ, ZWJ, BOM = chr(0x200B), chr(0x200C), chr(0x200D), chr(0xFEFF)
 NBSP, IDEOGRAPHIC_SPACE = chr(0x00A0), chr(0x3000)
@@ -160,23 +156,6 @@ def _seeded_cases(count: int) -> list[str]:
     return texts
 
 
-def _web_check_batch(texts: list[str], tmp_path: Path) -> list[dict]:
-    batch = tmp_path / "web-batch.json"
-    batch.write_text(
-        json.dumps([base64.b64encode(t.encode("utf-8")).decode("ascii") for t in texts]),
-        encoding="utf-8",
-    )
-    completed = subprocess.run(
-        ["node", "tests/js_runner.cjs", "--batch", str(batch)],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    results = json.loads(completed.stdout)
-    assert len(results) == len(texts)
-    return results
 
 
 @pytest.mark.requires_node
@@ -186,7 +165,7 @@ def test_adversarial_normalization_edges_match_python_core(tmp_path: Path) -> No
     texts = [cases[label] for label in labels]
     # One batch shares the web engine's caches across postings, and the second
     # pass re-runs every text against warm caches.
-    web = _web_check_batch(texts + texts, tmp_path)
+    web = web_check_batch(texts + texts, tmp_path)
     engine = FairpostEngine()
     for index, (label, text) in enumerate(zip(labels, texts, strict=True)):
         python = engine.check(text).to_dict()
@@ -197,7 +176,7 @@ def test_adversarial_normalization_edges_match_python_core(tmp_path: Path) -> No
 @pytest.mark.requires_node
 def test_seeded_adversarial_postings_match_python_core(tmp_path: Path) -> None:
     texts = _seeded_cases(160)
-    web = _web_check_batch(texts, tmp_path)
+    web = web_check_batch(texts, tmp_path)
     engine = FairpostEngine()
     for index, text in enumerate(texts):
         assert web[index] == engine.check(text).to_dict(), f"seeded case {index} {text!r}"
