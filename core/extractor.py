@@ -86,7 +86,7 @@ SECTION_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
     # instead of joining the block above it (e.g. a duty list).
     ("자격요건", ("자격요건", "지원자격", "응시자격", "필수요건", "자격조건", "필요지식", "필요 지식 및 기술", "자격조건 및 필요지식", "Required Skills", "이런 분과 함께하고 싶어요", "자격요건의 직무 관련성",)),
     ("우대사항", ("우대사항", "우대내용", "가점사항", "우대조건", "Preferred Skills", "이런 분이면 더 좋아요!", "이런 경험이 있으면 더 좋아요",)),
-    ("전형절차", ("전형절차/방법", "전형절차", "전형방법", "선발절차", "채용절차", "합류 여정", "이렇게 합류해요", "전형절차 및 일정", "전형 절차 및 안내 사항", "전형절차 및 기타사항", "평가 기준", "인공지능 활용 안내",)),
+    ("전형절차", ("전형절차/방법", "전형절차", "전형방법", "선발절차", "채용절차", "합류 여정", "이렇게 합류해요", "전형절차 및 일정", "전형 절차 및 안내 사항", "전형절차 및 기타사항", "평가 기준", "인공지능 활용 안내", "심사방법", "선발방법", "채용방법",)),
     ("일정", ("전형일정", "채용일정", "일정", "접수기간", "모집기간", "공고기간", "접수 마감일", "결과 안내",)),
     ("근무조건", ("근무조건", "근로조건", "보수", "급여", "고용형태", "근무형태",)),
     ("제출서류", ("제출서류", "지원서류", "구비서류",)),
@@ -220,11 +220,12 @@ _DEFERRED_BODY = ["re:^(?:(?:추후|차후|나중에|미정)[^\\n]*|(?![^\\n]*(?
 # The first pattern also reads the official spaced form "2026. 8. 1." (as
 # _DEFERRED_BODY does). web/engine.js DATE_CONTENT must stay identical.
 _DATE_CONTENT = ["re:\\d{1,4}[./-]\\d{1,2}|(?:19|20)\\d{2}\\s*[./-]\\s*\\d{1,2}","re:\\d+\\s*(?:년|월|일|시|주)","상시","수시", "채용시까지", "채용 시까지"]
-_STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토", "AI 영상면접"]
-# Words that also name ordinary work ("고객 인터뷰", "민원 서류접수", "계약 서류 검토").
+_STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토", "AI 영상면접", "서류 심사", "면접 심사", "면접 시험"]
+# Words that also name ordinary work ("고객 인터뷰", "민원 서류접수", "계약 서류 검토",
+# "민원 서류심사"). 면접심사 and 면접시험 name an applicant stage on their own.
 # They count as a selection stage only in a stage context (_stage_context) unless
 # they are part of a named stage such as "실무 인터뷰".
-_BARE_STAGE_TERMS = ["인터뷰", "서류접수", "서류 검토", "서류 리뷰"]
+_BARE_STAGE_TERMS = ["인터뷰", "서류접수", "서류 검토", "서류 리뷰", "서류 심사"]
 # Interview names with a qualifier ("최종 면접", "임원 면접", "1차 면접") are bare
 # stage terms too: "임원 면접 일정 조율" is recruiting work. Their own "면접" is
 # not their stage context. Same pattern as the selection_stages accept pattern

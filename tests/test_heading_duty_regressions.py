@@ -18,6 +18,10 @@ Follow-ups (2026-10-10 evening): interview names with a qualifier ("최종 면�
 "임원 면접", "1차 면접") are selection stages under the same stage-context rule
 as a bare 인터뷰, and a 문의처 heading body with a 15xx/16xx/18xx number or a
 department name ("총무과", "인사과 채용담당") is a contact point.
+
+2026-10-11 (DET-3): 서류심사 counts in a stage context like 서류 검토, 면접심사
+and 면접시험 are named stages, and 심사방법ㆍ선발방법ㆍ채용방법 head a 전형절차
+section; a bare "서류 → 면접" is still not a stage (owner decision).
 """
 from __future__ import annotations
 
@@ -113,6 +117,33 @@ INTERVIEW_NAME_NOT_STAGE = {
     "interviewer-training": "최종 면접관 교육 지원",
     "dress-code-note": "면접 시 복장 자유",
     "final-interview-dress-code-in-notes": "유의사항\n최종 면접 시 복장 자유",
+}
+
+# 2026-10-11 (DET-3): 서류심사 is a stage in a stage context (like 서류 검토),
+# 면접심사 and 면접시험 are named stages, and 심사방법ㆍ선발방법ㆍ채용방법 head a
+# 전형절차 section. (text, section of the evidence, components)
+REVIEW_STAGE_WORDING = {
+    "procedure-label-review-then-interview": ("전형방법: 서류심사 후 면접", "전체", ["document_stage"]),
+    "method-heading-review-and-interview": (
+        "심사방법\n서류심사, 면접심사", "전형절차", ["document_stage", "interview_stage"]),
+    "ordinal-review-and-interview": (
+        "1차 서류심사, 2차 면접심사", "전체", ["document_stage", "interview_stage"]),
+    "spaced-review-and-interview": (
+        "7. 심사 방법\n1차 서류 심사, 2차 면접 심사", "전형절차", ["document_stage", "interview_stage"]),
+    "selection-method-interview-review": ("선발방법\n서류 및 면접 심사", "전형절차", ["interview_stage"]),
+    "hiring-method-heading-review": ("채용방법\n서류심사", "전형절차", ["document_stage"]),
+    "interview-exam-schedule": ("○ 면접 시험: 서류 합격자에게 따로 안내", "전체", ["interview_stage"]),
+    "interview-review-date": ("3. 면접심사: 9월 중 실시", "전체", ["interview_stage"]),
+}
+
+# Work or pay wording with the same words, and the bare 서류/면접 that stays an
+# owner decision (docs/detection-fixes-2026-10-11.md).
+REVIEW_STAGE_NOT_STAGE = {
+    "civil-document-review-duty": "담당업무\n- 민원 서류심사 및 증명서 발급",
+    "civil-document-review-unheaded": "민원 서류심사 및 증명서 발급 업무",
+    "pay-after-interview": "급여: 면접 후 결정",
+    "bare-documents-and-interview": "심사방법\n서류 및 면접",
+    "bare-arrow-stages": "전형절차\n서류 → 면접 → 최종합격",
 }
 
 # A 문의처 body with a representative number or a department, or a
@@ -408,6 +439,44 @@ def test_interview_names_outside_a_stage_context_are_not_stages(text: str) -> No
     assert STAGES_QUESTION in _question_ids(result)
 
 
+@pytest.mark.parametrize(
+    ("text", "section", "components"), REVIEW_STAGE_WORDING.values(), ids=REVIEW_STAGE_WORDING.keys()
+)
+def test_review_stage_wording_is_a_selection_stage(text: str, section: str, components: list[str]) -> None:
+    result = _check(text)
+    slot = _slot(result, "selection_stages")
+    assert slot["found"] is True
+    assert slot["section"] == section
+    assert slot["components_found"] == components
+    assert STAGES_QUESTION not in _question_ids(result)
+
+
+@pytest.mark.parametrize("text", REVIEW_STAGE_NOT_STAGE.values(), ids=REVIEW_STAGE_NOT_STAGE.keys())
+def test_review_work_pay_and_bare_wording_are_not_stages(text: str) -> None:
+    result = _check(text)
+    slot = _slot(result, "selection_stages")
+    assert slot["found"] is False
+    assert slot["evidence"] is None
+    assert STAGES_QUESTION in _question_ids(result)
+
+
+@pytest.mark.parametrize("title", ["심사방법", "심사 방법", "선발방법", "채용방법", "□ 심사방법", "7. 심사 방법"])
+def test_method_titles_head_a_procedure_section(title: str) -> None:
+    assert [s.name for s in split_sections(f"담당업무\n- 인사 행정 지원\n{title}\n서류전형")] == ["개요", "전형절차"]
+
+
+def test_review_stage_words_are_shared_with_the_slot_dictionary() -> None:
+    slots = yaml.safe_load((ROOT / "data" / "slots.yaml").read_text(encoding="utf-8"))
+    stages = slots["selection_stages"]
+    for word in ("서류 심사", "면접 심사", "면접 시험"):
+        assert word in stages["accept_patterns"]
+        assert word in extractor._STAGE_EVENTS
+    assert "서류 심사" in extractor._BARE_STAGE_TERMS
+    assert {"면접 심사", "면접 시험"} <= set(extractor._NAMED_STAGE_EVENTS)
+    interview = next(c for c in stages["components"] if c["id"] == "interview_stage")
+    assert {"면접 심사", "면접 시험"} <= set(interview["patterns"])
+
+
 def test_interview_name_pattern_is_shared_with_the_slot_dictionary() -> None:
     slots = yaml.safe_load((ROOT / "data" / "slots.yaml").read_text(encoding="utf-8"))
     stages = slots["selection_stages"]
@@ -508,6 +577,8 @@ def _parity_cases() -> dict[str, str]:
     cases.update({f"decorated:{k}": v[0] for k, v in DECORATED_HEADINGS.items()})
     cases.update({f"interview-stage:{k}": v[0] for k, v in INTERVIEW_NAME_STAGES.items()})
     cases.update({f"interview-not-stage:{k}": v for k, v in INTERVIEW_NAME_NOT_STAGE.items()})
+    cases.update({f"review-stage:{k}": v[0] for k, v in REVIEW_STAGE_WORDING.items()})
+    cases.update({f"review-not-stage:{k}": v for k, v in REVIEW_STAGE_NOT_STAGE.items()})
     cases.update({f"contact-found:{k}": v[0] for k, v in CONTACT_FOUND.items()})
     cases.update({f"contact-not-found:{k}": v for k, v in CONTACT_NOT_FOUND.items()})
     for key, (text, _section, _component) in CONTACT_FOUND.items():

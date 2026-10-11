@@ -17,6 +17,11 @@ selection_stages:
     - "필기 전형"
     - "서류 검토"
     - "서류 리뷰"
+    # 서류심사 only in a stage context, like 서류 검토 (core/extractor.py
+    # _BARE_STAGE_TERMS); 면접심사 and 면접시험 are named stages.
+    - "서류 심사"
+    - "면접 심사"
+    - "면접 시험"
     # 최종 면접, 임원 면접, 1차 면접 ...: only in a stage context, like a bare
     # 인터뷰 (core/extractor.py _BARE_INTERVIEW_STAGE is the same pattern).
     - "re:(?:최종|임원|대면|비대면|화상|온라인|전화|실무진|실무|경영진|대표이사|대표|인성|역량|직무|기술|심층|PT|발표|토론|\\d\\s*차)\\s*면접(?!관|비|장)"
@@ -34,6 +39,7 @@ selection_stages:
       patterns:
         - 면접전형
         - 면접 심사
+        - 면접 시험
         - 인터뷰
         - 면접 전형
         - "re:(?:최종|임원|대면|비대면|화상|온라인|전화|실무진|실무|경영진|대표이사|대표|인성|역량|직무|기술|심층|PT|발표|토론|\\d\\s*차)\\s*면접(?!관|비|장)"
