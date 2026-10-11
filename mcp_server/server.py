@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+import logging
 import os
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 import uuid
 
 from mcp.server.fastmcp import FastMCP
+from pydantic import Field
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 
@@ -21,9 +23,17 @@ from core.review_packet import (
 from core.schema import CheckResult, Finding, Question, SlotStatus
 from .review import HrReviewPacket, prepare_hr_review_packet
 from .storage import (
+    AnswerStoreCorruptError,
     LocalReviewPacketStore,
     UnavailableRemoteAnswerStore,
     build_answer_store,
+)
+
+
+logger = logging.getLogger("fairpost.mcp")
+ANSWER_STORE_UNREADABLE_NOTICE = (
+    "저장된 답변 파일을 읽을 수 없어 저장된 답변 없이 점검했습니다. 답변 파일을 "
+    "확인하거나 fairpost purge-answers로 정리한 뒤 다시 저장하십시오."
 )
 
 
@@ -133,6 +143,180 @@ def _claude_mcp_path_from_environment() -> str:
 MCP_PATH = _mcp_path_from_environment()
 CLAUDE_MCP_PATH = _claude_mcp_path_from_environment()
 
+# 100,000 Korean characters stay under the remote 1 MiB request body limit
+# even when a client JSON-escapes every character (6 bytes each), and match
+# the assisted-review posting limit.
+MAX_POSTING_CHARS = 100_000
+MAX_ANSWERED_QUESTION_IDS = 256
+REMOTE_BODY_LIMIT_NOTE = "원격 엔드포인트는 요청 본문 1 MiB 이하만 받습니다."
+VERBATIM_TEXT_INSTRUCTION = (
+    "Present the returned text to the user verbatim; do not summarize or omit "
+    "any finding, notice or question. 반환된 텍스트는 요약하거나 생략하지 말고 "
+    "그대로 제시하십시오."
+)
+
+PostingText = Annotated[
+    str,
+    Field(
+        description=(
+            "점검할 채용공고 원문 전체(평문). 비어 있거나 공백뿐이면 거부합니다. "
+            f"최대 {MAX_POSTING_CHARS:,}자이며 더 긴 공고는 나누어 점검하십시오. "
+            + REMOTE_BODY_LIMIT_NOTE
+        ),
+        json_schema_extra={"minLength": 1, "maxLength": MAX_POSTING_CHARS},
+    ),
+]
+LocalOrgId = Annotated[
+    str | None,
+    Field(
+        description=(
+            "로컬에 저장된 답변을 결과에 함께 표시할 조직 ID(선택, 최대 256자). "
+            "루프백 로컬 MCP에서만 사용하며 원격 엔드포인트는 받지 않습니다."
+        ),
+        json_schema_extra={"maxLength": 256},
+    ),
+]
+RequiredOrgId = Annotated[
+    str,
+    Field(
+        description="답변을 저장하거나 조회할 조직 ID(최대 256자). 로컬 파일에만 저장됩니다.",
+        json_schema_extra={"minLength": 1, "maxLength": 256},
+    ),
+]
+QuestionId = Annotated[
+    str,
+    Field(
+        description=(
+            "검토 질문 ID(예: Q-INFO-001). check_job_posting이나 "
+            "next_review_question이 반환한 question.id를 그대로 사용하십시오."
+        ),
+        json_schema_extra={"minLength": 1, "maxLength": 128},
+    ),
+]
+AnswerText = Annotated[
+    str,
+    Field(
+        description=(
+            "사람이 작성한 답변(최대 10,000자). 전화번호ㆍ이메일ㆍ주민등록번호 같은 "
+            "직접 식별정보는 넣을 수 없습니다."
+        ),
+        json_schema_extra={"maxLength": 10_000},
+    ),
+]
+AnsweredQuestionIds = Annotated[
+    list[str] | None,
+    Field(
+        description=(
+            "이미 사람이 답한 question_id 목록(선택). 원격 서버는 답변을 저장하지 "
+            "않으므로, 이전 호출에서 받은 question.id를 모아 다시 보내면 다음 질문과 "
+            "진행 상황을 반환합니다. 현재 질문 사전에 있는 ID만 허용합니다."
+        ),
+        json_schema_extra={"maxItems": MAX_ANSWERED_QUESTION_IDS},
+    ),
+]
+PacketId = Annotated[
+    str,
+    Field(
+        description=(
+            "검토 패킷 ID. start_role_review가 반환한 review_packet.packet_id"
+            "(영문ㆍ숫자로 시작하는 1~128자 ASCII)."
+        ),
+        json_schema_extra={"minLength": 1, "maxLength": 128},
+    ),
+]
+OptionalPacketId = Annotated[
+    str | None,
+    Field(
+        description=(
+            "새 검토 패킷에 쓸 ID(선택). 생략하면 자동으로 만듭니다. "
+            "영문ㆍ숫자로 시작하는 1~128자 ASCII."
+        ),
+        json_schema_extra={"maxLength": 128},
+    ),
+]
+PurgePacketId = Annotated[
+    str | None,
+    Field(
+        description="삭제할 검토 패킷 ID(선택). 생략하면 로컬 검토 패킷을 모두 삭제합니다.",
+        json_schema_extra={"maxLength": 128},
+    ),
+]
+PostingFingerprint = Annotated[
+    str,
+    Field(
+        description=(
+            "start_role_review가 반환한 review_packet.posting_fingerprint"
+            "(공고 원문의 SHA-256). 패킷과 일치해야 합니다."
+        ),
+        json_schema_extra={"minLength": 64, "maxLength": 64},
+    ),
+]
+StageArgument = Annotated[
+    ReviewStage,
+    Field(description="NCS 공정채용 검토 단계."),
+]
+RoleArgument = Annotated[
+    ReviewRole,
+    Field(description="이벤트를 남기는 검토 역할."),
+]
+ActionArgument = Annotated[
+    ReviewAction,
+    Field(
+        description=(
+            "이벤트 종류. resolve는 resolves_event_id로 해결할 이벤트를 지정해야 합니다."
+        )
+    ),
+]
+ReviewNote = Annotated[
+    str,
+    Field(
+        description=(
+            "검토 메모(최대 4,000자). 공고 원문이나 지원자 정보, 전화번호ㆍ이메일ㆍ"
+            "주민등록번호 같은 직접 식별정보는 넣을 수 없습니다."
+        ),
+        json_schema_extra={"maxLength": 4000},
+    ),
+]
+EvidenceRefs = Annotated[
+    list[str] | None,
+    Field(
+        description="근거 식별자 목록(선택, 최대 32개). finding ID나 question ID를 사용합니다.",
+        json_schema_extra={"maxItems": 32},
+    ),
+]
+ActorRef = Annotated[
+    str | None,
+    Field(
+        description=(
+            "이벤트 작성자를 가리키는 가명 식별자(선택). 실명이나 연락처를 넣지 "
+            "마십시오. system-chair는 예약되어 있습니다."
+        ),
+        json_schema_extra={"maxLength": 128},
+    ),
+]
+ResolvesEventId = Annotated[
+    str | None,
+    Field(
+        description="action이 resolve일 때 해결하는 기존 이벤트의 event_id.",
+        json_schema_extra={"maxLength": 128},
+    ),
+]
+
+
+def _validated_posting_text(text: str) -> str:
+    """Reject inputs that would give a plausible but meaningless result."""
+
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError(
+            "검토할 공고문을 입력하세요. text가 비어 있거나 공백뿐입니다."
+        )
+    if len(text) > MAX_POSTING_CHARS:
+        raise ValueError(
+            f"공고문은 최대 {MAX_POSTING_CHARS:,}자까지 점검할 수 있습니다"
+            f"(입력 {len(text):,}자). 공고를 나누어 점검하십시오."
+        )
+    return text
+
 
 @dataclass(frozen=True)
 class StructuredCheckResult:
@@ -209,7 +393,8 @@ public_mcp = FastMCP(
         "candidate's pass/fail outcome. This read-only profile does not persist "
         "posting text, answers, or analysis results. Use check_job_posting for "
         "human-readable text and check_job_posting_structured for the versioned "
-        "machine-readable evidence contract."
+        "machine-readable evidence contract. "
+        + VERBATIM_TEXT_INSTRUCTION
     ),
     host=_read_only_host_from_environment(),
     port=_port_from_environment(),
@@ -264,21 +449,35 @@ def _question_ids() -> frozenset[str]:
     )
 
 
-def _saved_answers(org_id: str | None) -> dict[str, str]:
+def _load_saved_answers(org_id: str | None) -> tuple[dict[str, str], str | None]:
     """Look up previously saved answers, degrading gracefully when unavailable.
 
     An unconfigured remote answer store must still fail loudly for
     save_answer (a write claiming persistence it can't provide), but here
     it's only an optional enrichment for check_job_posting/next_review_question.
     Letting it raise would take down the entire fairness check over a
-    disabled remote answer store unrelated to the check itself.
+    disabled remote answer store unrelated to the check itself. A damaged
+    local answer file likewise yields no answers plus a Korean notice.
     """
     if not org_id or isinstance(answer_store, UnavailableRemoteAnswerStore):
-        return {}
-    return answer_store.get(org_id)
+        return {}, None
+    try:
+        return answer_store.get(org_id), None
+    except (AnswerStoreCorruptError, OSError) as exc:
+        # The path, organization and answers stay out of the log.
+        logger.warning(
+            "event=answer_store_unreadable exception=%s", type(exc).__name__
+        )
+        return {}, ANSWER_STORE_UNREADABLE_NOTICE
 
 
-def _format_check_result_text(result: CheckResult) -> str:
+def _saved_answers(org_id: str | None) -> dict[str, str]:
+    return _load_saved_answers(org_id)[0]
+
+
+def _format_check_result_text(
+    result: CheckResult, *, notice: str | None = None
+) -> str:
     """Render CheckResult as a complete, human-readable plain-text digest.
 
     check_job_posting returns this string directly (structured_output=False)
@@ -293,6 +492,7 @@ def _format_check_result_text(result: CheckResult) -> str:
     lines: list[str] = [
         result.disclaimer,
         "",
+        *([f"알림: {notice}", ""] if notice else []),
         f"채용공고 점검 결과 — 발견 {len(result.findings)}건, "
         f"검토 질문 {len(result.questions)}건, "
         f"확인된 안내 항목 {sum(1 for slot in result.slots if slot.found)}건"
@@ -415,7 +615,7 @@ def _format_check_result_text(result: CheckResult) -> str:
     annotations=READ_ONLY_ANNOTATIONS,
     structured_output=False,
 )
-def check_job_posting(text: str, org_id: str | None = None) -> str:
+def check_job_posting(text: PostingText, org_id: LocalOrgId = None) -> str:
     """Return the complete deterministic check result as human-readable text.
 
     Returns plain text (not the CheckResult dataclass) and disables
@@ -424,9 +624,10 @@ def check_job_posting(text: str, org_id: str | None = None) -> str:
     output verbatim to the user instead of its text content, which made
     every prior representation of this result render as a raw JSON dump.
     """
-    answers = _saved_answers(org_id)
+    text = _validated_posting_text(text)
+    answers, notice = _load_saved_answers(org_id)
     result = engine.check(text, saved_answers=answers)
-    return _format_check_result_text(result)
+    return _format_check_result_text(result, notice=notice)
 
 
 @claude_mcp.tool(
@@ -441,13 +642,13 @@ def check_job_posting(text: str, org_id: str | None = None) -> str:
     annotations=READ_ONLY_ANNOTATIONS,
     structured_output=False,
 )
-def check_job_posting_readonly(text: str) -> str:
+def check_job_posting_readonly(text: PostingText) -> str:
     """Return the complete deterministic check result as human-readable text.
 
     See check_job_posting for why this is plain text with structured_output
     disabled rather than the CheckResult dataclass.
     """
-    result = engine.check(text)
+    result = engine.check(_validated_posting_text(text))
     return _format_check_result_text(result)
 
 
@@ -456,12 +657,15 @@ def check_job_posting_readonly(text: str) -> str:
     description=(
         "Return deterministic evidence and follow-up questions for human review. "
         "This does not judge fairness, legality, or candidate pass/fail outcomes, "
-        "and it does not persist the posting text or analysis."
+        "and it does not persist the posting text or analysis. "
+        + VERBATIM_TEXT_INSTRUCTION
+        + f" The posting text must be non-empty and at most {MAX_POSTING_CHARS:,} "
+        "characters; the remote request body limit is 1 MiB."
     ),
     annotations=READ_ONLY_ANNOTATIONS,
     structured_output=False,
 )
-def check_job_posting_public(text: str) -> str:
+def check_job_posting_public(text: PostingText) -> str:
     return check_job_posting(text, None)
 
 
@@ -475,10 +679,11 @@ def check_job_posting_public(text: str) -> str:
     structured_output=True,
 )
 def check_job_posting_structured(
-    text: str,
-    org_id: str | None = None,
+    text: PostingText,
+    org_id: LocalOrgId = None,
 ) -> StructuredCheckResult:
     """Return the complete versioned evidence graph without flattening to text."""
+    text = _validated_posting_text(text)
     answers = _saved_answers(org_id)
     return _structured_check_result(engine.check(text, saved_answers=answers))
 
@@ -497,11 +702,12 @@ def check_job_posting_structured(
     structured_output=True,
 )
 async def prepare_hr_review(
-    text: str,
-    org_id: str | None = None,
+    text: PostingText,
+    org_id: LocalOrgId = None,
 ) -> HrReviewPacket:
     """Prepare a traceable HR packet and optionally retrieve current law text."""
 
+    text = _validated_posting_text(text)
     answers = _saved_answers(org_id)
     return await prepare_hr_review_packet(
         engine,
@@ -523,12 +729,13 @@ async def prepare_hr_review(
     structured_output=True,
 )
 async def start_role_review(
-    text: str,
-    packet_id: str | None = None,
-    org_id: str | None = None,
+    text: PostingText,
+    packet_id: OptionalPacketId = None,
+    org_id: LocalOrgId = None,
 ) -> dict[str, Any]:
     """Create and persist a local role-review packet without posting text."""
 
+    text = _validated_posting_text(text)
     answers = _saved_answers(org_id)
     review = await prepare_hr_review_packet(
         engine,
@@ -555,15 +762,15 @@ async def start_role_review(
     structured_output=True,
 )
 def record_review_event(
-    packet_id: str,
-    posting_fingerprint: str,
-    stage: ReviewStage,
-    role: ReviewRole,
-    action: ReviewAction,
-    note: str = "",
-    evidence_refs: list[str] | None = None,
-    actor_ref: str | None = None,
-    resolves_event_id: str | None = None,
+    packet_id: PacketId,
+    posting_fingerprint: PostingFingerprint,
+    stage: StageArgument,
+    role: RoleArgument,
+    action: ActionArgument,
+    note: ReviewNote = "",
+    evidence_refs: EvidenceRefs = None,
+    actor_ref: ActorRef = None,
+    resolves_event_id: ResolvesEventId = None,
 ) -> dict[str, Any]:
     """Append one independently authored role event to a local packet."""
 
@@ -628,7 +835,7 @@ def record_review_event(
     annotations=READ_ONLY_ANNOTATIONS,
     structured_output=True,
 )
-def get_role_review(packet_id: str) -> dict[str, Any]:
+def get_role_review(packet_id: PacketId) -> dict[str, Any]:
     packet = review_packet_store.get(packet_id)
     if packet is None:
         raise ValueError("존재하지 않는 packet_id입니다")
@@ -652,7 +859,7 @@ def get_role_review(packet_id: str) -> dict[str, Any]:
     annotations=LOCAL_REVIEW_PURGE_ANNOTATIONS,
     structured_output=True,
 )
-def purge_role_review(packet_id: str | None = None) -> dict[str, Any]:
+def purge_role_review(packet_id: PurgePacketId = None) -> dict[str, Any]:
     """Delete one or all local role-review packets."""
 
     deleted = review_packet_store.purge(packet_id)
@@ -669,13 +876,18 @@ def purge_role_review(packet_id: str | None = None) -> dict[str, Any]:
         "Return versioned machine-readable findings, slots, questions, evidence, "
         "and source offsets for human review. This does not judge fairness, "
         "legality, or candidate pass/fail outcomes, and it does not persist the "
-        "posting text, answers, or analysis."
+        "posting text, answers, or analysis. When you present the result to a "
+        "person, include every finding and question with its basis; do not "
+        "summarize or drop items. 사람에게 보여 줄 때는 항목을 요약하거나 "
+        "생략하지 마십시오."
+        f" The posting text must be non-empty and at most {MAX_POSTING_CHARS:,} "
+        "characters; the remote request body limit is 1 MiB."
     ),
     annotations=READ_ONLY_ANNOTATIONS,
     structured_output=True,
 )
-def check_job_posting_structured_public(text: str) -> StructuredCheckResult:
-    return _structured_check_result(engine.check(text))
+def check_job_posting_structured_public(text: PostingText) -> StructuredCheckResult:
+    return _structured_check_result(engine.check(_validated_posting_text(text)))
 
 
 def _question_payload(question: Question) -> dict[str, Any]:
@@ -705,11 +917,22 @@ def _question_payload(question: Question) -> dict[str, Any]:
     ),
     annotations=READ_ONLY_ANNOTATIONS,
 )
-def next_review_question(text: str, org_id: str | None = None) -> dict[str, Any]:
+def next_review_question(
+    text: PostingText, org_id: LocalOrgId = None
+) -> dict[str, Any]:
     """Advance the one-question-at-a-time review without leaving the dictionary."""
-    answers = _saved_answers(org_id)
+    text = _validated_posting_text(text)
+    answers, notice = _load_saved_answers(org_id)
     result = engine.check(text, saved_answers=answers)
-    pending = [item for item in result.questions if not item.saved_answer]
+    answered = {item.id for item in result.questions if item.saved_answer}
+    response = _next_question_response(result, answered)
+    if notice:
+        response["notice"] = notice
+    return response
+
+
+def _next_question_response(result: CheckResult, answered: set[str]) -> dict[str, Any]:
+    pending = [item for item in result.questions if item.id not in answered]
     return {
         "question": _question_payload(pending[0]) if pending else None,
         "progress": {
@@ -725,17 +948,45 @@ def next_review_question(text: str, org_id: str | None = None) -> dict[str, Any]
     }
 
 
+def _validated_answered_question_ids(value: Any) -> set[str]:
+    if value is None:
+        return set()
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise ValueError("answered_question_ids는 question_id 문자열 목록이어야 합니다")
+    if len(value) > MAX_ANSWERED_QUESTION_IDS:
+        raise ValueError(
+            f"answered_question_ids는 {MAX_ANSWERED_QUESTION_IDS}개를 넘을 수 없습니다"
+        )
+    known = _question_ids()
+    if any(item not in known for item in value):
+        # Do not echo caller-supplied values.
+        raise ValueError(
+            "answered_question_ids에 현재 질문 사전에 없는 question_id가 있습니다"
+        )
+    return set(value)
+
+
 @public_mcp.tool(
     name="next_review_question",
     description=(
         "Return the next evidence-backed question for a human review. This does "
         "not judge fairness, legality, or candidate pass/fail outcomes, and it "
-        "does not persist the posting text, answers, or analysis."
+        "does not persist the posting text, answers, or analysis. The server is "
+        "stateless: to advance, send the question.id values the person has "
+        "already answered in answered_question_ids, and progress counts them. "
+        "Ask one question at a time and present its wording verbatim; do not "
+        "summarize or rephrase it. 질문 문구는 요약하거나 바꾸지 말고 그대로 "
+        "제시하십시오."
     ),
     annotations=READ_ONLY_ANNOTATIONS,
 )
-def next_review_question_public(text: str) -> dict[str, Any]:
-    return next_review_question(text, None)
+def next_review_question_public(
+    text: PostingText,
+    answered_question_ids: AnsweredQuestionIds = None,
+) -> dict[str, Any]:
+    answered = _validated_answered_question_ids(answered_question_ids)
+    result = engine.check(_validated_posting_text(text))
+    return _next_question_response(result, answered)
 
 
 @mcp.tool(
@@ -746,7 +997,9 @@ def next_review_question_public(text: str) -> dict[str, Any]:
     ),
     annotations=LOCAL_ANSWER_WRITE_ANNOTATIONS,
 )
-def save_answer(org_id: str, question_id: str, answer: str) -> dict[str, str]:
+def save_answer(
+    org_id: RequiredOrgId, question_id: QuestionId, answer: AnswerText
+) -> dict[str, str]:
     if question_id not in _question_ids():
         raise ValueError("현재 사전에 없는 question_id입니다")
     answer_store.save(org_id, question_id, answer)
@@ -760,7 +1013,7 @@ def save_answer(org_id: str, question_id: str, answer: str) -> dict[str, str]:
     ),
     annotations=READ_ONLY_ANNOTATIONS,
 )
-def get_saved_answers(org_id: str) -> dict[str, str]:
+def get_saved_answers(org_id: RequiredOrgId) -> dict[str, str]:
     return answer_store.get(org_id)
 
 

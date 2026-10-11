@@ -94,6 +94,12 @@ Code를 새로 시작하면 `.mcp.json`의 `${FAIRPOST_MCP_TOKEN}` 참조가
 해석된다.
 Bearer 토큰을 URL 쿼리에 넣지 않는다.
 
+모든 도구 인자에는 한국어 설명이 있고, 공고문 인자 `text`는 비어 있거나 공백뿐이면
+거부되며 최대 100,000자다(원격 요청 본문은 1 MiB 이하). 원격 서버는 상태를 저장하지
+않으므로 원격 `next_review_question`은 선택 인자 `answered_question_ids`로 진행한다.
+이전 호출에서 받은 `question.id`를 모아 보내면 다음 질문과 그만큼 반영된 진행 상황을
+반환하며, 현재 질문 사전에 없는 ID는 거부한다.
+
 원격 엔드포인트는 인증 여부와 관계없이 `save_answer`와
 `get_saved_answers`를 노출하지 않는다. 이 두 쓰기ㆍ조회 도구와 조직별 답변은
 루프백 로컬 MCP에서만 사용한다. 상세 절차는
@@ -110,8 +116,18 @@ Bearer 토큰을 URL 쿼리에 넣지 않는다.
 `FAIRPOST_KOREAN_LAW_MCP_ENV_ALLOWLIST`에 명시한 이름의 값만 전달한다. 원격
 공개 FairPost MCP에는 이 도구를 노출하지 않는다.
 
+`fairpost web` 등 로컬 실행기는 `--config`로 지정한 설정 JSON을 읽고, 지정하지 않으면
+현재 폴더의 `.env.fairpost.local.json`, 그것이 없으면
+`~/.fairpost/.env.fairpost.local.json`을 읽는다. 프로세스를 실행하는 설정
+(`FAIRPOST_KOREAN_LAW_MCP_COMMAND`ㆍ`_ARGS`ㆍ`_CWD`ㆍ`_ENV_ALLOWLIST`)은 `--config`로
+직접 지정한 파일이나 `~/.fairpost/` 아래 파일에서만 사용한다. 내려받은 폴더처럼 현재
+폴더에 있는 설정 파일의 실행 명령은 무시하고, 무시한 키 이름만 한국어로 알린다.
+
 로컬 답변은 `~/.fairpost/answers.json` 또는 `FAIRPOST_ANSWERS_PATH`가 가리키는
-파일에 평문으로 저장되며 자동 만료되지 않는다. 따라서 공용 PC나 공유 OS 계정에는
+파일에 평문으로 저장되며 자동 만료되지 않는다. 역할 검토 메모와 같이 전화번호ㆍ
+이메일ㆍ주민등록번호 같은 직접 식별정보가 든 답변은 저장하지 않고 거부한다. 답변
+파일이 손상되어 읽을 수 없으면 `check_job_posting`과 `next_review_question`은 저장된
+답변 없이 점검하고 그 사실을 한국어로 알린다. 따라서 공용 PC나 공유 OS 계정에는
 저장하지 않고 운영자가 보존 기간을 정해야 한다. 전체 로컬 답변은
 `fairpost purge-answers`, 특정 조직 답변은
 `fairpost purge-answers --org-id <조직 ID>`로 삭제한다. 마지막 조직을 지우면

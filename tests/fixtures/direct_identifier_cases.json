@@ -120,6 +120,32 @@
     {"id": "business-registration-number", "parts": ["사업자등록번호 123-45-67890"], "kinds": []},
     {"id": "extension-only", "parts": ["내선 1234"], "kinds": []},
     {"id": "handle-without-domain", "parts": ["@fairpost 계정"], "kinds": []},
-    {"id": "evidence-ids", "parts": ["Q-DIST-002, ncs-process, LAW-AGE-001"], "kinds": []}
+    {"id": "evidence-ids", "parts": ["Q-DIST-002, ncs-process, LAW-AGE-001"], "kinds": []},
+    {
+      "id": "international-mobile",
+      "parts": ["연락처 +82 10", "-1234-", "5678 (평일)"],
+      "kinds": ["phone"],
+      "masked": "연락처 [전화번호 마스킹] (평일)"
+    },
+    {
+      "id": "international-mobile-compact",
+      "parts": ["+8210", "1234", "5678"],
+      "kinds": ["phone"],
+      "masked": "[전화번호 마스킹]"
+    },
+    {
+      "id": "international-landline-seoul",
+      "parts": ["Tel. +82-2-", "1234-", "5678"],
+      "kinds": ["phone"],
+      "masked": "Tel. [전화번호 마스킹]"
+    },
+    {
+      "id": "international-landline-trunk-zero",
+      "parts": ["+82 (0)31 ", "123 ", "4567"],
+      "kinds": ["phone"],
+      "masked": "[전화번호 마스킹]"
+    },
+    {"id": "country-code-alone", "parts": ["국가번호 +82 사용"], "kinds": []},
+    {"id": "international-landline-without-separator", "parts": ["+82", "21234", "5678"], "kinds": []}
   ]
 }

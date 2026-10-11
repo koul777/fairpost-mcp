@@ -271,7 +271,13 @@ fairpost-mcp
 기본 도구 이름은 `search_law`, `get_law_text`입니다. 다른 이름은
 `FAIRPOST_KOREAN_LAW_SEARCH_TOOL`, `FAIRPOST_KOREAN_LAW_TEXT_TOOL`로 지정합니다.
 연결이 없거나 실패하면 스냅샷을 현행으로 가장하지 않고 `not_configured` 또는
-`upstream_unavailable` 상태를 반환합니다.
+`upstream_unavailable` 상태를 반환합니다. 조회는 전체 25초 안에서 조문별로 진행하므로
+일부 조문이 실패해도 이미 받은 조문은 유지합니다.
+
+설정 JSON으로 지정할 때 실행 명령 관련 키(`FAIRPOST_KOREAN_LAW_MCP_COMMAND`ㆍ`_ARGS`ㆍ
+`_CWD`ㆍ`_ENV_ALLOWLIST`)는 `fairpost web --config <파일>`로 직접 지정한 파일이나
+`~/.fairpost/.env.fairpost.local.json`에서만 사용합니다. 현재 폴더의
+`.env.fairpost.local.json`에 있으면 무시하고 알립니다.
 
 ## 동작 구조
 

@@ -2,15 +2,18 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
+import logging
 import os
 from pathlib import Path
 import re
+import time
 import uuid
 from typing import Any, AsyncIterator, Literal
 from urllib.parse import urlsplit
 
+import anyio
 import httpx
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -23,6 +26,16 @@ from core.review_packet import ReviewEvent, ReviewPacket, posting_fingerprint
 
 
 MAX_UPSTREAM_TEXT_CHARS = 100_000
+# The Vercel function is capped at 60 seconds (vercel.json). The law phase
+# gets at most this long so the optional AI call still fits in the budget.
+LAW_PHASE_BUDGET_SECONDS = 25.0
+LAW_MCP_REQUEST_TIMEOUT_SECONDS = 20.0
+MAX_CONCURRENT_LAW_LOOKUPS = 4
+LAW_MCP_PROVIDER = "korean_law_mcp"
+
+# One privacy-safe line per event: event, provider, exception class, upstream
+# HTTP status and elapsed time. Never posting text, law text, tokens or IPs.
+logger = logging.getLogger("fairpost.law_mcp")
 _TOOL_NAME = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
 _STDIO_BASE_ENV = frozenset(
@@ -309,9 +322,70 @@ def _retrieved_article(text: str, law: str, article: str) -> bool:
     ) in compact
 
 
+def upstream_http_status(exc: BaseException) -> int | None:
+    """Find an upstream HTTP status in an exception, its causes or groups."""
+
+    pending: list[BaseException] = [exc]
+    seen: set[int] = set()
+    while pending and len(seen) < 32:
+        current = pending.pop(0)
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, httpx.HTTPStatusError):
+            return current.response.status_code
+        if isinstance(current, BaseExceptionGroup):
+            pending.extend(current.exceptions)
+        for linked in (current.__cause__, current.__context__):
+            if linked is not None:
+                pending.append(linked)
+    return None
+
+
+def upstream_failure_label(exc: BaseException) -> str:
+    """Exception class plus HTTP status; never the message, which may hold URLs."""
+
+    status = upstream_http_status(exc)
+    name = type(exc).__name__
+    return f"{name}, HTTP {status}" if status is not None else name
+
+
+def _elapsed_ms(started: float) -> int:
+    return int((time.monotonic() - started) * 1000)
+
+
+def _request_timeout() -> timedelta:
+    """Per-request ceiling so a silent stdio server cannot hang one lookup."""
+
+    return timedelta(seconds=LAW_MCP_REQUEST_TIMEOUT_SECONDS)
+
+
+def _log_upstream_failure(
+    event: str, exc: BaseException, started: float, *, transport: str
+) -> None:
+    logger.warning(
+        "event=%s provider=%s transport=%s exception=%s upstream_status=%s "
+        "elapsed_ms=%d",
+        event,
+        LAW_MCP_PROVIDER,
+        transport,
+        type(exc).__name__,
+        upstream_http_status(exc) or "-",
+        _elapsed_ms(started),
+    )
+
+
 class LiveLawVerifier:
-    def __init__(self, config: LawMcpConfig) -> None:
+    def __init__(
+        self,
+        config: LawMcpConfig,
+        *,
+        budget_seconds: float = LAW_PHASE_BUDGET_SECONDS,
+    ) -> None:
+        if not budget_seconds > 0:
+            raise ValueError("Korean Law MCP 조회 시간 예산은 0보다 커야 합니다")
         self.config = config
+        self.budget_seconds = budget_seconds
 
     @classmethod
     def from_environment(cls) -> LiveLawVerifier:
@@ -335,20 +409,66 @@ class LiveLawVerifier:
                 )
                 for reference in references
             ]
-        try:
-            async with self._session() as session:
-                return await self._verify_with_session(session, references)
-        except Exception as exc:
-            failure = type(exc).__name__
-            return [
-                _not_run(
-                    reference,
-                    self.config,
-                    status="upstream_unavailable",
-                    note=f"Korean Law MCP 조회를 완료하지 못했습니다({failure}).",
-                )
-                for reference in references
-            ]
+        started = time.monotonic()
+        # Results are filled per reference, so a later failure or the time
+        # budget never discards articles that were already retrieved.
+        results: list[LawVerificationResult | None] = [None] * len(references)
+        failure: Exception | None = None
+        with anyio.move_on_after(self.budget_seconds) as budget:
+            try:
+                async with self._session() as session:
+                    await self._verify_with_session(
+                        session, references, results=results
+                    )
+            except Exception as exc:
+                failure = exc
+        if budget.cancelled_caught:
+            logger.warning(
+                "event=law_mcp_budget_exceeded provider=%s transport=%s "
+                "budget_seconds=%g elapsed_ms=%d",
+                LAW_MCP_PROVIDER,
+                self.config.transport,
+                self.budget_seconds,
+                _elapsed_ms(started),
+            )
+            note = (
+                "Korean Law MCP 조회가 제한 시간"
+                f"({self.budget_seconds:g}초) 안에 끝나지 않았습니다."
+            )
+        elif failure is not None:
+            _log_upstream_failure(
+                "law_mcp_session_failed",
+                failure,
+                started,
+                transport=self.config.transport,
+            )
+            note = (
+                "Korean Law MCP 조회를 완료하지 못했습니다"
+                f"({upstream_failure_label(failure)})."
+            )
+        else:
+            note = "Korean Law MCP 조회를 완료하지 못했습니다."
+        completed = [
+            result
+            if result is not None
+            else _not_run(
+                reference,
+                self.config,
+                status="upstream_unavailable",
+                note=note,
+            )
+            for reference, result in zip(references, results)
+        ]
+        logger.info(
+            "event=law_mcp_verify_completed provider=%s transport=%s "
+            "references=%d retrieved=%d elapsed_ms=%d",
+            LAW_MCP_PROVIDER,
+            self.config.transport,
+            len(completed),
+            sum(item.status == "current_article_retrieved" for item in completed),
+            _elapsed_ms(started),
+        )
+        return completed
 
     @asynccontextmanager
     async def _session(self) -> AsyncIterator[ClientSession]:
@@ -365,7 +485,9 @@ class LiveLawVerifier:
                 async with streamable_http_client(
                     self.config.url or "", http_client=client
                 ) as (read, write, _session_id):
-                    async with ClientSession(read, write) as session:
+                    async with ClientSession(
+                        read, write, read_timeout_seconds=_request_timeout()
+                    ) as session:
                         await session.initialize()
                         yield session
             return
@@ -389,7 +511,9 @@ class LiveLawVerifier:
             env=stdio_environment,
         )
         async with stdio_client(parameters) as (read, write):
-            async with ClientSession(read, write) as session:
+            async with ClientSession(
+                read, write, read_timeout_seconds=_request_timeout()
+            ) as session:
                 await session.initialize()
                 yield session
 
@@ -397,105 +521,126 @@ class LiveLawVerifier:
         self,
         session: Any,
         references: list[_LawReference],
+        *,
+        results: list[LawVerificationResult | None] | None = None,
     ) -> list[LawVerificationResult]:
+        slots: list[LawVerificationResult | None] = (
+            results if results is not None else [None] * len(references)
+        )
         listed = await session.list_tools()
         tool_names = {tool.name for tool in listed.tools}
         required = {self.config.search_tool, self.config.text_tool}
         if not required.issubset(tool_names):
-            return [
-                _not_run(
+            for index, reference in enumerate(references):
+                slots[index] = _not_run(
                     reference,
                     self.config,
                     status="tool_not_available",
                     note="Korean Law MCP에 필요한 법령 검색ㆍ조문 조회 도구가 없습니다.",
                 )
-                for reference in references
-            ]
+            return slots  # type: ignore[return-value]
 
-        results: list[LawVerificationResult] = []
-        for reference in references:
-            checked_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-            search_result = await session.call_tool(
-                self.config.search_tool, {"query": reference.law}
-            )
-            if getattr(search_result, "isError", False):
-                results.append(
-                    _not_run(
+        limiter = anyio.Semaphore(MAX_CONCURRENT_LAW_LOOKUPS)
+
+        async def lookup(index: int, reference: _LawReference) -> None:
+            async with limiter:
+                started = time.monotonic()
+                try:
+                    slots[index] = await self._verify_reference(session, reference)
+                except Exception as exc:
+                    # Isolate the failure: other references keep their results.
+                    _log_upstream_failure(
+                        "law_mcp_lookup_failed",
+                        exc,
+                        started,
+                        transport=self.config.transport,
+                    )
+                    slots[index] = _not_run(
                         reference,
                         self.config,
-                        status="search_failed",
-                        note="현행 법령 식별자 검색이 실패했습니다.",
+                        status="upstream_unavailable",
+                        note=(
+                            "Korean Law MCP 조회를 완료하지 못했습니다"
+                            f"({upstream_failure_label(exc)})."
+                        ),
                     )
-                )
-                continue
-            identifiers = _current_identifiers(
-                _result_text(search_result), reference.law
+
+        async with anyio.create_task_group() as group:
+            for index, reference in enumerate(references):
+                group.start_soon(lookup, index, reference)
+        return slots  # type: ignore[return-value]
+
+    async def _verify_reference(
+        self, session: Any, reference: _LawReference
+    ) -> LawVerificationResult:
+        checked_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        search_result = await session.call_tool(
+            self.config.search_tool, {"query": reference.law}
+        )
+        if getattr(search_result, "isError", False):
+            return _not_run(
+                reference,
+                self.config,
+                status="search_failed",
+                note="현행 법령 식별자 검색이 실패했습니다.",
             )
-            if identifiers is None:
-                results.append(
-                    _not_run(
-                        reference,
-                        self.config,
-                        status="current_law_not_resolved",
-                        note="검색 결과에서 정확히 일치하는 현행 법령을 식별하지 못했습니다.",
-                    )
-                )
-                continue
-            law_id, mst = identifiers
-            article_result = await session.call_tool(
-                self.config.text_tool,
-                {"mst": mst, "jo": reference.article},
+        identifiers = _current_identifiers(_result_text(search_result), reference.law)
+        if identifiers is None:
+            return _not_run(
+                reference,
+                self.config,
+                status="current_law_not_resolved",
+                note="검색 결과에서 정확히 일치하는 현행 법령을 식별하지 못했습니다.",
             )
-            text = _result_text(article_result)
-            if getattr(article_result, "isError", False) or not _retrieved_article(
-                text, reference.law, reference.article
-            ):
-                results.append(
-                    LawVerificationResult(
-                        finding_ids=reference.finding_ids,
-                        law=reference.law,
-                        article=reference.article,
-                        statute_id=reference.statute_id,
-                        snapshot_date=reference.snapshot_date,
-                        snapshot_effective_date=reference.snapshot_effective_date,
-                        official_source_url=reference.official_source_url,
-                        official_id=reference.official_id,
-                        request=_request(reference, self.config),
-                        status="article_not_resolved",
-                        checked_at=checked_at,
-                        current_law_id=law_id,
-                        current_mst=mst,
-                        current_text=None,
-                        response_truncated=False,
-                        note="현행 법령은 찾았지만 요청 조문 원문을 확인하지 못했습니다.",
-                    )
-                )
-                continue
-            truncated = len(text) > MAX_UPSTREAM_TEXT_CHARS
-            results.append(
-                LawVerificationResult(
-                    finding_ids=reference.finding_ids,
-                    law=reference.law,
-                    article=reference.article,
-                    statute_id=reference.statute_id,
-                    snapshot_date=reference.snapshot_date,
-                    snapshot_effective_date=reference.snapshot_effective_date,
-                    official_source_url=reference.official_source_url,
-                    official_id=reference.official_id,
-                    request=_request(reference, self.config),
-                    status="current_article_retrieved",
-                    checked_at=checked_at,
-                    current_law_id=law_id,
-                    current_mst=mst,
-                    current_text=text[:MAX_UPSTREAM_TEXT_CHARS],
-                    response_truncated=truncated,
-                    note=(
-                        "현행 조문을 조회했습니다. 스냅샷과의 법적 동일성ㆍ적용 여부는 "
-                        "자동 판정하지 않으며 담당자 또는 법률 전문가가 확인해야 합니다."
-                    ),
-                )
+        law_id, mst = identifiers
+        article_result = await session.call_tool(
+            self.config.text_tool,
+            {"mst": mst, "jo": reference.article},
+        )
+        text = _result_text(article_result)
+        if getattr(article_result, "isError", False) or not _retrieved_article(
+            text, reference.law, reference.article
+        ):
+            return LawVerificationResult(
+                finding_ids=reference.finding_ids,
+                law=reference.law,
+                article=reference.article,
+                statute_id=reference.statute_id,
+                snapshot_date=reference.snapshot_date,
+                snapshot_effective_date=reference.snapshot_effective_date,
+                official_source_url=reference.official_source_url,
+                official_id=reference.official_id,
+                request=_request(reference, self.config),
+                status="article_not_resolved",
+                checked_at=checked_at,
+                current_law_id=law_id,
+                current_mst=mst,
+                current_text=None,
+                response_truncated=False,
+                note="현행 법령은 찾았지만 요청 조문 원문을 확인하지 못했습니다.",
             )
-        return results
+        truncated = len(text) > MAX_UPSTREAM_TEXT_CHARS
+        return LawVerificationResult(
+            finding_ids=reference.finding_ids,
+            law=reference.law,
+            article=reference.article,
+            statute_id=reference.statute_id,
+            snapshot_date=reference.snapshot_date,
+            snapshot_effective_date=reference.snapshot_effective_date,
+            official_source_url=reference.official_source_url,
+            official_id=reference.official_id,
+            request=_request(reference, self.config),
+            status="current_article_retrieved",
+            checked_at=checked_at,
+            current_law_id=law_id,
+            current_mst=mst,
+            current_text=text[:MAX_UPSTREAM_TEXT_CHARS],
+            response_truncated=truncated,
+            note=(
+                "현행 조문을 조회했습니다. 스냅샷과의 법적 동일성ㆍ적용 여부는 "
+                "자동 판정하지 않으며 담당자 또는 법률 전문가가 확인해야 합니다."
+            ),
+        )
 
 
 async def prepare_hr_review_packet(

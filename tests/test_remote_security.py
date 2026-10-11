@@ -141,7 +141,16 @@ def test_anonymous_remote_requests_are_rate_limited(monkeypatch) -> None:
     responses = anyio.run(exercise)
 
     assert [response.status_code for response in responses] == [204, 204, 429]
-    assert responses[-1].json() == {"error": "Public request rate limit exceeded"}
+    # MCP paths answer middleware rejections with a JSON-RPC error envelope.
+    assert responses[-1].json() == {
+        "jsonrpc": "2.0",
+        "error": {
+            "code": -32003,
+            "message": "요청이 너무 많습니다. 1분 뒤 다시 시도하세요.",
+            "data": {"error": "Public request rate limit exceeded"},
+        },
+        "id": None,
+    }
     assert responses[-1].headers["retry-after"] == "60"
     assert calls == 2
 
@@ -169,7 +178,12 @@ def test_invalid_anonymous_rate_limit_fails_closed(monkeypatch) -> None:
     response = anyio.run(exercise)
 
     assert response.status_code == 500
-    assert response.json() == {"error": "Invalid public request rate limit"}
+    assert response.json()["jsonrpc"] == "2.0"
+    assert response.json()["error"]["code"] == -32603
+    assert response.json()["error"]["data"] == {
+        "error": "Invalid public request rate limit"
+    }
+    assert "서버 설정 오류" in response.json()["error"]["message"]
     assert called is False
 
 
@@ -209,7 +223,10 @@ def test_chunked_request_body_is_limited_without_content_length(
             response = await client.post("/upload", content=chunks())
 
         assert response.status_code == 413
-        assert response.json() == {"error": "Request body too large"}
+        assert response.json() == {
+            "error": "Request body too large",
+            "reason": "요청 본문이 너무 큽니다. 최대 5바이트까지 보낼 수 있습니다.",
+        }
         assert response.headers["cache-control"] == "no-store"
         assert response.headers["x-frame-options"] == "DENY"
 
@@ -260,7 +277,10 @@ def test_ambiguous_request_lengths_are_rejected_before_downstream(
 
     assert called is False
     assert sent[0]["status"] == 400
-    assert json.loads(sent[1]["body"]) == {"error": "Ambiguous request length"}
+    assert json.loads(sent[1]["body"]) == {
+        "error": "Ambiguous request length",
+        "reason": "요청 길이 헤더가 모호해 처리할 수 없습니다.",
+    }
 
 
 @pytest.mark.parametrize(
@@ -760,3 +780,246 @@ def test_local_runtime_assisted_review_is_not_gated(monkeypatch) -> None:
     assert accepted.status_code == 200
     assert cross.status_code == 403
     assert calls == ["여성만 지원 가능"]
+
+
+# --- fair rate limiting, Korean reasons, health caching ---------------------
+# Documentation-range addresses only (RFC 5737).
+CLIENT_A = "192.0.2.10"
+CLIENT_B = "198.51.100.7"
+
+
+def _assisted_posts(
+    requests: list[dict[str, str]], *, limit: int = 2
+) -> list[httpx.Response]:
+    from mcp_server import remote
+
+    async def exercise() -> list[httpx.Response]:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=remote.app, client=("10.0.0.1", 1)),
+            base_url=ASSIST_ORIGIN,
+        ) as client:
+            return [
+                await client.post(
+                    remote.ASSISTED_REVIEW_PATH,
+                    headers=headers,
+                    json={"assist_enabled": True, "text": "여성만 지원 가능"},
+                )
+                for headers in requests
+            ]
+
+    return anyio.run(exercise)
+
+
+def _fresh_rate_limits(monkeypatch, limit: int) -> None:
+    from mcp_server import remote
+
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_REQUESTS_PER_MINUTE", str(limit))
+    # remote.app is shared by the module. Starlette builds its middleware
+    # stack lazily, so dropping it gives this test a fresh, empty limiter.
+    monkeypatch.setattr(remote.app, "middleware_stack", None)
+
+
+def test_assisted_review_429_has_korean_reason(monkeypatch) -> None:
+    calls = _assist_gate_setup(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_TOKEN", FAKE_ASSIST_TOKEN)
+    _fresh_rate_limits(monkeypatch, 1)
+    authorized = {
+        "Authorization": f"Bearer {FAKE_ASSIST_TOKEN}",
+        "x-vercel-forwarded-for": CLIENT_A,
+    }
+
+    first, second = _assisted_posts([authorized, authorized])
+
+    assert (first.status_code, second.status_code) == (200, 429)
+    assert second.headers["retry-after"] == "60"
+    assert second.json()["error"] == "Assisted review rate limit exceeded"
+    assert "1분 뒤 다시 시도하세요" in second.json()["reason"]
+    _assert_no_token_echo(second)
+    assert len(calls) == 1
+
+
+def test_unauthorized_assisted_traffic_cannot_drain_token_budget(monkeypatch) -> None:
+    calls = _assist_gate_setup(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_TOKEN", FAKE_ASSIST_TOKEN)
+    _fresh_rate_limits(monkeypatch, 2)
+    junk = {"Authorization": "Bearer wrong-token", "x-vercel-forwarded-for": CLIENT_A}
+    authorized = {
+        "Authorization": f"Bearer {FAKE_ASSIST_TOKEN}",
+        "x-vercel-forwarded-for": CLIENT_A,
+    }
+
+    responses = _assisted_posts([junk, junk, junk, authorized, authorized])
+
+    assert [response.status_code for response in responses] == [
+        403,
+        403,
+        429,
+        200,
+        200,
+    ]
+    assert len(calls) == 2
+
+
+def test_vercel_client_ip_header_separates_anonymous_clients(monkeypatch) -> None:
+    _assist_gate_setup(monkeypatch)
+    _fresh_rate_limits(monkeypatch, 1)
+
+    responses = _assisted_posts(
+        [
+            {"x-vercel-forwarded-for": CLIENT_A},
+            {"x-vercel-forwarded-for": CLIENT_A},
+            {"x-vercel-forwarded-for": CLIENT_B},
+        ]
+    )
+
+    # 403: no access control is configured, but each client has its own budget.
+    assert [response.status_code for response in responses] == [403, 429, 403]
+
+
+def test_forwarded_headers_are_ignored_outside_vercel(monkeypatch) -> None:
+    from mcp_server.remote import _client_identity
+
+    scope = {
+        "client": ("127.0.0.1", 5000),
+        "headers": [
+            (b"x-forwarded-for", CLIENT_A.encode()),
+            (b"x-vercel-forwarded-for", CLIENT_B.encode()),
+        ],
+    }
+    monkeypatch.delenv("VERCEL", raising=False)
+    assert _client_identity(scope) == "127.0.0.1"
+
+    monkeypatch.setenv("VERCEL", "1")
+    assert _client_identity(scope) == CLIENT_B
+    junk = {"client": ("127.0.0.1", 5000), "headers": [(b"x-real-ip", b"not-an-ip")]}
+    assert _client_identity(junk) == "127.0.0.1"
+
+
+def test_capability_checks_do_not_spend_the_post_budget(monkeypatch) -> None:
+    from mcp_server import remote
+
+    _assist_gate_setup(monkeypatch)
+    monkeypatch.setenv("FAIRPOST_ASSISTED_REVIEW_TOKEN", FAKE_ASSIST_TOKEN)
+    _fresh_rate_limits(monkeypatch, 1)
+
+    async def exercise() -> list[int]:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=remote.app),
+            base_url=ASSIST_ORIGIN,
+        ) as client:
+            statuses = [
+                (await client.get(remote.ASSISTED_REVIEW_PATH)).status_code
+                for _ in range(3)
+            ]
+            post = await client.post(
+                remote.ASSISTED_REVIEW_PATH,
+                headers={"Authorization": f"Bearer {FAKE_ASSIST_TOKEN}"},
+                json={"assist_enabled": True, "text": "여성만 지원 가능"},
+            )
+            return [*statuses, post.status_code]
+
+    assert anyio.run(exercise) == [200, 200, 200, 200]
+
+
+def test_failed_mcp_bearer_attempts_have_their_own_budget(monkeypatch) -> None:
+    calls = 0
+
+    async def downstream(_scope, _receive, send) -> None:
+        nonlocal calls
+        calls += 1
+        await send({"type": "http.response.start", "status": 204, "headers": []})
+        await send({"type": "http.response.body", "body": b""})
+
+    async def exercise() -> list[httpx.Response]:
+        transport = httpx.ASGITransport(app=RemoteSecurityMiddleware(downstream))
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            wrong = {"Authorization": "Bearer wrong-token"}
+            right = {"Authorization": "Bearer test-token"}
+            return [
+                await client.post(MCP_PATH, content=b"{}", headers=headers)
+                for headers in (wrong, wrong, right, right, right)
+            ]
+
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("FAIRPOST_MCP_TOKEN", "test-token")
+    monkeypatch.setenv("FAIRPOST_PUBLIC_REQUESTS_PER_MINUTE", "1")
+    responses = anyio.run(exercise)
+
+    assert [response.status_code for response in responses] == [401, 429, 204, 204, 204]
+    unauthorized = responses[0].json()
+    assert unauthorized["error"]["code"] == -32001
+    assert "Bearer 토큰" in unauthorized["error"]["message"]
+    assert responses[1].json()["error"]["code"] == -32003
+    assert calls == 3
+
+
+def test_oversized_mcp_body_returns_json_rpc_error(monkeypatch) -> None:
+    called = False
+
+    async def downstream(_scope, _receive, _send) -> None:
+        nonlocal called
+        called = True
+
+    async def exercise() -> httpx.Response:
+        transport = httpx.ASGITransport(app=RemoteSecurityMiddleware(downstream))
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post(MCP_PATH, content=b"x" * 64)
+
+    monkeypatch.delenv("FAIRPOST_MCP_TOKEN", raising=False)
+    monkeypatch.setenv("FAIRPOST_ALLOW_PUBLIC_REMOTE", "1")
+    monkeypatch.setenv("FAIRPOST_PUBLIC_REQUESTS_PER_MINUTE", "100")
+    monkeypatch.setenv("FAIRPOST_MAX_REQUEST_BYTES", "16")
+    response = anyio.run(exercise)
+
+    assert response.status_code == 413
+    payload = response.json()
+    assert payload["jsonrpc"] == "2.0"
+    assert payload["id"] is None
+    assert payload["error"]["code"] == -32004
+    assert payload["error"]["message"] == (
+        "요청 본문이 너무 큽니다. 최대 16바이트까지 보낼 수 있습니다."
+    )
+    assert called is False
+
+
+def test_health_hashes_runtime_sources_once_per_process(monkeypatch) -> None:
+    from mcp_server import remote
+
+    calls = []
+    real = remote.runtime_source_fingerprint
+
+    def counting(**kwargs):
+        calls.append(kwargs)
+        return real(**kwargs)
+
+    monkeypatch.setattr(remote, "runtime_source_fingerprint", counting)
+    remote._runtime_identity.cache_clear()
+    try:
+        first = json.loads(anyio.run(health, None).body)
+        second = json.loads(anyio.run(health, None).body)
+    finally:
+        remote._runtime_identity.cache_clear()
+
+    assert len(calls) == 1
+    assert first["runtime_source_fingerprint"] == second["runtime_source_fingerprint"]
+    assert first["runtime_source_manifest"] == second["runtime_source_manifest"]
+    assert first["runtime_source_fingerprint"].startswith("runtime-")
+
+
+def test_health_lists_remote_tools_per_endpoint_without_secrets(monkeypatch) -> None:
+    monkeypatch.setenv("FAIRPOST_MCP_TOKEN", "secret-health-token")
+
+    payload = json.loads(anyio.run(health, None).body)
+
+    assert payload["remote_tools"] == {
+        MCP_PATH: [
+            "check_job_posting",
+            "check_job_posting_structured",
+            "next_review_question",
+        ],
+        CLAUDE_MCP_PATH: ["check_job_posting"],
+    }
+    serialized = json.dumps(payload, ensure_ascii=False)
+    assert "secret-health-token" not in serialized
+    assert "save_answer" not in serialized
+    assert "get_saved_answers" not in serialized

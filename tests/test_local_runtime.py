@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+from types import SimpleNamespace
 
 import anyio
 import httpx
@@ -301,3 +302,118 @@ def test_runtime_missing_dependencies_reports_install_instruction(tmp_path, monk
     message = capsys.readouterr().err
     assert "python -m pip install ." in message
     assert "private dependency path" not in message
+
+
+# --- command-type settings only from trusted files --------------------------
+COMMAND_SETTINGS = {
+    "FAIRPOST_KOREAN_LAW_MCP_COMMAND": "hostile-law-command",
+    "FAIRPOST_KOREAN_LAW_MCP_ARGS": '["--hostile-flag"]',
+    "FAIRPOST_KOREAN_LAW_MCP_CWD": "hostile-dir",
+    "FAIRPOST_KOREAN_LAW_MCP_ENV_ALLOWLIST": "HOSTILE_SECRET",
+}
+SETTING_NAMES = (*COMMAND_SETTINGS, "FAIRPOST_AI_MODEL", "FAIRPOST_KOREAN_LAW_MCP_URL")
+
+
+@pytest.fixture
+def launcher_sandbox(tmp_path, monkeypatch, isolated_local_mcp):
+    """Empty current folder, a fake ~/.fairpost, and env vars that are restored."""
+    import os
+    from mcp_server import local_runtime
+
+    for name in SETTING_NAMES:
+        # setenv then delenv: monkeypatch restores the original (absent) state
+        # even though load_local_settings sets the variable later.
+        monkeypatch.setenv(name, "placeholder")
+        monkeypatch.delenv(name)
+    workdir = tmp_path / "downloaded-folder"
+    workdir.mkdir()
+    home = tmp_path / "home" / ".fairpost"
+    home.mkdir(parents=True)
+    monkeypatch.chdir(workdir)
+    monkeypatch.setattr(local_runtime, "trusted_config_dir", lambda: home)
+    monkeypatch.setattr(local_runtime, "_serve_web", lambda _app, _port, **_kwargs: 0)
+    return SimpleNamespace(workdir=workdir, home=home, environ=os.environ)
+
+
+def test_command_settings_in_current_folder_are_ignored_with_notice(
+    launcher_sandbox, capsys
+):
+    from mcp_server import local_runtime
+
+    (launcher_sandbox.workdir / local_runtime.LOCAL_CONFIG_NAME).write_text(
+        json.dumps({**COMMAND_SETTINGS, "FAIRPOST_AI_MODEL": "folder-model"}),
+        encoding="utf-8",
+    )
+
+    assert local_runtime.main(["web"]) == 0
+
+    for name in COMMAND_SETTINGS:
+        assert name not in launcher_sandbox.environ
+    assert launcher_sandbox.environ["FAIRPOST_AI_MODEL"] == "folder-model"
+    message = capsys.readouterr().err
+    assert "무시했습니다" in message
+    assert "--config" in message
+    assert "~/.fairpost/" in message
+    assert "FAIRPOST_KOREAN_LAW_MCP_COMMAND" in message
+    for value in COMMAND_SETTINGS.values():
+        assert value not in message
+
+
+def test_explicit_config_may_set_law_mcp_command(launcher_sandbox, capsys):
+    from mcp_server import local_runtime
+
+    path = launcher_sandbox.workdir / "chosen-settings.json"
+    path.write_text(json.dumps(COMMAND_SETTINGS), encoding="utf-8")
+
+    assert local_runtime.main(["web", "--config", str(path)]) == 0
+
+    for name, value in COMMAND_SETTINGS.items():
+        assert launcher_sandbox.environ[name] == value
+    assert "무시했습니다" not in capsys.readouterr().err
+
+
+def test_config_under_home_fairpost_is_used_and_trusted(launcher_sandbox, capsys):
+    from mcp_server import local_runtime
+
+    (launcher_sandbox.home / local_runtime.LOCAL_CONFIG_NAME).write_text(
+        json.dumps(COMMAND_SETTINGS), encoding="utf-8"
+    )
+
+    assert local_runtime.main(["web"]) == 0
+
+    assert launcher_sandbox.environ["FAIRPOST_KOREAN_LAW_MCP_COMMAND"] == (
+        "hostile-law-command"
+    )
+    assert "무시했습니다" not in capsys.readouterr().err
+
+
+def test_current_folder_config_wins_over_home_but_never_adds_commands(
+    launcher_sandbox,
+):
+    from mcp_server import local_runtime
+
+    (launcher_sandbox.home / local_runtime.LOCAL_CONFIG_NAME).write_text(
+        json.dumps({"FAIRPOST_AI_MODEL": "home-model"}), encoding="utf-8"
+    )
+    (launcher_sandbox.workdir / local_runtime.LOCAL_CONFIG_NAME).write_text(
+        json.dumps({"FAIRPOST_KOREAN_LAW_MCP_COMMAND": "hostile-law-command"}),
+        encoding="utf-8",
+    )
+
+    assert local_runtime.default_config_path() == (
+        launcher_sandbox.workdir / local_runtime.LOCAL_CONFIG_NAME,
+        False,
+    )
+    assert local_runtime.main(["web"]) == 0
+    assert "FAIRPOST_KOREAN_LAW_MCP_COMMAND" not in launcher_sandbox.environ
+
+
+def test_launcher_messages_are_korean(capsys):
+    from mcp_server.local_runtime import main
+
+    with pytest.raises(SystemExit):
+        main(["mcp", "--port", "8123"])
+    assert "web 모드에서만" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        main(["web", "--port", "0"])
+    assert "1~65535" in capsys.readouterr().err

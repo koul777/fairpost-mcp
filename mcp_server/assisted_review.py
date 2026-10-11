@@ -2,22 +2,40 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import json
+import logging
 import os
+import time
 from typing import Any, Literal
 from urllib.parse import quote, urlsplit
 
+import anyio
 import httpx
 
 from core import FairpostEngine
-from core.direct_identifiers import mask_direct_identifiers
+from core.direct_identifiers import mask_direct_identifiers_folded
 from core.organization_guidance import load_organization_guidance_catalog
-from .review import LiveLawVerifier, prepare_hr_review_packet
+from .review import (
+    LiveLawVerifier,
+    prepare_hr_review_packet,
+    upstream_failure_label,
+    upstream_http_status,
+)
 
 
 MAX_AI_PROMPT_CHARS = 80_000
 MAX_AI_RESPONSE_CHARS = 20_000
 MAX_MATCHED_TEXT_CHARS = 1_000
 MAX_ARTICLE_TEXT_CHARS = 14_000
+# Vercel stops the function at 60 seconds (vercel.json maxDuration). On Vercel
+# the whole assisted review, law phase included, must finish within this
+# budget; the AI call gets whatever time remains, never more than its own
+# configured timeout. The loopback launcher keeps the configured AI timeout so
+# slow local models still work.
+VERCEL_ASSISTED_REVIEW_BUDGET_SECONDS = 55.0
+MIN_AI_SECONDS = 1.0
+
+# One privacy-safe line per event; never posting text, prompts, keys or IPs.
+logger = logging.getLogger("fairpost.assisted_review")
 
 AI_PROVIDER_LABELS = {
     "anthropic": "Claude",
@@ -158,7 +176,7 @@ def _normalized_ai_provider(value: str) -> str:
     }
     provider = aliases.get(provider, provider)
     if provider not in AI_PROVIDER_LABELS:
-        raise ValueError("Unknown AI provider")
+        raise ValueError("알 수 없는 AI 제공자입니다.")
     return provider
 
 
@@ -294,9 +312,23 @@ class AiReviewer:
         self.config = config
         self.transport = transport
 
-    async def review(self, evidence: dict[str, Any]) -> tuple[str, bool]:
+    def effective_timeout(self, budget_seconds: float | None = None) -> float:
+        timeout = float(self.config.timeout_seconds)
+        if budget_seconds is not None:
+            timeout = min(timeout, max(MIN_AI_SECONDS, budget_seconds))
+        return timeout
+
+    async def review(
+        self,
+        evidence: dict[str, Any],
+        *,
+        timeout_seconds: float | None = None,
+    ) -> tuple[str, bool]:
+        """Call the provider once; ``timeout_seconds`` caps the whole call."""
+
         if not self.config.configured:
             raise RuntimeError("AI API is not configured")
+        timeout_total = self.effective_timeout(timeout_seconds)
         serialized = json.dumps(evidence, ensure_ascii=False, separators=(",", ":"))
         if len(serialized) > MAX_AI_PROMPT_CHARS:
             raise ValueError("AI review evidence is too large")
@@ -313,18 +345,21 @@ class AiReviewer:
             # Older local Qwen templates may ignore the API-level effort field.
             # Qwen's documented soft switch also works with those templates.
             payload["messages"][-1]["content"] += "\n/no_think"
-        timeout = httpx.Timeout(float(self.config.timeout_seconds), connect=10.0)
-        async with httpx.AsyncClient(
-            headers=headers,
-            timeout=timeout,
-            follow_redirects=False,
-            transport=self.transport,
-        ) as client:
-            response = await client.post(url, json=payload)
-            response.raise_for_status()
-            if len(response.content) > 1_000_000:
-                raise ValueError("AI API response is too large")
-            body = response.json()
+        timeout = httpx.Timeout(timeout_total, connect=min(10.0, timeout_total))
+        # httpx timeouts apply per read, so a slowly dripping response could
+        # outlive them; fail_after bounds the whole exchange.
+        with anyio.fail_after(timeout_total):
+            async with httpx.AsyncClient(
+                headers=headers,
+                timeout=timeout,
+                follow_redirects=False,
+                transport=self.transport,
+            ) as client:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+                if len(response.content) > 1_000_000:
+                    raise ValueError("AI API response is too large")
+                body = response.json()
 
         text = _response_text(body, provider=self.config.provider)
         truncated = len(text) > MAX_AI_RESPONSE_CHARS
@@ -450,14 +485,26 @@ def _clean_response_text(text: str) -> str:
 
 
 def _organization_profile(value: Any) -> dict[str, str]:
-    payload = value if isinstance(value, dict) else {}
+    if value is None:
+        payload: dict[str, Any] = {}
+    elif isinstance(value, dict):
+        payload = value
+    else:
+        raise ValueError("organization_profile은 객체여야 합니다.")
     sector = payload.get("sector", "unspecified")
     size = payload.get("size", "unspecified")
     public_entity_type = payload.get("public_entity_type", "unspecified")
+    for name, item in (
+        ("sector", sector),
+        ("size", size),
+        ("public_entity_type", public_entity_type),
+    ):
+        if not isinstance(item, str):
+            raise ValueError(f"organization_profile.{name}은 문자열이어야 합니다.")
     if sector not in {"unspecified", "public", "private"}:
-        raise ValueError("Unknown organization sector")
+        raise ValueError("알 수 없는 기관 유형(sector)입니다.")
     if size not in {"unspecified", "under_30", "30_to_299", "300_plus"}:
-        raise ValueError("Unknown organization size")
+        raise ValueError("알 수 없는 기관 규모(size)입니다.")
     public_types = {
         "unspecified": "공공 세부유형 미선택",
         "public_corporation": "공기업",
@@ -468,9 +515,9 @@ def _organization_profile(value: Any) -> dict[str, str]:
         "other_public_sector": "그 밖의 공공부문",
     }
     if public_entity_type not in public_types:
-        raise ValueError("Unknown public organization type")
+        raise ValueError("알 수 없는 공공기관 세부유형(public_entity_type)입니다.")
     if sector != "public" and public_entity_type != "unspecified":
-        raise ValueError("Public organization type requires public sector")
+        raise ValueError("공공기관 세부유형은 기관 유형이 공공기관일 때만 선택할 수 있습니다.")
     return {
         "sector": sector,
         "size": size,
@@ -495,8 +542,20 @@ def _organization_profile(value: Any) -> dict[str, str]:
 
 
 def _redact_external_text(value: str) -> str:
-    # Same patterns that reject role-review notes (core.direct_identifiers).
-    return mask_direct_identifiers(value)
+    # Same patterns that reject role-review notes (core.direct_identifiers),
+    # matched on a folded copy so full-width digits, Unicode dashes and
+    # no-break spaces cannot slip a value past them.
+    return mask_direct_identifiers_folded(value)
+
+
+def _external_matched_text(value: str | None) -> str:
+    """Mask first, then truncate.
+
+    Truncating first could cut a phone number in half at the limit
+    ("...010-12"), and the partial value would no longer match a pattern.
+    """
+
+    return _redact_external_text(value or "")[:MAX_MATCHED_TEXT_CHARS]
 
 
 def _ai_evidence(
@@ -542,9 +601,7 @@ def _ai_evidence(
             {
                 "id": finding.id,
                 "message": finding.message,
-                "matched_text": _redact_external_text(
-                    (finding.matched_text or "")[:MAX_MATCHED_TEXT_CHARS]
-                ),
+                "matched_text": _external_matched_text(finding.matched_text),
                 "severity": finding.severity,
                 "law": finding.basis.law,
                 "article": finding.basis.article,
@@ -590,6 +647,27 @@ def _public_ncs_controls(packet: Any) -> list[dict[str, Any]]:
     ]
 
 
+def assisted_review_budget_seconds() -> float | None:
+    """Total wall-clock budget for one assisted review, or None when unbounded."""
+
+    return VERCEL_ASSISTED_REVIEW_BUDGET_SECONDS if os.environ.get("VERCEL") else None
+
+
+def _ai_failure_notice(exc: BaseException, timeout_seconds: float) -> str:
+    if isinstance(exc, (TimeoutError, httpx.TimeoutException)):
+        return (
+            f"AI API 응답이 제한 시간({timeout_seconds:g}초) 안에 오지 않아 "
+            "검토를 완료하지 못했습니다."
+        )
+    status = upstream_http_status(exc)
+    if status == 429:
+        return (
+            "AI 제공자가 요청 한도 초과(HTTP 429)로 응답해 검토를 완료하지 "
+            "못했습니다. 잠시 뒤 다시 시도하세요."
+        )
+    return f"AI API 검토를 완료하지 못했습니다({upstream_failure_label(exc)})."
+
+
 async def prepare_assisted_review(
     engine: FairpostEngine,
     text: str,
@@ -598,7 +676,12 @@ async def prepare_assisted_review(
     reviewer: AiReviewer | None = None,
     organization_profile: dict[str, str] | None = None,
     ai_provider: str | None = None,
+    budget_seconds: float | None = None,
 ) -> AssistedReviewResult:
+    started = time.monotonic()
+    total_budget = (
+        budget_seconds if budget_seconds is not None else assisted_review_budget_seconds()
+    )
     active_profile = _organization_profile(organization_profile)
     active_verifier = verifier or LiveLawVerifier.from_environment()
     ai_reviewer = reviewer or AiReviewer(resolve_ai_config(ai_provider))
@@ -644,19 +727,57 @@ async def prepare_assisted_review(
             response_truncated=False,
             **base,
         )
+    remaining = (
+        None if total_budget is None else total_budget - (time.monotonic() - started)
+    )
+    if remaining is not None and remaining < MIN_AI_SECONDS:
+        logger.warning(
+            "event=ai_review_skipped provider=%s reason=budget_exhausted elapsed_ms=%d",
+            ai_reviewer.config.provider,
+            int((time.monotonic() - started) * 1000),
+        )
+        return AssistedReviewResult(
+            status="ai_unavailable",
+            ai_called=False,
+            summary=None,
+            response_truncated=False,
+            notice=(
+                "법령 조회에 시간 예산을 모두 사용해 AI API를 호출하지 않았습니다. "
+                "잠시 뒤 다시 시도하세요."
+            ),
+            **{key: value for key, value in base.items() if key != "notice"},
+        )
+    ai_timeout = ai_reviewer.effective_timeout(remaining)
+    ai_started = time.monotonic()
     try:
         summary, truncated = await ai_reviewer.review(
-            _ai_evidence(packet, active_profile)
+            _ai_evidence(packet, active_profile),
+            timeout_seconds=ai_timeout,
         )
     except Exception as exc:
+        logger.warning(
+            "event=ai_review_failed provider=%s exception=%s upstream_status=%s "
+            "timeout_seconds=%g elapsed_ms=%d",
+            ai_reviewer.config.provider,
+            type(exc).__name__,
+            upstream_http_status(exc) or "-",
+            ai_timeout,
+            int((time.monotonic() - ai_started) * 1000),
+        )
         return AssistedReviewResult(
             status="ai_unavailable",
             ai_called=True,
             summary=None,
             response_truncated=False,
-            notice=f"AI API 검토를 완료하지 못했습니다({type(exc).__name__}).",
+            notice=_ai_failure_notice(exc, ai_timeout),
             **{key: value for key, value in base.items() if key != "notice"},
         )
+    logger.info(
+        "event=ai_review_completed provider=%s truncated=%s elapsed_ms=%d",
+        ai_reviewer.config.provider,
+        truncated,
+        int((time.monotonic() - ai_started) * 1000),
+    )
     return AssistedReviewResult(
         status="completed",
         ai_called=True,

@@ -13,6 +13,7 @@ from threading import Lock
 import time
 from typing import Any, BinaryIO, Iterator
 
+from core.direct_identifiers import contains_direct_identifier_folded
 from core.review_packet import ReviewEvent, ReviewPacket, ReviewPacketError
 
 
@@ -28,6 +29,14 @@ _REVIEW_PACKET_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 
 _THREAD_LOCKS_GUARD = Lock()
 _THREAD_LOCKS: dict[str, Lock] = {}
+ANSWER_IDENTIFIER_REJECTION = (
+    "answer에 전화번호ㆍ이메일ㆍ주민등록번호 같은 직접 식별정보를 넣을 수 "
+    "없습니다. 개인을 특정하지 않는 표현으로 바꾸어 저장하십시오"
+)
+
+
+class AnswerStoreCorruptError(ValueError):
+    """The local answer file exists but cannot be parsed as an answer store."""
 
 
 def _thread_lock_for(path: Path) -> Lock:
@@ -110,6 +119,11 @@ def _validate_answer_fields(
             raise ValueError("answer는 문자열이어야 합니다")
         if len(answer) > MAX_ANSWER_CHARS:
             raise ValueError(f"answer는 {MAX_ANSWER_CHARS}자를 넘을 수 없습니다")
+        # Same direct-identifier screen as role-review notes
+        # (core.review_packet), plus look-alike spellings. Answers are stored
+        # in plaintext, so personal data must never reach the file.
+        if contains_direct_identifier_folded(answer):
+            raise ValueError(ANSWER_IDENTIFIER_REJECTION)
 
 
 def _validate_review_packet_id(packet_id: str) -> None:
@@ -139,10 +153,14 @@ class LocalAnswerStore:
             return {}
         try:
             payload: Any = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ValueError(f"답변 저장소를 읽을 수 없습니다: {self.path}") from exc
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise AnswerStoreCorruptError(
+                f"답변 저장소를 읽을 수 없습니다: {self.path}"
+            ) from exc
         if not isinstance(payload, dict):
-            raise ValueError(f"답변 저장소 형식이 올바르지 않습니다: {self.path}")
+            raise AnswerStoreCorruptError(
+                f"답변 저장소 형식이 올바르지 않습니다: {self.path}"
+            )
         result: dict[str, dict[str, str]] = {}
         for org_id, answers in payload.items():
             if isinstance(org_id, str) and isinstance(answers, dict):
