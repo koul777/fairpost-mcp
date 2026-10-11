@@ -365,7 +365,12 @@ def _runtime_identity() -> tuple[str, dict[str, str]]:
 
 
 def _tool_names(server: Any) -> list[str]:
-    return sorted(tool.name for tool in server._tool_manager.list_tools())
+    # FastMCP keeps registered tools in its tool manager; a health check must
+    # never fail if that internal attribute changes in a later SDK.
+    manager = getattr(server, "_tool_manager", None)
+    if manager is None:
+        return []
+    return sorted(tool.name for tool in manager.list_tools())
 
 
 @functools.lru_cache(maxsize=1)
