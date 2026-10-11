@@ -160,21 +160,133 @@
     "\n", "\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029",
   ]);
   const PYTHON_REGEX_CACHE = new Map();
+  // PYTHON_WHITESPACE as a code-unit table (every member is one BMP unit).
+  const PYTHON_WHITESPACE_CODES = (() => {
+    const table = new Uint8Array(0x3001);
+    PYTHON_WHITESPACE.forEach((character) => {
+      table[character.charCodeAt(0)] = 1;
+    });
+    return table;
+  })();
 
   function isPythonWhitespace(character) {
-    return PYTHON_WHITESPACE.has(character);
+    return character.length === 1 && isPythonWhitespaceCode(character.charCodeAt(0));
+  }
+
+  function isPythonWhitespaceCode(code) {
+    return code <= 0x3000 && PYTHON_WHITESPACE_CODES[code] === 1;
+  }
+
+  // --- per-character normalization tables -----------------------------------
+  // The Python core applies NFKC to one code point at a time (never to the
+  // whole string, which would compose decomposed jamo or combining marks), so
+  // each code point's result is fixed and can be memoized. CHAR_STATE caches,
+  // per BMP code unit (lone surrogates included), whether the two per-character
+  // rewrites below leave the character as it is.
+  const NFKC_CHAR_CACHE = new Map();
+  const CHAR_STATE = new Uint8Array(0x10000);
+  const CHAR_KNOWN = 1;
+  // normalizedTextWithOffsets keeps it: not zero-width, and "\r"/"\n"/"\t", a
+  // plain space, or a non-whitespace character that NFKC leaves unchanged.
+  const CHAR_KEEP_TEXT = 2;
+  // normalizedHeading keeps it: not zero-width and NFKC leaves it unchanged.
+  const CHAR_KEEP_HEADING = 4;
+
+  // character.normalize("NFKC") for one code point (or one lone surrogate).
+  function nfkcChar(character) {
+    let value = NFKC_CHAR_CACHE.get(character);
+    if (value === undefined) {
+      value = character.normalize("NFKC");
+      if (NFKC_CHAR_CACHE.size >= 65536) NFKC_CHAR_CACHE.clear();
+      NFKC_CHAR_CACHE.set(character, value);
+    }
+    return value;
+  }
+
+  // The per-character rewrite of normalizedTextWithOffsets for a one-unit
+  // character: "" for zero-width, "\r"/"\n"/"\t" kept, other Python whitespace
+  // becomes " ", everything else is its own NFKC form.
+  function textReplacement(character) {
+    if (ZERO_WIDTH.has(character)) return "";
+    if (character === "\r" || character === "\n" || character === "\t") return character;
+    if (isPythonWhitespace(character)) return " ";
+    return nfkcChar(character);
+  }
+
+  function charState(code) {
+    let state = CHAR_STATE[code];
+    if (state === 0) {
+      const character = String.fromCharCode(code);
+      state = CHAR_KNOWN;
+      if (textReplacement(character) === character) state |= CHAR_KEEP_TEXT;
+      if (!ZERO_WIDTH.has(character) && nfkcChar(character) === character) {
+        state |= CHAR_KEEP_HEADING;
+      }
+      CHAR_STATE[code] = state;
+    }
+    return state;
+  }
+
+  // Width in code units of the code point starting at `index`, as the string
+  // iterator (for...of, Array.from) splits it: 2 for a surrogate pair, else 1.
+  function codePointWidth(text, index, code) {
+    if (code >= 0xd800 && code <= 0xdbff && index + 1 < text.length) {
+      const next = text.charCodeAt(index + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) return 2;
+    }
+    return 1;
+  }
+
+  // Array.from(text).length without building the array.
+  function codePointLength(text) {
+    let count = text.length;
+    for (let index = 0; index + 1 < text.length; index += 1) {
+      const code = text.charCodeAt(index);
+      if (code >= 0xd800 && code <= 0xdbff) {
+        const next = text.charCodeAt(index + 1);
+        if (next >= 0xdc00 && next <= 0xdfff) {
+          count -= 1;
+          index += 1;
+        }
+      }
+    }
+    return count;
+  }
+
+  // Map-based LRU helpers shared by the per-string view caches.
+  function lruGet(cache, key) {
+    const cached = cache.get(key);
+    if (cached !== undefined) {
+      cache.delete(key);
+      cache.set(key, cached);
+    }
+    return cached;
+  }
+
+  function lruSet(cache, key, value, limit) {
+    if (cache.size >= limit) cache.delete(cache.keys().next().value);
+    cache.set(key, value);
   }
 
   function trimPythonWhitespace(value) {
     let start = 0;
     let end = value.length;
-    while (start < end && isPythonWhitespace(value[start])) {
+    while (start < end && isPythonWhitespaceCode(value.charCodeAt(start))) {
       start += 1;
     }
-    while (end > start && isPythonWhitespace(value[end - 1])) {
+    while (end > start && isPythonWhitespaceCode(value.charCodeAt(end - 1))) {
       end -= 1;
     }
-    return value.slice(start, end);
+    return start === 0 && end === value.length ? value : value.slice(start, end);
+  }
+
+  // PYTHON_LINE_BREAKS membership for one code unit (every member is one unit).
+  const PYTHON_LINE_BREAK_CODES = new Set(
+    [...PYTHON_LINE_BREAKS].map((character) => character.charCodeAt(0))
+  );
+
+  function isPythonLineBreakCode(code) {
+    return PYTHON_LINE_BREAK_CODES.has(code);
   }
 
   // Mirrors str.splitlines(keepends=True).
@@ -182,7 +294,7 @@
     const lines = [];
     let start = 0;
     for (let index = 0; index < text.length; index += 1) {
-      if (!PYTHON_LINE_BREAKS.has(text[index])) continue;
+      if (!isPythonLineBreakCode(text.charCodeAt(index))) continue;
       if (text[index] === "\r" && text[index + 1] === "\n") index += 1;
       lines.push(text.slice(start, index + 1));
       start = index + 1;
@@ -289,42 +401,68 @@
     return pythonRegex(expression, "giu");
   }
 
+  // A text view is { normalized, starts, ends }: for each code unit k of
+  // `normalized`, the source code units [starts[k], ends[k]) it came from.
+  // An identity view (normalized === source, every unit maps to itself) keeps
+  // starts/ends null; findMatches only reads offsets of a view whose text
+  // differs from its source, and matchTextWithOffsets composes identity views
+  // without reading them.
+
+  // MORPH_REWRITES as one alternation in table order. At each position the
+  // first listed source that starts there wins and scanning resumes after it,
+  // exactly as the leftmost, first-in-table loop it replaces. All sources are
+  // BMP Hangul, so code-unit positions (no "u" flag) are the same.
+  const MORPH_SOURCE = new RegExp(
+    MORPH_REWRITES.map(([source]) => escapeRegex(source)).join("|"),
+    "g"
+  );
+  const MORPH_TARGET = new Map(MORPH_REWRITES);
+
   function morphTextWithOffsets(text) {
-    if (MORPH_CACHE.has(text)) {
-      const cached = MORPH_CACHE.get(text);
-      MORPH_CACHE.delete(text);
-      MORPH_CACHE.set(text, cached);
-      return cached;
-    }
-    let normalized = "";
-    const starts = [];
-    const ends = [];
-    let cursor = 0;
-    while (cursor < text.length) {
-      const rewrite = MORPH_REWRITES.find(([source]) =>
-        text.startsWith(source, cursor)
-      );
-      if (!rewrite) {
-        normalized += text[cursor];
-        starts.push(cursor);
-        ends.push(cursor + 1);
-        cursor += 1;
-        continue;
+    const cached = lruGet(MORPH_CACHE, text);
+    if (cached !== undefined) return cached;
+    MORPH_SOURCE.lastIndex = 0;
+    let match = MORPH_SOURCE.exec(text);
+    let result;
+    if (match === null) {
+      result = { normalized: text, starts: null, ends: null, identity: true };
+    } else {
+      const pieces = [];
+      const rewrites = [];
+      let cursor = 0;
+      while (match !== null) {
+        const target = MORPH_TARGET.get(match[0]);
+        pieces.push(text.slice(cursor, match.index), target);
+        rewrites.push(match.index, match.index + match[0].length, target.length);
+        cursor = match.index + match[0].length;
+        match = MORPH_SOURCE.exec(text);
       }
-      const [source, target] = rewrite;
-      const sourceEnd = cursor + source.length;
-      normalized += target;
-      for (let index = 0; index < target.length; index += 1) {
-        starts.push(cursor);
-        ends.push(sourceEnd);
+      pieces.push(text.slice(cursor));
+      const normalized = pieces.join("");
+      const starts = new Int32Array(normalized.length);
+      const ends = new Int32Array(normalized.length);
+      let out = 0;
+      let position = 0;
+      for (let index = 0; index < rewrites.length; index += 3) {
+        const sourceStart = rewrites[index];
+        const sourceEnd = rewrites[index + 1];
+        for (; position < sourceStart; position += 1, out += 1) {
+          starts[out] = position;
+          ends[out] = position + 1;
+        }
+        for (let unit = 0; unit < rewrites[index + 2]; unit += 1, out += 1) {
+          starts[out] = sourceStart;
+          ends[out] = sourceEnd;
+        }
+        position = sourceEnd;
       }
-      cursor = sourceEnd;
+      for (; position < text.length; position += 1, out += 1) {
+        starts[out] = position;
+        ends[out] = position + 1;
+      }
+      result = { normalized, starts, ends, identity: false };
     }
-    const result = { normalized, starts, ends };
-    if (MORPH_CACHE.size >= 512) {
-      MORPH_CACHE.delete(MORPH_CACHE.keys().next().value);
-    }
-    MORPH_CACHE.set(text, result);
+    lruSet(MORPH_CACHE, text, result, 512);
     return result;
   }
 
@@ -332,55 +470,146 @@
     return morphTextWithOffsets(text).normalized;
   }
 
+  const NORMALIZED_CACHE = new Map();
+
+  // Code points (pairs whole, lone surrogates alone, as for...of yields
+  // them) are rewritten one at a time: zero-width characters are dropped,
+  // "\r"/"\n"/"\t" kept, other Python whitespace becomes " ", and everything
+  // else becomes its own per-character NFKC form.
   function normalizedTextWithOffsets(text) {
-    let normalized = "";
-    const starts = [];
-    const ends = [];
-    let cursor = 0;
-    for (const character of text) {
-      if (!ZERO_WIDTH.has(character)) {
-        const replacement = /[\r\n\t]/u.test(character)
-          ? character
-          : isPythonWhitespace(character)
-            ? " "
-            : character.normalize("NFKC");
-        normalized += replacement;
-        for (let index = 0; index < replacement.length; index += 1) {
-          starts.push(cursor);
-          ends.push(cursor + character.length);
-        }
+    const cached = lruGet(NORMALIZED_CACHE, text);
+    if (cached !== undefined) return cached;
+    const length = text.length;
+    // Fast scan: stop at the first code point the rewrite would change.
+    let index = 0;
+    let astral = false;
+    while (index < length) {
+      const code = text.charCodeAt(index);
+      const width = codePointWidth(text, index, code);
+      if (width === 2) {
+        const character = text.slice(index, index + 2);
+        if (nfkcChar(character) !== character) break;
+        astral = true;
+      } else if (!(charState(code) & CHAR_KEEP_TEXT)) {
+        break;
       }
-      cursor += character.length;
+      index += width;
     }
-    return { normalized, starts, ends };
+    let result;
+    if (index === length && !astral) {
+      result = { normalized: text, starts: null, ends: null, identity: true };
+    } else {
+      // Build the rewritten text, then the offsets of each of its code units.
+      // A surrogate pair is one code point whose units both map to [i, i + 2).
+      const pieces = [];
+      let runStart = 0;
+      for (let cursor = index; cursor < length; ) {
+        const code = text.charCodeAt(cursor);
+        const width = codePointWidth(text, cursor, code);
+        const replacement = pointReplacement(text, cursor, code, width);
+        if (replacement !== null) {
+          pieces.push(text.slice(runStart, cursor), replacement);
+          runStart = cursor + width;
+        }
+        cursor += width;
+      }
+      pieces.push(text.slice(runStart));
+      const normalized = pieces.length === 1 ? text : pieces.join("");
+      const starts = new Int32Array(normalized.length);
+      const ends = new Int32Array(normalized.length);
+      let out = 0;
+      for (let cursor = 0; cursor < length; ) {
+        const code = text.charCodeAt(cursor);
+        const width = codePointWidth(text, cursor, code);
+        const replacement =
+          cursor < index ? null : pointReplacement(text, cursor, code, width);
+        const units = replacement === null ? width : replacement.length;
+        for (let unit = 0; unit < units; unit += 1, out += 1) {
+          starts[out] = cursor;
+          ends[out] = cursor + width;
+        }
+        cursor += width;
+      }
+      result = { normalized, starts, ends, identity: false };
+    }
+    lruSet(NORMALIZED_CACHE, text, result, 512);
+    return result;
+  }
+
+  // The rewrite of the code point at `cursor`, or null when it stays as is.
+  function pointReplacement(text, cursor, code, width) {
+    if (width === 2) {
+      // A pair is never zero-width, a line break or Python whitespace.
+      const character = text.slice(cursor, cursor + 2);
+      const replacement = nfkcChar(character);
+      return replacement === character ? null : replacement;
+    }
+    if (charState(code) & CHAR_KEEP_TEXT) return null;
+    return textReplacement(String.fromCharCode(code));
   }
 
   function matchTextWithOffsets(text) {
-    if (MATCH_CACHE.has(text)) {
-      const cached = MATCH_CACHE.get(text);
-      MATCH_CACHE.delete(text);
-      MATCH_CACHE.set(text, cached);
-      return cached;
-    }
+    const cached = lruGet(MATCH_CACHE, text);
+    if (cached !== undefined) return cached;
     const base = normalizedTextWithOffsets(text);
     const morph = morphTextWithOffsets(base.normalized);
-    const result =
-      morph.normalized === base.normalized
-        ? base
-        : {
-            normalized: morph.normalized,
-            starts: morph.starts.map((index) => base.starts[index]),
-            ends: morph.ends.map((index) => base.ends[index - 1]),
-          };
-    if (MATCH_CACHE.size >= 512) {
-      MATCH_CACHE.delete(MATCH_CACHE.keys().next().value);
+    let result;
+    if (morph.normalized === base.normalized) {
+      result = base;
+    } else if (base.identity) {
+      // base.starts[i] === i and base.ends[i - 1] === i, so composing with
+      // an identity base leaves the morph offsets as they are.
+      result = { normalized: morph.normalized, starts: morph.starts, ends: morph.ends, identity: false };
+    } else {
+      const starts = new Int32Array(morph.starts.length);
+      const ends = new Int32Array(morph.ends.length);
+      for (let index = 0; index < starts.length; index += 1) {
+        starts[index] = base.starts[morph.starts[index]];
+        ends[index] = base.ends[morph.ends[index] - 1];
+      }
+      result = { normalized: morph.normalized, starts, ends, identity: false };
     }
-    MATCH_CACHE.set(text, result);
+    lruSet(MATCH_CACHE, text, result, 512);
     return result;
   }
 
   function matchPlain(text) {
     return morphPlain(normalizedTextWithOffsets(text).normalized);
+  }
+
+  // value.toLocaleLowerCase("ko"), memoized (the locale-aware call costs about
+  // ten times a Map lookup and the same matched words recur constantly).
+  const LOWER_KO_CACHE = new Map();
+
+  function lowerKo(value) {
+    let lowered = LOWER_KO_CACHE.get(value);
+    if (lowered === undefined) {
+      lowered = value.toLocaleLowerCase("ko");
+      if (LOWER_KO_CACHE.size >= 8192) LOWER_KO_CACHE.clear();
+      LOWER_KO_CACHE.set(value, lowered);
+    }
+    return lowered;
+  }
+
+  // Per pattern: the regex for the source text and the one for the
+  // normalized view (the same object when the pattern does not change). Both
+  // are global, so every use starts by resetting lastIndex; findMatches never
+  // re-enters itself while a loop is running.
+  const PATTERN_PLAN_CACHE = new Map();
+
+  function patternPlan(pattern) {
+    let plan = PATTERN_PLAN_CACHE.get(pattern);
+    if (plan === undefined) {
+      const isRegex = pattern.startsWith("re:");
+      const regex = patternToRegex(pattern);
+      const normalizedPattern = isRegex ? pattern : matchPlain(pattern);
+      const normalizedRegex =
+        normalizedPattern === pattern ? regex : patternToRegex(normalizedPattern);
+      plan = { isRegex, regex, normalizedRegex };
+      if (PATTERN_PLAN_CACHE.size >= 4096) PATTERN_PLAN_CACHE.clear();
+      PATTERN_PLAN_CACHE.set(pattern, plan);
+    }
+    return plan;
   }
 
   function findMatches(text, patterns) {
@@ -389,18 +618,21 @@
     const normalizedView = normalizedTextWithOffsets(text);
     const matchView = matchTextWithOffsets(text);
     const needsMatchView = matchView.normalized !== text;
+    const normalizedChanged = normalizedView.normalized !== text;
     patterns.forEach((pattern) => {
-      const isRegex = pattern.startsWith("re:");
-      const regex = patternToRegex(pattern);
+      const plan = patternPlan(pattern);
+      const isRegex = plan.isRegex;
+      const regex = plan.regex;
+      regex.lastIndex = 0;
       let match;
-      const exactText = isRegex && normalizedView.normalized !== text ? null : text;
+      const exactText = isRegex && normalizedChanged ? null : text;
       while (exactText !== null && (match = regex.exec(exactText)) !== null) {
         const item = {
           start: match.index,
           end: match.index + match[0].length,
           text: match[0],
         };
-        const key = `${item.start}:${item.end}:${item.text.toLocaleLowerCase("ko")}`;
+        const key = `${item.start}:${item.end}:${lowerKo(item.text)}`;
         if (!seen.has(key)) {
           matches.push(item);
           seen.add(key);
@@ -409,7 +641,7 @@
       }
       let searchView;
       if (isRegex) {
-        if (normalizedView.normalized === text) return;
+        if (!normalizedChanged) return;
         searchView = normalizedView;
       } else {
         if (!needsMatchView) return;
@@ -418,8 +650,9 @@
       // Keep regex exclusions on the same NFKC/zero-width-normalized view as
       // literal candidates so protective wording cannot become a false
       // positive merely because it contains compatibility or invisible text.
-      const normalizedPattern = isRegex ? pattern : matchPlain(pattern);
-      const normalizedRegex = patternToRegex(normalizedPattern);
+      // (plan.normalizedRegex is built from matchPlain(pattern) for literals.)
+      const normalizedRegex = plan.normalizedRegex;
+      normalizedRegex.lastIndex = 0;
       while ((match = normalizedRegex.exec(searchView.normalized)) !== null) {
         if (match[0].length === 0) {
           normalizedRegex.lastIndex += 1;
@@ -428,7 +661,7 @@
         const start = searchView.starts[match.index];
         const end = searchView.ends[match.index + match[0].length - 1];
         const item = { start, end, text: text.slice(start, end) };
-        const key = `${start}:${end}:${item.text.toLocaleLowerCase("ko")}`;
+        const key = `${start}:${end}:${lowerKo(item.text)}`;
         if (!seen.has(key)) {
           matches.push(item);
           seen.add(key);
@@ -479,30 +712,94 @@
   );
   const WHITESPACE_RUN = pythonRegex("\\s+", "gu");
 
+  // Drops zero-width code points and applies NFKC to each remaining code
+  // point on its own (as Array.from(line) splits them).
   function normalizedHeading(line) {
-    return Array.from(line).filter((ch) => !ZERO_WIDTH.has(ch)).map((ch) => ch.normalize("NFKC")).join("");
+    const length = line.length;
+    let index = 0;
+    while (index < length) {
+      const code = line.charCodeAt(index);
+      const width = codePointWidth(line, index, code);
+      if (width === 2) {
+        const character = line.slice(index, index + 2);
+        if (nfkcChar(character) !== character) break;
+      } else if (!(charState(code) & CHAR_KEEP_HEADING)) {
+        break;
+      }
+      index += width;
+    }
+    if (index === length) return line;
+    const pieces = [line.slice(0, index)];
+    while (index < length) {
+      const code = line.charCodeAt(index);
+      const width = codePointWidth(line, index, code);
+      const character = width === 2 ? line.slice(index, index + 2) : line[index];
+      if (!ZERO_WIDTH.has(character)) pieces.push(nfkcChar(character));
+      index += width;
+    }
+    return pieces.join("");
+  }
+
+  // Pure functions of their argument, memoized because every line of every
+  // posting goes through them, often more than once.
+  const STRIPPED_HEADING_CACHE = new Map();
+  const COMPACT_HEADING_CACHE = new Map();
+  const HEADING_NAME_CACHE = new Map();
+  let aliasCanonical = null;
+
+  function memoSet(cache, key, value) {
+    if (cache.size >= 4096) cache.clear();
+    cache.set(key, value);
+    return value;
   }
 
   function stripHeadingDecoration(value) {
-    return trimPythonWhitespace(normalizedHeading(value)).replace(
-      HEADING_DECORATION,
-      ""
+    const cached = STRIPPED_HEADING_CACHE.get(value);
+    if (cached !== undefined) return cached;
+    return memoSet(
+      STRIPPED_HEADING_CACHE,
+      value,
+      trimPythonWhitespace(normalizedHeading(value)).replace(HEADING_DECORATION, "")
     );
   }
 
   function compactHeading(value) {
-    return stripHeadingDecoration(value).replace(WHITESPACE_RUN, "").toLowerCase();
+    const cached = COMPACT_HEADING_CACHE.get(value);
+    if (cached !== undefined) return cached;
+    return memoSet(
+      COMPACT_HEADING_CACHE,
+      value,
+      stripHeadingDecoration(value).replace(WHITESPACE_RUN, "").toLowerCase()
+    );
+  }
+
+  // compactHeading(alias) -> the first canonical section (in SECTION_ALIASES
+  // order) that lists an alias with that compact form.
+  function sectionForCompactHeading(compact) {
+    if (aliasCanonical === null) {
+      aliasCanonical = new Map();
+      for (const [canonical, aliases] of SECTION_ALIASES) {
+        for (const alias of aliases) {
+          const key = compactHeading(alias);
+          if (!aliasCanonical.has(key)) aliasCanonical.set(key, canonical);
+        }
+      }
+    }
+    return aliasCanonical.has(compact) ? aliasCanonical.get(compact) : null;
   }
 
   function headingName(line) {
+    const cached = HEADING_NAME_CACHE.get(line);
+    if (cached !== undefined) return cached;
+    return memoSet(HEADING_NAME_CACHE, line, uncachedHeadingName(line));
+  }
+
+  function uncachedHeadingName(line) {
     const cleaned = stripHeadingDecoration(line);
-    if (!cleaned || Array.from(cleaned).length > 30) return null;
+    if (!cleaned || codePointLength(cleaned) > 30) return null;
     const compact = compactHeading(cleaned);
     if (compact.endsWith("합류여정")) return "전형절차";
-    for (const [canonical, aliases] of SECTION_ALIASES) {
-      if (aliases.some((alias) => compact === compactHeading(alias))) return canonical;
-    }
-    return null;
+    return sectionForCompactHeading(compact);
   }
 
   function splitSections(text) {
@@ -543,7 +840,7 @@
   }
 
   function codePointOffset(text, codeUnitOffset) {
-    return Array.from(text.slice(0, codeUnitOffset)).length;
+    return codePointLength(text.slice(0, codeUnitOffset));
   }
 
   function moveCodePointsLeft(text, offset, count) {
@@ -583,27 +880,54 @@
     return text.slice(left, right);
   }
 
-  function evidenceLine(text, start, end) {
+  // A sentence boundary at code unit i: one of . ! ? 。 ！ ？, except a "."
+  // after a digit or between two ASCII letters/digits.
+  function isSentenceMark(text, i) {
+    const character = text[i];
+    if (
+      character !== "." && character !== "!" && character !== "?" &&
+      character !== "。" && character !== "！" && character !== "？"
+    ) {
+      return false;
+    }
+    // Python reads text[i - 1] as a whole code point, so an astral digit
+    // (e.g. U+1D7CF) before "." must be tested as its surrogate pair.
+    return !(character === "." && i > 0 && (/^\p{Nd}$/u.test(codePointEndingAt(text, i)) || (/[A-Za-z0-9]/u.test(text[i - 1]) && /[A-Za-z0-9]/u.test(text[i + 1] || ""))));
+  }
+
+  // The sentence around [start, end) within its line: from just after the
+  // last mark before `start` to just after the first mark at or after `end`
+  // (marks inside the span do not count). Scanning outwards from the span
+  // finds the same two marks as listing every mark on the line.
+  function sentenceBounds(text, start, end) {
     const lineStart = lastNewlineBefore(text, start) + 1;
     const next = text.indexOf("\n", end);
     const lineEnd = next === -1 ? text.length : next;
-    const boundaries = [".", "!", "?", "。", "！", "？"];
-    const marks = [];
-    for (let i = lineStart; i < lineEnd; i += 1) {
-      // Python reads text[i - 1] as a whole code point, so an astral digit
-      // (e.g. U+1D7CF) before "." must be tested as its surrogate pair.
-      if (boundaries.includes(text[i]) && !(text[i] === "." && i > 0 && (/^\p{Nd}$/u.test(codePointEndingAt(text, i)) || (/[A-Za-z0-9]/u.test(text[i - 1]) && /[A-Za-z0-9]/u.test(text[i + 1] || ""))))) marks.push(i);
+    let segmentStart = lineStart;
+    for (let i = Math.min(start, lineEnd) - 1; i >= lineStart; i -= 1) {
+      if (isSentenceMark(text, i)) {
+        segmentStart = i + 1;
+        break;
+      }
     }
-    const before = marks.filter((i) => i < start);
-    const after = marks.filter((i) => i >= end);
-    const segmentStart = before.length ? before[before.length - 1] + 1 : lineStart;
-    const segmentEnd = after.length ? after[0] + 1 : lineEnd;
+    let segmentEnd = lineEnd;
+    for (let i = Math.max(end, lineStart); i < lineEnd; i += 1) {
+      if (isSentenceMark(text, i)) {
+        segmentEnd = i + 1;
+        break;
+      }
+    }
+    return [segmentStart, segmentEnd];
+  }
+
+  function evidenceLine(text, start, end) {
+    const [segmentStart, segmentEnd] = sentenceBounds(text, start, end);
     const segment = text.slice(segmentStart, segmentEnd);
-    const codePoints = Array.from(segment);
     const limit = 238;
-    if (codePoints.length <= limit) {
+    if (codePointLength(segment) <= limit) {
       return trimPythonWhitespace(segment);
     }
+    const codePoints = Array.from(segment);
     const relativeStart = Array.from(text.slice(segmentStart, start)).length;
     const relativeEnd = Array.from(text.slice(segmentStart, end)).length;
     let windowStart = Math.max(0, relativeStart - 96);
@@ -657,9 +981,18 @@
     return value.replace(/<[^>]+>/gu, "");
   }
 
+  // Zero-width characters are single BMP units that are never surrogates, so
+  // deleting them unit by unit equals filtering the line's code points.
+  const ZERO_WIDTH_RUN = /[\u200b\u200c\u200d\ufeff]/g;
+
+  function stripZeroWidth(line) {
+    ZERO_WIDTH_RUN.lastIndex = 0;
+    return ZERO_WIDTH_RUN.test(line) ? line.replace(ZERO_WIDTH_RUN, "") : line;
+  }
+
   // Mirrors _line_marker: [kind, style] of a line's leading bullet, number or mark.
   function lineMarker(line) {
-    const match = LINE_MARKER.exec(Array.from(line).filter((ch) => !ZERO_WIDTH.has(ch)).join(""));
+    const match = LINE_MARKER.exec(stripZeroWidth(line));
     if (!match) return ["", ""];
     const [, bullet, number, numberEnd, paren, circled, hangul, mark, note, bracket] = match;
     if (bullet) return ["item", bullet];
@@ -674,7 +1007,7 @@
 
   function indentOf(line) {
     let count = 0;
-    while (count < line.length && isPythonWhitespace(line[count])) count += 1;
+    while (count < line.length && isPythonWhitespaceCode(line.charCodeAt(count))) count += 1;
     return count;
   }
 
@@ -731,12 +1064,24 @@
     return offset < dutyBlockEnd(section.text);
   }
 
+  // Constant lists derived from the stage tables (built once, on first use).
+  let bareStageCompact = null;
+  let namedStageEvents = null;
+  let stageContextPatterns = null;
+
+  function stageTables() {
+    if (bareStageCompact === null) {
+      bareStageCompact = BARE_STAGE_TERMS.map((term) => compactHeading(term));
+      namedStageEvents = STAGE_EVENTS.filter((event) => !bareStageCompact.includes(compactHeading(event)));
+      stageContextPatterns = [...STAGE_MARKERS, ...namedStageEvents, "면접"];
+    }
+  }
+
   // Mirrors _stage_context.
   function stageContext(section, sentence) {
     if (section && STAGE_SECTIONS.includes(section.name)) return true;
-    const bare = BARE_STAGE_TERMS.map((term) => compactHeading(term));
-    const named = STAGE_EVENTS.filter((event) => !bare.includes(compactHeading(event)));
-    return Boolean(findFirst(stripTags(sentence), [...STAGE_MARKERS, ...named, "면접"]));
+    stageTables();
+    return Boolean(findFirst(stripTags(sentence), stageContextPatterns));
   }
 
   // Mirrors _bare_stage_match.
@@ -744,9 +1089,10 @@
     const candidate = text.slice(start, end);
     const interview = findFirst(candidate, BARE_INTERVIEW_STAGE);
     if (interview && interview.start === 0 && interview.end === candidate.length) return true;
-    const bare = BARE_STAGE_TERMS.map((term) => compactHeading(term));
+    stageTables();
+    const bare = bareStageCompact;
     if (!bare.includes(compactHeading(candidate))) return false;
-    const named = STAGE_EVENTS.filter((event) => !bare.includes(compactHeading(event)));
+    const named = namedStageEvents;
     const [left, right] = lineBounds(text, start, end);
     return !findMatches(text.slice(left, right), named).some((m) => left + m.start <= start && end <= left + m.end);
   }
@@ -908,20 +1254,9 @@
 
   // Mirrors _protective_sentence: the sentence span inside the evidence window.
   function protectiveSentence(source, start, end) {
-    const lineStart = lastNewlineBefore(source, start) + 1;
-    const next = source.indexOf("\n", end);
-    const lineEnd = next === -1 ? source.length : next;
-    const boundaries = [".", "!", "?", "。", "！", "？"];
-    const marks = [];
-    for (let i = lineStart; i < lineEnd; i += 1) {
-      if (boundaries.includes(source[i]) && !(source[i] === "." && i > 0 && (/^\p{Nd}$/u.test(codePointEndingAt(source, i)) || (/[A-Za-z0-9]/u.test(source[i - 1]) && /[A-Za-z0-9]/u.test(source[i + 1] || ""))))) marks.push(i);
-    }
-    const before = marks.filter((i) => i < start);
-    const after = marks.filter((i) => i >= end);
-    let left = before.length ? before[before.length - 1] + 1 : lineStart;
-    let right = after.length ? after[0] + 1 : lineEnd;
-    const codePoints = Array.from(source.slice(left, right));
-    if (codePoints.length > 238) {
+    let [left, right] = sentenceBounds(source, start, end);
+    if (codePointLength(source.slice(left, right)) > 238) {
+      const codePoints = Array.from(source.slice(left, right));
       // Never look further than the evidence window the reviewer is shown.
       const relativeStart = Array.from(source.slice(left, start)).length;
       const relativeEnd = Array.from(source.slice(left, end)).length;

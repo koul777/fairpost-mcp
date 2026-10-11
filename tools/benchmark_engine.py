@@ -9,6 +9,7 @@ import math
 import os
 from pathlib import Path
 import platform
+import statistics
 import sys
 import tempfile
 import time
@@ -21,7 +22,17 @@ if str(ROOT) not in sys.path:
 from core import FairpostEngine  # noqa: E402
 
 
+# The schema is additive: ``metrics.repeat_postings_per_second``,
+# ``metrics.pooled_postings_per_second`` and
+# ``configuration.throughput_aggregation`` were added without changing or
+# removing a field, so consumers of version 1 keep working. A report without
+# ``throughput_aggregation`` predates the median headline and reports the pooled
+# rate (all measured calls divided by their summed time) as ``postings_per_second``.
 SCHEMA_VERSION = 1
+# ``metrics.postings_per_second`` is the median of the per-repeat throughputs, so
+# one repeat slowed by a transient stall (memory pressure, another process) does
+# not decide the headline. Latency percentiles still cover every sample.
+THROUGHPUT_AGGREGATION = "median_of_repeats"
 _FORBIDDEN_SPLIT_PARTS = {
     "dev",
     "development",
@@ -98,21 +109,36 @@ def _nearest_rank(sorted_values: Sequence[float], quantile: float) -> float:
     return sorted_values[index]
 
 
-def summarize_timings(timings_seconds: Sequence[float]) -> dict[str, Any]:
-    if not timings_seconds:
+def summarize_repeats(repeat_timings: Sequence[Sequence[float]]) -> dict[str, Any]:
+    """Summarize per-call timings grouped by repeat.
+
+    ``postings_per_second`` is the median of the per-repeat throughputs and
+    ``repeat_postings_per_second`` lists them in repeat order, so a noisy repeat
+    is visible instead of averaged in. ``pooled_postings_per_second`` is the
+    former headline (every call divided by the summed time). Latency covers all
+    samples of all repeats.
+    """
+    if not repeat_timings or any(not repeat for repeat in repeat_timings):
         raise ValueError("at least one measured timing is required")
+    timings_seconds = [value for repeat in repeat_timings for value in repeat]
     if any(value < 0 for value in timings_seconds):
         raise ValueError("monotonic timings cannot be negative")
 
     elapsed_seconds = sum(timings_seconds)
-    if elapsed_seconds <= 0:
+    repeat_elapsed = [sum(repeat) for repeat in repeat_timings]
+    if elapsed_seconds <= 0 or any(value <= 0 for value in repeat_elapsed):
         raise ValueError("measured elapsed time must be greater than zero")
+    repeat_rates = [
+        len(repeat) / elapsed for repeat, elapsed in zip(repeat_timings, repeat_elapsed)
+    ]
 
     values_ms = sorted(value * 1000 for value in timings_seconds)
     sample_count = len(values_ms)
     return {
         "elapsed_seconds": round(elapsed_seconds, 6),
-        "postings_per_second": round(sample_count / elapsed_seconds, 3),
+        "postings_per_second": round(statistics.median(repeat_rates), 3),
+        "pooled_postings_per_second": round(sample_count / elapsed_seconds, 3),
+        "repeat_postings_per_second": [round(rate, 3) for rate in repeat_rates],
         "latency_ms": {
             "samples": sample_count,
             "min": round(values_ms[0], 6),
@@ -123,6 +149,11 @@ def summarize_timings(timings_seconds: Sequence[float]) -> dict[str, Any]:
             "max": round(values_ms[-1], 6),
         },
     }
+
+
+def summarize_timings(timings_seconds: Sequence[float]) -> dict[str, Any]:
+    """Summarize ungrouped timings as a single repeat."""
+    return summarize_repeats([timings_seconds])
 
 
 def measure_engine(
@@ -144,8 +175,9 @@ def measure_engine(
         for text in texts:
             engine.check(text)
 
-    timings: list[float] = []
+    repeat_timings: list[list[float]] = []
     for _ in range(repeats):
+        timings: list[float] = []
         for text in texts:
             started = clock()
             engine.check(text)
@@ -154,8 +186,9 @@ def measure_engine(
             if duration < 0:
                 raise RuntimeError("benchmark clock moved backwards")
             timings.append(duration)
+        repeat_timings.append(timings)
 
-    return summarize_timings(timings)
+    return summarize_repeats(repeat_timings)
 
 
 def build_report(
@@ -198,6 +231,7 @@ def build_report(
             "engine_initialization_timed": False,
             "timing_source": "time.perf_counter (monotonic)",
             "percentile_method": "nearest_rank",
+            "throughput_aggregation": THROUGHPUT_AGGREGATION,
         },
         "runtime": {
             "python_version": platform.python_version(),
@@ -288,9 +322,11 @@ def main() -> int:
         parser.error(str(exc))
 
     metrics = report["metrics"]
+    repeat_rates = metrics["repeat_postings_per_second"]
     print(
         f"benchmarked {report['input']['records']} training records: "
-        f"{metrics['postings_per_second']} postings/s, "
+        f"{metrics['postings_per_second']} postings/s "
+        f"(median of {len(repeat_rates)} repeats, {min(repeat_rates)}-{max(repeat_rates)}), "
         f"p95 {metrics['latency_ms']['p95']} ms -> {args.output}"
     )
     return 0
