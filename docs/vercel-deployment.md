@@ -35,7 +35,10 @@ GPT는 `FAIRPOST_OPENAI_API_KEY`ㆍ`FAIRPOST_OPENAI_MODEL`, Gemini는
 설정하면 웹에서 요청별로 선택하며 `FAIRPOST_AI_PROVIDER`가 최초 선택값이다.
 이 중 하나와 Korean Law MCP가 모두 설정된 배포에서만 준비 상태가 된다. 스위치가 꺼진
 기본 상태에서는 이 경로를 호출하지 않는다. 호출 제한은 기본 분당 5회이며
-`FAIRPOST_ASSISTED_REVIEW_REQUESTS_PER_MINUTE`로 조정한다. 유료 AI API를
+`FAIRPOST_ASSISTED_REVIEW_REQUESTS_PER_MINUTE`로 조정한다. 제한은 클라이언트 주소별로
+세며, 사내 토큰이 맞는 POST와 그 밖의 POST(익명ㆍ브라우저)는 서로 다른 한도를 쓴다.
+따라서 인증되지 않은 요청이 사내 클라이언트의 한도를 소진하지 못한다. 준비 상태를 묻는
+GET은 이 한도를 쓰지 않고 일반 공개 한도를 따른다. 유료 AI API를
 공개 배포에 연결할 때는 이 인스턴스별 제한 외에 배포 접근제어와 전역 비용
 한도를 별도로 설정해야 한다.
 
@@ -74,11 +77,21 @@ GPT는 `FAIRPOST_OPENAI_API_KEY`ㆍ`FAIRPOST_OPENAI_MODEL`, Gemini는
   위조로 누구나 호출할 수 있다고 가정하고, 제공자 계정의 지출 상한과 Vercel
   Firewall의 `/api/assisted-review` 요청 제한(rate limiting) 규칙을 반드시 함께
   설정한다. 인스턴스별 분당 제한은 서버리스 인스턴스 사이에 공유되지 않는다.
-- Vercel에서 실제 클라이언트 IP가 호출 제한 키로 들어오는지 확인한다.
+- Vercel에서 실제 클라이언트 IP가 호출 제한 키로 들어오는지 확인한다. `VERCEL`
+  환경에서는 Vercel이 덮어쓰는 `x-vercel-forwarded-for`(없으면 `x-real-ip`,
+  `x-forwarded-for`)의 IP를 키로 쓰고, 그 밖의 환경에서는 이 헤더를 믿지 않고
+  연결 주소를 쓴다. 키는 인스턴스별 임시 HMAC으로만 보관한다.
 
-법령 MCP 조회 후 AI를 순차 호출하므로 Python Function의 `maxDuration`은 60초로
-설정한다. AI 호출 자체는 기본 30초에서 중단되어 함수 제한 안에 실패 응답을
-반환하도록 한다.
+법령 MCP 조회 후 AI를 호출하므로 Python Function의 `maxDuration`은 60초로
+설정한다. 법령 조회는 조문별로 최대 4개씩 동시에 진행하고 전체 25초 예산(요청당
+20초 시간 제한)을 넘으면 끝나지 않은 조문만 `upstream_unavailable`로 표시하며, 이미
+받은 조문은 유지한다. Vercel에서는 요청 전체를 55초 안에 끝내도록 AI 호출 시간을
+남은 예산과 `FAIRPOST_AI_TIMEOUT_SECONDS`(기본 30초) 중 짧은 값으로 제한해 함수 제한
+안에 실패 응답을 반환한다. 루프백 로컬 런타임은 설정한 AI 시간 제한을 그대로 쓴다.
+
+법령 조회나 AI 호출이 실패하면 이벤트, 제공자, 예외 클래스, 상위 HTTP 상태, 소요
+시간만 한 줄로 Vercel 런타임 로그에 남긴다. 공고문, 프롬프트, 키, 토큰, IP는 기록하지
+않는다. 사용자에게 보이는 안내에도 예외 클래스와 HTTP 상태만 표시한다.
 
 모델 변수를 생략하면 2026-09-13 기준 기본값 `claude-sonnet-5`,
 `gpt-5.6-terra`, `gemini-3.6-flash`를 사용한다. 운영 계정에서 허용하지 않거나
@@ -98,9 +111,12 @@ GPT는 `FAIRPOST_OPENAI_API_KEY`ㆍ`FAIRPOST_OPENAI_MODEL`, Gemini는
 - `X-Content-Type-Options: nosniff`
 - `X-Frame-Options: DENY`
 - `Referrer-Policy: no-referrer`
-- 기본 요청 바디 제한 1 MiB
+- 기본 요청 바디 제한 1 MiB(MCP 도구의 공고문 인자는 1~100,000자)
 - 익명 경로의 클라이언트별ㆍ인스턴스별 고정 창 제한(기본 분당 60회,
-  `FAIRPOST_PUBLIC_REQUESTS_PER_MINUTE`로 1~10,000 범위 조정)
+  `FAIRPOST_PUBLIC_REQUESTS_PER_MINUTE`로 1~10,000 범위 조정). Bearer 인증에 실패한
+  시도도 같은 한도의 별도 창으로 센다.
+- 미들웨어 거부(401ㆍ413ㆍ429 등)는 HTTP 상태를 유지하고 한국어 사유를 담는다. MCP
+  경로에서는 JSON-RPC 오류(`error.code`, `error.message`) 형식으로 반환한다.
 
 이 제한은 원문을 저장하지 않고 클라이언트 주소를 인스턴스별 임시 HMAC 키로
 익명화해 최대 1분만 보유한다. 서버리스 인스턴스 사이에 공유되는 전역 제한은
@@ -182,7 +198,9 @@ python tools/verify_vercel_deployment.py --allow-write-check
 - 기본 `verify_vercel_deployment.py`는 읽기/목록/상태만 검증하고 실서버 저장 쓰기는 하지 않는다.
 - `--allow-write-check`는 호환성 플래그이며 원격 저장을 호출하지 않고 쓰기 도구가 목록에 없음을 검증한다.
 - 릴리스 증거를 만들 때는 `--source-commit`, `--verified-by`, `--approval-ref`를 함께 지정한다. 이 값은 배포와 승인 흐름을 추적하는 운영 메타데이터이며 전자서명이나 신원 증명은 아니다.
-- 상태 응답에는 공고문 원문이나 비밀값을 넣지 않는다.
+- 상태 응답에는 공고문 원문이나 비밀값을 넣지 않는다. `remote_tools`는 엔드포인트별로
+  노출하는 도구 이름 목록이며, 런타임 지문과 파일별 해시는 배포가 바뀌지 않으므로
+  프로세스마다 한 번만 계산한다.
 
 2026-08-31 운영 배포 `dpl_3BxzdYUYzsqShgdX5HW4zVudgWQX`는 일반ㆍClaude
 경로의 익명 요청 401, Bearer 인증 후 일반 읽기 전용 3도구와 Claude 호환 평문
