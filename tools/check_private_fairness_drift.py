@@ -10,6 +10,12 @@ import sys
 from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools._paths import holdout_components, paths_alias  # noqa: E402
+
 
 AUDIT_SCHEMA_VERSION = "private-fairness-audit-v1"
 DRIFT_SCHEMA_VERSION = "private-fairness-drift-v1"
@@ -417,11 +423,9 @@ def load_audit(path: Path, *, label: str) -> dict[str, Any]:
     return validate_audit(value, label=label)
 
 
-def _path_key(path: Path) -> str:
-    return os.path.normcase(str(path.resolve(strict=False))).casefold()
-
-
 def reject_disallowed_path(path: Path, *, argument: str) -> None:
+    if holdout_components(path):
+        raise DriftInputError(f"{argument} is rejected by the train-only path policy")
     for candidate in (path, path.resolve(strict=False)):
         parts = {part.casefold().rstrip(". ") for part in candidate.parts}
         filename_tokens = set(
@@ -441,20 +445,8 @@ def validate_paths(current: Path, baseline: Path, output: Path) -> None:
         ("--output", output),
     ):
         reject_disallowed_path(path, argument=argument)
-    output_key = _path_key(output)
-    if output_key in {_path_key(current), _path_key(baseline)}:
+    if paths_alias(output, current) or paths_alias(output, baseline):
         raise DriftInputError("--output must differ from both input paths")
-    if output.exists():
-        for input_path in (current, baseline):
-            if input_path.exists():
-                try:
-                    if os.path.samefile(output, input_path):
-                        raise DriftInputError(
-                            "--output must differ from both input paths"
-                        )
-                except OSError:
-                    # A later read/write produces the privacy-safe I/O error.
-                    pass
     if output.exists() and output.is_dir():
         raise DriftInputError("--output must be a file path")
 

@@ -42,8 +42,8 @@ KST = timezone(timedelta(hours=9), name="KST")
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tools._paths import atomic_write_text  # noqa: E402
 from tools.check_evidence_versions import (  # noqa: E402
-    _atomic_write,
     audit as evidence_audit,
     snapshot_of,
 )
@@ -215,7 +215,7 @@ def refresh_report(
                 " --accept-input-change로 다시 실행하세요."
             ),
         )
-    _atomic_write(committed_path, staged.read_text(encoding="utf-8"))
+    atomic_write_text(committed_path, staged.read_text(encoding="utf-8"))
     return Step(name, "refreshed", f"{generator.script} ← {input_path}")
 
 
@@ -285,7 +285,7 @@ def mark_historical(path: Path, reason: str, *, marked_at: str) -> None:
     payload["evidence_status"] = "historical"
     payload["historical_reason"] = reason.strip()
     payload["historical_marked_at"] = marked_at
-    _atomic_write(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+    atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 
 
 def _parse_inputs(values: Sequence[str]) -> dict[str, Path]:
@@ -360,7 +360,7 @@ def refresh(
     if not plan_only:
         final = evidence_audit(reports_dir, scope="local", output=evidence_output)
         if final["passed"]:
-            _atomic_write(
+            atomic_write_text(
                 evidence_output,
                 json.dumps(final, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
             )

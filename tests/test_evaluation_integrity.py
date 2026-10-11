@@ -4,6 +4,7 @@ import base64
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -55,12 +56,12 @@ def test_annotation_ui_rejects_output_alias_and_preserves_existing_on_failure(
         module.validate_paths(records, manifest, hardlink)
 
     monkeypatch.setattr(
-        module.os,
+        os,
         "replace",
         lambda *_args: (_ for _ in ()).throw(OSError("replace failed")),
     )
     with pytest.raises(OSError, match="replace failed"):
-        module._atomic_write_text(output, "new")
+        module.atomic_write_text(output, "new")
     assert output.read_text(encoding="utf-8") == "existing"
 
 
@@ -380,12 +381,12 @@ def test_evaluation_rejects_output_alias_and_writes_atomically(
         )
 
     monkeypatch.setattr(
-        module.os,
+        os,
         "replace",
         lambda *_args: (_ for _ in ()).throw(OSError("replace failed")),
     )
     with pytest.raises(OSError, match="replace failed"):
-        module._atomic_write_text(output, "new")
+        module.atomic_write_text(output, "new")
     assert output.read_text(encoding="utf-8") == "existing"
 
 

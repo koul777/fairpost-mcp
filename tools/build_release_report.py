@@ -4,11 +4,9 @@ import argparse
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
-import os
 from pathlib import Path
 import subprocess
 import sys
-import tempfile
 import tomllib
 from typing import Sequence
 
@@ -44,6 +42,7 @@ from tools.release_inputs import (  # noqa: E402
     validation_source_fingerprint,
 )
 from tools.verify_distribution import distribution_source_fingerprint  # noqa: E402
+from tools._paths import atomic_write_text, paths_alias  # noqa: E402
 
 
 def _require_report_schema(
@@ -276,18 +275,6 @@ def _load_passing_test_count(path: Path) -> int:
     return _load_passing_test_evidence(path)[0]
 
 
-def _paths_alias(left: Path, right: Path) -> bool:
-    try:
-        if left.resolve(strict=False) == right.resolve(strict=False):
-            return True
-    except OSError:
-        pass
-    try:
-        return left.exists() and right.exists() and os.path.samefile(left, right)
-    except OSError:
-        return False
-
-
 def _evidence_paths() -> tuple[Path, ...]:
     return tuple(
         ROOT / "reports" / name
@@ -312,29 +299,10 @@ def validate_paths(
     additional_evidence: Sequence[Path] = (),
 ) -> None:
     for source in (junitxml, *_evidence_paths(), *additional_evidence):
-        if _paths_alias(source, output):
+        if paths_alias(source, output):
             raise ValueError("--output must not overwrite release evidence inputs")
     if output.exists() and output.is_dir():
         raise ValueError("--output must be a file path")
-
-
-def _atomic_write_text(path: Path, payload: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, staged_name = tempfile.mkstemp(
-        dir=path.parent,
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-    )
-    staged = Path(staged_name)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(staged, path)
-    except BaseException:
-        staged.unlink(missing_ok=True)
-        raise
 
 
 def _project_metadata() -> tuple[str, str]:
@@ -909,7 +877,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             allow_stale_deployment=args.allow_stale_deployment,
             strict_release=not args.candidate_report,
         )
-        _atomic_write_text(
+        atomic_write_text(
             args.output,
             json.dumps(report, ensure_ascii=False, indent=2) + "\n",
         )

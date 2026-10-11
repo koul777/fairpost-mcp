@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import FairpostEngine  # noqa: E402
+from tools._paths import reject_holdout_path  # noqa: E402
 
 
 DEFAULT_HIGH_FREQUENCY_THRESHOLD = 0.80
@@ -57,6 +58,7 @@ SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def _validate_train_path(path: Path) -> None:
+    reject_holdout_path(path, "민간 감사 도구는 train 경로만 읽을 수 있습니다")
     for candidate in (path, path.resolve(strict=False)):
         parts = {part.casefold() for part in candidate.parts}
         if parts & NON_TRAIN_PARTS:
@@ -66,6 +68,9 @@ def _validate_train_path(path: Path) -> None:
 
 
 def _validate_non_evaluation_path(path: Path, *, argument: str) -> None:
+    reject_holdout_path(
+        path, f"{argument} 경로에는 비학습 분할 이름을 사용할 수 없습니다"
+    )
     for candidate in (path, path.resolve(strict=False)):
         parts = {part.casefold() for part in candidate.parts}
         if parts & NON_TRAIN_PARTS:

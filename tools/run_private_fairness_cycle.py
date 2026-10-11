@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -15,6 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import FairpostEngine  # noqa: E402
+from tools._paths import paths_alias  # noqa: E402
 from tools import build_private_review_queue as review_queue  # noqa: E402
 from tools import build_private_review_sampling_audit as sampling_audit  # noqa: E402
 from tools import check_private_fairness_drift as drift_checker  # noqa: E402
@@ -35,21 +35,6 @@ class _SafeArgumentParser(argparse.ArgumentParser):
     def error(self, message: str) -> None:
         del message
         raise PrivateFairnessCycleError("argument validation")
-
-
-def _path_key(path: Path) -> str:
-    return os.path.normcase(str(path.resolve(strict=False))).casefold()
-
-
-def _same_existing_file(left: Path, right: Path) -> bool:
-    if not left.exists() or not right.exists():
-        return False
-    try:
-        return os.path.samefile(left, right)
-    except OSError:
-        # The owning stage will later turn an inaccessible path into a safe
-        # execution error.  Preflight still catches every resolvable alias.
-        return False
 
 
 def validate_cycle_paths(
@@ -139,27 +124,22 @@ def validate_cycle_paths(
         ),
     ]
 
-    output_dir_key = _path_key(output_dir)
     for _label, path in writes:
-        if _path_key(path) == output_dir_key or _same_existing_file(path, output_dir):
+        if paths_alias(path, output_dir):
             raise ValueError("an output file collides with --output-dir")
         if path.exists() and path.is_dir():
             raise ValueError("every report output must be a file path")
 
     for index, (_left_label, left) in enumerate(writes):
         for _right_label, right in writes[index + 1 :]:
-            if _path_key(left) == _path_key(right) or _same_existing_file(left, right):
+            if paths_alias(left, right):
                 raise ValueError("output paths must be distinct")
 
     for _read_label, read_path in reads:
-        if _path_key(read_path) == output_dir_key or _same_existing_file(
-            read_path, output_dir
-        ):
+        if paths_alias(read_path, output_dir):
             raise ValueError("input and output paths must be distinct")
         for _write_label, write_path in writes:
-            if _path_key(read_path) == _path_key(write_path) or _same_existing_file(
-                read_path, write_path
-            ):
+            if paths_alias(read_path, write_path):
                 raise ValueError("input and output paths must be distinct")
     return records_path
 

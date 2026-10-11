@@ -6,12 +6,10 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import math
-import os
 from pathlib import Path
 import platform
 import statistics
 import sys
-import tempfile
 import time
 from typing import Any
 
@@ -20,6 +18,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import FairpostEngine  # noqa: E402
+from tools._paths import atomic_write_text, paths_alias, reject_holdout_path  # noqa: E402
 
 
 # The schema is additive: ``metrics.repeat_postings_per_second``,
@@ -50,6 +49,12 @@ def _path_parts(path: Path) -> set[str]:
 
 def validate_train_input(path: Path) -> Path:
     """Return the resolved input path after enforcing the train-only boundary."""
+    # Any component containing "holdout" (private-holdout, Holdout) is refused,
+    # not only one named exactly that; the checks below add the other splits.
+    reject_holdout_path(
+        path,
+        "engine benchmarks reject holdout/test/dev/evaluation paths: holdout",
+    )
     supplied_parts = _path_parts(path)
     resolved = path.resolve(strict=False)
     all_parts = supplied_parts | _path_parts(resolved)
@@ -251,37 +256,13 @@ def build_report(
 
 
 def _write_report(path: Path, report: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
-    descriptor, staged_name = tempfile.mkstemp(
-        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    atomic_write_text(
+        path, json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
     )
-    staged = Path(staged_name)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(staged, path)
-    except BaseException:
-        staged.unlink(missing_ok=True)
-        raise
-
-
-def _paths_alias(left: Path, right: Path) -> bool:
-    try:
-        if left.resolve(strict=False) == right.resolve(strict=False):
-            return True
-    except OSError:
-        pass
-    try:
-        return left.exists() and right.exists() and os.path.samefile(left, right)
-    except OSError:
-        return False
 
 
 def validate_output_path(input_path: Path, output_path: Path) -> None:
-    if _paths_alias(input_path, output_path):
+    if paths_alias(input_path, output_path):
         raise ValueError("benchmark output must not overwrite its training input")
     if output_path.exists() and output_path.is_dir():
         raise ValueError("benchmark output must be a file path")

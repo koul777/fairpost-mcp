@@ -14,15 +14,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import FairpostEngine  # noqa: E402
-
-
-def _reject_holdout(path: Path) -> None:
-    if any("holdout" in part.casefold() for part in path.parts):
-        raise ValueError("웹 패리티 감사에는 봉인 홀드아웃 경로를 사용할 수 없습니다")
+from tools._paths import reject_holdout_path  # noqa: E402
 
 
 def _load_training_records(path: Path) -> list[dict[str, Any]]:
-    _reject_holdout(path)
+    reject_holdout_path(path, "웹 패리티 감사에는 봉인 홀드아웃 경로를 사용할 수 없습니다")
     records: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):

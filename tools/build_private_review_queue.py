@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
 from core import FairpostEngine  # noqa: E402
 from core.morph import normalize  # noqa: E402
 from tools.collect_corpus import EMAIL_RE, LABELED_NAME_RE, PHONE_RE  # noqa: E402
+from tools._paths import holdout_components, paths_alias  # noqa: E402
 
 
 FORBIDDEN_PATH_PARTS = frozenset(
@@ -48,19 +49,6 @@ def _sha256(value: str) -> str:
 
 def _sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
-
-
-def _path_key(path: Path) -> str:
-    return os.path.normcase(str(path.resolve(strict=False))).casefold()
-
-
-def _same_existing_file(left: Path, right: Path) -> bool:
-    if not left.exists() or not right.exists():
-        return False
-    try:
-        return os.path.samefile(left, right)
-    except OSError:
-        return False
 
 
 def queue_manifest_path(path: Path) -> Path:
@@ -106,6 +94,8 @@ def validate_paths(input_path: Path, output_path: Path) -> None:
         ("queue manifest", manifest_path),
     ):
         forbidden = _path_has_component(path, FORBIDDEN_PATH_PARTS)
+        if forbidden is None and holdout_components(path):
+            forbidden = "holdout"  # e.g. private-holdout, not only holdout
         if forbidden is not None:
             raise ValueError(
                 f"{argument} 경로에는 비학습 분할 이름을 사용할 수 없습니다: "
@@ -114,15 +104,11 @@ def validate_paths(input_path: Path, output_path: Path) -> None:
     if not _has_train_component(input_path):
         raise ValueError("--input 경로에는 train 분할이 명시되어야 합니다")
 
-    if _path_key(input_path) == _path_key(output_path):
+    if paths_alias(input_path, output_path):
         raise ValueError("--input과 --output은 서로 다른 파일이어야 합니다")
-    if _path_key(input_path) == _path_key(manifest_path):
+    if paths_alias(input_path, manifest_path):
         raise ValueError("--input과 queue manifest는 서로 다른 파일이어야 합니다")
-    if _same_existing_file(input_path, output_path):
-        raise ValueError("--input과 --output은 서로 다른 파일이어야 합니다")
-    if _same_existing_file(input_path, manifest_path):
-        raise ValueError("--input과 queue manifest는 서로 다른 파일이어야 합니다")
-    if _same_existing_file(output_path, manifest_path):
+    if paths_alias(output_path, manifest_path):
         raise ValueError("--output과 queue manifest는 서로 다른 파일이어야 합니다")
     if output_path.exists() and output_path.is_dir():
         raise ValueError("--output은 파일 경로여야 합니다")

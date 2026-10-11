@@ -5,11 +5,9 @@ import base64
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
 import sys
-import tempfile
 from typing import Any
 
 
@@ -19,6 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import load_ruleset  # noqa: E402
+from tools._paths import atomic_write_text, paths_alias  # noqa: E402
 
 
 LABELER_PAYLOAD_RE = re.compile(
@@ -28,17 +27,6 @@ LABELER_PAYLOAD_RE = re.compile(
 
 def _file_info(payload: bytes) -> dict[str, object]:
     return {"bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
-
-
-def _path_key(path: Path) -> str:
-    return os.path.normcase(os.path.abspath(path))
-
-
-def _same_existing_file(left: Path, right: Path) -> bool:
-    try:
-        return left.exists() and right.exists() and left.samefile(right)
-    except OSError:
-        return False
 
 
 def validate_paths(
@@ -55,9 +43,7 @@ def validate_paths(
         ("--annotations", annotations_path),
     ]
     for name, path in inputs:
-        if _path_key(path) == _path_key(output_path) or _same_existing_file(
-            path, output_path
-        ):
+        if paths_alias(path, output_path):
             raise ValueError(f"--output은 {name}와 다른 파일이어야 합니다")
     if output_path.exists() and output_path.is_dir():
         raise ValueError("--output은 파일 경로여야 합니다")
@@ -133,27 +119,6 @@ def _verify_records(payload: bytes, manifest: dict[str, Any]) -> int:
     ):
         raise ValueError("홀드아웃 manifest 본문 해시와 records가 일치하지 않습니다")
     return len(ids)
-
-
-def _atomic_write_text(path: Path, payload: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    staged_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            newline="",
-            dir=path.parent,
-            prefix=f".{path.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as stream:
-            stream.write(payload)
-            staged_path = Path(stream.name)
-        os.replace(staged_path, path)
-    finally:
-        if staged_path is not None:
-            staged_path.unlink(missing_ok=True)
 
 
 def _load_labeler_payload(labeler: str) -> dict[str, Any]:
@@ -377,7 +342,7 @@ def main() -> int:
             args.labeler,
             args.annotations,
         )
-        _atomic_write_text(
+        atomic_write_text(
             args.output,
             json.dumps(report, ensure_ascii=False, indent=2) + "\n",
         )

@@ -4,10 +4,8 @@ import argparse
 from collections import Counter
 import hashlib
 import json
-import os
 from pathlib import Path
 import sys
-import tempfile
 from typing import Any, Iterable, Sequence
 
 
@@ -16,6 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core import FairpostEngine  # noqa: E402
+from tools._paths import atomic_write_text, paths_alias, reject_holdout_path  # noqa: E402
 
 
 DEFAULT_INPUT = Path(".corpus-prd/train/records.jsonl")
@@ -30,54 +29,11 @@ SLOT_DETAIL_QUESTION_SLOTS = {
 SLOT_DETAIL_QUESTION_IDS = frozenset(SLOT_DETAIL_QUESTION_SLOTS)
 
 
-def _reject_holdout_path(path: Path) -> None:
-    """Reject a holdout-like path before opening it."""
-
-    supplied = str(path).casefold()
-    resolved = str(path.resolve(strict=False)).casefold()
-    if "holdout" in supplied or "holdout" in resolved:
-        raise ValueError(
-            "holdout paths are forbidden; question relevance audit accepts "
-            "train-only input"
-        )
-
-
-def _paths_alias(left: Path, right: Path) -> bool:
-    try:
-        if left.resolve(strict=False) == right.resolve(strict=False):
-            return True
-    except OSError:
-        pass
-    try:
-        return left.exists() and right.exists() and os.path.samefile(left, right)
-    except OSError:
-        return False
-
-
 def validate_output_path(input_path: Path, output_path: Path) -> None:
-    if _paths_alias(input_path, output_path):
+    if paths_alias(input_path, output_path):
         raise ValueError("question relevance output must not overwrite its input")
     if output_path.exists() and output_path.is_dir():
         raise ValueError("question relevance output must be a file path")
-
-
-def _atomic_write(path: Path, payload: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, staged_name = tempfile.mkstemp(
-        dir=path.parent,
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-    )
-    staged = Path(staged_name)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
-            stream.write(payload)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(staged, path)
-    except BaseException:
-        staged.unlink(missing_ok=True)
-        raise
 
 
 def load_training_records(path: Path) -> list[str]:
@@ -87,7 +43,11 @@ def load_training_records(path: Path) -> list[str]:
     they cannot be copied into the aggregate report.
     """
 
-    _reject_holdout_path(path)
+    reject_holdout_path(
+        path,
+        "holdout paths are forbidden; question relevance audit accepts "
+        "train-only input",
+    )
     texts: list[str] = []
     with path.open("r", encoding="utf-8") as stream:
         for line_number, line in enumerate(stream, start=1):
@@ -340,7 +300,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (OSError, UnicodeError, ValueError) as exc:
         parser.error(str(exc))
 
-    _atomic_write(
+    atomic_write_text(
         args.output,
         json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
     )
