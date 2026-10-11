@@ -166,7 +166,18 @@ contact_point:
       patterns: [ 운영시간, 문의 가능 시간, 평일, 업무시간 ]
 document_return:
   label: 채용서류 반환ㆍ파기 안내
-  accept_patterns: [ 채용서류 반환, 서류 반환, 반환 청구, 채용서류 파기, 서류 파기 ]
+  accept_patterns:
+    # A refusal ("서류 반환 불가", "서류 반환은 하지 않습니다") is RETURN-001's
+    # wording, not a return notice.
+    - "re:채용서류\\s*반환(?!\\s*(?:은|는|이|가)?\\s*(?:불가|하지|되지))"
+    - "re:서류\\s*반환(?!\\s*(?:은|는|이|가)?\\s*(?:불가|하지|되지))"
+    - 반환 청구
+    - 채용서류 파기
+    - 서류 파기
+    # A stated return on request ("반환 요청이 있는 경우 반환됩니다", "반환을
+    # 요청할 수 있음") is a return notice too.
+    - "re:반환\\s*요청(?:이|을|시)?[^\\n.!?]{0,30}반환(?:됩니다|됨|합니다|함|해\\s*드립니다|하여\\s*드립니다)"
+    - "re:반환(?:을)?\\s*요청할\\s*수\\s*있"
   search_sections: [ 제출서류, 유의사항, 기타 ]
   components:
     - id: return_period
