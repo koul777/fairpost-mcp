@@ -108,6 +108,9 @@
 - 동결 기간이 끝난 뒤의 재현율 확대 후보: PHOTO-001 `(사진첨부)`, AI-001 `AI 평가 결과만으로`
 - Vercel 함수 리전(icn1) 지정, 정적 경로 보안 헤더 추가
 - CI 액션 SHA 고정, dependabot, lint 게이트
+- 현재 폴더의 로컬 설정 파일이 `FAIRPOST_AI_API_URL`ㆍ`FAIRPOST_KOREAN_LAW_MCP_URL` 같은 주소 키를
+  바꿀 수 있어 환경변수에 있는 레거시 AI 키나 법령 MCP 토큰이 다른 호스트로 갈 수 있음
+  (명령형 키는 이번에 `--config`ㆍ`~/.fairpost/`로 제한했고 주소 키는 예시 설정이 쓰므로 보류)
 - 운영 MCP 토큰 불일치 해소 뒤 인증 배포 검증과 `production_rollout.json`ㆍ`web_visual_audit.json` 갱신
 
 ## 후속 단계
