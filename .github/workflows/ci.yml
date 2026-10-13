@@ -324,3 +324,20 @@ jobs:
           assert isinstance(report["verification"]["vercel_runtime_source_fingerprint_matches_local"], bool)
           assert report["release_readiness"]["status"] in {"ready", "blocked"}
           PY
+          # Only publish files after the test, evidence and privacy gates pass.
+          evidence_dir="$RUNNER_TEMP/linux-candidate-evidence"
+          mkdir -p "$evidence_dir"
+          cp "$RUNNER_TEMP/pytest.xml" \
+            "$RUNNER_TEMP/build-artifact.json" \
+            "$RUNNER_TEMP/evidence-version-audit.json" \
+            "$RUNNER_TEMP/corpus-diversity-audit.json" \
+            reports/distribution_audit.json \
+            dist/fairpost-*.whl dist/fairpost-*.tar.gz \
+            "$evidence_dir/"
+      - name: Upload Linux candidate evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-candidate-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/linux-candidate-evidence/
+          if-no-files-found: error
+          retention-days: 14
