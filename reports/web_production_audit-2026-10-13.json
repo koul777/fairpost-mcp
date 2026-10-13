@@ -1,0 +1,538 @@
+{
+  "schema_version": "fairpost-web-production-audit-v1",
+  "audit_date": "2026-10-13",
+  "evidence_status": "current",
+  "evidence_scope": "production-browser-ui",
+  "production_url": "https://fairmcp.vercel.app",
+  "source_commit": "7ed47c37c3dcbf040413b38451331afe4493629a",
+  "deployment_id": "dpl_63tUCunmGGJgVuo7taGnbPW268jt",
+  "deployment_url": "https://fairmcp-qmmbvzehy-hrkim.vercel.app",
+  "deployment_metadata_source": "Confirmed release metadata supplied by the deploying coordinator; runtime identity independently checked through public GET health and the browser bundle.",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+  "matching_version": "match-2b470bfabfd83536",
+  "runtime_source_fingerprint": "runtime-a5ac2f00ccd1f191d716c50c8e59494f8e984c69b854c6d664681ec996c235e3",
+  "started_at": "2026-10-13T03:10:57.565Z",
+  "finished_at": "2026-10-13T03:11:09.298Z",
+  "browser": {
+    "name": "Chromium headless shell",
+    "version": "153.0.8010.12",
+    "mode": "Playwright 1.63.0; isolated contexts; CSP enforced; reduced motion; mobile touch emulation."
+  },
+  "contains_posting_text": false,
+  "contains_credentials": false,
+  "synthetic_inputs_only": true,
+  "verification": {
+    "passed": true,
+    "checks_passed": 119,
+    "checks_total": 119,
+    "count_note": "115 common local UI checks plus a ruleset check and a no-write-request check for each viewport.",
+    "production_verified": true,
+    "axe_executed": false,
+    "external_requests": 0,
+    "write_requests": 0,
+    "posting_requests": 0,
+    "console_errors": 0,
+    "page_errors": 0,
+    "request_policy": "Only exact https://fairmcp.vercel.app GET/HEAD requests are allowed; all off-origin and write requests are aborted.",
+    "clipboard_comparison": "Windows CRLF normalized to LF; all other characters compared exactly."
+  },
+  "identity_verification": {
+    "checked_at": "2026-10-13T03:15:26.616Z",
+    "health_http_status": 200,
+    "checks": {
+      "health_ok": true,
+      "ruleset_matches_release_and_both_viewports": true,
+      "matching_matches_release": true,
+      "web_bundle_bytes_match_runtime_manifest": true,
+      "runtime_matches_locally_verified_source": true,
+      "no_errors_or_blocked_requests": true
+    },
+    "passed": true,
+    "actual_browser_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+    "actual_browser_matching_version": null,
+    "browser_matching_version_note": "The browser result does not expose matching_version. The public health matching version is checked and deployed web asset bytes are compared to its runtime manifest.",
+    "actual_health_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+    "actual_health_matching_version": "match-2b470bfabfd83536",
+    "runtime_source_manifest_sha256": "38524837b30023190980a7cd2495b2520c604eb87bfe74c3030c38c991b6cb0e",
+    "web_assets": {
+      "web/app.js": {
+        "status": 200,
+        "raw_sha256": "sha256:fdca10966bbe65f72e9365e679f8196dede1acc282d7298eb13a11087b8ae4c1",
+        "actual_canonical_sha256": "sha256:806044a44fc173642760a99984cc1ccd811e17028da85789d93c40547b7bdece",
+        "expected_canonical_sha256": "sha256:806044a44fc173642760a99984cc1ccd811e17028da85789d93c40547b7bdece",
+        "canonicalization": "UTF-8; CRLF and CR normalized to LF, matching the runtime manifest contract.",
+        "matches": true
+      },
+      "web/data.js": {
+        "status": 200,
+        "raw_sha256": "sha256:9f792a4de86c53cb9d74af61f9fe804a0273e458517642f82dab7be426d1d941",
+        "actual_canonical_sha256": "sha256:85e4852604d11df801e0d8c8b2bcf7b4399e04d979cbe65c2c1bbbd5ee912297",
+        "expected_canonical_sha256": "sha256:85e4852604d11df801e0d8c8b2bcf7b4399e04d979cbe65c2c1bbbd5ee912297",
+        "canonicalization": "UTF-8; CRLF and CR normalized to LF, matching the runtime manifest contract.",
+        "matches": true
+      },
+      "web/engine.js": {
+        "status": 200,
+        "raw_sha256": "sha256:3dfb9e3ec24899250231da8f872b2a98eb11add625cdac5959295c36cbd76c2a",
+        "actual_canonical_sha256": "sha256:1b1822f83e6e3d827db1b097a771f859f4281645afc7bc0966a1f296f87d7985",
+        "expected_canonical_sha256": "sha256:1b1822f83e6e3d827db1b097a771f859f4281645afc7bc0966a1f296f87d7985",
+        "canonicalization": "UTF-8; CRLF and CR normalized to LF, matching the runtime manifest contract.",
+        "matches": true
+      },
+      "web/index.html": {
+        "status": 200,
+        "raw_sha256": "sha256:57f555fd766b10bdd8d8347c6d515abfef46b90295a17dcdc29f259807214969",
+        "actual_canonical_sha256": "sha256:3cc4fc416a87334db48e16bec751e0e1f8235a32ba36edf7a1cd830c21256d66",
+        "expected_canonical_sha256": "sha256:3cc4fc416a87334db48e16bec751e0e1f8235a32ba36edf7a1cd830c21256d66",
+        "canonicalization": "UTF-8; CRLF and CR normalized to LF, matching the runtime manifest contract.",
+        "matches": true
+      },
+      "web/posting-templates.js": {
+        "status": 200,
+        "raw_sha256": "sha256:594370e2ed90244f9ecef4cde3a0eac4d22738a6de5182a9565c80cb2da20b79",
+        "actual_canonical_sha256": "sha256:f16ad60eca3312f0e6cd54b351fa14a5fd70ed4e336dd2fb95691ad22e549e31",
+        "expected_canonical_sha256": "sha256:f16ad60eca3312f0e6cd54b351fa14a5fd70ed4e336dd2fb95691ad22e549e31",
+        "canonicalization": "UTF-8; CRLF and CR normalized to LF, matching the runtime manifest contract.",
+        "matches": true
+      },
+      "web/styles.css": {
+        "status": 200,
+        "raw_sha256": "sha256:6e6919e2ab90e1357c434ff24c4d5d664ca3883aedcdf822e290ad9483188549",
+        "actual_canonical_sha256": "sha256:928023870e5cd8308ee6edd46cebccff068f4c72469fc2c0c197074f23adfc51",
+        "expected_canonical_sha256": "sha256:928023870e5cd8308ee6edd46cebccff068f4c72469fc2c0c197074f23adfc51",
+        "canonicalization": "UTF-8; CRLF and CR normalized to LF, matching the runtime manifest contract.",
+        "matches": true
+      }
+    }
+  },
+  "scenarios": [
+    {
+      "name": "desktop-review-edit-record-copy",
+      "launch_url": "https://fairmcp.vercel.app/book",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "initial_mode": "easy",
+      "book_redirect_status": 307,
+      "checks_passed": 59,
+      "checks_total": 59,
+      "actual_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+      "server_matching_version": "match-2b470bfabfd83536",
+      "browser_matching_version_note": "The browser result does not expose matching_version. The public health matching version is checked and deployed web asset bytes are compared to its runtime manifest.",
+      "horizontal_overflow": false,
+      "duplicate_dom_ids": [],
+      "functional_checks": [
+        {
+          "name": "/book 임시 307 리디렉션",
+          "passed": true
+        },
+        {
+          "name": "책 진입 쉬운 모드",
+          "passed": true
+        },
+        {
+          "name": "책 진입 패널 표시",
+          "passed": true
+        },
+        {
+          "name": "보호문장 법령 후보 0",
+          "passed": true
+        },
+        {
+          "name": "보호문장 UI 개수 일치",
+          "passed": true
+        },
+        {
+          "name": "보호문장 법령 후보 0",
+          "passed": true
+        },
+        {
+          "name": "보호문장 UI 개수 일치",
+          "passed": true
+        },
+        {
+          "name": "서류심사·면접시험 전형 안내 확인",
+          "passed": true
+        },
+        {
+          "name": "확인된 전형 안내 부재 질문 없음",
+          "passed": true
+        },
+        {
+          "name": "반환 불가 표현 후보 유지",
+          "passed": true
+        },
+        {
+          "name": "반환 불가를 안내 확인으로 표시하지 않음",
+          "passed": true
+        },
+        {
+          "name": "배포 규칙셋 일치",
+          "passed": true
+        },
+        {
+          "name": "기본 네 관점",
+          "passed": true
+        },
+        {
+          "name": "공통 체크리스트 7개 유지",
+          "passed": true
+        },
+        {
+          "name": "stale 역할 기록 비활성·안내 연결",
+          "passed": true
+        },
+        {
+          "name": "stale 키보드 기록 저장 거부",
+          "passed": true
+        },
+        {
+          "name": "stale 메모·근거 ID 보존",
+          "passed": true
+        },
+        {
+          "name": "stale 한국어 복구 안내",
+          "passed": true
+        },
+        {
+          "name": "원문 복원 후 기록 재활성",
+          "passed": true
+        },
+        {
+          "name": "원문 복원 후 기존 fingerprint에 저장",
+          "passed": true
+        },
+        {
+          "name": "재검토 자체는 저장소 무변경",
+          "passed": true
+        },
+        {
+          "name": "재검토 후 작성 중 draft 보존",
+          "passed": true
+        },
+        {
+          "name": "새 검토는 새 fingerprint에만 기록",
+          "passed": true
+        },
+        {
+          "name": "전문가 모드 답변 보존",
+          "passed": true
+        },
+        {
+          "name": "쉬운 모드 복귀 답변 보존",
+          "passed": true
+        },
+        {
+          "name": "삭제 확인 취소는 공고·답변 보존",
+          "passed": true
+        },
+        {
+          "name": "삭제 승인 후 입력 비움·되돌리기 제공",
+          "passed": true
+        },
+        {
+          "name": "삭제 되돌리기는 공고문 복원",
+          "passed": true
+        },
+        {
+          "name": "되돌리기 후 재검토 필요 안내",
+          "passed": true
+        },
+        {
+          "name": "줄 고쳐 쓰기 대상이 실제 탐지 표현",
+          "passed": true
+        },
+        {
+          "name": "줄 수정 후 결과 stale",
+          "passed": true
+        },
+        {
+          "name": "재검토 후 성별 후보 제거",
+          "passed": true
+        },
+        {
+          "name": "수정 전후 항목 비교 표시",
+          "passed": true
+        },
+        {
+          "name": "고친 줄 정리와 공고 복사 활성",
+          "passed": true
+        },
+        {
+          "name": "메모 복사에 고친 문구 포함",
+          "passed": true
+        },
+        {
+          "name": "고친 공고문 복사 내용 정확",
+          "passed": true
+        }
+      ],
+      "screenshots": [
+        {
+          "file": "desktop-book-entry.png",
+          "sha256": "f09fc74367351b330ee41e47f54e8e217e4c0cf55656b7a5799f37e13268ebdf",
+          "inspected": true
+        },
+        {
+          "file": "desktop-easy-result.png",
+          "sha256": "9f8555336b1e2111c47d608e1737e80e3ef6e5d60a0032c8ce5eafffc991dadb",
+          "inspected": true
+        },
+        {
+          "file": "desktop-role-stale.png",
+          "sha256": "be3064b24207730ee77be404325c4f432dee3af5537aed92e7720bd7f0c75b92",
+          "inspected": true
+        },
+        {
+          "file": "desktop-expert-mode.png",
+          "sha256": "dea790b723148d3596d75f26b8c878f42499736b101ec691496f94bb626dd5f3",
+          "inspected": true
+        },
+        {
+          "file": "desktop-comparison.png",
+          "sha256": "b175c90f5c837272d2e29a184e8702e569f917e3a1a7943e6cf6d9f6e7b8f05f",
+          "inspected": true
+        },
+        {
+          "file": "desktop-final-result.png",
+          "sha256": "4ca45531f9be1af52e8f7f074c5194beb97efe5a8c627f07a1c0185aec3bae76",
+          "inspected": true
+        }
+      ]
+    },
+    {
+      "name": "mobile-review-edit-record-copy",
+      "launch_url": "https://fairmcp.vercel.app/book",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "initial_mode": "easy",
+      "book_redirect_status": 307,
+      "checks_passed": 60,
+      "checks_total": 60,
+      "actual_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+      "server_matching_version": "match-2b470bfabfd83536",
+      "browser_matching_version_note": "The browser result does not expose matching_version. The public health matching version is checked and deployed web asset bytes are compared to its runtime manifest.",
+      "horizontal_overflow": false,
+      "duplicate_dom_ids": [],
+      "functional_checks": [
+        {
+          "name": "/book 임시 307 리디렉션",
+          "passed": true
+        },
+        {
+          "name": "책 진입 쉬운 모드",
+          "passed": true
+        },
+        {
+          "name": "책 진입 패널 표시",
+          "passed": true
+        },
+        {
+          "name": "모바일 소개 접힘",
+          "passed": true
+        },
+        {
+          "name": "보호문장 법령 후보 0",
+          "passed": true
+        },
+        {
+          "name": "보호문장 UI 개수 일치",
+          "passed": true
+        },
+        {
+          "name": "보호문장 법령 후보 0",
+          "passed": true
+        },
+        {
+          "name": "보호문장 UI 개수 일치",
+          "passed": true
+        },
+        {
+          "name": "서류심사·면접시험 전형 안내 확인",
+          "passed": true
+        },
+        {
+          "name": "확인된 전형 안내 부재 질문 없음",
+          "passed": true
+        },
+        {
+          "name": "반환 불가 표현 후보 유지",
+          "passed": true
+        },
+        {
+          "name": "반환 불가를 안내 확인으로 표시하지 않음",
+          "passed": true
+        },
+        {
+          "name": "배포 규칙셋 일치",
+          "passed": true
+        },
+        {
+          "name": "기본 네 관점",
+          "passed": true
+        },
+        {
+          "name": "공통 체크리스트 7개 유지",
+          "passed": true
+        },
+        {
+          "name": "stale 역할 기록 비활성·안내 연결",
+          "passed": true
+        },
+        {
+          "name": "stale 키보드 기록 저장 거부",
+          "passed": true
+        },
+        {
+          "name": "stale 메모·근거 ID 보존",
+          "passed": true
+        },
+        {
+          "name": "stale 한국어 복구 안내",
+          "passed": true
+        },
+        {
+          "name": "원문 복원 후 기록 재활성",
+          "passed": true
+        },
+        {
+          "name": "원문 복원 후 기존 fingerprint에 저장",
+          "passed": true
+        },
+        {
+          "name": "재검토 자체는 저장소 무변경",
+          "passed": true
+        },
+        {
+          "name": "재검토 후 작성 중 draft 보존",
+          "passed": true
+        },
+        {
+          "name": "새 검토는 새 fingerprint에만 기록",
+          "passed": true
+        },
+        {
+          "name": "전문가 모드 답변 보존",
+          "passed": true
+        },
+        {
+          "name": "쉬운 모드 복귀 답변 보존",
+          "passed": true
+        },
+        {
+          "name": "삭제 확인 취소는 공고·답변 보존",
+          "passed": true
+        },
+        {
+          "name": "삭제 승인 후 입력 비움·되돌리기 제공",
+          "passed": true
+        },
+        {
+          "name": "삭제 되돌리기는 공고문 복원",
+          "passed": true
+        },
+        {
+          "name": "되돌리기 후 재검토 필요 안내",
+          "passed": true
+        },
+        {
+          "name": "줄 고쳐 쓰기 대상이 실제 탐지 표현",
+          "passed": true
+        },
+        {
+          "name": "줄 수정 후 결과 stale",
+          "passed": true
+        },
+        {
+          "name": "재검토 후 성별 후보 제거",
+          "passed": true
+        },
+        {
+          "name": "수정 전후 항목 비교 표시",
+          "passed": true
+        },
+        {
+          "name": "고친 줄 정리와 공고 복사 활성",
+          "passed": true
+        },
+        {
+          "name": "메모 복사에 고친 문구 포함",
+          "passed": true
+        },
+        {
+          "name": "고친 공고문 복사 내용 정확",
+          "passed": true
+        }
+      ],
+      "screenshots": [
+        {
+          "file": "mobile-book-entry.png",
+          "sha256": "3508c389ab294954b8a566ace3d77f752c30204833e2b5c7662ed9950265a097",
+          "inspected": true
+        },
+        {
+          "file": "mobile-easy-result.png",
+          "sha256": "3f28d57989f44c8c4c05fd86eb3ee127478d388b672954f609f3df820e4e439f",
+          "inspected": true
+        },
+        {
+          "file": "mobile-role-stale.png",
+          "sha256": "b69963fa5368defdbabfb87ac479f22d72621715481757f5c29bb487c05653ef",
+          "inspected": true
+        },
+        {
+          "file": "mobile-expert-mode.png",
+          "sha256": "f7011b8b1e2c8a984fc855387493ad32a3ed1a288f9eacc1dfa04c93911aee79",
+          "inspected": true
+        },
+        {
+          "file": "mobile-comparison.png",
+          "sha256": "0c13fb2b7794c0526b666a30bf98120b850483a35a1d944d88ce2275569262a6",
+          "inspected": true
+        },
+        {
+          "file": "mobile-final-result.png",
+          "sha256": "b95379f31247a0158435d4c81c085317c03a9c71adadc05eaac97f33febadb3b",
+          "inspected": true
+        }
+      ]
+    }
+  ],
+  "visual_inspection": {
+    "checked_at": "2026-10-13T03:15:28.545Z",
+    "inspected_images": 12,
+    "blocking_issues": [],
+    "observations": [
+      "Mobile book entry keeps the introduction folded and the posting field visible in the initial viewport.",
+      "The stale role record action retains a visible keyboard focus ring and a distinct disabled appearance.",
+      "The preserved role note and evidence ID remain legible at both viewport widths.",
+      "Long Korean toast text wraps inside the mobile viewport; comparison groups and action labels remain readable.",
+      "Easy/expert mode selection, finding cards, and the revised result remain visually consistent."
+    ]
+  },
+  "accessibility": {
+    "axe_executed_on_production": false,
+    "local_reference": "reports/web_visual_audit.json",
+    "local_scope_note": "The same runtime had an eight-state local axe-core 4.13.0 audit with zero confirmed violations and unresolved automatic color-contrast results. Those counts are not production axe results."
+  },
+  "artifacts": {
+    "local_directory": "C:\\workspace\\fairmcp-2h-web-20261013\\tmp\\2h-browser-qa\\production-run-2026-10-13T03-10-57-564Z",
+    "raw_report_file": "report.json",
+    "raw_report_sha256": "d80b97d22d31cd590da7d03855f05633bfdb80efae47be03943474439caee8c9",
+    "identity_report_file": "identity.json",
+    "identity_report_sha256": "b567933e54729aeb91d47fdb70ce2dc788924934ed86d3811d46184c791ecd7a",
+    "harness_file": "run-production-qa.cjs",
+    "harness_sha256": "a3e2b9c922bdf918928a59502841909e551c771f0cad03597c483b1a6e7678a5",
+    "summary_harness_sha256": "d62ec2e749b2946951e015422c6f70411b9779c04c8d007d0299210a0756bd8a",
+    "screenshot_count": 12
+  },
+  "limitations": [
+    "This audit covers the public browser UI and read-only build identity. It does not establish authenticated MCP initialize or tool-call success.",
+    "No optional AI action or posting request was executed. Requests outside the exact production origin and all write methods were blocked.",
+    "No production axe run, screen-reader session, tablet viewport, or animation QA was performed.",
+    "The screenshots and detailed synthetic-input report remain local artifacts; this tracked summary contains no posting text or credentials."
+  ]
+}

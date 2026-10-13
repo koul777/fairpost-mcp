@@ -1,0 +1,341 @@
+{
+  "schema_version": "fairpost-github-ci-audit-v1",
+  "generated_at": "2026-10-13T03:26:13.432539+00:00",
+  "run": {
+    "databaseId": 38341053450,
+    "url": "https://github.com/koul777/fairpost-mcp/actions/runs/38341053450",
+    "headSha": "7a1280814055707fc09ba34591d007b879d9aaa5",
+    "headBranch": "main",
+    "event": "push",
+    "attempt": 1,
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+  "matching_version": "match-2b470bfabfd83536",
+  "runtime_source_fingerprint": "runtime-a5ac2f00ccd1f191d716c50c8e59494f8e984c69b854c6d664681ec996c235e3",
+  "jobs": [
+    {
+      "name": "test",
+      "id": 115111882985,
+      "url": "https://github.com/koul777/fairpost-mcp/actions/runs/38341053450/job/115111882985",
+      "status": "completed",
+      "conclusion": "success",
+      "python_version": "3.11.17",
+      "pytest_summary": "5480 passed in 214.87s",
+      "log_sha256": "0933dd173c51a3582441d4221403bf4368440e9d17930cb11ed1096b312697ca",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install",
+          "conclusion": "success"
+        },
+        {
+          "name": "Audit dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate dictionaries and snapshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify release evidence and product gates",
+          "conclusion": "success"
+        },
+        {
+          "name": "Smoke-test private fairness monitoring",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and verify candidate evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload Linux candidate evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "test-python-latest",
+      "id": 115111883221,
+      "url": "https://github.com/koul777/fairpost-mcp/actions/runs/38341053450/job/115111883221",
+      "status": "completed",
+      "conclusion": "success",
+      "python_version": "3.14.8",
+      "pytest_summary": "5480 passed in 309.62s",
+      "log_sha256": "111c34bb94c29b5b16ddbbd0b8aacac6fd3077f5c0264364c7f8dc96fece33e6",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate dictionaries and web bundle",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test declared latest Python compatibility",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "test-windows",
+      "id": 115111883291,
+      "url": "https://github.com/koul777/fairpost-mcp/actions/runs/38341053450/job/115111883291",
+      "status": "completed",
+      "conclusion": "success",
+      "python_version": "3.11.9",
+      "pytest_summary": "5471 passed, 9 skipped in 355.91s",
+      "log_sha256": "4d25e17eb4e4edd3d2746e2706bb4e5db29b0f3e6ff888ddd018b7cdd9de0bdc",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate dictionaries and snapshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and inspect Windows package",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "junit": {
+    "file": "pytest.xml",
+    "bytes": 763056,
+    "sha256": "e00f1ef91de2979b0d07ffb0dc2d76ed2d7922514061076d8f44b6ee832cfb90",
+    "counts": {
+      "tests": 5480,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "testcases": 5480,
+      "passed": 5480
+    },
+    "duration_seconds": 214.825,
+    "validation_source_fingerprint": "validation-e5f4a104333917ba0c0489d0ea9aa5397a676612cb578c788a3565c80b4193f5",
+    "local_validation_source_fingerprint": "validation-e5f4a104333917ba0c0489d0ea9aa5397a676612cb578c788a3565c80b4193f5",
+    "ci_sdist_validation_source_fingerprint": "validation-e5f4a104333917ba0c0489d0ea9aa5397a676612cb578c788a3565c80b4193f5",
+    "validation_inputs_checked": 157,
+    "ci_sdist_and_local_canonical_source_bytes_identical": true,
+    "matches_current_validation_inputs": true,
+    "candidate_report_binding_verified": true
+  },
+  "artifact": {
+    "name": "linux-candidate-evidence-7a1280814055707fc09ba34591d007b879d9aaa5",
+    "id": 11785999429,
+    "api_url": "https://api.github.com/repos/koul777/fairpost-mcp/actions/artifacts/11785999429",
+    "created_at": "2026-10-13T03:22:28Z",
+    "expires_at": "2026-10-27T03:22:27Z",
+    "api_digest": "sha256:4d3ef209629480782409bb7b4c07e715022ec4f6f734a25e596d47f47a3f8179",
+    "downloaded_archive_sha256": "4d3ef209629480782409bb7b4c07e715022ec4f6f734a25e596d47f47a3f8179",
+    "archive_digest_verified": true,
+    "workflow_run": {
+      "id": 38341053450,
+      "repository_id": 1312804233,
+      "head_repository_id": 1312804233,
+      "head_branch": "main",
+      "head_sha": "7a1280814055707fc09ba34591d007b879d9aaa5"
+    }
+  },
+  "dependency_audit": {
+    "job": "test",
+    "step": "Audit dependencies",
+    "conclusion": "success",
+    "no_known_vulnerabilities_found": true,
+    "log_evidence": [
+      "2026-10-13T03:18:34.4122118Z No known vulnerabilities found"
+    ]
+  },
+  "ci_candidate": {
+    "file": "build-artifact.json",
+    "sha256": "4b9aa3cbdcf0983d3bf1a971ca4fda4db030677e07fe9b122659d8fbbe02eac0",
+    "all_workflow_assertions_verified": true,
+    "release_readiness": {
+      "status": "blocked",
+      "strict_ready": false,
+      "blockers": [
+        {
+          "id": "human_holdout_labels",
+          "reason": "봉인 홀드아웃 사람 라벨과 G1/G2 최종 평가가 없습니다."
+        },
+        {
+          "id": "private_corpus_diversity",
+          "reason": "민간 코퍼스 다양성 감사가 pass가 아닙니다."
+        },
+        {
+          "id": "current_production_deployment",
+          "reason": "운영 배포 증거가 현재 규칙·매칭·런타임 소스와 일치하지 않습니다. 또한 소스 커밋·검증 담당·승인 참조가 모두 기록되어야 합니다."
+        },
+        {
+          "id": "current_external_client_evidence",
+          "reason": "현재 커밋의 외부 MCP 클라이언트 증거가 없습니다."
+        },
+        {
+          "id": "work24_source_access",
+          "reason": "PRD Work24 출처 접근 증거가 충족되지 않았습니다."
+        },
+        {
+          "id": "release_tag",
+          "reason": "현재 HEAD에 단일 릴리스 태그가 없습니다."
+        }
+      ]
+    }
+  },
+  "ci_evidence_version_audit": {
+    "sha256": "81a10d30464bb1d4a8989ed36ebd483f4a5acb50d13def2f0fdb966f443d6fd1",
+    "passed": true,
+    "scope": "local",
+    "reports_checked": 18,
+    "reports_current": 14,
+    "reports_stale": 0,
+    "reports_snapshot_stale": 4
+  },
+  "ci_corpus_diversity_audit": {
+    "sha256": "21d922dce64b4ce5729b30b08f7dda19571382e2e295742c65b09cab65f4e806",
+    "status": "alert",
+    "release_blocking": false
+  },
+  "ci_distribution_audit": {
+    "sha256": "4cd543353c9b94c06109f140badb0b726fa61147e8fa57c91adcad6361edc177",
+    "passed": true,
+    "distribution_source_fingerprint": "distribution-8fee4ece4549a064170b1ec1a3589643b96756a478ccff3b6db16bb415bc7dda",
+    "runtime_source_fingerprint": "runtime-a5ac2f00ccd1f191d716c50c8e59494f8e984c69b854c6d664681ec996c235e3",
+    "contains_real_posting_text": false,
+    "contains_sensitive_packaged_data": false,
+    "posting_text_scope": "synthetic_examples_only"
+  },
+  "ci_built_distribution": {
+    "wheel": {
+      "name": "fairpost-0.3.0-py3-none-any.whl",
+      "bytes": 279055,
+      "sha256": "b6cf6295a19a8848afa0d0fe16c55834c9289019c02f26a93cac6cee20082ec6",
+      "candidate_and_distribution_hashes_match": true
+    },
+    "sdist": {
+      "name": "fairpost-0.3.0.tar.gz",
+      "bytes": 921765,
+      "sha256": "6fa1b48c721783c19814aac0c80b4dfbd7343f9cfdf44422d2f1177981951771",
+      "candidate_and_distribution_hashes_match": true
+    }
+  },
+  "local_installed_wheel": {
+    "sha256": "b0e80f98e31b05583c882a525503ab99a30d4729a693685d51b5d2d10d772025",
+    "same_bytes_as_ci_wheel": false,
+    "note": "Separate local fixed-epoch artifact; its installed-wheel QA is not a claim about the CI-built wheel."
+  },
+  "evidence_directory": ".tmp/2h-improvement-20261013/github-ci-7a12808",
+  "privacy": {
+    "contains_posting_text": false,
+    "contains_credentials": false,
+    "contains_personal_paths": false
+  }
+}
