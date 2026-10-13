@@ -16,8 +16,11 @@ _SENTENCE_BOUNDARIES = ".!?。！？"
 _EVIDENCE_WINDOW_CODEPOINTS = 238
 # Leading bullets, numbering and heading marks (●, ◆, ▶, □, ※, 【, < ...) and
 # trailing colons or closing brackets are decoration around a heading name.
+# Only try a trailing run at its first character, so an interior run of spaces
+# does not restart the end-of-string scan at every position. A leading run can
+# overlap that trailing run; consume its remaining suffix in the first branch.
 # web/engine.js HEADING_DECORATION must stay identical.
-_HEADING_DECORATION = re.compile(r"^[\s#>*\-–—\d.()①-⑳\[\]■●○◆◇▶▷□◎※【】<]+|[\s:：\[\]】>]+$")
+_HEADING_DECORATION = re.compile(r"^[\s#>*\-–—\d.()①-⑳\[\]■●○◆◇▶▷□◎※【】<]+(?:[\s:：\[\]】>]+$)?|(?<![\s:：\[\]】>])[\s:：\[\]】>]+$")
 _WHITESPACE = re.compile(r"\s+")
 _HTML_TAG = re.compile(r"<[^>]+>")
 _ATTACHMENT_FILENAME = re.compile(r"\.(?:pdf|hwpx?|hml|docx?|zip)\s*$", re.I)

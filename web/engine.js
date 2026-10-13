@@ -728,9 +728,11 @@
     });
   }
 
+  // Try a trailing decoration run only at its first character. The optional
+  // suffix on the leading branch preserves overlapping prefix/suffix removal.
   // Same pattern as core.extractor._HEADING_DECORATION, with Python semantics.
   const HEADING_DECORATION = pythonRegex(
-    "^[\\s#>*\\-–—\\d.()①-⑳\\[\\]■●○◆◇▶▷□◎※【】<]+|[\\s:：\\[\\]】>]+$",
+    "^[\\s#>*\\-–—\\d.()①-⑳\\[\\]■●○◆◇▶▷□◎※【】<]+(?:[\\s:：\\[\\]】>]+$)?|(?<![\\s:：\\[\\]】>])[\\s:：\\[\\]】>]+$",
     "gu"
   );
   const WHITESPACE_RUN = pythonRegex("\\s+", "gu");
