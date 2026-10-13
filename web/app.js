@@ -1291,7 +1291,10 @@
       }, null);
       removedFromStorage = outcome.ok;
       storedCount = outcome.storedCount;
-      if (!outcome.ok) {
+      const stillStored = outcome.ok && readRoleReviewStore().packets.some(
+        (packet) => roleReviewPacketKey(packet) === key
+      );
+      if (!outcome.ok || stillStored) {
         roleReviewNotice.textContent =
           "브라우저에 저장된 역할 기록을 삭제하지 못했습니다. 기록과 작성 중인 메모는 그대로 있습니다. 다시 시도하거나 브라우저 설정에서 이 사이트의 저장 데이터를 삭제하세요.";
         showToast("브라우저에 저장된 역할 기록을 삭제하지 못했습니다. 기록은 그대로 있습니다.");

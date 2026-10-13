@@ -763,6 +763,25 @@ for (const relative of appSources) {
   nodeAssert.equal(elements.get("role-review-note").value, "이전 형식 기록 삭제 실패에도 보존할 메모입니다.");
   nodeAssert.match(elements.get("role-review-notice").textContent, /삭제하지 못했습니다/);
   nodeAssert.match(elements.get("toast").textContent, /삭제하지 못했습니다/);
+  // A successful v2 write can still leave the v1 copy when removeItem
+  // fails. Deleting v2 alone is not a successful deletion of this packet.
+  globalThis.localStorage = {
+    ...workingStorage,
+    removeItem(key) {
+      if (key === LEGACY_KEY) throw new Error("SecurityError: simulated legacy removal failure");
+      workingStorage.removeItem(key);
+    },
+  };
+  elements.get("check-button").trigger("click");
+  await tick();
+  nodeAssert.ok(readStore().packets.some((packet) => packet.packet_id === priorPacketId));
+  nodeAssert.equal(localReviewValues.get(LEGACY_KEY), legacyBeforeFailedMigration);
+  elements.get("role-review-clear").trigger("click");
+  nodeAssert.equal(localReviewValues.get(LEGACY_KEY), legacyBeforeFailedMigration);
+  nodeAssert.equal(elements.get("role-review-panel").hidden, false);
+  nodeAssert.equal(elements.get("role-review-note").value, "이전 형식 기록 삭제 실패에도 보존할 메모입니다.");
+  nodeAssert.match(elements.get("role-review-notice").textContent, /삭제하지 못했습니다/);
+  nodeAssert.match(elements.get("toast").textContent, /삭제하지 못했습니다/);
   globalThis.localStorage = workingStorage;
   elements.get("check-button").trigger("click");
   await tick();
