@@ -236,6 +236,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"fairpost: {exc}", file=sys.stderr)
         return 2
 
+    # Validate the whole batch before emitting JSON or starting optional review.
+    # Keep the original text intact so finding offsets still address the input.
+    for source, text in inputs:
+        if not text.strip():
+            label = "표준 입력" if source == "-" else source
+            print(
+                f"fairpost: {label}에 검토할 공고문이 없습니다. "
+                "비어 있거나 공백뿐인 입력은 점검할 수 없습니다.",
+                file=sys.stderr,
+            )
+            return 2
+
     for source, text in inputs:
         if args.review_packet:
             payload = asyncio.run(
