@@ -1,6 +1,6 @@
 {
   "schema_version": "fairpost-installed-wheel-audit-v1",
-  "evidence_status": "current",
+  "evidence_status": "historical",
   "checked_at": "2026-10-13T02:47:27.432585+00:00",
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
   "matching_version": "match-2b470bfabfd83536",
@@ -70,5 +70,6 @@
   },
   "elapsed_seconds": 13.23,
   "passed": true,
-  "raw_report_sha256": "9318b4bb19e0ef4a10bd7eb21ba3b27b37e416e6d383372df6c6196e125f1866"
+  "raw_report_sha256": "9318b4bb19e0ef4a10bd7eb21ba3b27b37e416e6d383372df6c6196e125f1866",
+  "superseded_reason": "Additional 2026-10-13 extension changes the runtime; prior observations and recorded hashes remain unchanged."
 }

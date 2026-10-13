@@ -1,7 +1,7 @@
 {
   "schema_version": "fairpost-web-production-audit-v1",
   "audit_date": "2026-10-13",
-  "evidence_status": "current",
+  "evidence_status": "historical",
   "evidence_scope": "production-browser-ui",
   "production_url": "https://fairmcp.vercel.app",
   "source_commit": "7ed47c37c3dcbf040413b38451331afe4493629a",
@@ -534,5 +534,6 @@
     "No optional AI action or posting request was executed. Requests outside the exact production origin and all write methods were blocked.",
     "No production axe run, screen-reader session, tablet viewport, or animation QA was performed.",
     "The screenshots and detailed synthetic-input report remain local artifacts; this tracked summary contains no posting text or credentials."
-  ]
+  ],
+  "superseded_reason": "Additional 2026-10-13 extension changes the runtime; prior observations and recorded hashes remain unchanged."
 }

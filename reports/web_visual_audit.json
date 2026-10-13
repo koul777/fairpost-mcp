@@ -1,7 +1,7 @@
 {
   "schema_version": "fairpost-web-visual-audit-v1",
   "audit_date": "2026-10-13",
-  "evidence_status": "current",
+  "evidence_status": "historical",
   "evidence_scope": "local-integrated-web-bundle",
   "integration_commit": "b59315d8008565af871f120e8f55f08fcb6706ca",
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
@@ -601,5 +601,6 @@
     "Axe confirmed zero violations in eight states, but color-contrast has unresolved automatic results; this is not a claim of full accessibility conformance.",
     "No screen-reader session, tablet viewport, or animation QA was run in this audit.",
     "The screenshot files and detailed synthetic-input report are local artifacts, not posting data in this summary."
-  ]
+  ],
+  "superseded_reason": "Additional 2026-10-13 extension changes the runtime; prior observations and recorded hashes remain unchanged."
 }

@@ -128,5 +128,7 @@
     "source_commit": "7ed47c37c3dcbf040413b38451331afe4493629a",
     "verified_by": "codex-2h-20261013",
     "approval_ref": "user-request-readme-commit-deploy-2026-10-13"
-  }
+  },
+  "evidence_status": "historical",
+  "superseded_reason": "Additional 2026-10-13 extension changes the runtime; prior observations and recorded hashes remain unchanged."
 }

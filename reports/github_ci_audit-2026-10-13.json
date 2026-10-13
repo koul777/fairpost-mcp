@@ -337,5 +337,7 @@
     "contains_posting_text": false,
     "contains_credentials": false,
     "contains_personal_paths": false
-  }
+  },
+  "evidence_status": "historical",
+  "superseded_reason": "Additional 2026-10-13 extension changes the runtime; prior observations and recorded hashes remain unchanged."
 }

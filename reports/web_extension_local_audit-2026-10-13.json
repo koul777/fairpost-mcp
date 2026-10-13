@@ -1,0 +1,382 @@
+{
+  "schema_version": "fairpost-web-extension-audit-v1",
+  "audit_date": "2026-10-13",
+  "evidence_status": "current",
+  "evidence_scope": "local-integrated-web-bundle",
+  "base_url": "http://127.0.0.1:8139",
+  "source_revision_at_ui_run": "37422414b1e18dd205798e8b9b3ee226528f78b0",
+  "source_revision_at_identity_check": "37422414b1e18dd205798e8b9b3ee226528f78b0",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+  "matching_version": "match-2b470bfabfd83536",
+  "runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+  "started_at": "2026-10-13T04:34:00.047Z",
+  "finished_at": "2026-10-13T04:34:56.663Z",
+  "browser": {
+    "name": "Chromium headless shell",
+    "version": "153.0.8010.12",
+    "isolated_contexts": true,
+    "viewports": [
+      {
+        "width": 1366,
+        "height": 900
+      },
+      {
+        "width": 390,
+        "height": 844
+      }
+    ]
+  },
+  "contains_posting_text": false,
+  "synthetic_inputs_only": true,
+  "verification": {
+    "passed": true,
+    "existing_flow_checks_passed": 119,
+    "existing_flow_checks_total": 119,
+    "new_regression_checks_passed": 34,
+    "new_regression_checks_total": 34,
+    "checks_passed": 153,
+    "checks_total": 153,
+    "posting_network_requests": 0,
+    "off_origin_requests": 0,
+    "page_errors": 0,
+    "console_errors": 0,
+    "identity_checks": {
+      "sourceUnchangedDuringIdentityCheck": true,
+      "browserRulesetMatchesRoot": true,
+      "allSixWebAssetsMatchRoot": true,
+      "noErrorsOrBlockedRequests": true
+    },
+    "clipboard_comparison": "Windows CRLF normalized to LF; all other characters compared exactly."
+  },
+  "new_regressions": [
+    {
+      "viewport": "desktop",
+      "name": "삭제된 기록을 다른 탭 저장으로 복활시키지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "차단 시 draft·근거·포커스 보존과 재검토 안내",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "재검토 후 새 draft만 저장",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "다른 탭 정상 추가 이벤트는 모두 보존",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "쓰기 실패 뒤 삭제 실패를 성공으로 표시하지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "삭제 실패 뒤 저장 기록·세션 기록·draft 보존",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "저장소 복구 후 삭제 재시도 성공",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "#clear-button 미반영 draft 삭제 취소·보존",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "#sample-button 미반영 draft 삭제 취소·보존",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "이미 반영한 수정은 추가 확인 없이 공고 undo로 복구",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "비동기 요청 중 중복 실행 비활성·결과 포커스",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "편집·재검토 중 도착한 응답은 이전 입력 표시",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "같은 입력으로 복원하면 보강 결과도 현재 상태 복구",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "제공자 변경은 이전 결과로 전환",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "보강을 끈 뒤 지연 응답은 숨김 유지",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "쉬운 모드 전환 뒤 지연 응답은 숨김 유지",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "명시적 보강 클릭만 3회, 편집·설정은 자동 호출 없음",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "삭제된 기록을 다른 탭 저장으로 복활시키지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "차단 시 draft·근거·포커스 보존과 재검토 안내",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "재검토 후 새 draft만 저장",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "다른 탭 정상 추가 이벤트는 모두 보존",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "쓰기 실패 뒤 삭제 실패를 성공으로 표시하지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "삭제 실패 뒤 저장 기록·세션 기록·draft 보존",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "저장소 복구 후 삭제 재시도 성공",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "#clear-button 미반영 draft 삭제 취소·보존",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "#sample-button 미반영 draft 삭제 취소·보존",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "이미 반영한 수정은 추가 확인 없이 공고 undo로 복구",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "비동기 요청 중 중복 실행 비활성·결과 포커스",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "편집·재검토 중 도착한 응답은 이전 입력 표시",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "같은 입력으로 복원하면 보강 결과도 현재 상태 복구",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "제공자 변경은 이전 결과로 전환",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "보강을 끈 뒤 지연 응답은 숨김 유지",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "쉬운 모드 전환 뒤 지연 응답은 숨김 유지",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "명시적 보강 클릭만 3회, 편집·설정은 자동 호출 없음",
+      "passed": true
+    }
+  ],
+  "static_asset_identity": {
+    "web/app.js": {
+      "status": 200,
+      "rawSha256": "sha256:baad99b9bfa06a9a71615db59bc20b621fefca3d3e1bc0e9a36b105bb897b355",
+      "canonicalSha256": "sha256:68bae355b5a0522e1c90484330108eb960fbc82bc2d61e544835585d3c84b685",
+      "expectedSha256": "sha256:68bae355b5a0522e1c90484330108eb960fbc82bc2d61e544835585d3c84b685",
+      "matches": true
+    },
+    "web/data.js": {
+      "status": 200,
+      "rawSha256": "sha256:9f792a4de86c53cb9d74af61f9fe804a0273e458517642f82dab7be426d1d941",
+      "canonicalSha256": "sha256:85e4852604d11df801e0d8c8b2bcf7b4399e04d979cbe65c2c1bbbd5ee912297",
+      "expectedSha256": "sha256:85e4852604d11df801e0d8c8b2bcf7b4399e04d979cbe65c2c1bbbd5ee912297",
+      "matches": true
+    },
+    "web/engine.js": {
+      "status": 200,
+      "rawSha256": "sha256:c58d8bbe83bf8b7cff6f66ce2bd42e1d0f24423768dc1892e0bf1807353eee4a",
+      "canonicalSha256": "sha256:1912e299c34926e53ff5bdf317fdaacfc0fbd4beb85704477c3f56194c00c7a3",
+      "expectedSha256": "sha256:1912e299c34926e53ff5bdf317fdaacfc0fbd4beb85704477c3f56194c00c7a3",
+      "matches": true
+    },
+    "web/index.html": {
+      "status": 200,
+      "rawSha256": "sha256:57f555fd766b10bdd8d8347c6d515abfef46b90295a17dcdc29f259807214969",
+      "canonicalSha256": "sha256:3cc4fc416a87334db48e16bec751e0e1f8235a32ba36edf7a1cd830c21256d66",
+      "expectedSha256": "sha256:3cc4fc416a87334db48e16bec751e0e1f8235a32ba36edf7a1cd830c21256d66",
+      "matches": true
+    },
+    "web/posting-templates.js": {
+      "status": 200,
+      "rawSha256": "sha256:594370e2ed90244f9ecef4cde3a0eac4d22738a6de5182a9565c80cb2da20b79",
+      "canonicalSha256": "sha256:f16ad60eca3312f0e6cd54b351fa14a5fd70ed4e336dd2fb95691ad22e549e31",
+      "expectedSha256": "sha256:f16ad60eca3312f0e6cd54b351fa14a5fd70ed4e336dd2fb95691ad22e549e31",
+      "matches": true
+    },
+    "web/styles.css": {
+      "status": 200,
+      "rawSha256": "sha256:6e6919e2ab90e1357c434ff24c4d5d664ca3883aedcdf822e290ad9483188549",
+      "canonicalSha256": "sha256:928023870e5cd8308ee6edd46cebccff068f4c72469fc2c0c197074f23adfc51",
+      "expectedSha256": "sha256:928023870e5cd8308ee6edd46cebccff068f4c72469fc2c0c197074f23adfc51",
+      "matches": true
+    }
+  },
+  "visual_inspection": {
+    "inspected_at": "2026-10-13T04:37:06.885Z",
+    "inspected_images": 16,
+    "blocking_issues": [],
+    "observations": [
+      "Book entry, easy/expert results, stale-state focus, and comparison remain legible at desktop and mobile widths.",
+      "Deleted-packet recovery keeps typed role notes and evidence visible and directs focus to the draft.",
+      "Storage-delete failure keeps saved and session records visible with an explicit failure notice.",
+      "Korean recovery toasts and action labels wrap within the mobile viewport."
+    ],
+    "screenshots": [
+      {
+        "file": "desktop-book-entry.png",
+        "sha256": "f09fc74367351b330ee41e47f54e8e217e4c0cf55656b7a5799f37e13268ebdf",
+        "inspected": true
+      },
+      {
+        "file": "desktop-easy-result.png",
+        "sha256": "9f8555336b1e2111c47d608e1737e80e3ef6e5d60a0032c8ce5eafffc991dadb",
+        "inspected": true
+      },
+      {
+        "file": "desktop-role-stale.png",
+        "sha256": "1cd3c1bb20ff82b1f7832072e5397f162e88614cbaa8fcafe1ffdeabf7f9652e",
+        "inspected": true
+      },
+      {
+        "file": "desktop-expert-mode.png",
+        "sha256": "9ee8b721846f9d5c645a08e42ddac78bd211bdb3f969716a221db7f0192ce6d5",
+        "inspected": true
+      },
+      {
+        "file": "desktop-comparison.png",
+        "sha256": "dae44cb1e8019aafdb9faf2bf73150b19c55b9a22b8e649eac28b0b26634b76a",
+        "inspected": true
+      },
+      {
+        "file": "desktop-final-result.png",
+        "sha256": "d6339af52a511abb015344999ae44fdb24f9766aed8f956e8c15b2c29d17474d",
+        "inspected": true
+      },
+      {
+        "file": "mobile-book-entry.png",
+        "sha256": "3508c389ab294954b8a566ace3d77f752c30204833e2b5c7662ed9950265a097",
+        "inspected": true
+      },
+      {
+        "file": "mobile-easy-result.png",
+        "sha256": "3f28d57989f44c8c4c05fd86eb3ee127478d388b672954f609f3df820e4e439f",
+        "inspected": true
+      },
+      {
+        "file": "mobile-role-stale.png",
+        "sha256": "161f6f923412c2c408fab895ccb3e3d85a6a2c80923dbfeab67f8e2ecff626e3",
+        "inspected": true
+      },
+      {
+        "file": "mobile-expert-mode.png",
+        "sha256": "f7011b8b1e2c8a984fc855387493ad32a3ed1a288f9eacc1dfa04c93911aee79",
+        "inspected": true
+      },
+      {
+        "file": "mobile-comparison.png",
+        "sha256": "0c13fb2b7794c0526b666a30bf98120b850483a35a1d944d88ce2275569262a6",
+        "inspected": true
+      },
+      {
+        "file": "mobile-final-result.png",
+        "sha256": "b95379f31247a0158435d4c81c085317c03a9c71adadc05eaac97f33febadb3b",
+        "inspected": true
+      },
+      {
+        "file": "desktop-deleted-packet-guard.png",
+        "sha256": "fc862be0ad23c6d153100bc83f6705826484879e19d14aabf8cdcb680cb27fd2",
+        "inspected": true
+      },
+      {
+        "file": "desktop-delete-failed.png",
+        "sha256": "f15895312b8082aef1b1a43e172bfeb375df604e9a637df62efaa67d73437ebc",
+        "inspected": true
+      },
+      {
+        "file": "mobile-deleted-packet-guard.png",
+        "sha256": "ccd0d7334a597b49c5f66e7b536b949e81156868ec52000e492078cec32ba263",
+        "inspected": true
+      },
+      {
+        "file": "mobile-delete-failed.png",
+        "sha256": "ed077bedba6c0ec837ec8687f3328979c569c58b8b8ad40b1579e43c1d21db9f",
+        "inspected": true
+      }
+    ]
+  },
+  "assisted_review_test_boundary": "Deferred in-memory fetch responses exercise the actual app handlers; no API POST network request or external AI service is used.",
+  "axe_executed_in_this_audit": false,
+  "local_artifacts": [
+    {
+      "kind": "browser",
+      "directory": "integrated-run-2026-10-13T04-34-00-053Z",
+      "file": "report.json",
+      "sha256": "92ea7e7cf358a596a219c6498ef28f5016d9a97b08aa1b8bc0d8ecd15e7cee50"
+    },
+    {
+      "kind": "regression",
+      "directory": "regression-2026-10-13T04-34-00-047Z",
+      "file": "report.json",
+      "sha256": "517cdf38def68beca90f3edc3a9f21a86b26aefcd92fc93e502638642f081aad"
+    },
+    {
+      "kind": "identity",
+      "directory": "1h-web-qa",
+      "file": "local-identity.json",
+      "sha256": "abc85468c12a39ccd2b78a008534510f454d0d7088c50fcfb7a692f50034b750"
+    }
+  ]
+}

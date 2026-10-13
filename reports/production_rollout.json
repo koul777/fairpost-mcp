@@ -1,7 +1,7 @@
 {
   "schema_version": "fairpost-production-rollout-v1",
   "checked_at": "2026-10-13T03:15:28.545Z",
-  "evidence_status": "current",
+  "evidence_status": "historical",
   "evidence_scope": "verified_production_public_endpoints_and_browser_plus_local_and_ci_validation",
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
   "matching_version": "match-2b470bfabfd83536",
@@ -153,5 +153,6 @@
       "skipped": 9
     },
     "validation_source_fingerprint_matches_local": true
-  }
+  },
+  "superseded_reason": "Additional 2026-10-13 extension changes the runtime; prior observations and recorded hashes remain unchanged."
 }
