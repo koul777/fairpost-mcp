@@ -175,8 +175,10 @@ document_return:
   accept_patterns:
     # A refusal ("서류 반환 불가", "서류 반환은 하지 않습니다") is RETURN-001's
     # wording, not a return notice.
-    - "re:채용서류\\s*반환(?!\\s*(?:은|는|이|가)?\\s*(?:불가|하지|되지))"
-    - "re:서류\\s*반환(?!\\s*(?:은|는|이|가)?\\s*(?:불가|하지|되지))"
+    # Keep the second whitespace run inside the optional particle so two
+    # repetitions cannot repartition the same long gap when it is absent.
+    - "re:채용서류\\s*반환(?!\\s*(?:(?:은|는|이|가)\\s*)?(?:불가|하지|되지))"
+    - "re:서류\\s*반환(?!\\s*(?:(?:은|는|이|가)\\s*)?(?:불가|하지|되지))"
     - 반환 청구
     - 채용서류 파기
     - 서류 파기
