@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-10-11T00:41:56+09:00",
+  "created_at": "2026-10-13T11:42:32+09:00",
   "input": {
     "records": 2100,
     "sector": "private",
@@ -12,7 +12,7 @@
     "선택 행 수와 aggregate precision은 시장 발생률이나 게시물 수준 성능을 뜻하지 않는다.",
     "현재 입력은 단일 출처 범주이므로 민간 채용시장 전체로 일반화하지 않는다."
   ],
-  "matching_version": "match-855c428507688a18",
+  "matching_version": "match-2b470bfabfd83536",
   "privacy_boundary": {
     "contains_organization_identifiers": false,
     "contains_personal_identifiers": false,
@@ -22,11 +22,11 @@
   },
   "rule_sampling": {
     "AGE-002": {
-      "candidate_matches": 196,
-      "collapsed_duplicate_contexts": 58,
+      "candidate_matches": 189,
+      "collapsed_duplicate_contexts": 59,
       "selected_rows": 20,
-      "truncated_unique_contexts": 118,
-      "unique_contexts": 138
+      "truncated_unique_contexts": 110,
+      "unique_contexts": 130
     },
     "AI-001": {
       "candidate_matches": 0,
@@ -169,23 +169,23 @@
       "unique_contexts": 11
     },
     "SEX-001": {
-      "candidate_matches": 629,
+      "candidate_matches": 628,
       "collapsed_duplicate_contexts": 30,
       "selected_rows": 20,
-      "truncated_unique_contexts": 579,
-      "unique_contexts": 599
+      "truncated_unique_contexts": 578,
+      "unique_contexts": 598
     }
   },
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-b5cea04dd38f",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
   "schema_version": "private-review-sampling-audit-v1",
   "selection": {
-    "candidate_matches": 3041,
-    "collapsed_duplicate_contexts": 414,
+    "candidate_matches": 3033,
+    "collapsed_duplicate_contexts": 415,
     "context_chars": 120,
     "per_rule": 20,
     "selected_rows": 230,
     "selected_rule_count": 22,
-    "truncated_unique_contexts": 2397,
-    "unique_contexts": 2627
+    "truncated_unique_contexts": 2388,
+    "unique_contexts": 2618
   }
 }

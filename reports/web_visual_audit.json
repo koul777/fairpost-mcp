@@ -1,187 +1,605 @@
 {
-  "audit_date": "2026-10-04",
-  "evidence_status": "historical",
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-da8f450a87f4",
-  "matching_version": "match-8cc4dbbcae8c00fa",
+  "schema_version": "fairpost-web-visual-audit-v1",
+  "audit_date": "2026-10-13",
+  "evidence_status": "current",
+  "evidence_scope": "local-integrated-web-bundle",
+  "integration_commit": "b59315d8008565af871f120e8f55f08fcb6706ca",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+  "matching_version": "match-2b470bfabfd83536",
+  "runtime_source_fingerprint": "runtime-a5ac2f00ccd1f191d716c50c8e59494f8e984c69b854c6d664681ec996c235e3",
+  "started_at": "2026-10-13T02:42:49.873Z",
+  "finished_at": "2026-10-13T02:43:02.049Z",
   "browser": {
     "name": "Chromium headless shell",
     "version": "153.0.8010.12",
-    "mode": "Playwright 1.63.0 headless, bypassCSP only for axe-core 4.13.0 injection"
+    "mode": "Playwright 1.63.0, isolated contexts, CSP enforced, reduced motion; mobile uses touch emulation."
   },
-  "fixes_applied_during_audit": [
-    "easy-posting scrollable region made keyboard focusable (axe scrollable-region-focusable)",
-    "--muted #66716c -> #5d6863 and role-review timestamp #768394 -> #5f6b7a (axe color-contrast)"
-  ],
+  "contains_posting_text": false,
+  "synthetic_inputs_only": true,
+  "verification": {
+    "passed": true,
+    "checks_passed": 115,
+    "checks_total": 115,
+    "production_verified": false,
+    "axe_executed": true,
+    "external_requests": 0,
+    "posting_requests": 0,
+    "console_errors": 0,
+    "page_errors": 0,
+    "clipboard_comparison": "Windows CRLF normalized to LF; all other characters compared exactly."
+  },
   "scenarios": [
     {
-      "name": "desktop-easy-and-expert",
-      "launch_url": "http://127.0.0.1:8127/web/",
+      "name": "desktop-review-edit-record-copy",
+      "launch_url": "http://127.0.0.1:8137/book",
       "viewport": {
-        "width": 1440,
+        "width": 1366,
         "height": 900
       },
       "initial_mode": "easy",
-      "horizontal_overflow": {
-        "empty": false,
-        "easy_result": false,
-        "expert_result": false
-      },
-      "easy_highlights": 2,
-      "easy_finding_cards": 2,
-      "advanced_controls_hidden_in_easy": true,
-      "easy_result_hidden_in_expert": true,
-      "emoji_offset_selection_matches": true,
-      "emoji_findings_checked": 3,
-      "mode_persisted_after_reload": true,
-      "axe_wcag2a_aa_violations": {
-        "easy": 0,
-        "expert": 0
-      },
-      "screenshots": [
-        ".tmp/browser-review/desktop-0-empty.png",
-        ".tmp/browser-review/desktop-1-easy-result.png",
-        ".tmp/browser-review/desktop-2-emoji.png",
-        ".tmp/browser-review/desktop-3-expert.png"
+      "book_redirect_status": 307,
+      "checks_passed": 57,
+      "checks_total": 57,
+      "horizontal_overflow": false,
+      "duplicate_dom_ids": [],
+      "functional_checks": [
+        {
+          "name": "/book 임시 307 리디렉션",
+          "passed": true
+        },
+        {
+          "name": "책 진입 쉬운 모드",
+          "passed": true
+        },
+        {
+          "name": "책 진입 패널 표시",
+          "passed": true
+        },
+        {
+          "name": "보호문장 법령 후보 0",
+          "passed": true
+        },
+        {
+          "name": "보호문장 UI 개수 일치",
+          "passed": true
+        },
+        {
+          "name": "보호문장 법령 후보 0",
+          "passed": true
+        },
+        {
+          "name": "보호문장 UI 개수 일치",
+          "passed": true
+        },
+        {
+          "name": "서류심사·면접시험 전형 안내 확인",
+          "passed": true
+        },
+        {
+          "name": "확인된 전형 안내 부재 질문 없음",
+          "passed": true
+        },
+        {
+          "name": "반환 불가 표현 후보 유지",
+          "passed": true
+        },
+        {
+          "name": "반환 불가를 안내 확인으로 표시하지 않음",
+          "passed": true
+        },
+        {
+          "name": "기본 네 관점",
+          "passed": true
+        },
+        {
+          "name": "공통 체크리스트 7개 유지",
+          "passed": true
+        },
+        {
+          "name": "stale 역할 기록 비활성·안내 연결",
+          "passed": true
+        },
+        {
+          "name": "stale 키보드 기록 저장 거부",
+          "passed": true
+        },
+        {
+          "name": "stale 메모·근거 ID 보존",
+          "passed": true
+        },
+        {
+          "name": "stale 한국어 복구 안내",
+          "passed": true
+        },
+        {
+          "name": "원문 복원 후 기록 재활성",
+          "passed": true
+        },
+        {
+          "name": "원문 복원 후 기존 fingerprint에 저장",
+          "passed": true
+        },
+        {
+          "name": "재검토 자체는 저장소 무변경",
+          "passed": true
+        },
+        {
+          "name": "재검토 후 작성 중 draft 보존",
+          "passed": true
+        },
+        {
+          "name": "새 검토는 새 fingerprint에만 기록",
+          "passed": true
+        },
+        {
+          "name": "전문가 모드 답변 보존",
+          "passed": true
+        },
+        {
+          "name": "쉬운 모드 복귀 답변 보존",
+          "passed": true
+        },
+        {
+          "name": "삭제 확인 취소는 공고·답변 보존",
+          "passed": true
+        },
+        {
+          "name": "삭제 승인 후 입력 비움·되돌리기 제공",
+          "passed": true
+        },
+        {
+          "name": "삭제 되돌리기는 공고문 복원",
+          "passed": true
+        },
+        {
+          "name": "되돌리기 후 재검토 필요 안내",
+          "passed": true
+        },
+        {
+          "name": "줄 고쳐 쓰기 대상이 실제 탐지 표현",
+          "passed": true
+        },
+        {
+          "name": "줄 수정 후 결과 stale",
+          "passed": true
+        },
+        {
+          "name": "재검토 후 성별 후보 제거",
+          "passed": true
+        },
+        {
+          "name": "수정 전후 항목 비교 표시",
+          "passed": true
+        },
+        {
+          "name": "고친 줄 정리와 공고 복사 활성",
+          "passed": true
+        },
+        {
+          "name": "메모 복사에 고친 문구 포함",
+          "passed": true
+        },
+        {
+          "name": "고친 공고문 복사 내용 정확",
+          "passed": true
+        }
       ],
-      "static_server_api_404_count": 2
+      "screenshots": [
+        {
+          "file": "desktop-book-entry.png",
+          "sha256": "eaef039359af5b81548a9143c43fe779b578a65d57f1eb24e05afa457efc0b5c",
+          "inspected": true
+        },
+        {
+          "file": "desktop-easy-result.png",
+          "sha256": "9f8555336b1e2111c47d608e1737e80e3ef6e5d60a0032c8ce5eafffc991dadb",
+          "inspected": true
+        },
+        {
+          "file": "desktop-role-stale.png",
+          "sha256": "6b8b0b7031fb80d06c5b3762334a061da64ea3060c966752183f29f6efdab003",
+          "inspected": true
+        },
+        {
+          "file": "desktop-expert-mode.png",
+          "sha256": "dea790b723148d3596d75f26b8c878f42499736b101ec691496f94bb626dd5f3",
+          "inspected": true
+        },
+        {
+          "file": "desktop-comparison.png",
+          "sha256": "b175c90f5c837272d2e29a184e8702e569f917e3a1a7943e6cf6d9f6e7b8f05f",
+          "inspected": true
+        },
+        {
+          "file": "desktop-final-result.png",
+          "sha256": "4ca45531f9be1af52e8f7f074c5194beb97efe5a8c627f07a1c0185aec3bae76",
+          "inspected": true
+        }
+      ]
     },
     {
-      "name": "tablet-easy-and-expert",
-      "launch_url": "http://127.0.0.1:8127/web/",
-      "viewport": {
-        "width": 820,
-        "height": 1180
-      },
-      "initial_mode": "easy",
-      "horizontal_overflow": {
-        "empty": false,
-        "easy_result": false,
-        "expert_result": false
-      },
-      "easy_highlights": 2,
-      "easy_finding_cards": 2,
-      "advanced_controls_hidden_in_easy": true,
-      "easy_result_hidden_in_expert": true,
-      "emoji_offset_selection_matches": true,
-      "emoji_findings_checked": 3,
-      "mode_persisted_after_reload": true,
-      "axe_wcag2a_aa_violations": {
-        "easy": 0,
-        "expert": 0
-      },
-      "screenshots": [
-        ".tmp/browser-review/tablet-0-empty.png",
-        ".tmp/browser-review/tablet-1-easy-result.png",
-        ".tmp/browser-review/tablet-2-emoji.png",
-        ".tmp/browser-review/tablet-3-expert.png"
-      ],
-      "static_server_api_404_count": 2
-    },
-    {
-      "name": "mobile-easy-and-expert",
-      "launch_url": "http://127.0.0.1:8127/web/",
+      "name": "mobile-review-edit-record-copy",
+      "launch_url": "http://127.0.0.1:8137/book",
       "viewport": {
         "width": 390,
         "height": 844
       },
       "initial_mode": "easy",
-      "horizontal_overflow": {
-        "empty": false,
-        "easy_result": false,
-        "expert_result": false
-      },
-      "easy_highlights": 2,
-      "easy_finding_cards": 2,
-      "advanced_controls_hidden_in_easy": true,
-      "easy_result_hidden_in_expert": true,
-      "emoji_offset_selection_matches": true,
-      "emoji_findings_checked": 3,
-      "mode_persisted_after_reload": true,
-      "axe_wcag2a_aa_violations": {
-        "easy": 0,
-        "expert": 0
-      },
-      "screenshots": [
-        ".tmp/browser-review/mobile-0-empty.png",
-        ".tmp/browser-review/mobile-1-easy-result.png",
-        ".tmp/browser-review/mobile-2-emoji.png",
-        ".tmp/browser-review/mobile-3-expert.png"
+      "book_redirect_status": 307,
+      "checks_passed": 58,
+      "checks_total": 58,
+      "horizontal_overflow": false,
+      "duplicate_dom_ids": [],
+      "functional_checks": [
+        {
+          "name": "/book 임시 307 리디렉션",
+          "passed": true
+        },
+        {
+          "name": "책 진입 쉬운 모드",
+          "passed": true
+        },
+        {
+          "name": "책 진입 패널 표시",
+          "passed": true
+        },
+        {
+          "name": "모바일 소개 접힘",
+          "passed": true
+        },
+        {
+          "name": "보호문장 법령 후보 0",
+          "passed": true
+        },
+        {
+          "name": "보호문장 UI 개수 일치",
+          "passed": true
+        },
+        {
+          "name": "보호문장 법령 후보 0",
+          "passed": true
+        },
+        {
+          "name": "보호문장 UI 개수 일치",
+          "passed": true
+        },
+        {
+          "name": "서류심사·면접시험 전형 안내 확인",
+          "passed": true
+        },
+        {
+          "name": "확인된 전형 안내 부재 질문 없음",
+          "passed": true
+        },
+        {
+          "name": "반환 불가 표현 후보 유지",
+          "passed": true
+        },
+        {
+          "name": "반환 불가를 안내 확인으로 표시하지 않음",
+          "passed": true
+        },
+        {
+          "name": "기본 네 관점",
+          "passed": true
+        },
+        {
+          "name": "공통 체크리스트 7개 유지",
+          "passed": true
+        },
+        {
+          "name": "stale 역할 기록 비활성·안내 연결",
+          "passed": true
+        },
+        {
+          "name": "stale 키보드 기록 저장 거부",
+          "passed": true
+        },
+        {
+          "name": "stale 메모·근거 ID 보존",
+          "passed": true
+        },
+        {
+          "name": "stale 한국어 복구 안내",
+          "passed": true
+        },
+        {
+          "name": "원문 복원 후 기록 재활성",
+          "passed": true
+        },
+        {
+          "name": "원문 복원 후 기존 fingerprint에 저장",
+          "passed": true
+        },
+        {
+          "name": "재검토 자체는 저장소 무변경",
+          "passed": true
+        },
+        {
+          "name": "재검토 후 작성 중 draft 보존",
+          "passed": true
+        },
+        {
+          "name": "새 검토는 새 fingerprint에만 기록",
+          "passed": true
+        },
+        {
+          "name": "전문가 모드 답변 보존",
+          "passed": true
+        },
+        {
+          "name": "쉬운 모드 복귀 답변 보존",
+          "passed": true
+        },
+        {
+          "name": "삭제 확인 취소는 공고·답변 보존",
+          "passed": true
+        },
+        {
+          "name": "삭제 승인 후 입력 비움·되돌리기 제공",
+          "passed": true
+        },
+        {
+          "name": "삭제 되돌리기는 공고문 복원",
+          "passed": true
+        },
+        {
+          "name": "되돌리기 후 재검토 필요 안내",
+          "passed": true
+        },
+        {
+          "name": "줄 고쳐 쓰기 대상이 실제 탐지 표현",
+          "passed": true
+        },
+        {
+          "name": "줄 수정 후 결과 stale",
+          "passed": true
+        },
+        {
+          "name": "재검토 후 성별 후보 제거",
+          "passed": true
+        },
+        {
+          "name": "수정 전후 항목 비교 표시",
+          "passed": true
+        },
+        {
+          "name": "고친 줄 정리와 공고 복사 활성",
+          "passed": true
+        },
+        {
+          "name": "메모 복사에 고친 문구 포함",
+          "passed": true
+        },
+        {
+          "name": "고친 공고문 복사 내용 정확",
+          "passed": true
+        }
       ],
-      "static_server_api_404_count": 2
+      "screenshots": [
+        {
+          "file": "mobile-book-entry.png",
+          "sha256": "3508c389ab294954b8a566ace3d77f752c30204833e2b5c7662ed9950265a097",
+          "inspected": true
+        },
+        {
+          "file": "mobile-easy-result.png",
+          "sha256": "3f28d57989f44c8c4c05fd86eb3ee127478d388b672954f609f3df820e4e439f",
+          "inspected": true
+        },
+        {
+          "file": "mobile-role-stale.png",
+          "sha256": "4d743ee7e50e269b5a74882a31ee1a261e4c96138eb388955496ef3f712386fd",
+          "inspected": true
+        },
+        {
+          "file": "mobile-expert-mode.png",
+          "sha256": "f7011b8b1e2c8a984fc855387493ad32a3ed1a288f9eacc1dfa04c93911aee79",
+          "inspected": true
+        },
+        {
+          "file": "mobile-comparison.png",
+          "sha256": "0c13fb2b7794c0526b666a30bf98120b850483a35a1d944d88ce2275569262a6",
+          "inspected": true
+        },
+        {
+          "file": "mobile-final-result.png",
+          "sha256": "b95379f31247a0158435d4c81c085317c03a9c71adadc05eaac97f33febadb3b",
+          "inspected": true
+        }
+      ]
     }
   ],
-  "contains_posting_text": false,
-  "note": "Easy/expert and emoji selections checked via a static loopback HTTP server; its optional assisted-review capability endpoint returned 404 as expected. Comparison checked via standalone file mode. Synthetic inputs only; screenshots remain local. Comparison sent no postings and stored no posting text. Full-page axe checks used HTTP to avoid file-mode stylesheet-fetch restrictions.",
-  "runtime_source_fingerprint": "runtime-de4fda98b279d6ecc6c26532fcb07240cdc441d4013c596935764d9034fe6246",
-  "comparison_checked_at": "2026-10-04T05:52:39.190Z",
-  "comparison_scenarios": [
-    {
-      "name": "desktop",
-      "width": 1440,
-      "height": 900,
-      "violations": [],
-      "overflow": false,
-      "storedPosting": false,
-      "posting_requests": 0,
-      "page_errors": []
-    },
-    {
-      "name": "tablet",
-      "width": 820,
-      "height": 1180,
-      "violations": [],
-      "overflow": false,
-      "storedPosting": false,
-      "posting_requests": 0,
-      "page_errors": []
-    },
-    {
-      "name": "mobile",
-      "width": 390,
-      "height": 844,
-      "violations": [],
-      "overflow": false,
-      "storedPosting": false,
-      "posting_requests": 0,
-      "page_errors": []
-    }
-  ],
-  "production_comparison": {
-    "checked_at": "2026-10-04T06:04:40.736Z",
-    "cases": [
+  "visual_inspection": {
+    "inspected_images": 12,
+    "blocking_issues": [],
+    "observations": [
+      "Mobile book entry keeps the introduction folded and the posting field visible in the initial viewport.",
+      "The stale role record action retains a visible keyboard focus ring and a distinct disabled appearance.",
+      "The preserved role note and evidence ID remain legible at both viewport widths.",
+      "Long Korean toast text wraps inside the mobile viewport; comparison groups and action labels remain readable.",
+      "Easy/expert mode selection, finding cards, and the revised result remain visually consistent."
+    ]
+  },
+  "accessibility": {
+    "tool": "axe-core",
+    "version": "4.13.0",
+    "rules": [
+      "wcag2a",
+      "wcag2aa",
+      "wcag21a",
+      "wcag21aa",
+      "wcag22aa",
+      "best-practice"
+    ],
+    "started_at": "2026-10-13T02:43:09.491Z",
+    "finished_at": "2026-10-13T02:43:25.354Z",
+    "confirmed_violations": 0,
+    "automated_check_complete": false,
+    "injection": "Local axe-core 4.13.0 injected with bypassCSP for the audit only. Separate interaction QA kept CSP enforced.",
+    "scenarios": [
       {
-        "name": "desktop",
-        "width": 1440,
-        "height": 900,
+        "name": "desktop-easy-collapsed",
+        "viewport": {
+          "width": 1366,
+          "height": 900
+        },
+        "mode": "easy",
+        "expanded_details": false,
         "violations": [],
-        "overflow": false,
-        "storedPosting": false,
-        "posting_requests": 0,
-        "page_errors": []
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "affected_node_instances": 16
+          }
+        ],
+        "passed_rules": 44,
+        "inapplicable_rules": 46
       },
       {
-        "name": "tablet",
-        "width": 820,
-        "height": 1180,
+        "name": "desktop-easy-expanded",
+        "viewport": {
+          "width": 1366,
+          "height": 900
+        },
+        "mode": "easy",
+        "expanded_details": true,
         "violations": [],
-        "overflow": false,
-        "storedPosting": false,
-        "posting_requests": 0,
-        "page_errors": []
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "affected_node_instances": 378
+          }
+        ],
+        "passed_rules": 46,
+        "inapplicable_rules": 44
       },
       {
-        "name": "mobile",
-        "width": 390,
-        "height": 844,
+        "name": "desktop-expert-collapsed",
+        "viewport": {
+          "width": 1366,
+          "height": 900
+        },
+        "mode": "expert",
+        "expanded_details": false,
         "violations": [],
-        "overflow": false,
-        "storedPosting": false,
-        "posting_requests": 0,
-        "page_errors": []
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "affected_node_instances": 15
+          }
+        ],
+        "passed_rules": 43,
+        "inapplicable_rules": 47
+      },
+      {
+        "name": "desktop-expert-expanded",
+        "viewport": {
+          "width": 1366,
+          "height": 900
+        },
+        "mode": "expert",
+        "expanded_details": true,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "affected_node_instances": 28
+          }
+        ],
+        "passed_rules": 46,
+        "inapplicable_rules": 44
+      },
+      {
+        "name": "mobile-easy-collapsed",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "mode": "easy",
+        "expanded_details": false,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "affected_node_instances": 20
+          }
+        ],
+        "passed_rules": 44,
+        "inapplicable_rules": 46
+      },
+      {
+        "name": "mobile-easy-expanded",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "mode": "easy",
+        "expanded_details": true,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "affected_node_instances": 394
+          }
+        ],
+        "passed_rules": 46,
+        "inapplicable_rules": 44
+      },
+      {
+        "name": "mobile-expert-collapsed",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "mode": "expert",
+        "expanded_details": false,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "affected_node_instances": 17
+          }
+        ],
+        "passed_rules": 43,
+        "inapplicable_rules": 47
+      },
+      {
+        "name": "mobile-expert-expanded",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "mode": "expert",
+        "expanded_details": true,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "affected_node_instances": 30
+          }
+        ],
+        "passed_rules": 46,
+        "inapplicable_rules": 44
       }
     ],
-    "passed": true
+    "incomplete_explanation": "All incomplete results are color-contrast: gradients (152), background images (20), or pseudo elements (726); counts are repeated node instances across 8 states, not distinct issues. No complete manual contrast audit was performed.",
+    "console_errors": 0,
+    "page_errors": 0,
+    "blocked_requests": 0
   },
-  "historical_reason": "2026-10-04 운영 배포(2b22889)와 그 시점 화면의 기록. 이후 커밋은 아직 운영에 배포ㆍ검증되지 않았으므로 재배포 후 다시 기록하기 전까지 현재 증거로 쓰지 않음",
-  "historical_marked_at": "2026-10-10T12:57:33+09:00"
+  "artifacts": {
+    "local_directory": "C:\\workspace\\fairmcp-2h-web-20261013\\tmp\\2h-browser-qa\\run-2026-10-13T02-42-49-872Z",
+    "raw_report_sha256": "8adda09efb2c8b6e408dc29a5d159f26235e04db7e80340f338371f3a34218d2",
+    "harness_sha256": "b4e229be919311feeea9a352f2cc27f18b9b6b476e62e5c8331ae49b4fd72ebf",
+    "axe_report_file": "axe-local-2026-10-13T02-43-09-490Z.json",
+    "axe_report_sha256": "6c9a745cd87309c7e962273b6a322aa936c87dd2844707b69af2d2f16eb419c7",
+    "axe_harness_sha256": "86577f247b7c9bf8046838c657ec3b9a1a73029925840234105721190f41729b"
+  },
+  "limitations": [
+    "Integrated web bundle served by the task loopback HTTP server only; no production deployment or production authentication verified.",
+    "Axe confirmed zero violations in eight states, but color-contrast has unresolved automatic results; this is not a claim of full accessibility conformance.",
+    "No screen-reader session, tablet viewport, or animation QA was run in this audit.",
+    "The screenshot files and detailed synthetic-input report are local artifacts, not posting data in this summary."
+  ]
 }

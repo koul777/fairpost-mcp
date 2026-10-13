@@ -118,6 +118,13 @@ python tools\refresh_evidence.py --mark-historical production_rollout.json --rea
 `current_web_parity` 차단 사유를 추가하고, 사람 평가는 현재 규칙셋의 최종 평가가 있어야
 한다.
 
+과거 모델·문맥 집계에 `source_ruleset_version`과 `current_ruleset_version`이 함께
+있다면 두 필드의 의미를 구분한다. 재실행하지 않은 집계의 `ruleset_version`,
+`matching_version`, `source_*`와 측정값은 보존하고, `current_*`만 현재 엔진과 비교하는
+버전으로 갱신한다. `evidence_status: historical`과 재실행하지 않았다는 이유도 유지한다.
+또한 `examples/pilot_feedback.example.jsonl`은 실행 가능한 합성 예제이므로 현재 규칙·매칭
+버전을 사용한다. 이 예제를 갱신한 것을 실제 파일럿 결과로 기록하지 않는다.
+
 2026-10-10 기록: 6ff67c6이 규칙셋을 `…-0fa75d41155c`로 바꾼 뒤 위 7개 보고서를 이 방식으로
 `historical`로 표시했다. 코퍼스가 있는 PC에서 `python tools\refresh_evidence.py`를 실행하면
 앞의 세 보고서가 현재 증거로 돌아온다.

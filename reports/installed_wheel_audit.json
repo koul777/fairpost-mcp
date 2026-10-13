@@ -1,0 +1,74 @@
+{
+  "schema_version": "fairpost-installed-wheel-audit-v1",
+  "evidence_status": "current",
+  "checked_at": "2026-10-13T02:47:27.432585+00:00",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+  "matching_version": "match-2b470bfabfd83536",
+  "runtime_source_fingerprint": "runtime-a5ac2f00ccd1f191d716c50c8e59494f8e984c69b854c6d664681ec996c235e3",
+  "wheel_name": "fairpost-0.3.0-py3-none-any.whl",
+  "wheel_sha256": "b0e80f98e31b05583c882a525503ab99a30d4729a693685d51b5d2d10d772025",
+  "versions": {
+    "fairpost": "0.3.0",
+    "mcp": "1.30.0",
+    "httpx": "0.28.1",
+    "starlette": "1.7.0"
+  },
+  "installed_outside_checkout": true,
+  "fresh_virtual_environment": true,
+  "synthetic_inputs_only": true,
+  "contains_posting_text": false,
+  "contains_credentials": false,
+  "cli": {
+    "passed": true,
+    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+    "counts": {
+      "findings": 1,
+      "not_found": 11,
+      "questions": 18
+    },
+    "blank_exit_codes": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "bom_json_equivalent": true,
+    "original_offsets_preserved": true
+  },
+  "stdio": {
+    "passed": true,
+    "server_name": "fairpost",
+    "tools": [
+      "check_job_posting",
+      "check_job_posting_structured",
+      "get_role_review",
+      "get_saved_answers",
+      "next_review_question",
+      "prepare_hr_review",
+      "purge_role_review",
+      "record_review_event",
+      "save_answer",
+      "start_role_review"
+    ],
+    "structured_and_plain_calls": true,
+    "empty_input_rejected": true
+  },
+  "web": {
+    "passed": true,
+    "assets": {
+      "index.html": 200,
+      "app.js": 200,
+      "engine.js": 200,
+      "data.js": 200,
+      "posting-templates.js": 200,
+      "styles.css": 200
+    },
+    "favicon_status": 200,
+    "book_status": 307,
+    "optional_ai_configured": false,
+    "server_stopped": true
+  },
+  "elapsed_seconds": 13.23,
+  "passed": true,
+  "raw_report_sha256": "9318b4bb19e0ef4a10bd7eb21ba3b27b37e416e6d383372df6c6196e125f1866"
+}

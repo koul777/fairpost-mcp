@@ -1,11 +1,11 @@
 {
   "candidate_summary": {
-    "any_law_rule": 776,
+    "any_law_rule": 771,
     "by_dimension": {
-      "분배": 774,
+      "분배": 768,
       "정보": 72
     },
-    "multiple_law_rules": 138
+    "multiple_law_rules": 136
   },
   "contains_organization_identifiers": false,
   "contains_posting_text": false,
@@ -22,7 +22,7 @@
   },
   "law_rule_posting_hits": {
     "AGE-001": 18,
-    "AGE-002": 196,
+    "AGE-002": 189,
     "AI-001": 0,
     "ASSET-001": 0,
     "BODY-001": 0,
@@ -38,13 +38,13 @@
     "PREG-001": 0,
     "RETURN-001": 68,
     "SCHOOL-001": 0,
-    "SEX-001": 629,
+    "SEX-001": 628,
     "SEX-002": 0
   },
-  "matching_version": "match-855c428507688a18",
+  "matching_version": "match-2b470bfabfd83536",
   "question_posting_hits": {
     "Q-DIST-001": 760,
-    "Q-DIST-002": 2082,
+    "Q-DIST-002": 2081,
     "Q-DIST-003": 23,
     "Q-DIST-004": 255,
     "Q-DIST-005": 9,
@@ -57,13 +57,13 @@
     "Q-DIST-012": 1,
     "Q-DIST-013": 15,
     "Q-DIST-014": 0,
-    "Q-DIST-015": 651,
+    "Q-DIST-015": 650,
     "Q-DIST-016": 1,
     "Q-DIST-017": 0,
     "Q-INFO-001": 2100,
     "Q-INFO-002": 1866,
     "Q-INFO-003": 1877,
-    "Q-INFO-004": 2088,
+    "Q-INFO-004": 2087,
     "Q-INFO-005": 2100,
     "Q-INFO-006": 0,
     "Q-INFO-007": 2100,
@@ -80,8 +80,8 @@
     "Q-INTER-004": 0,
     "Q-INTER-005": 2100,
     "Q-INTER-006": 2100,
-    "Q-INTER-007": 520,
-    "Q-PROC-001": 1960,
+    "Q-INTER-007": 328,
+    "Q-PROC-001": 1854,
     "Q-PROC-002": 2099,
     "Q-PROC-003": 1,
     "Q-PROC-004": 0,
@@ -96,18 +96,18 @@
     "Q-PROC-013": 2100,
     "Q-PROC-014": 0
   },
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-b5cea04dd38f",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
   "slot_found_posting_hits": {
     "ai_disclosure": 0,
     "appeal_channel": 0,
     "compensation": 2100,
     "contact_point": 223,
-    "document_return": 12,
+    "document_return": 13,
     "evaluation_criteria": 1,
     "preference_items": 1340,
     "qualification_rationale": 20,
     "result_notice": 234,
     "schedule": 2099,
-    "selection_stages": 140
+    "selection_stages": 246
   }
 }
