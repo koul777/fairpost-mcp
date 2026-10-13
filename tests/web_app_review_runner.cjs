@@ -531,7 +531,40 @@ for (const relative of appSources) {
   elements.get("role-review-action").value = "note";
   elements.get("role-review-note").value = "릴리스 전 재현성 근거와 사람 검토 이력을 확인합니다.";
   elements.get("role-review-evidence").value = "Q-DIST-002, ncs-process";
+  // Editing or manually clearing the posting must not attach a role draft to
+  // the previously checked fingerprint. Trigger the handler even while its
+  // aria-disabled action is locked, as a keyboard user can still reach it.
+  const checkedRolePosting = posting.value;
+  const roleNoteDraft = elements.get("role-review-note").value;
+  const roleEvidenceDraft = elements.get("role-review-evidence").value;
+  const staleRoleWrites = [];
+  for (const changed of [`${checkedRolePosting}\n추가 안내`, ""]) {
+    posting.value = changed;
+    posting.dispatchEvent(new Event("input"));
+    const storeBefore = localReviewValues.get(STORE_KEY);
+    const eventsBefore = elements.get("role-review-events").innerHTML;
+    elements.get("role-review-record").trigger("click");
+    staleRoleWrites.push({
+      storeUnchanged: localReviewValues.get(STORE_KEY) === storeBefore,
+      eventsUnchanged: elements.get("role-review-events").innerHTML === eventsBefore,
+      notePreserved: elements.get("role-review-note").value === roleNoteDraft,
+      evidencePreserved: elements.get("role-review-evidence").value === roleEvidenceDraft,
+      ariaDisabled: elements.get("role-review-record").getAttribute("aria-disabled"),
+      describedBy: elements.get("role-review-record").getAttribute("aria-describedby"),
+      focusable: !elements.get("role-review-record").disabled,
+      banner: elements.get("stale-banner-text").textContent,
+      toast: elements.get("toast").textContent,
+    });
+  }
+  posting.value = checkedRolePosting;
+  posting.dispatchEvent(new Event("input"));
+  const restoredRoleWrite = {
+    enabled: !elements.get("role-review-record").disabled &&
+      elements.get("role-review-record").getAttribute("aria-disabled") !== "true",
+    describedBy: elements.get("role-review-record").getAttribute("aria-describedby"),
+  };
   elements.get("role-review-record").trigger("click");
+  restoredRoleWrite.savedDraft = readStore().packets[0].events.at(-1).note === roleNoteDraft;
   // The first event saves the packet.
   const roleFingerprint = readStore().packets[0].posting_fingerprint;
   const currentPacket = () =>
@@ -627,14 +660,39 @@ for (const relative of appSources) {
 
   // A different posting (one character changed) gets its own packet, saved
   // once the reader records something in it.
+  const packetsBeforeChangedPosting = readStore().packets;
+  const changedPostingDraft = "다른 공고문의 첫 기록입니다.";
+  elements.get("role-review-note").value = changedPostingDraft;
+  elements.get("role-review-evidence").value = "ncs-process";
   posting.value = "여성만 지원 가능.";
   posting.dispatchEvent(new Event("input"));
+  const storeBeforeRecheck = localReviewValues.get(STORE_KEY);
+  elements.get("role-review-record").trigger("click");
+  const changedPostingWrite = {
+    staleStoreUnchanged: localReviewValues.get(STORE_KEY) === storeBeforeRecheck,
+  };
   elements.get("check-button").trigger("click");
+  changedPostingWrite.disabledWhilePreparing = elements.get("role-review-record").disabled;
+  elements.get("role-review-record").trigger("click");
+  changedPostingWrite.preparingStoreUnchanged = localReviewValues.get(STORE_KEY) === storeBeforeRecheck;
   await tick();
+  changedPostingWrite.enabledAfterRecheck = !elements.get("role-review-record").disabled &&
+    elements.get("role-review-record").getAttribute("aria-disabled") !== "true";
+  changedPostingWrite.draftPreserved = elements.get("role-review-note").value === changedPostingDraft &&
+    elements.get("role-review-evidence").value === "ncs-process";
   const otherPostingNotice = elements.get("role-review-notice").textContent;
   const storedBeforeOtherEvent = readStore().packets.length;
-  elements.get("role-review-note").value = "다른 공고문의 첫 기록입니다.";
   elements.get("role-review-record").trigger("click");
+  const packetsAfterChangedPosting = readStore().packets;
+  changedPostingWrite.oldPacketsUnchanged = packetsBeforeChangedPosting.every((packet) =>
+    JSON.stringify(packetsAfterChangedPosting.find((stored) => stored.packet_id === packet.packet_id)) ===
+      JSON.stringify(packet)
+  );
+  const changedPostingPacket = packetsAfterChangedPosting.find(
+    (packet) => packet.posting_fingerprint !== roleFingerprint
+  );
+  changedPostingWrite.savedInNewFingerprint = Boolean(changedPostingPacket &&
+    changedPostingPacket.events.at(-1).note === changedPostingDraft);
   const otherPosting = {
     storedBeforeFirstEvent: storedBeforeOtherEvent,
     packetCount: readStore().packets.length,
@@ -876,6 +934,9 @@ for (const relative of appSources) {
     retention,
     corrupt,
     unavailable,
+    staleWrites: staleRoleWrites,
+    restoredWrite: restoredRoleWrite,
+    changedPostingWrite,
   };
 
   // Easy-mode "select in posting" uses offsets of the checked text only.
