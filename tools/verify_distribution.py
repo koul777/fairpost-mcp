@@ -694,6 +694,7 @@ def inspect_wheel(path: Path) -> dict[str, object]:
         source_mismatches = _wheel_source_mismatches(archive, names)
     missing = sorted(WHEEL_REQUIRED - names)
     data_required = {
+        "favicon.svg",
         "data/slots.yaml",
         "data/rules/law.yaml",
         "data/rules/questions.yaml",

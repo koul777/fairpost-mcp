@@ -32,6 +32,7 @@ fairpost-mcp-stdio = "mcp_server.server:main_stdio"
 packages = ["core", "cli", "mcp_server"]
 
 [tool.setuptools.data-files]
+"share/fairpost" = ["favicon.svg"]
 "share/fairpost/data" = [
   "data/slots.yaml",
   "data/local_rules.example.yaml",
