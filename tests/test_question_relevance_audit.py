@@ -412,6 +412,7 @@ def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
             ("slot_evidence_context_recount", 259),
             ("detection_fix_recount", -1),
             ("review_followup_recount", -16),
+            ("detection_quality_recount", -43),
         )
     ]
     for recount, net in recounts:
@@ -431,6 +432,9 @@ def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
         )
     # Each recount starts where the previous entry for the same question ended.
     latest = {"Q-DIST-002": related_question_linkage["Q-DIST-002_after"]}
+    # Questions added by an earlier entry chain from that entry's count too.
+    for question_id in ("Q-INTER-005", "Q-INTER-006", "Q-INTER-007", "Q-PROC-014"):
+        latest[question_id] = new_questions[f"{question_id}_after"]
     recount_delta: dict[str, int] = {}
     for recount, _net in recounts:
         for key in recount:
@@ -475,15 +479,6 @@ def test_committed_manual_review_evidence_is_aggregate_and_consistent() -> None:
     assert current_by_id["Q-INFO-013"] == private_monitoring[
         "Q-INFO-013_after"
     ]
-    for question_id in (
-        "Q-INTER-005",
-        "Q-INTER-006",
-        "Q-INTER-007",
-        "Q-PROC-014",
-    ):
-        assert current_by_id[question_id] == new_questions[
-            f"{question_id}_after"
-        ]
     for question_id, count in latest.items():
         assert current_by_id[question_id] == count, question_id
     snapshot = before["question_activation_records"]

@@ -5,23 +5,23 @@
   "contains_record_ids": false,
   "contains_source_ids": false,
   "default_expanded_posting_question_reduction": {
-    "baseline_question_instances": 7048,
+    "baseline_question_instances": 7005,
     "collapsed_question_instances": 2933,
-    "default_expanded_question_instances": 4115,
-    "reduction_rate": 0.416146
+    "default_expanded_question_instances": 4072,
+    "reduction_rate": 0.418701
   },
   "default_expanded_primary_question_reduction": {
-    "baseline_question_instances": 7048,
-    "collapsed_question_instances": 4149,
-    "default_expanded_question_instances": 2899,
-    "reduction_rate": 0.588678
+    "baseline_question_instances": 7005,
+    "collapsed_question_instances": 4148,
+    "default_expanded_question_instances": 2857,
+    "reduction_rate": 0.592148
   },
   "input": {
     "records": 420,
     "sha256": "1567553db7eeea46525b31585db26c4270aa696e5bbc19d121cae41b53c1a6ca",
     "split": "train_only"
   },
-  "matching_version": "match-855c428507688a18",
+  "matching_version": "match-a83d6243d7f687c2",
   "question_activation_rates": [
     {
       "activated_records": 142,
@@ -30,8 +30,8 @@
       "review_scope": "posting"
     },
     {
-      "activated_records": 404,
-      "activation_rate": 0.961905,
+      "activated_records": 401,
+      "activation_rate": 0.954762,
       "question_id": "Q-DIST-002",
       "review_scope": "posting"
     },
@@ -144,8 +144,8 @@
       "review_scope": "posting"
     },
     {
-      "activated_records": 405,
-      "activation_rate": 0.964286,
+      "activated_records": 404,
+      "activation_rate": 0.961905,
       "question_id": "Q-INFO-004",
       "review_scope": "posting"
     },
@@ -246,14 +246,14 @@
       "review_scope": "common"
     },
     {
-      "activated_records": 191,
-      "activation_rate": 0.454762,
+      "activated_records": 172,
+      "activation_rate": 0.409524,
       "question_id": "Q-INTER-007",
       "review_scope": "posting"
     },
     {
-      "activated_records": 279,
-      "activation_rate": 0.664286,
+      "activated_records": 259,
+      "activation_rate": 0.616667,
       "question_id": "Q-PROC-001",
       "review_scope": "posting"
     },
@@ -339,14 +339,14 @@
   "question_definition_count": 52,
   "question_instances_by_presentation_group": {
     "common": 2933,
-    "posting_primary": 2899,
-    "posting_slot_detail": 1216
+    "posting_primary": 2857,
+    "posting_slot_detail": 1215
   },
   "question_instances_by_review_scope": {
     "common": 2933,
-    "posting": 4115
+    "posting": 4072
   },
-  "question_instances_total": 7048,
+  "question_instances_total": 7005,
   "record_count": 420,
   "repeated_questions_at_or_above_95_percent": {
     "by_review_scope": {
@@ -356,8 +356,8 @@
     "count": 11,
     "questions": [
       {
-        "activated_records": 404,
-        "activation_rate": 0.961905,
+        "activated_records": 401,
+        "activation_rate": 0.954762,
         "question_id": "Q-DIST-002",
         "review_scope": "posting"
       },
@@ -368,8 +368,8 @@
         "review_scope": "posting"
       },
       {
-        "activated_records": 405,
-        "activation_rate": 0.964286,
+        "activated_records": 404,
+        "activation_rate": 0.961905,
         "question_id": "Q-INFO-004",
         "review_scope": "posting"
       },
@@ -424,7 +424,7 @@
     ],
     "threshold": 0.95
   },
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-b5cea04dd38f",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-15ccadbb7af1",
   "slot_detail_pair_invariants": {
     "checked_pairs": 1260,
     "mismatched_pairs": 0,
@@ -440,10 +440,10 @@
       {
         "checked_records": 420,
         "mismatched_records": 0,
-        "question_activated_records": 405,
+        "question_activated_records": 404,
         "question_id": "Q-INFO-004",
         "slot_id": "document_return",
-        "slot_missing_records": 405
+        "slot_missing_records": 404
       },
       {
         "checked_records": 420,
@@ -461,7 +461,7 @@
       "Q-INFO-004",
       "Q-PROC-002"
     ],
-    "question_instances": 1216
+    "question_instances": 1215
   },
   "split": "train_only"
 }

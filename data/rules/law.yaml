@@ -50,7 +50,7 @@
   layer: law
   message: 특정 연령을 자격 기준으로 제시한 표현이 확인되었습니다.
   provenance:
-    corpus_hits: 33
+    corpus_hits: 15
     corpus_split: public
     method: manual
     reviewed_at: '2026-10-03'
@@ -66,6 +66,32 @@
       window: 10
     - term: re:(?:시니어\s*인턴십|노인일자리\s*및\s*사회활동지원사업)
       window: 80
+    # Age categories the law itself defines (제4조의5 3호ㆍ4호): the youth band
+    # of the 청년고용촉진 특별법 (15ㆍ29ㆍ34세) and care-leaver eligibility on the
+    # same line, a retirement clause ("제56조(정년)에 해당하지 않는 자 (임용일
+    # 기준 만60세 미만)"), and the statutory minimum working ages (15ㆍ18세 이상ㆍ
+    # 미만). Clients named by age ("65세 이상의 노인성 질환의 어르신") are not
+    # applicants. Excluding a lower bound lets a later cap ("만18세 이상 및
+    # 만60세 미만") be quoted instead.
+    # The context span can cross another age on the same line. Only a candidate
+    # from the named band may be excluded, never an intervening 35/39-year cap.
+    - candidate: re:(?<!\d)(?:15|29|34)\s*세
+      overlap_candidate: true
+      term: re:(?:청년\s*고용\s*촉진|자립\s*준비\s*청년)[^\r\n]{0,80}(?:15|29|34)\s*세(?:\s*(?:이상|이하|미만))?
+      window: 120
+    - candidate: re:(?<!\d)(?:15|29|34)\s*세
+      overlap_candidate: true
+      term: re:(?<!\d)(?:15|29|34)\s*세[^\r\n]{0,80}(?:청년\s*고용\s*촉진|자립\s*준비\s*청년)
+      window: 120
+    - overlap_candidate: true
+      term: re:정년\)?\s*에\s*해당[^\r\n]{0,40}\d{2}\s*세\s*(?:이상|이하|미만)
+      window: 60
+    - overlap_candidate: true
+      term: re:(?<!\d)1[5-8]\s*세\s*(?:이상|미만)
+      window: 20
+    - overlap_candidate: true
+      term: re:\d{2}\s*세\s*(?:이상|이하|미만)\s*(?:의\s*)?(?:자녀|아동|영유아|어린이|학생|청소년|어르신|노인|환자|고객|이용자)
+      window: 20
     patterns:
     - 나이 제한
     - 연령 제한
@@ -91,7 +117,7 @@
   layer: law
   message: 특정 성별로 지원 대상을 제한하는 표현이 확인되었습니다.
   provenance:
-    corpus_hits: 629
+    corpus_hits: 628
     corpus_split: private
     method: manual
     reviewed_at: '2026-10-03'
@@ -120,6 +146,11 @@
       overlap_candidate: true
       term: 're:(?:직원|사원|근로자|인력|알바|아르바이트|스태프)[ \t]*(?:을|를|의)?[ \t]*채용[ \t]*(?:을|를|의)?[ \t]*(?:비율|비중|목표|확대|할당|계획|장려|지원금|촉진)'
       window: 24
+    # A gender field that lists both genders ("성별: 남성, 여성") restricts nothing.
+    - candidate: 're:(?:성별|모집\s*성별)'
+      overlap_candidate: true
+      term: 're:(?:성별|모집\s*성별)\s*[:：]?\s*(?:(?:남성|남자)[ \t]*(?:[,/·ㆍ]|및|또는|혹은|이나|과|와)[ \t]*(?:여성|여자|여)|(?:여성|여자)[ \t]*(?:[,/·ㆍ]|및|또는|혹은|이나|과|와)[ \t]*(?:남성|남자|남))(?![가-힣])'
+      window: 24
     type: presence
 - alternatives:
   - 혼인 여부 조건을 삭제하고 근무 조건을 직접 명시
@@ -144,6 +175,11 @@
   - Q-DIST-017
   severity: high
   trigger:
+    # Both marital statuses welcome ("미혼자, 기혼자 모두 지원 가능") is no condition.
+    exclude:
+    - overlap_candidate: true
+      term: 're:(?:미혼(?:자|인)?[ \t]*(?:[,/·ㆍ]|및|또는|혹은|이나|과|와)[ \t]*기혼(?:자|인)?|기혼(?:자|인)?[ \t]*(?:[,/·ㆍ]|및|또는|혹은|이나|과|와)[ \t]*미혼(?:자|인)?)[ \t]*(?:모두|무관|관계[ \t]*없|상관[ \t]*없|구분[ \t]*없|불문|제한[ \t]*없)'
+      window: 30
     patterns:
     - 미혼자
     - 미혼 여성
@@ -492,6 +528,12 @@
   - Q-PROC-005
   severity: high
   trigger:
+    # A negated transfer ("회사 소유가 아니며", "회사에 귀속되지 않습니다") keeps
+    # the rights with the applicant. Denying that negation is no exclusion.
+    exclude:
+    - overlap_candidate: true
+      term: 're:(?:회사에\s*귀속|회사\s*소유|권리는\s*회사)\s*(?:(?:이|가|에|로|으로)\s*)?(?:(?:귀속|이전|양도)\s*)?(?:되지\s*(?:는|도)?\s*않|하지\s*(?:는|도)?\s*않|시키지\s*않|있지\s*않|아니|아닌|아닙|아님|없)(?!을\s*수\s*없|\s*(?:는\s*)?것(?:은|이)?\s*(?:아니|아닙|아님)|지(?:는|도)?\s*않)'
+      window: 40
     patterns:
     - 저작권은 회사에 귀속
     - 지식재산권은 회사에 귀속
@@ -548,7 +590,9 @@
     - 인공지능이 최종 결정
     - re:(?:AI|인공지능)(?:가|이)?\s*(?:평가|심사|점수|결과)만으로\s*(?:합격|불합격|탈락|채용)\s*(?:여부를\s*)?결정
     exclude:
-    - term: re:(?:(?:AI|인공지능)(?:가|이)?\s*최종\s*결정(?:을\s*내리)?|AI\s*자동\s*탈락|자동\s*평가로\s*결정)\s*(?:은|는|을|를|이|가)?\s*(?:하지\s*않|내리지\s*않|적용하지\s*않|없(?:음|습니다|다)|아니(?:며|고|다))
+    # Preserve the earlier plain-negation behavior; the newly accepted 는/도
+    # emphasis must not accept a denial of the negation itself.
+    - term: re:(?:(?:AI|인공지능)(?:가|이)?\s*최종\s*결정(?:을\s*내리)?|AI\s*자동\s*탈락|자동\s*평가로\s*결정)\s*(?:은|는|을|를|이|가)?\s*(?:(?:하지|내리지|적용하지)\s*(?:않|(?:는|도)\s*않(?!을\s*수\s*없|는\s*것(?:은|이)?\s*(?:아니|아닙|아님)|지(?:는|도)?\s*않))|없(?:음|습니다|다)|아니(?:며|고|다))
       candidate: re:(?:(?:AI|인공지능)(?:가|이)?\s*최종\s*결정|AI\s*자동\s*탈락|자동\s*평가로\s*결정)
       overlap_candidate: true
       window: 40
@@ -649,6 +693,12 @@
       window: 80
     - term: 고용노동부 장관의 승인
       window: 80
+    # A burden declared absent ("본인 부담은 없습니다", "지원자 부담이 아닙니다"),
+    # when the candidate names only that one burden and does not deny its absence.
+    - candidate: 're:^(?:(?!(?:지원자|구직자|응시자|본인)\s*부담)[\s\S])*(?:지원자|구직자|응시자|본인)\s*부담(?:(?!(?:지원자|구직자|응시자|본인)\s*부담)[\s\S])*$'
+      overlap_candidate: true
+      term: 're:(?:지원자|구직자|응시자|본인)\s*부담\s*(?:은|는|이|가|도)?\s*(?:없|아니|아닙|아님|하지\s*않|시키지\s*않)(?!을\s*수\s*없|\s*(?:는\s*)?것(?:은|이)?\s*(?:아니|아닙|아님)|지(?:는|도)?\s*않)'
+      window: 40
     patterns:
     - re:(?:채용\s*심사|전형|인적성\s*검사|신체\s*검사|건강\s*검진|AI\s*역량\s*검사)\s*(?:에\s*드는\s*)?(?:비용|비|수수료)[^\n]{0,20}(?:지원자|구직자|응시자|본인)\s*부담
     - re:(?:지원자|구직자|응시자|본인)\s*부담[^\n]{0,20}(?:채용\s*심사|전형|인적성\s*검사|신체\s*검사|건강\s*검진|AI\s*역량\s*검사)\s*(?:에\s*드는\s*)?(?:비용|비|수수료)

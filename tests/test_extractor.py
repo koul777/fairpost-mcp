@@ -238,3 +238,40 @@ def test_crlf_mixed_with_lone_cr_counts_each_boundary_once() -> None:
 
     assert _spans(text) == [("자격요건", 0, 12), ("전형절차", 12, 16)]
     _assert_tiles(text)
+
+
+# DET-4 (2026-10-11): in the portal field layout a 우대조건 field used to open a
+# 우대사항 section that ran over every later field label, so 성별 findings were
+# labelled 우대사항. The field labels now start their own sections. 급여조건 and
+# 접수기간 시작일 stay plain lines (as headings they would re-anchor the pay and
+# schedule evidence), and 직무내용 is an overview, not a duty heading.
+PORTAL_FIELDS = (
+    "근무형태\n주5일\n급여조건\n월급\n우대조건\n운전 가능자\n경력사항\n경력 무관\n"
+    "최종학력\n학력 무관\n성별\n남성\n복리후생\n4대보험\n근무지역\n충북\n근무시간\n09:00~18:00\n"
+    "직무내용\n사무 보조, 경력자 우대\n서류전형 → 면접전형 → 최종 합격\n접수기간 시작일\n2026-08-01"
+)
+
+
+def test_portal_field_labels_start_their_own_sections() -> None:
+    names = [section.name for section in split_sections(PORTAL_FIELDS)]
+    assert names == [
+        "근무조건", "우대사항", "자격요건", "자격요건", "자격요건", "근무조건", "근무조건", "근무조건", "개요",
+    ]
+    _assert_tiles(PORTAL_FIELDS)
+    # Only whole lines are labels.
+    assert [s.name for s in split_sections("성별 무관, 최종학력 무관")] == ["전체"]
+
+
+def test_portal_gender_field_is_reported_under_qualifications() -> None:
+    from core import FairpostEngine
+
+    result = FairpostEngine().check(PORTAL_FIELDS).to_dict()
+    sex = next(f for f in result["findings"] if f["id"] == "SEX-001")
+    assert (sex["matched_text"], sex["section"]) == ("성별\n남성", "자격요건")
+    slots = {s["slot"]: s for s in result["slots"]}
+    # 직무내용 is not a duty block: the stages written in it are evidence.
+    assert slots["selection_stages"]["found"] is True
+    assert slots["selection_stages"]["section"] == "개요"
+    # 급여조건 and 접수기간 시작일 are not labels: their slots read as before.
+    assert slots["compensation"]["evidence"] == "급여조건"
+    assert slots["schedule"]["evidence"] == "접수기간 시작일"

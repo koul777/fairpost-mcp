@@ -18,6 +18,13 @@ Follow-ups (2026-10-10 evening): a penalty declared absent ("미기재 시 불�
 is not; the Q-DIST-005 and Q-DIST-017 excludes no longer reach across clauses;
 an indifference ("신체 조건 무관") followed by a contrast ("단 키 175cm 이상
 필수") no longer protects.
+
+2026-10-11 (DET-1): pregnancy, children, birthplace, assets, marital status,
+photos, appearance and body measurements are sensitive items too; "묻지/질문하지/
+요구하지/평가하지 않", "부착하지 마", "부착 불가" and "금지됩니다" protect; both
+genders or both marital statuses listed, a cost burden, rights transfer or AI
+decision declared absent are no findings; a spaced person noun ("…이상인 자,")
+closes a qualification while "기재한 자," still joins like "기재 시,".
 """
 from __future__ import annotations
 
@@ -78,6 +85,44 @@ MUST_FLAG = {
     # A waived penalty protects only the item in its own clause.
     "waived-penalty-then-other-requirement": (
         "사진 미기재 시 불이익 없음, 부모 직업 기재 필수", "FAMILY-001"),
+    # 2026-10-11: the newly protected items are still reported when the
+    # protection sits in another clause of the same sentence or line.
+    "pregnancy-required-then-school-ban": ("임신 여부 기재 필수, 출신학교는 기재하지 마세요", "PREG-001"),
+    "origin-required-then-photo-ban": ("출신지역 기재 필수, 사진은 부착하지 마세요", "ORIGIN-001"),
+    "hometown-required-then-banned": ("고향 기재 필수, 학력 기재는 금지됩니다", "ORIGIN-001"),
+    "assets-required-then-family-ban": ("재산 내역 제출 필수, 가족관계는 기재하지 마세요", "ASSET-001"),
+    "single-only-then-school-ban": ("미혼자만 지원 가능하며 출신학교는 기재하지 마세요", "SEX-002"),
+    "marriage-plan-person-then-not-asked": ("결혼 계획이 없는 분, 경력은 묻지 않습니다", "SEX-002"),
+    "height-person-then-photo-ban": ("키 170cm 이상인 자, 사진 부착 불가", "BODY-001"),
+    "height-required-then-photo-ban": ("키 170cm 이상 필수, 사진은 부착하지 마세요", "BODY-001"),
+    "weight-preferred-then-not-required": ("체중 60kg 이하인 분 우대, 학력은 요구하지 않습니다", "BODY-002"),
+    "appearance-preferred-then-not-asked": ("용모 단정한 분 우대, 출신지역은 묻지 않습니다", "LOOK-001"),
+    "photo-required-then-parent-ban": ("사진 부착 필수, 부모 직업은 기재하지 마세요", "PHOTO-001"),
+    "child-plan-required-then-not-asked": ("자녀 계획 기재 필수이며 학력은 질문하지 않습니다", "PREG-001"),
+    "one-gender-then-other-field": ("성별: 남성, 연령 무관", "SEX-001"),
+    "review-cost-then-other-cost-waived": ("전형 비용은 지원자 부담, 교통비는 본인 부담이 아닙니다", "COST-001"),
+    "assignment-owned-then-other-negation": ("과제 결과물은 회사 소유이며 사본은 반환하지 않습니다", "IP-001"),
+    "ai-decides-then-no-review": ("AI가 최종 결정하며, 담당자는 검토하지 않습니다", "AI-001"),
+    # A protective phrase negated again must not hide a requirement that was
+    # reported before the new sensitive-item protections were introduced.
+    "pregnancy-request-cannot-be-omitted": ("임신 여부는 요구하지 않을 수 없습니다", "PREG-001"),
+    "pregnancy-question-denial-negated": ("임신 계획은 질문하지 않는 것이 아닙니다", "PREG-001"),
+    "child-question-double-negative": ("자녀 계획은 묻지 않지는 않습니다", "PREG-001"),
+    "appearance-evaluation-cannot-be-omitted": ("용모 단정 여부는 평가하지 않을 수 없습니다", "LOOK-001"),
+    "assets-request-denial-negated": ("재산 내역을 요구하지 않는 것은 아닙니다", "ASSET-001"),
+    "double-negative-then-unrelated-protection": (
+        "임신 여부는 요구하지 않을 수 없으며, 출신학교는 기재하지 마세요", "PREG-001"),
+    "same-gender-synonyms": ("성별: 여성, 여자", "SEX-001"),
+    "same-gender-repeated": ("성별: 남성, 남성", "SEX-001"),
+    "same-marital-status-repeated": ("미혼자, 미혼자 모두 지원 가능", "SEX-002"),
+    "ownership-denial-negated": ("과제 결과물은 회사 소유가 아닌 것은 아닙니다", "IP-001"),
+    "transfer-cannot-be-omitted": ("저작권은 회사에 귀속되지 않을 수 없습니다", "IP-001"),
+    "ownership-double-negative": ("과제 결과물은 회사 소유가 아니지 않습니다", "IP-001"),
+    "cost-absence-negated": ("채용 심사 비용의 본인 부담은 없지 않습니다", "COST-001"),
+    "cost-no-burden-denial-negated": ("채용 심사 비용의 본인 부담은 없는 것이 아닙니다", "COST-001"),
+    "ai-emphasized-decision-required": ("AI가 최종 결정을 하지는 않을 수 없습니다", "AI-001"),
+    "ai-emphasized-decision-denial-negated": ("AI가 최종 결정을 내리지도 않는 것은 아닙니다", "AI-001"),
+    "ai-emphasized-drop-denial-negated": ("AI 자동 탈락을 적용하지는 않지는 않습니다", "AI-001"),
 }
 
 # Linked or own-trigger questions the same defect removed.
@@ -108,6 +153,9 @@ LINKED_QUESTIONS = {
     "body-indifferent-then-contrast": ("신체 조건 무관, 단 키 175cm 이상 필수", "Q-DIST-007", "BODY-001"),
     "body-indifferent-jiman": ("신체 조건은 무관하지만 키 175cm 이상이어야 합니다", "Q-DIST-007", "BODY-001"),
     "body-indifferent-bracketed-contrast": ("신체 조건 무관(단, 키 175cm 이상)", "Q-DIST-007", "BODY-001"),
+    # A spaced person noun closes one qualification ("…이상인 자,").
+    "height-person-then-school-ban": (
+        "지원자격: 신체 조건 키 175cm 이상인 자, 출신학교 기재 금지", "Q-DIST-007", "BODY-001"),
 }
 
 # Genuine protective notices: the protection governs the candidate, so the
@@ -173,6 +221,45 @@ PROTECTIVE_SILENT = {
     "marital-comma-where": ("혼인 여부, 지원서에 기재하지 마세요", {"Q-DIST-017"}),
     "marital-included-unfit": ("혼인 여부 등 개인 인적사항이 포함되어 있는 경우 부적격 처리", {"Q-DIST-017"}),
     "marriage-child-not-asked": ("결혼 여부, 자녀 유무는 묻지 않습니다", {"Q-DIST-017"}),
+    # 2026-10-11: pregnancy, children, birthplace, assets, marital status,
+    # photos, appearance and body measurements are protected like the items
+    # above; both genders or both marital statuses listed restrict nothing; a
+    # cost, rights transfer or AI decision declared absent is no finding.
+    "origin-ban": ("출신지역 기재 금지", {"ORIGIN-001", "Q-DIST-006", "Q-DIST-010", "Q-INFO-010"}),
+    "birthplace-banned": ("출생지 기재 금지됩니다", {"ORIGIN-001", "Q-DIST-006"}),
+    "hometown-banned-particle": ("고향 기재는 금지됩니다", {"ORIGIN-001", "Q-DIST-006"}),
+    "pregnancy-do-not-write": ("임신 여부는 기재하지 마세요", {"PREG-001", "Q-DIST-017"}),
+    "pregnancy-plan-not-asked": ("임신 계획은 질문하지 않습니다", {"PREG-001", "Q-DIST-017"}),
+    "child-plan-not-asked": ("자녀 계획은 묻지 않습니다", {"PREG-001", "Q-DIST-017"}),
+    "assets-not-collected": ("재산 내역은 수집하지 않습니다", {"ASSET-001", "Q-DIST-010", "Q-INFO-010"}),
+    "real-estate-not-collected": ("부동산 보유 현황은 수집하지 않습니다", {"ASSET-001", "Q-INFO-010"}),
+    "both-marital-statuses-welcome": ("미혼자, 기혼자 모두 지원 가능", {"SEX-002", "Q-DIST-017"}),
+    "marriage-plan-not-required": ("결혼 계획이 없는 분을 요구하지 않습니다", {"SEX-002", "Q-DIST-017"}),
+    "height-do-not-write": ("키 170cm 등 신체 정보는 기재하지 마세요", {"BODY-001", "Q-DIST-007"}),
+    "stature-do-not-write": ("신장 170cm 등 신체 조건은 기재하지 마세요", {"BODY-001", "Q-DIST-007"}),
+    "weight-not-required": ("체중 60kg 이상 등의 조건은 요구하지 않습니다", {"BODY-002", "Q-DIST-007"}),
+    "appearance-not-evaluated": ("용모 단정 여부는 평가하지 않습니다", {"LOOK-001", "Q-DIST-007", "Q-INTER-001"}),
+    "photo-do-not-attach": ("사진 부착하지 마세요", {"PHOTO-001", "Q-INFO-010", "Q-PROC-011"}),
+    "photo-not-allowed": ("사진 부착 불가", {"PHOTO-001", "Q-INFO-010", "Q-PROC-011"}),
+    "both-genders-listed": ("성별: 남성, 여성", {"SEX-001", "Q-DIST-015"}),
+    "both-genders-slash": ("모집 성별 : 여자/남자", {"SEX-001", "Q-DIST-015"}),
+    "no-review-cost-burden": ("채용 심사 비용의 본인 부담은 없습니다", {"COST-001"}),
+    "review-cost-not-applicant": ("채용심사 비용은 본인 부담이 아닙니다", {"COST-001"}),
+    "no-burden-before-cost": ("본인 부담 없이 채용 심사 비용 전액 회사 지원", {"COST-001"}),
+    "assignment-not-company-property": (
+        "과제 결과물은 회사 소유가 아니며 지원자에게 귀속됩니다", {"IP-001", "Q-PROC-005"}),
+    "copyright-not-transferred": ("제출 과제의 저작권은 회사에 귀속되지 않습니다", {"IP-001", "Q-PROC-005"}),
+    "ai-not-final-decision": ("AI가 최종 결정을 하지는 않으며 담당자가 검토합니다", {"AI-001", "Q-PROC-004"}),
+    # "기재한 자," still joins the penalty after it, like "기재 시,".
+    "written-by-person-then-unfit": ("출신학교를 기재한 자, 부적합 처리", {"Q-DIST-005", "Q-DIST-010"}),
+    "pregnancy-emphasized-no-request": ("임신 여부는 요구하지는 않습니다", {"PREG-001"}),
+    "pregnancy-emphasized-no-question": ("임신 계획은 질문하지도 않습니다", {"PREG-001"}),
+    "child-question-optional": ("자녀 계획은 묻지 않아도 됩니다", {"PREG-001"}),
+    "appearance-no-evaluation-planned": ("용모 단정 여부는 평가하지 않을 예정입니다", {"LOOK-001"}),
+    "both-genders-reversed": ("성별: 여성, 남성", {"SEX-001"}),
+    "both-marital-statuses-reversed": ("기혼자, 미혼자 모두 지원 가능", {"SEX-002"}),
+    "ai-no-decision-emphasized-too": ("AI가 최종 결정을 내리지도 않습니다", {"AI-001"}),
+    "ai-no-drop-emphasized": ("AI 자동 탈락을 적용하지는 않습니다", {"AI-001"}),
 }
 
 # 고/나/며 inside ordinary words (or the particle (이)나) between the candidate
