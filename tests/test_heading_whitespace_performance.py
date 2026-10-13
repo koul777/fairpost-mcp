@@ -59,7 +59,7 @@ def test_heading_cleanup_finishes_for_a_long_interior_run() -> None:
 def test_long_heading_whitespace_preserves_full_engine_results(tmp_path: Path, monkeypatch) -> None:
     texts = [
         "채용서류" + " " * 4000 + "반환합니다.",
-        "자격요건\n남성만 지원 가능\n" + "[: \t]" * 300 + ":\n문의처\n인사팀 02-1234-5678",
+        "자격요건\n남성만 지원 가능\n" + "[: \t]" * 300 + ":\n문의처\n인사팀 채용 누리집",
         "담당업무\n경력" + "\u00a0" * 1500 + "무관\n전형절차\n서류 → 면접",
         "#]:\n자격\u200b요건\n여성만 지원 가능",
         "\ufeff＜지원자격＞\n" + "😀" + "\t" * 1500 + "남성만 지원 가능",
