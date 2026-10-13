@@ -49,6 +49,90 @@ def test_check_dash_decodes_raw_standard_input_with_requested_encoding(
     assert any(item["id"] == "SEX-001" for item in payload["findings"])
 
 
+@pytest.mark.parametrize(
+    "raw",
+    [b"", " \t\r\n\u3000".encode("utf-8"), b"\xef\xbb\xbf", b"\xff\xfe", b"\xfe\xff"],
+    ids=["empty", "whitespace", "utf8-bom", "utf16-le-bom", "utf16-be-bom"],
+)
+@pytest.mark.parametrize("via_stdin", [False, True], ids=["file", "stdin"])
+def test_empty_decoded_input_is_rejected_in_korean(
+    tmp_path, monkeypatch, capsys, raw, via_stdin
+) -> None:
+    if via_stdin:
+        monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(raw)))
+        args = ["check", "-"]
+        source = "표준 입력"
+    else:
+        posting = tmp_path / "empty.txt"
+        posting.write_bytes(raw)
+        args = ["check", str(posting)]
+        source = str(posting)
+
+    assert main(args) == 2
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert source in captured.err
+    assert "공고문이 없습니다" in captured.err
+    assert "비어 있거나 공백뿐" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_empty_implicit_text_stdin_is_rejected(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(sys, "stdin", io.StringIO("\ufeff \t\n\u3000"))
+
+    assert main([]) == 2
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "표준 입력에 검토할 공고문이 없습니다" in captured.err
+
+
+@pytest.mark.parametrize("review_packet", [False, True], ids=["check", "review-packet"])
+def test_empty_batch_input_prevents_partial_results_and_optional_review(
+    tmp_path, monkeypatch, capsys, review_packet
+) -> None:
+    from core import FairpostEngine
+    from mcp_server import review
+
+    def unexpected_check(*_args, **_kwargs):
+        pytest.fail("빈 입력이 있으면 점검이나 외부 보강을 시작하면 안 됩니다")
+
+    monkeypatch.setattr(FairpostEngine, "check", unexpected_check)
+    monkeypatch.setattr(review, "prepare_hr_review_packet", unexpected_check)
+    valid = tmp_path / "valid.txt"
+    valid.write_text(POSTING, encoding="utf-8")
+    empty = tmp_path / "empty.txt"
+    empty.write_bytes(b"")
+    args = ["check", str(valid), str(empty)]
+    if review_packet:
+        args.append("--review-packet")
+
+    assert main(args) == 2
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert str(empty) in captured.err
+    assert "공고문이 없습니다" in captured.err
+
+
+@pytest.mark.parametrize("pretty", [False, True], ids=["compact-json", "pretty-json"])
+def test_nonempty_input_keeps_surrounding_whitespace_and_original_offsets(
+    monkeypatch, capsys, pretty
+) -> None:
+    text = " \t\n" + POSTING + "\n \u3000"
+    monkeypatch.setattr(sys, "stdin", io.StringIO(text))
+
+    assert main(["check", "-", *(["--pretty"] if pretty else [])]) == 0
+
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    payload = json.loads(captured.out)
+    finding = next(item for item in payload["findings"] if item["id"] == "SEX-001")
+    assert text[slice(*finding["offset"])] == finding["matched_text"]
+    assert finding["offset"][0] == text.index(finding["matched_text"])
+
+
 def test_legacy_direct_file_syntax_remains_supported(tmp_path, capsys) -> None:
     posting = tmp_path / "posting.txt"
     posting.write_text("지원자격: 여성만 지원 가능", encoding="utf-8")
