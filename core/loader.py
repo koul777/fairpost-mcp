@@ -48,6 +48,10 @@ REQUIRED_SLOT_IDS = {
 }
 CONTACT_COMPONENT_IDS = {"department", "phone", "email", "hours"}
 QUESTION_REVIEW_SCOPES = {"posting", "common"}
+# Every rule id is one or more groups of ASCII capitals and a three-digit number
+# ("AGE-002", "Q-DIST-017", "Q-LOCAL-001"). Results are ordered by id in code
+# point order (Python and web/engine.js alike), so the id shape is fixed here.
+RULE_ID_PATTERN = re.compile(r"[A-Z]+(?:-[A-Z]+)*-[0-9]{3}")
 MATCH_ENGINE_VERSION = (
     "engine-v5-normalized-regex-context-groups-first-match-overlap-candidate-"
     "exclude-section-slots"
@@ -223,6 +227,11 @@ def _validate_rule(
     for field in ("id", "layer", "trigger", "dimension", "basis", "provenance", "book_ref"):
         if field not in rule:
             raise RuleLoadError(f"{rule_id}: 필수 필드 '{field}' 누락")
+    if not isinstance(rule["id"], str) or not RULE_ID_PATTERN.fullmatch(rule["id"]):
+        raise RuleLoadError(
+            f"{rule_id}: 규칙 id는 'AGE-002', 'Q-DIST-017'처럼 영문 대문자 묶음과 "
+            "세 자리 번호를 하이픈으로 이은 형식이어야 합니다"
+        )
     if rule["layer"] not in {"law", "question"}:
         raise RuleLoadError(f"{rule_id}: layer는 law 또는 question이어야 합니다")
     if not isinstance(rule["book_ref"], str) or not rule["book_ref"].strip():

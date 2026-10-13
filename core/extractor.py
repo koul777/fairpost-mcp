@@ -10,7 +10,7 @@ from .morph import ZERO_WIDTH, find_first, find_matches
 from .schema import SlotStatus
 
 
-SECTION_VERSION = "sections-v6-clause-scoped-protection-duty-block"
+SECTION_VERSION = "sections-v7-sensitive-items-review-stage-wording"
 
 _SENTENCE_BOUNDARIES = ".!?。！？"
 _EVIDENCE_WINDOW_CODEPOINTS = 238
@@ -79,16 +79,16 @@ _PER_CHARACTER_NFKC = _PerCharacterNfkc()
 
 
 SECTION_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("개요", ("채용개요", "모집개요", "공고개요", "담당업무", "주요업무", "주요 업무", "담당 업무", "업무내용", "What You'll Do", "What You’ll Do", "합류하면 함께할 업무에요", "이런 일을 해요",)),
+    ("개요", ("채용개요", "모집개요", "공고개요", "담당업무", "주요업무", "주요 업무", "담당 업무", "업무내용", "What You'll Do", "What You’ll Do", "합류하면 함께할 업무에요", "이런 일을 해요", "직무내용",)),
     # 자격요건의 직무 관련성, 평가 기준, 인공지능 활용 안내, 결과 안내, 이의제기 안내 and
     # 채용서류 반환ㆍ파기 안내 are the titles of the example sentences in
     # data/posting_templates.yaml, so a pasted example forms its own section
     # instead of joining the block above it (e.g. a duty list).
-    ("자격요건", ("자격요건", "지원자격", "응시자격", "필수요건", "자격조건", "필요지식", "필요 지식 및 기술", "자격조건 및 필요지식", "Required Skills", "이런 분과 함께하고 싶어요", "자격요건의 직무 관련성",)),
+    ("자격요건", ("자격요건", "지원자격", "응시자격", "필수요건", "자격조건", "필요지식", "필요 지식 및 기술", "자격조건 및 필요지식", "Required Skills", "이런 분과 함께하고 싶어요", "자격요건의 직무 관련성", "성별", "최종학력", "경력사항",)),
     ("우대사항", ("우대사항", "우대내용", "가점사항", "우대조건", "Preferred Skills", "이런 분이면 더 좋아요!", "이런 경험이 있으면 더 좋아요",)),
-    ("전형절차", ("전형절차/방법", "전형절차", "전형방법", "선발절차", "채용절차", "합류 여정", "이렇게 합류해요", "전형절차 및 일정", "전형 절차 및 안내 사항", "전형절차 및 기타사항", "평가 기준", "인공지능 활용 안내",)),
+    ("전형절차", ("전형절차/방법", "전형절차", "전형방법", "선발절차", "채용절차", "합류 여정", "이렇게 합류해요", "전형절차 및 일정", "전형 절차 및 안내 사항", "전형절차 및 기타사항", "평가 기준", "인공지능 활용 안내", "심사방법", "선발방법", "채용방법",)),
     ("일정", ("전형일정", "채용일정", "일정", "접수기간", "모집기간", "공고기간", "접수 마감일", "결과 안내",)),
-    ("근무조건", ("근무조건", "근로조건", "보수", "급여", "고용형태", "근무형태",)),
+    ("근무조건", ("근무조건", "근로조건", "보수", "급여", "고용형태", "근무형태", "복리후생", "근무지역", "근무시간",)),
     ("제출서류", ("제출서류", "지원서류", "구비서류",)),
     ("유의사항", ("유의사항", "주의사항", "꼭 확인해 주세요", "이의제기 안내", "채용서류 반환ㆍ파기 안내", "채용서류 반환·파기 안내",)),
     ("문의처", ("문의처", "문의", "연락처",)),
@@ -220,11 +220,12 @@ _DEFERRED_BODY = ["re:^(?:(?:추후|차후|나중에|미정)[^\\n]*|(?![^\\n]*(?
 # The first pattern also reads the official spaced form "2026. 8. 1." (as
 # _DEFERRED_BODY does). web/engine.js DATE_CONTENT must stay identical.
 _DATE_CONTENT = ["re:\\d{1,4}[./-]\\d{1,2}|(?:19|20)\\d{2}\\s*[./-]\\s*\\d{1,2}","re:\\d+\\s*(?:년|월|일|시|주)","상시","수시", "채용시까지", "채용 시까지"]
-_STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토", "AI 영상면접"]
-# Words that also name ordinary work ("고객 인터뷰", "민원 서류접수", "계약 서류 검토").
+_STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토", "AI 영상면접", "서류 심사", "면접 심사", "면접 시험"]
+# Words that also name ordinary work ("고객 인터뷰", "민원 서류접수", "계약 서류 검토",
+# "민원 서류심사"). 면접심사 and 면접시험 name an applicant stage on their own.
 # They count as a selection stage only in a stage context (_stage_context) unless
 # they are part of a named stage such as "실무 인터뷰".
-_BARE_STAGE_TERMS = ["인터뷰", "서류접수", "서류 검토", "서류 리뷰"]
+_BARE_STAGE_TERMS = ["인터뷰", "서류접수", "서류 검토", "서류 리뷰", "서류 심사"]
 # Interview names with a qualifier ("최종 면접", "임원 면접", "1차 면접") are bare
 # stage terms too: "임원 면접 일정 조율" is recruiting work. Their own "면접" is
 # not their stage context. Same pattern as the selection_stages accept pattern
@@ -528,8 +529,17 @@ def _component_present(slot_id: str, component: dict[str, Any], contexts: list[s
 # 없도록/않도록/없게/않게 do not negate a penalty, nor does a 없 inside a word
 # ("빠짐없이"). An indifference ("신체 조건 무관") stops protecting once a
 # contrast follows it in the sentence ("단 키 175cm 이상 필수", "무관하지만").
+# The sensitive items also cover pregnancy, children, birthplace, assets,
+# marital status, photos, appearance and body measurements ("임신 여부는
+# 기재하지 마세요", "사진 부착 불가", "키 170cm 등은 기재하지 마세요"), and
+# "묻지/질문하지/요구하지/평가하지 않", "부착하지 마", "금지됩니다" protect like
+# "기재하지" does; "요구하지 않" is not a requirement.
 # web/engine.js keeps the same patterns (PROTECTIVE_* constants).
-_SENSITIVE_CANDIDATE = ["출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족"]
+_SENSITIVE_CANDIDATE = [
+    "출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족",
+    "임신", "출산", "자녀", "출신지역", "출신 지역", "본적", "고향", "출생지", "재산", "부동산",
+    "미혼", "기혼", "결혼", "사진", "용모", "외모", r"re:(?:키|신장|체중|몸무게)\s*\d",
+]
 _NOT_AN_INFORMATION_ITEM = [r"re:가족\s*같은"]
 _PROTECTIVE = [
     r"re:(?:수집|기재|작성)\s*(?:금지|불가|불필요|하지|받지)",
@@ -537,6 +547,9 @@ _PROTECTIVE = [
     r"re:(?:기재|표현)[^.!?\n]{0,100}(?:평가대상에서\s*제외|부적합|탈락처리)",
     r"re:블라인드[^.!?\n]{0,80}미준수",
     r"re:(?:미기재|미작성|미제출|누락)\s*(?:시|하면|할\s*경우|된\s*경우)[^.!?\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)[^.!?\n,]{0,12}(?:(?<=[\s은는이가도을를지익점락외합])(?:없|않)(?!도록|게)|아니|아닙|아님)",
+    r"re:(?:묻|질문하|요구하|평가하)지\s*(?:는|도)?\s*않",
+    r"re:부착\s*(?:하지\s*마|불가|금지|불필요)",
+    r"re:금지\s*(?:됩니다|됨)",
 ]
 _PROTECTIVE_INDIFFERENT = [r"re:^\s*(?:(?:과|와|은|는|의|에)\s*)?(?:무관|관계\s*없|상관\s*없|불문|제한\s*없)"]
 _PROTECTIVE_CONTRAST = [
@@ -547,7 +560,7 @@ _PROTECTIVE_OMISSION_PENALTY = [
     r"re:(?:(?:미기재|미작성|미제출|누락)\s*(?:시|하면|할\s*경우|된\s*경우)|(?:기재|작성|제출)\s*하지\s*않(?:으면|을\s*경우|는\s*경우|은))[^.!?\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)(?![^.!?\n,]{0,12}(?:(?<=[\s은는이가도을를지익점락외합])(?:없|않)(?!도록|게)|아니|아닙|아님))"
 ]
 _PROTECTIVE_REQUIREMENT = [
-    r"re:(?:필수|요구|제출해야|제출\s*필수)",
+    r"re:(?:필수|요구(?!\s*하지\s*(?:는|도)?\s*않)|제출해야|제출\s*필수)",
     r"re:(?:기재|작성)해야|기재하(?:십시오|세요)|기재해\s*주(?:세요|십시오)|제출하(?:십시오|세요)",
     r"re:(?:수집|기재|작성|포함|제공)\s*(?:하지|받지)\s*(?:않는\s*것(?:은|이|을)?\s*(?:허용되지\s*않|허용하지\s*않|금지|불가)|않을\s*수\s*없)",
 ]
@@ -556,11 +569,14 @@ _PROTECTIVE_CLAUSE_END = [
     r"re:(?:(?:하|되|않|마시|말|주시|하시|받|있|없|이)고|(?<=[가-힣])며|(?:되|으)나|(?<=[가-힣])하나|지만)(?=[\s,]|$)",
 ]
 _PROTECTIVE_COMMA = [r"re:(?<!\d),|,(?!\d)"]
+# "기재한 자," reads like "기재 시,": the penalty or ban after the comma is about
+# that item. Any other person noun after a space ("키 170cm 이상인 자,", "결혼
+# 계획이 없는 분,") closes one qualification, so the comma ends the clause.
 _PROTECTIVE_CONDITIONAL_TAIL = [
-    r"re:(?:경우|때|으면|하면|되면|이면|라면|다면|(?:기재|작성|제출|포함|표기|노출|기입|명시|지원|위반|적발|확인|발견|누락)\s*시)[)\]）】」』\s]*$"
+    r"re:(?:경우|때|으면|하면|되면|이면|라면|다면|(?:기재|작성|제출|포함|표기|노출|기입|명시|지원|위반|적발|확인|발견|누락)\s*시|(?:기재|작성|제출|포함|표기|노출|기입|명시)\s*한\s*(?:자|분|사람))[)\]）】」』\s]*$"
 ]
 _PROTECTIVE_PREDICATE_TAIL = [
-    r"re:(?:[다요음함됨임]|시오|며|고|나|지만|되|아도|어도|해도|여도|이상|이하|미만|초과|이내|우대|필수|가능|불가|금지|불필요|무관|환영|제외|요망|바람|선호|필요|요구|탈락|처리|부적합|기재|작성|제출|첨부|입력|명시|표기|확인|진행|실시|모집|채용|접수|포함|요청|\d\S*)[)\]）】」』\s]*$"
+    r"re:(?:[다요음함됨임]|시오|며|고|나|지만|되|아도|어도|해도|여도|이상|이하|미만|초과|이내|우대|필수|가능|불가|금지|불필요|무관|환영|제외|요망|바람|선호|필요|요구|탈락|처리|부적합|기재|작성|제출|첨부|입력|명시|표기|확인|진행|실시|모집|채용|접수|포함|요청|\d\S*|(?<!\S)(?:자|분|사람))[)\]）】」』\s]*$"
 ]
 _PROTECTIVE_NON_LIST_HEAD = [
     r"re:^(?:\S*(?:에|에서|에게|께|께서|으로|로|부터|까지|보다|에는|에도|에선|에서는|으로는|로는)|반드시|꼭|단|다만|또한|그리고|하지만|그러나|특히|함께|바로)$"

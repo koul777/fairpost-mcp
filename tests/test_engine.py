@@ -128,6 +128,57 @@ def test_plain_age_minimum_without_support_program_still_triggers() -> None:
     assert "AGE-002" in {finding.id for finding in result.findings}
 
 
+# DET-2 (2026-10-11): age categories the law itself defines are not AGE-002.
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The youth band of the 청년고용촉진 특별법, before or after the act.
+        "지원자격\n청년고용촉진 특별법에서 정한 청년(만 15세 이상 34세 이하)",
+        "지원자격\n- 만 15~34세 청년 (청년고용촉진 특별법 기준)",
+        "지원자격\n청년고용촉진특별법시행령의 청년 나이(15세 이상 29세 이하)",
+        "우대사항\n만 34세 이하(마감일 현재)의 자립준비청년 가점",
+        # A retirement clause, also when 정년 is more than 12 characters away.
+        "지원자격\n- 인사규정 제30조(정년)에 해당하지 않는 사람(임용일 현재 만 60세 미만)",
+        "결격사유\n- 인사규정 제30조(정년)에 해당하는 사람(채용일 현재 만 60세 이상)",
+        # Statutory minimum working ages in a disqualification list or alone.
+        "결격사유\n- 15세 미만인 사람(중학생인 18세 미만 포함)",
+        "지원자격\n만 18세 이상으로 근로 능력이 있는 사람",
+        # Clients named by age in a business description.
+        "사업소개\n65세 이상의 노인성 질환 어르신을 돌보는 요양시설",
+        "직무내용\n만 65세 이상 어르신 방문 돌봄",
+    ],
+)
+def test_statutory_age_categories_are_not_age_findings(text: str) -> None:
+    result = FairpostEngine().check(text)
+    assert "AGE-002" not in {finding.id for finding in result.findings}
+
+
+@pytest.mark.parametrize(
+    ("text", "quoted"),
+    [
+        # The lower bound no longer hides the real cap.
+        ("모집요강\n- 만18세 이상 및 만60세 미만", "60세 미만"),
+        ("지원자격\n가. 만18세 이상 ~ 만60세 이하", "60세 이하"),
+        ("지원 연령: 만 18세 이상 및 만 60세 이하", "60세 이하"),
+        ("우대조건\n만 18세 이상 만 39세 이하 청년", "39세 이하"),
+        # Real caps and minimums still fire.
+        ("지원자격\n만 35세 이하", "35세 이하"),
+        ("지원자격\n만 20세 이상", "20세 이상"),
+        ("지원자격\n청년(만 15세 이상 39세 이하)", "39세 이하"),
+        # A cap outside the act's band next to the act is still a cap.
+        ("지원자격\n「청년고용촉진 특별법」과 별도로 만 39세 이하", "39세 이하"),
+        # A cap on another line than the retirement clause.
+        ("지원자격\n- 인사규정 제30조(정년)에 해당하지 않는 사람\n- 만 45세 이하", "45세 이하"),
+    ],
+)
+def test_real_age_cap_is_quoted(text: str, quoted: str) -> None:
+    result = FairpostEngine().check(text)
+    finding = next(item for item in result.findings if item.id == "AGE-002")
+    assert finding.matched_text == quoted
+    start, end = finding.offset
+    assert text[start:end] == quoted
+
+
 def test_korean_ending_normalization_preserves_original_offsets() -> None:
     text = "자격요건\n남성에 한합니다."
     result = FairpostEngine().check(text)
@@ -1465,7 +1516,7 @@ def test_question_context_groups_are_candidate_relative(tmp_path: Path) -> None:
     rules = yaml.safe_load(path.read_text(encoding="utf-8"))
     rules.append(
         {
-            "id": "Q-TEST-CONTEXT",
+            "id": "Q-TEST-001",
             "layer": "question",
             "trigger": {
                 "type": "presence",
@@ -1501,12 +1552,12 @@ def test_question_context_groups_are_candidate_relative(tmp_path: Path) -> None:
 
     positive = engine.check("복수 직렬 채용의 공통 지원서에서 학력 기재")
     question = next(
-        item for item in positive.questions if item.id == "Q-TEST-CONTEXT"
+        item for item in positive.questions if item.id == "Q-TEST-001"
     )
     assert question.matched_text == "공통 지원서"
 
     missing_group = engine.check("복수 직렬 채용의 공통 지원서를 사용")
-    assert "Q-TEST-CONTEXT" not in {
+    assert "Q-TEST-001" not in {
         item.id for item in missing_group.questions
     }
 
@@ -1519,7 +1570,7 @@ def test_question_context_groups_are_candidate_relative(tmp_path: Path) -> None:
     question = next(
         item
         for item in first_candidate_is_too_far.questions
-        if item.id == "Q-TEST-CONTEXT"
+        if item.id == "Q-TEST-001"
     )
     assert question.offset is not None
     assert question.offset[0] == second_candidate_text.rfind("공통 지원서")
@@ -1676,7 +1727,7 @@ def test_local_statute_basis_is_rejected(tmp_path: Path) -> None:
     path = tmp_path / "local_rules.yaml"
     path.write_text(
         """
-- id: Q-LOCAL-BAD
+- id: Q-LOCAL-998
   layer: question
   trigger: {type: presence, patterns: [테스트]}
   dimension: 절차
@@ -1772,7 +1823,7 @@ def test_local_rules_can_be_loaded_from_environment(
     path = tmp_path / "local_rules.yaml"
     path.write_text(
         """
-- id: Q-LOCAL-ENV
+- id: Q-LOCAL-999
   layer: question
   trigger: {type: presence, patterns: [환경 규칙 확인]}
   dimension: 절차
@@ -1788,7 +1839,7 @@ def test_local_rules_can_be_loaded_from_environment(
     )
     monkeypatch.setenv("FAIRPOST_LOCAL_RULES_PATH", str(path))
     result = FairpostEngine().check("환경 규칙 확인")
-    question = next(item for item in result.questions if item.id == "Q-LOCAL-ENV")
+    question = next(item for item in result.questions if item.id == "Q-LOCAL-999")
     assert question.review_scope == "posting"
 
 
@@ -1889,9 +1940,16 @@ def test_question_rules_may_not_declare_related_questions(tmp_path: Path) -> Non
 
 
 def test_finding_link_respects_the_questions_own_protective_exclusion() -> None:
-    result = FairpostEngine().check("블라인드 안내: 임신 여부는 기재하지 마세요.")
-    assert any(finding.id == "PREG-001" for finding in result.findings)
-    assert "Q-DIST-017" not in {item.id for item in result.questions}
+    # LOOK-001 links Q-DIST-007, but Q-DIST-007's own wording ("신체 조건") is
+    # protected in its clause, so the link does not pull the question back.
+    result = FairpostEngine().check("용모 단정한 분 우대. 신체 조건은 기재하지 마세요.")
+    assert any(finding.id == "LOOK-001" for finding in result.findings)
+    assert "Q-DIST-007" not in {item.id for item in result.questions}
+    # Since 2026-10-11 a protected pregnancy item is no PREG-001 finding at all.
+    protected = FairpostEngine().check("블라인드 안내: 임신 여부는 기재하지 마세요.")
+    assert not {"PREG-001", "Q-DIST-017"} & (
+        {finding.id for finding in protected.findings} | {item.id for item in protected.questions}
+    )
 
 
 @pytest.mark.parametrize(
