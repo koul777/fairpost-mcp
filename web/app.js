@@ -1018,6 +1018,7 @@
     const lead = [];
     if (existing) {
       roleReviewState = existing;
+      roleReviewPersistent = true;
       const userEvents = roleReviewUserEvents(existing).length;
       lead.push(`같은 공고문·규칙셋·지침 버전의 역할 기록(이벤트 ${userEvents}개)을 불러왔습니다.`);
       const dropped = store.dropped.get(key) || 0;

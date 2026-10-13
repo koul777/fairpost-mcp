@@ -745,6 +745,25 @@ for (const relative of appSources) {
   );
   localReviewValues.set(STORE_KEY, JSON.stringify(migrateStore));
   localReviewValues.set(LEGACY_KEY, JSON.stringify(legacyPacket));
+  // A v1 packet is already persisted even if its first migration write
+  // fails. Per-posting deletion must not hide it or claim it was removed.
+  const legacyBeforeFailedMigration = localReviewValues.get(LEGACY_KEY);
+  const storeBeforeFailedMigration = localReviewValues.get(STORE_KEY);
+  globalThis.localStorage = {
+    ...workingStorage,
+    setItem() { throw new Error("SecurityError: simulated migration write failure"); },
+  };
+  elements.get("check-button").trigger("click");
+  await tick();
+  elements.get("role-review-note").value = "이전 형식 기록 삭제 실패에도 보존할 메모입니다.";
+  elements.get("role-review-clear").trigger("click");
+  nodeAssert.equal(localReviewValues.get(LEGACY_KEY), legacyBeforeFailedMigration);
+  nodeAssert.equal(localReviewValues.get(STORE_KEY), storeBeforeFailedMigration);
+  nodeAssert.equal(elements.get("role-review-panel").hidden, false);
+  nodeAssert.equal(elements.get("role-review-note").value, "이전 형식 기록 삭제 실패에도 보존할 메모입니다.");
+  nodeAssert.match(elements.get("role-review-notice").textContent, /삭제하지 못했습니다/);
+  nodeAssert.match(elements.get("toast").textContent, /삭제하지 못했습니다/);
+  globalThis.localStorage = workingStorage;
   elements.get("check-button").trigger("click");
   await tick();
   const migrated = readStore().packets.find(
