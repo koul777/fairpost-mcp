@@ -1,9 +1,9 @@
 {
   "schema_version": "fairpost-installed-wheel-audit-v1",
-  "recorded_at_utc": "2026-10-13T04:45:58+00:00",
+  "recorded_at_utc": "2026-10-13T05:02:48+00:00",
   "passed": true,
   "wheel_file": "fairpost-0.3.0-py3-none-any.whl",
-  "wheel_sha256": "8b2451a552f61c1bf48614294c647e0484d5eb79ba8702752ad53184c4599fc6",
+  "wheel_sha256": "84d800b57324bac962af30893aebe96483ed0bd875c5d0fb71792b59994e06c5",
   "installation": {
     "fresh_virtual_environment": true,
     "execution_outside_checkout": true,
@@ -89,11 +89,11 @@
     "optional_ai_configured": false,
     "server_stopped": true
   },
-  "elapsed_seconds": 17.12,
+  "elapsed_seconds": 13.05,
   "evidence_status": "current",
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
   "matching_version": "match-2b470bfabfd83536",
   "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
-  "raw_report_sha256": "67045d4094568e8cf8bea5e8f08fd696ee02c10ef8d3a483fdf63fda994c4975",
+  "raw_report_sha256": "02efd6ffe252c0aeb7b6f81181cea2a633705241865f5893ef4aacadd380a16f",
   "wheel_name": "fairpost-0.3.0-py3-none-any.whl"
 }

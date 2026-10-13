@@ -151,8 +151,8 @@ fairpost web
 3. 사용자가 웹에서 보강을 켜고 전송 범위를 확인한 뒤 **보강 실행**을 누를 것
 
 보강은 필수가 아닌 선택 기능이며 서버 설정이 있어야 동작합니다. 현재 공개 배포
-(`fairmcp.vercel.app`)는 2026-10-02 확인 시 `/api/health`의 `assisted_review`가
-`ready: false`, `available_providers: []`로, AI API 키가 설정되어 있지 않았습니다.
+(`fairmcp.vercel.app`)는 2026-10-13 확인 시 `GET /api/assisted-review`가
+`ready: false`, `ai_configured: false`로, AI API 키가 설정되어 있지 않았습니다.
 이 상태에서는 보강 스위치가 사유와 함께 비활성으로 표시되며 보강 결과를 받을 수 없습니다.
 기본 점검에는 영향이 없습니다.
 
@@ -322,7 +322,7 @@ fairpost-mcp
 
 | 항목 | 현재 증거 |
 |---|---|
-| 자동화 테스트 | [2026-10-13 통합 검증 기록](docs/improvements-2026-10-13.md)에 전체 회귀·브라우저·설치·배포 결과를 기록. 현재 값은 `python -m pytest`로 재현하고, 후보별 수치와 해시는 `reports/build_artifact*.json`에 보관 |
+| 자동화 테스트 | [2026-10-13 추가 통합 검증 기록](docs/improvements-2026-10-13-extension.md)에 전체 회귀·브라우저·설치·배포 결과를 기록. 현재 값은 `python -m pytest`로 재현하고, 후보별 수치와 해시는 `reports/build_artifact*.json`에 보관 |
 | 엔진 동등성 | 같은 train 공고 2,310건에서 Python·JavaScript 결과 불일치 0. 사람 라벨에 따른 법률 정확도 평가와는 별도 |
 | 데이터 규칙 | 71개 = 법령 표현 규칙 19개 + 검토 질문 카드 52개 (절차·정보 슬롯 11개는 별도) |
 | 배포 형태 | 정적 웹 + CLI + 로컬 MCP + Vercel MCP + 선택형 AI·법령 보강 API |

@@ -1,0 +1,466 @@
+{
+  "schema_version": "fairpost-web-extension-audit-v1",
+  "audit_date": "2026-10-13",
+  "evidence_status": "current",
+  "evidence_scope": "production-integrated-web-bundle",
+  "base_url": "https://fairmcp.vercel.app",
+  "source_revision_at_ui_run": "66ff6e725da633cec73786c1033e3791bd46e935",
+  "source_revision_at_identity_check": "66ff6e725da633cec73786c1033e3791bd46e935",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+  "matching_version": "match-2b470bfabfd83536",
+  "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
+  "started_at": "2026-10-13T04:53:37.598Z",
+  "finished_at": "2026-10-13T04:54:00.876Z",
+  "browser": {
+    "name": "Chromium headless shell",
+    "version": "153.0.8010.12",
+    "isolated_contexts": true,
+    "viewports": [
+      {
+        "width": 1366,
+        "height": 900
+      },
+      {
+        "width": 390,
+        "height": 844
+      }
+    ]
+  },
+  "contains_posting_text": false,
+  "synthetic_inputs_only": true,
+  "verification": {
+    "passed": true,
+    "existing_flow_checks_passed": 119,
+    "existing_flow_checks_total": 119,
+    "new_regression_checks_passed": 46,
+    "new_regression_checks_total": 46,
+    "checks_passed": 165,
+    "checks_total": 165,
+    "posting_network_requests": 0,
+    "off_origin_requests": 0,
+    "page_errors": 0,
+    "console_errors": 0,
+    "identity_checks": {
+      "sourceUnchangedDuringIdentityCheck": true,
+      "browserRulesetMatchesRoot": true,
+      "allSixWebAssetsMatchRoot": true,
+      "healthOk": true,
+      "runtimeMatchesRoot": true,
+      "matchingVersionMatchesRoot": true,
+      "healthManifestMatchesRoot": true,
+      "noErrorsOrBlockedRequests": true
+    },
+    "clipboard_comparison": "Windows CRLF normalized to LF; all other characters compared exactly."
+  },
+  "new_regressions": [
+    {
+      "viewport": "desktop",
+      "name": "migration-write 이전 형식 잔존을 삭제 성공으로 표시하지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "migration-write 기존 기록과 작성 중 draft 보존",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "migration-write 저장소 복구 후 두 형식 모두 삭제",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "legacy-removal 이전 형식 잔존을 삭제 성공으로 표시하지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "legacy-removal 기존 기록과 작성 중 draft 보존",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "legacy-removal 저장소 복구 후 두 형식 모두 삭제",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "삭제된 기록을 다른 탭 저장으로 복활시키지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "차단 시 draft·근거·포커스 보존과 재검토 안내",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "재검토 후 새 draft만 저장",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "다른 탭 정상 추가 이벤트는 모두 보존",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "쓰기 실패 뒤 삭제 실패를 성공으로 표시하지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "삭제 실패 뒤 저장 기록·세션 기록·draft 보존",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "저장소 복구 후 삭제 재시도 성공",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "#clear-button 미반영 draft 삭제 취소·보존",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "#sample-button 미반영 draft 삭제 취소·보존",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "이미 반영한 수정은 추가 확인 없이 공고 undo로 복구",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "비동기 요청 중 중복 실행 비활성·결과 포커스",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "편집·재검토 중 도착한 응답은 이전 입력 표시",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "같은 입력으로 복원하면 보강 결과도 현재 상태 복구",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "제공자 변경은 이전 결과로 전환",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "보강을 끈 뒤 지연 응답은 숨김 유지",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "쉬운 모드 전환 뒤 지연 응답은 숨김 유지",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "명시적 보강 클릭만 3회, 편집·설정은 자동 호출 없음",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "migration-write 이전 형식 잔존을 삭제 성공으로 표시하지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "migration-write 기존 기록과 작성 중 draft 보존",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "migration-write 저장소 복구 후 두 형식 모두 삭제",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "legacy-removal 이전 형식 잔존을 삭제 성공으로 표시하지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "legacy-removal 기존 기록과 작성 중 draft 보존",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "legacy-removal 저장소 복구 후 두 형식 모두 삭제",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "삭제된 기록을 다른 탭 저장으로 복활시키지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "차단 시 draft·근거·포커스 보존과 재검토 안내",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "재검토 후 새 draft만 저장",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "다른 탭 정상 추가 이벤트는 모두 보존",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "쓰기 실패 뒤 삭제 실패를 성공으로 표시하지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "삭제 실패 뒤 저장 기록·세션 기록·draft 보존",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "저장소 복구 후 삭제 재시도 성공",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "#clear-button 미반영 draft 삭제 취소·보존",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "#sample-button 미반영 draft 삭제 취소·보존",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "이미 반영한 수정은 추가 확인 없이 공고 undo로 복구",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "비동기 요청 중 중복 실행 비활성·결과 포커스",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "편집·재검토 중 도착한 응답은 이전 입력 표시",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "같은 입력으로 복원하면 보강 결과도 현재 상태 복구",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "제공자 변경은 이전 결과로 전환",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "보강을 끈 뒤 지연 응답은 숨김 유지",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "쉬운 모드 전환 뒤 지연 응답은 숨김 유지",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "명시적 보강 클릭만 3회, 편집·설정은 자동 호출 없음",
+      "passed": true
+    }
+  ],
+  "static_asset_identity": {
+    "web/app.js": {
+      "status": 200,
+      "rawSha256": "sha256:31032a6b9682506e7eb7d12de62cda60f56e94b4f664869dbd8b09b23ff2882c",
+      "canonicalSha256": "sha256:6be5ae4dd2a842bd41edc4ed33403a07b97885d9c76a651320dc3d4f7c48b91a",
+      "expectedSha256": "sha256:6be5ae4dd2a842bd41edc4ed33403a07b97885d9c76a651320dc3d4f7c48b91a",
+      "matches": true
+    },
+    "web/data.js": {
+      "status": 200,
+      "rawSha256": "sha256:9f792a4de86c53cb9d74af61f9fe804a0273e458517642f82dab7be426d1d941",
+      "canonicalSha256": "sha256:85e4852604d11df801e0d8c8b2bcf7b4399e04d979cbe65c2c1bbbd5ee912297",
+      "expectedSha256": "sha256:85e4852604d11df801e0d8c8b2bcf7b4399e04d979cbe65c2c1bbbd5ee912297",
+      "matches": true
+    },
+    "web/engine.js": {
+      "status": 200,
+      "rawSha256": "sha256:c58d8bbe83bf8b7cff6f66ce2bd42e1d0f24423768dc1892e0bf1807353eee4a",
+      "canonicalSha256": "sha256:1912e299c34926e53ff5bdf317fdaacfc0fbd4beb85704477c3f56194c00c7a3",
+      "expectedSha256": "sha256:1912e299c34926e53ff5bdf317fdaacfc0fbd4beb85704477c3f56194c00c7a3",
+      "matches": true
+    },
+    "web/index.html": {
+      "status": 200,
+      "rawSha256": "sha256:57f555fd766b10bdd8d8347c6d515abfef46b90295a17dcdc29f259807214969",
+      "canonicalSha256": "sha256:3cc4fc416a87334db48e16bec751e0e1f8235a32ba36edf7a1cd830c21256d66",
+      "expectedSha256": "sha256:3cc4fc416a87334db48e16bec751e0e1f8235a32ba36edf7a1cd830c21256d66",
+      "matches": true
+    },
+    "web/posting-templates.js": {
+      "status": 200,
+      "rawSha256": "sha256:594370e2ed90244f9ecef4cde3a0eac4d22738a6de5182a9565c80cb2da20b79",
+      "canonicalSha256": "sha256:f16ad60eca3312f0e6cd54b351fa14a5fd70ed4e336dd2fb95691ad22e549e31",
+      "expectedSha256": "sha256:f16ad60eca3312f0e6cd54b351fa14a5fd70ed4e336dd2fb95691ad22e549e31",
+      "matches": true
+    },
+    "web/styles.css": {
+      "status": 200,
+      "rawSha256": "sha256:6e6919e2ab90e1357c434ff24c4d5d664ca3883aedcdf822e290ad9483188549",
+      "canonicalSha256": "sha256:928023870e5cd8308ee6edd46cebccff068f4c72469fc2c0c197074f23adfc51",
+      "expectedSha256": "sha256:928023870e5cd8308ee6edd46cebccff068f4c72469fc2c0c197074f23adfc51",
+      "matches": true
+    }
+  },
+  "visual_inspection": {
+    "inspected_at": "2026-10-13T04:55:41.772Z",
+    "inspected_images": 20,
+    "blocking_issues": [],
+    "observations": [
+      "Book entry, easy/expert results, stale-state focus, and comparison remain legible at desktop and mobile widths.",
+      "Deleted-packet recovery keeps typed role notes and evidence visible and directs focus to the draft.",
+      "Storage-delete failure keeps saved and session records visible with an explicit failure notice.",
+      "Korean recovery toasts and action labels wrap within the mobile viewport."
+    ],
+    "screenshots": [
+      {
+        "file": "desktop-book-entry.png",
+        "sha256": "f09fc74367351b330ee41e47f54e8e217e4c0cf55656b7a5799f37e13268ebdf",
+        "inspected": true
+      },
+      {
+        "file": "desktop-easy-result.png",
+        "sha256": "9f8555336b1e2111c47d608e1737e80e3ef6e5d60a0032c8ce5eafffc991dadb",
+        "inspected": true
+      },
+      {
+        "file": "desktop-role-stale.png",
+        "sha256": "dadc9d1a13995a0af9befe6722fa045dbf3f11d7231d87247d21e8c142d362dd",
+        "inspected": true
+      },
+      {
+        "file": "desktop-expert-mode.png",
+        "sha256": "dea790b723148d3596d75f26b8c878f42499736b101ec691496f94bb626dd5f3",
+        "inspected": true
+      },
+      {
+        "file": "desktop-comparison.png",
+        "sha256": "b175c90f5c837272d2e29a184e8702e569f917e3a1a7943e6cf6d9f6e7b8f05f",
+        "inspected": true
+      },
+      {
+        "file": "desktop-final-result.png",
+        "sha256": "4ca45531f9be1af52e8f7f074c5194beb97efe5a8c627f07a1c0185aec3bae76",
+        "inspected": true
+      },
+      {
+        "file": "mobile-book-entry.png",
+        "sha256": "3508c389ab294954b8a566ace3d77f752c30204833e2b5c7662ed9950265a097",
+        "inspected": true
+      },
+      {
+        "file": "mobile-easy-result.png",
+        "sha256": "3f28d57989f44c8c4c05fd86eb3ee127478d388b672954f609f3df820e4e439f",
+        "inspected": true
+      },
+      {
+        "file": "mobile-role-stale.png",
+        "sha256": "88a02c8179a5e409ff2e9fcda9836db7eec4ec5a815092d2c67dca8047984a5b",
+        "inspected": true
+      },
+      {
+        "file": "mobile-expert-mode.png",
+        "sha256": "f7011b8b1e2c8a984fc855387493ad32a3ed1a288f9eacc1dfa04c93911aee79",
+        "inspected": true
+      },
+      {
+        "file": "mobile-comparison.png",
+        "sha256": "0c13fb2b7794c0526b666a30bf98120b850483a35a1d944d88ce2275569262a6",
+        "inspected": true
+      },
+      {
+        "file": "mobile-final-result.png",
+        "sha256": "b95379f31247a0158435d4c81c085317c03a9c71adadc05eaac97f33febadb3b",
+        "inspected": true
+      },
+      {
+        "file": "desktop-migration-write-failed.png",
+        "sha256": "90cbf9741ffc9a06cdba533d8432495a85e6a6965a41a835632b4cdc81d0a479",
+        "inspected": true
+      },
+      {
+        "file": "desktop-legacy-removal-failed.png",
+        "sha256": "70eac0376ae901e42a0cc6fe60231d5f1b3cb5265872b7962a36e03630521c9a",
+        "inspected": true
+      },
+      {
+        "file": "desktop-deleted-packet-guard.png",
+        "sha256": "fc862be0ad23c6d153100bc83f6705826484879e19d14aabf8cdcb680cb27fd2",
+        "inspected": true
+      },
+      {
+        "file": "desktop-delete-failed.png",
+        "sha256": "e84cd35ce23e645479f4380ce1c54c1dc5d35df91b7b554c091e7b45ce9bd7df",
+        "inspected": true
+      },
+      {
+        "file": "mobile-migration-write-failed.png",
+        "sha256": "b05443d01dfebc415c38b97ccf3839581c6f8abdd2406364569288b4122660b1",
+        "inspected": true
+      },
+      {
+        "file": "mobile-legacy-removal-failed.png",
+        "sha256": "995a47c321a6e36e86d78f7b2b7c3a016ae3130c06eda3a569a29341f6aed89f",
+        "inspected": true
+      },
+      {
+        "file": "mobile-deleted-packet-guard.png",
+        "sha256": "ccd0d7334a597b49c5f66e7b536b949e81156868ec52000e492078cec32ba263",
+        "inspected": true
+      },
+      {
+        "file": "mobile-delete-failed.png",
+        "sha256": "ed077bedba6c0ec837ec8687f3328979c569c58b8b8ad40b1579e43c1d21db9f",
+        "inspected": true
+      }
+    ]
+  },
+  "assisted_review_test_boundary": "Deferred in-memory fetch responses exercise the actual app handlers; no API POST network request or external AI service is used.",
+  "axe_executed_in_this_audit": false,
+  "local_artifacts": [
+    {
+      "kind": "browser",
+      "directory": "production-run-2026-10-13T04-53-37-614Z",
+      "file": "report.json",
+      "sha256": "c7cfdfac24935a90e085461e9cb347f9e4eec5c091b715f3e853672b73340bb3"
+    },
+    {
+      "kind": "regression",
+      "directory": "production-regression-2026-10-13T04-53-37-597Z",
+      "file": "report.json",
+      "sha256": "dff0cfa34c73b222813e8eeca4e576213a9706a3738970eade7cdd45fdf4397c"
+    },
+    {
+      "kind": "identity",
+      "directory": "1h-web-qa",
+      "file": "production-identity.json",
+      "sha256": "c1a0c85e052a8ecbfe6a8c5774125abd444a5cbb9b367f467fb5d7e8def80e27"
+    }
+  ]
+}

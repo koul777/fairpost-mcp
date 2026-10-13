@@ -1,0 +1,68 @@
+{
+  "schema_version": "fairpost-github-ci-audit-v1",
+  "evidence_status": "current",
+  "generated_at": "2026-10-13T04:53:06.313002+00:00",
+  "run": {
+    "attempt": 1,
+    "conclusion": "success",
+    "databaseId": 38348055648,
+    "event": "push",
+    "headBranch": "main",
+    "headSha": "66ff6e725da633cec73786c1033e3791bd46e935",
+    "status": "completed",
+    "url": "https://github.com/koul777/fairpost-mcp/actions/runs/38348055648"
+  },
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+  "matching_version": "match-2b470bfabfd83536",
+  "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
+  "validation_source_fingerprint": "validation-deb166ef0da1b21cd5cb0ffa648534d8e65b24583f3d1b002ec810d330215c6c",
+  "jobs": [
+    {
+      "name": "test-windows",
+      "id": 115133930336,
+      "url": "https://github.com/koul777/fairpost-mcp/actions/runs/38348055648/job/115133930336",
+      "conclusion": "success",
+      "pytest_summary": "5495 passed, 9 skipped in 218.50s",
+      "log_sha256": "456c1bd91921fa439d272cd148b0c189fa0cfa811a9058aa8d7281c4b0f64aad"
+    },
+    {
+      "name": "test",
+      "id": 115133930588,
+      "url": "https://github.com/koul777/fairpost-mcp/actions/runs/38348055648/job/115133930588",
+      "conclusion": "success",
+      "pytest_summary": "5504 passed in 317.52s",
+      "log_sha256": "b7cd080b1877714f8b010d3d5a39e5a7a3a4540948c820d9b070810564f50aa6"
+    },
+    {
+      "name": "test-python-latest",
+      "id": 115133930704,
+      "url": "https://github.com/koul777/fairpost-mcp/actions/runs/38348055648/job/115133930704",
+      "conclusion": "success",
+      "pytest_summary": "5504 passed in 313.09s",
+      "log_sha256": "5e15c7cf0e104fd69e601cb5e62d8540de878fa6cb4afd4ba894ed19e57d37b8"
+    }
+  ],
+  "linux_junit": {
+    "tests_passed": 5504,
+    "skipped": 0,
+    "sha256": "263e383beb1665563f0e96843f816d561400fe9af08a8eccf688f927fe464fb9",
+    "fresh_for_current_inputs": true
+  },
+  "artifact": {
+    "id": 11789018661,
+    "name": "linux-candidate-evidence-66ff6e725da633cec73786c1033e3791bd46e935",
+    "archive_sha256": "6b900544cfdce04dbe1fbe5be44703bbbd1615dd1883f44c1c19f418e677b5b2",
+    "github_digest_matches": true,
+    "files_sha256": {
+      "build-artifact.json": "f0e6abcb3ca7fcaa9f2ff9ca5d6feb80ba7cf7c0f7643ef1d40bf4d6204d346f",
+      "corpus-diversity-audit.json": "21d922dce64b4ce5729b30b08f7dda19571382e2e295742c65b09cab65f4e806",
+      "distribution_audit.json": "6a2d5b5fcef0ad309520e387d571732f6447a6f4bbf5c0f3b0a3fb24a4c88d3e",
+      "evidence-version-audit.json": "5a694d5ed3c40647f524312a82fc3cfa314248e4c267c5fc73f8821160f43272",
+      "fairpost-0.3.0-py3-none-any.whl": "0325c8538c297935cbac766473c86efe7983a2fe0f7ebb754516b2396e9ea5fe",
+      "fairpost-0.3.0.tar.gz": "9423bbc5c87a0a6a69b46cfa68c6ad3657494af367a9ff2feab40721546b455a",
+      "pytest.xml": "263e383beb1665563f0e96843f816d561400fe9af08a8eccf688f927fe464fb9"
+    }
+  },
+  "contains_posting_text": false,
+  "secret_recorded": false
+}

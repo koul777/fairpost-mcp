@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-13T13:46:12+09:00",
+  "checked_at": "2026-10-13T14:05:00+09:00",
   "historical_paths_skipped": [
     "reports/github_ci_audit-2026-10-13.json",
     "reports/human_labeling_handoff.json",
@@ -19,7 +19,6 @@
     "reports/private_result_notice_context_audit.json",
     "reports/private_return_context_audit.json",
     "reports/private_review_model_triage.json",
-    "reports/production_rollout.json",
     "reports/publication-validation-2026-10-09.json",
     "reports/vercel_public_check-2026-10-13.json",
     "reports/web_production_audit-2026-10-13.json",
@@ -29,6 +28,33 @@
   "matching_version": "match-2b470bfabfd83536",
   "passed": true,
   "reports": [
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": "validation-deb166ef0da1b21cd5cb0ffa648534d8e65b24583f3d1b002ec810d330215c6c",
+      "matching_version": "match-2b470bfabfd83536",
+      "matching_version_matches": true,
+      "path": "reports/build_artifact-1h-candidate-2026-10-13.json",
+      "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+      "ruleset_version_matches": true,
+      "runtime_source_fingerprint_matches": false,
+      "runtime_source_fingerprints": {
+        "verification.vercel_runtime_source_fingerprint": "runtime-e31bb133414b6a3769ff7475a23cfa02ada690a8bc30be7cdf614faeb3a44689"
+      },
+      "schema_version": "fairpost-build-artifact-v2",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "build_artifact.json",
+      "stale_reasons": [
+        "runtime_source_fingerprint_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": true,
+      "validation_source_fingerprints": {
+        "verification.test_validation_source_fingerprint": "validation-deb166ef0da1b21cd5cb0ffa648534d8e65b24583f3d1b002ec810d330215c6c"
+      }
+    },
     {
       "claims_current": false,
       "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
@@ -579,6 +605,29 @@
       "expected_validation_source_fingerprint": null,
       "matching_version": "match-2b470bfabfd83536",
       "matching_version_matches": true,
+      "path": "reports/github_ci_audit-2026-10-13-extension.json",
+      "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+      "ruleset_version_matches": true,
+      "runtime_source_fingerprint_matches": true,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64"
+      },
+      "schema_version": "fairpost-github-ci-audit-v1",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": null,
+      "stale_reasons": [],
+      "status": "current",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": true,
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": "match-2b470bfabfd83536",
+      "matching_version_matches": true,
       "path": "reports/installed_wheel_audit.json",
       "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
       "ruleset_version_matches": true,
@@ -681,6 +730,29 @@
     },
     {
       "claims_current": true,
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": "match-2b470bfabfd83536",
+      "matching_version_matches": true,
+      "path": "reports/production_rollout.json",
+      "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+      "ruleset_version_matches": true,
+      "runtime_source_fingerprint_matches": true,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64"
+      },
+      "schema_version": "fairpost-production-rollout-v1",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": null,
+      "stale_reasons": [],
+      "status": "current",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": true,
       "expected_runtime_source_fingerprint": null,
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
@@ -692,6 +764,30 @@
       "runtime_source_fingerprint_matches": null,
       "runtime_source_fingerprints": {},
       "schema_version": null,
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": null,
+      "stale_reasons": [],
+      "status": "current",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": true,
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": null,
+      "matching_version_matches": null,
+      "path": "reports/vercel_public_check-2026-10-13-extension.json",
+      "ruleset_version": null,
+      "ruleset_version_matches": null,
+      "runtime_source_fingerprint_matches": true,
+      "runtime_source_fingerprints": {
+        "health.runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
+        "local_ruleset.runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64"
+      },
+      "schema_version": "fairpost-vercel-public-check-v1",
       "schema_version_matches": null,
       "scope": "local",
       "snapshot_of": null,
@@ -746,6 +842,29 @@
     },
     {
       "claims_current": true,
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": "match-2b470bfabfd83536",
+      "matching_version_matches": true,
+      "path": "reports/web_extension_production_audit-2026-10-13.json",
+      "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+      "ruleset_version_matches": true,
+      "runtime_source_fingerprint_matches": true,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64"
+      },
+      "schema_version": "fairpost-web-extension-audit-v1",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": null,
+      "stale_reasons": [],
+      "status": "current",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": true,
       "expected_runtime_source_fingerprint": null,
       "expected_schema_version": "fairpost-work24-access-audit-v1",
       "expected_validation_source_fingerprint": null,
@@ -766,9 +885,9 @@
       "validation_source_fingerprints": {}
     }
   ],
-  "reports_checked": 31,
-  "reports_current": 13,
-  "reports_snapshot_stale": 18,
+  "reports_checked": 36,
+  "reports_current": 17,
+  "reports_snapshot_stale": 19,
   "reports_stale": 0,
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
   "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
@@ -776,6 +895,7 @@
   "scope": "local",
   "stale_paths": [],
   "stale_snapshot_paths": [
+    "reports/build_artifact-1h-candidate-2026-10-13.json",
     "reports/build_artifact-2h-candidate-2026-10-13.json",
     "reports/build_artifact-8h-candidate-2026-09-12.json",
     "reports/build_artifact-v0.4-candidate-2026-10-03.json",
