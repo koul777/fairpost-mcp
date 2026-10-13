@@ -596,8 +596,15 @@ def test_save_answer_keeps_accepting_ordinary_answers(tmp_path: Path, monkeypatc
 
 @pytest.mark.parametrize(
     "content",
-    [b"{not json", b"[1, 2, 3]", b"\xff\xfe broken"],
-    ids=["invalid-json", "not-an-object", "not-utf8"],
+    [
+        b"{not json",
+        b"[1, 2, 3]",
+        b"\xff\xfe broken",
+        b'{"org-a": []}',
+        b'{"org-a": {"Q-INFO-001": null}}',
+        b'{"org-a": {"Q-INFO-001": ["private nested answer"]}}',
+    ],
+    ids=["invalid-json", "not-an-object", "not-utf8", "invalid-org", "null-answer", "list-answer"],
 )
 def test_corrupt_answer_store_degrades_to_no_answers_with_notice(
     tmp_path: Path, monkeypatch, caplog, content: bytes
@@ -623,6 +630,37 @@ def test_corrupt_answer_store_degrades_to_no_answers_with_notice(
     assert "event=answer_store_unreadable" in logged
     assert str(tmp_path) not in logged
     assert "org-a" not in logged
+
+
+@pytest.mark.parametrize(
+    "damaged_entry",
+    [None, [], {"Q-INFO-001": None}, {"Q-INFO-001": 1}, {"Q-INFO-001": {}}],
+    ids=["null-organization", "list-organization", "null-answer", "number-answer", "object-answer"],
+)
+@pytest.mark.parametrize("operation", ["get", "save", "purge-org"])
+def test_malformed_answer_entries_are_rejected_without_rewriting_store(
+    tmp_path: Path, damaged_entry, operation: str,
+) -> None:
+    path = tmp_path / "answers.json"
+    payload = {
+        "org-a": {"Q-INFO-001": "synthetic answer"},
+        "private-org-marker": damaged_entry,
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    before = path.read_bytes()
+    store = LocalAnswerStore(path)
+
+    with pytest.raises(storage.AnswerStoreCorruptError) as exc_info:
+        if operation == "get":
+            store.get("org-a")
+        elif operation == "save":
+            store.save("org-a", "Q-INFO-001", "replacement answer")
+        else:
+            store.purge("org-a")
+
+    assert path.read_bytes() == before
+    assert "private-org-marker" not in str(exc_info.value)
+    assert "synthetic answer" not in str(exc_info.value)
 
 
 def test_readable_answer_store_has_no_notice(tmp_path: Path, monkeypatch) -> None:

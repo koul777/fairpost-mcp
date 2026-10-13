@@ -8,7 +8,7 @@ import pytest
 
 import mcp_server.server as server
 import mcp_server.storage as storage
-from core import ReviewEvent, posting_fingerprint
+from core import ReviewEvent, ReviewPacket, posting_fingerprint
 from core.review_packet import SYSTEM_CHAIR_NOTE
 from mcp_server.storage import LocalReviewPacketStore
 
@@ -173,6 +173,47 @@ def test_local_review_packet_store_validates_packet_id_before_append(
 
     with pytest.raises(ValueError, match="packet_id"):
         store.append("../outside", None)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("operation", ["get", "append"])
+def test_review_packet_key_mismatch_is_rejected_without_modifying_store(
+    tmp_path: Path, operation: str,
+) -> None:
+    path = tmp_path / "review-packets.json"
+    store = LocalReviewPacketStore(path)
+    packet = ReviewPacket(
+        packet_id="packet-b",
+        posting_fingerprint=posting_fingerprint("synthetic posting"),
+        ruleset_version="synthetic-rules",
+        guidance_catalog_version="synthetic-guidance",
+        created_at="2026-10-13T00:00:00+00:00",
+    )
+    path.write_text(
+        json.dumps({"packet-a": packet.to_dict(), "packet-b": packet.to_dict()}),
+        encoding="utf-8",
+    )
+    before = path.read_bytes()
+
+    with pytest.raises(ValueError, match="packet_id"):
+        if operation == "get":
+            store.get("packet-a")
+        else:
+            store.append(
+                "packet-a",
+                ReviewEvent(
+                    event_id="evt-synthetic",
+                    stage="analysis",
+                    role="auditor",
+                    action="note",
+                    occurred_at="2026-10-13T00:00:00+00:00",
+                    note="synthetic note",
+                    ruleset_version=packet.ruleset_version,
+                    guidance_catalog_version=packet.guidance_catalog_version,
+                ),
+            )
+
+    assert path.read_bytes() == before
+    assert store.get("packet-b") == packet
 
 
 def test_append_rejects_event_with_mismatched_versions(

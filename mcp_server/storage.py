@@ -163,11 +163,16 @@ class LocalAnswerStore:
             )
         result: dict[str, dict[str, str]] = {}
         for org_id, answers in payload.items():
-            if isinstance(org_id, str) and isinstance(answers, dict):
-                result[org_id] = {
-                    str(question_id): str(answer)
-                    for question_id, answer in answers.items()
-                }
+            if not isinstance(org_id, str) or not isinstance(answers, dict):
+                raise AnswerStoreCorruptError("답변 저장소 항목 형식이 올바르지 않습니다")
+            if any(
+                not isinstance(question_id, str) or not isinstance(answer, str)
+                for question_id, answer in answers.items()
+            ):
+                raise AnswerStoreCorruptError("답변 저장소 항목 형식이 올바르지 않습니다")
+            # Never coerce damaged values or drop an invalid organization: a
+            # later save or targeted purge would silently rewrite private data.
+            result[org_id] = dict(answers)
         return result
 
     def get(self, org_id: str) -> dict[str, str]:
@@ -301,10 +306,8 @@ class LocalReviewPacketStore:
     @staticmethod
     def _packet_from_payload(
         packet_id: str,
-        payload: dict[str, Any] | None,
-    ) -> ReviewPacket | None:
-        if payload is None:
-            return None
+        payload: dict[str, Any],
+    ) -> ReviewPacket:
         try:
             packet = ReviewPacket.from_dict(payload)
         except ReviewPacketError as exc:
@@ -366,7 +369,7 @@ class LocalReviewPacketStore:
             if payload is None:
                 return None
             try:
-                packet = ReviewPacket.from_dict(payload)
+                packet = self._packet_from_payload(packet_id, payload)
                 self._validate_packet(packet)
                 return packet
             except ReviewPacketError as exc:
@@ -382,7 +385,7 @@ class LocalReviewPacketStore:
             if current_payload is None:
                 raise ValueError("존재하지 않는 packet_id입니다")
             try:
-                current = ReviewPacket.from_dict(current_payload)
+                current = self._packet_from_payload(packet_id, current_payload)
                 self._validate_packet(current)
                 if (
                     event.ruleset_version != current.ruleset_version
