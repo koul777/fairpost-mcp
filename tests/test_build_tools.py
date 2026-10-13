@@ -686,6 +686,33 @@ def test_validation_source_fingerprint_covers_inputs_and_normalizes_newlines(
     assert module.validation_source_fingerprint(tmp_path) != first
 
 
+def test_validation_source_fingerprint_uses_portable_case_sensitive_path_order(
+    tmp_path: Path,
+) -> None:
+    module = load_tool("release_inputs")
+    expected_paths = [
+        ".mcp.json",
+        "MANIFEST.in",
+        "api/index.py",
+        "core/Z_schema.py",
+        "core/a_engine.py",
+        "pyproject.toml",
+    ]
+    for relative in reversed(expected_paths):
+        source = tmp_path / relative
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(b"content\n")
+
+    # Native Windows Path ordering case-folds both MANIFEST.in and Z_schema.py.
+    assert [
+        path.relative_to(tmp_path).as_posix()
+        for path in module.validation_inputs(tmp_path)
+    ] == expected_paths
+    assert module.validation_source_fingerprint(tmp_path) == (
+        "validation-450e8dd64b619f92eec1616de7b6de8c858da0930dbde91126cd8f8730445ec8"
+    )
+
+
 def test_release_report_rechecks_audited_artifact_bytes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

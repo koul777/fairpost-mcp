@@ -34,7 +34,8 @@ def validation_inputs(root: Path = ROOT) -> list[Path]:
             for path in source_dir.rglob("*")
             if path.is_file() and "__pycache__" not in path.parts
         )
-    return sorted(inputs)
+    # Path ordering case-folds on Windows; fingerprints must use one order on all OSes.
+    return sorted(inputs, key=lambda path: path.relative_to(root).as_posix())
 
 
 def validation_source_fingerprint(root: Path = ROOT) -> str:
