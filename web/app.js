@@ -927,6 +927,7 @@
   }
 
   function renderRoleReview() {
+    updateRoleReviewWriteState();
     if (!roleReviewState) return;
     const summary = roleReviewProgressSummary();
     const missingRoles = Object.keys(ROLE_LABELS).filter(
@@ -988,6 +989,7 @@
   async function initializeRoleReview(result, text) {
     const sequence = ++roleReviewSequence;
     roleReviewState = null;
+    updateRoleReviewWriteState();
     roleReviewPanel.hidden = false;
     roleReviewNotice.textContent =
       "공고문 요약값(해시)을 만드는 중입니다. 원문·지원자 정보는 역할 기록에 저장하지 않습니다.";
@@ -1104,12 +1106,30 @@
     renderRoleReview();
   }
 
+  function updateRoleReviewWriteState() {
+    const stale = Boolean(latestResult) && latestCheckedText !== input.value;
+    roleReviewRecord.disabled = !roleReviewState;
+    // Keep a stale action focusable so its reason is available to keyboard
+    // readers. The handler also rejects it; the draft stays in the fields.
+    if (stale) {
+      roleReviewRecord.setAttribute("aria-disabled", "true");
+      roleReviewRecord.setAttribute("aria-describedby", "stale-banner-text");
+    } else {
+      roleReviewRecord.removeAttribute("aria-disabled");
+      roleReviewRecord.removeAttribute("aria-describedby");
+    }
+  }
+
   function recordRoleReviewEvent() {
     setFieldError(roleReviewNote, roleReviewNoteError, "");
     setFieldError(roleReviewEvidence, roleReviewEvidenceError, "");
     setFieldError(roleReviewResolveEvent, roleReviewResolveError, "");
     if (!roleReviewState) {
       showToast("먼저 공고를 검토해 역할 큐를 준비하세요.");
+      return;
+    }
+    if (latestCheckedText !== input.value) {
+      showToast("공고문이 바뀌어 역할 기록을 저장하지 않았습니다. 작성 중인 메모는 그대로 있으니 '다시 검토'를 누른 뒤 기록하세요.");
       return;
     }
     if (roleReviewState.events.length >= ROLE_REVIEW_MAX_EVENTS) {
@@ -1259,6 +1279,7 @@
   function dropRoleReviewPanel() {
     roleReviewSequence += 1;
     roleReviewState = null;
+    updateRoleReviewWriteState();
     roleReviewPersistent = false;
     roleReviewPanel.hidden = true;
     roleReviewEvents.replaceChildren();
@@ -1423,7 +1444,7 @@
   }
 
   const STALE_BANNER_TEXT =
-    "공고문이 바뀌었습니다 · 아래 결과와 메모는 바뀌기 전 공고문 기준입니다. 메모 복사, 답변, 줄 반영은 다시 검토한 뒤 할 수 있습니다.";
+    "공고문이 바뀌었습니다 · 아래 결과와 메모는 바뀌기 전 공고문 기준입니다. 메모 복사, 답변, 역할 기록, 줄 반영은 다시 검토한 뒤 할 수 있습니다.";
 
   // The banner under the results toolbar says why the copy, answer and
   // rewrite controls are locked, and offers the one action that unlocks them.
@@ -1442,6 +1463,7 @@
       copyButton.removeAttribute("aria-disabled");
       copyButton.removeAttribute("aria-describedby");
     }
+    updateRoleReviewWriteState();
   }
 
   // "2026.07-local-v5-…-b5cea04dd38f" -> "2026.07 · b5cea04d": the person

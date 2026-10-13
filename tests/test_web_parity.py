@@ -839,6 +839,30 @@ def test_web_review_answers_are_copied_and_cleared_locally() -> None:
     assert role_review["reloaded"]["packetCount"] == 1
     assert role_review["reloaded"]["progress"] == role_review["progress"]
     assert "역할 기록(이벤트 3개)을 불러왔습니다" in role_review["reloaded"]["notice"]
+    assert len(role_review["staleWrites"]) == 2  # edited text and manually emptied text
+    for stale_write in role_review["staleWrites"]:
+        assert stale_write["storeUnchanged"] is True
+        assert stale_write["eventsUnchanged"] is True
+        assert stale_write["notePreserved"] is True
+        assert stale_write["evidencePreserved"] is True
+        assert stale_write["ariaDisabled"] == "true"
+        assert stale_write["describedBy"] == "stale-banner-text"
+        assert stale_write["focusable"] is True
+        assert "역할 기록" in stale_write["banner"]
+        assert "역할 기록을 저장하지 않았습니다" in stale_write["toast"]
+        assert "작성 중인 메모는 그대로" in stale_write["toast"]
+    assert role_review["restoredWrite"] == {
+        "enabled": True, "describedBy": None, "savedDraft": True,
+    }
+    assert role_review["changedPostingWrite"] == {
+        "staleStoreUnchanged": True,
+        "disabledWhilePreparing": True,
+        "preparingStoreUnchanged": True,
+        "enabledAfterRecheck": True,
+        "draftPreserved": True,
+        "oldPacketsUnchanged": True,
+        "savedInNewFingerprint": True,
+    }
     drift = role_review["afterVersionDrift"]
     assert drift["storedBeforeFirstEvent"] == 1  # the check itself stored nothing
     assert drift["newPacket"] is True
