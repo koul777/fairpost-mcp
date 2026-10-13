@@ -15,14 +15,17 @@ Every case also runs through the browser engine and must match Python exactly.
 from __future__ import annotations
 
 import base64
+from itertools import product
 import json
 from pathlib import Path
+import re
 import subprocess
 
 import pytest
 import yaml
 
 from core import FairpostEngine
+from core.morph import find_matches
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +55,18 @@ RETURN_NOTICES = {
     # A refusal next to a real return path: both are reported.
     "refusal-with-claim-path": (
         "유의사항\n서류 반환 불가, 단 채용서류 반환 청구 시 14일 이내 반환", ["return_period"]),
+}
+
+
+# Long gaps exercise the same refusal boundary without timing assertions.
+# Mixed whitespace and an astral prefix also keep source offsets observable.
+RETURN_SPACING = {
+    "long-gap-notice": ("제출서류\n서류 반환" + " " * 2048 + "제공", True),
+    "long-gap-refusal": ("유의사항\n채용서류 반환" + " " * 2048 + "불가", False),
+    "spaced-particle-refusal": ("유의사항\n채용서류 반환\t은\u00a0하지 않습니다.", False),
+    "spaced-particle-notice": ("유의사항\n채용서류 반환\u00a0이\t가능합니다.", True),
+    "refusal-before-notice": ("유의사항\n서류 반환  불가, 채용서류 반환  제공", True),
+    "normalized-offsets": ("📋 안내\n제출서류\n채용서류\u200b\u3000반환은 제공", True),
 }
 
 
@@ -121,6 +136,46 @@ def test_refusal_lookahead_is_on_both_return_patterns() -> None:
     for literal in ("채용서류 반환", "서류 반환"):
         assert literal not in patterns
     assert sum("(?!" in p and "불가|하지|되지" in p for p in patterns) == 2
+
+
+@pytest.mark.parametrize("prefix", ["채용서류", "서류"])
+def test_return_spacing_preserves_existing_match_spans(prefix: str) -> None:
+    slots = yaml.safe_load((ROOT / "data" / "slots.yaml").read_text(encoding="utf-8"))
+    pattern = next(p for p in slots["document_return"]["accept_patterns"]
+                   if p.startswith(f"re:{prefix}\\s*반환(?!"))
+    previous = re.compile(
+        re.escape(prefix) + r"\s*반환(?!\s*(?:은|는|이|가)?\s*(?:불가|하지|되지))", re.I
+    )
+    current = re.compile(pattern[3:], re.I)
+    for before, particle, after, tail in product(
+        ["", " ", "\t", "\r\n", "\u00a0"],
+        ["", "은", "는", "이", "가", "은는"],
+        ["", " ", "\t", "\u3000"],
+        ["", "불가", "하지 않습니다", "되지 않습니다", "제공", "가능합니다"],
+    ):
+        text = f"📋 {prefix}\t반환{before}{particle}{after}{tail}"
+        assert [m.span() for m in current.finditer(text)] == [
+            m.span() for m in previous.finditer(text)
+        ], repr(text)
+
+    source = f"📋 안내\n{prefix}\u200b\u3000반환은 제공"
+    matches = find_matches(source, [pattern])
+    quoted = f"{prefix}\u200b\u3000반환"
+    assert [(m.start(), m.end(), m.group(0)) for m in matches] == [
+        (source.index(prefix), source.index(prefix) + len(quoted), quoted)
+    ]
+
+
+@pytest.mark.parametrize(("text", "found"), RETURN_SPACING.values(), ids=RETURN_SPACING.keys())
+def test_return_spacing_keeps_notice_and_refusal_meaning(text: str, found: bool) -> None:
+    result = _check(text)
+    slot = _slot(result, "document_return")
+    assert slot["found"] is found
+    if not found:
+        assert slot["evidence"] is None
+    for finding in result["findings"]:
+        start, end = finding["offset"]
+        assert text[start:end] == finding["matched_text"]
 
 
 @pytest.mark.parametrize("text", PAY_AT_INTERVIEW.values(), ids=PAY_AT_INTERVIEW.keys())
@@ -222,6 +277,7 @@ def _parity_cases() -> dict[str, str]:
         ("return-refusal", RETURN_REFUSALS),
         ("return-not-notice", RETURN_NOT_NOTICE),
         ("return-notice", {k: v[0] for k, v in RETURN_NOTICES.items()}),
+        ("return-spacing", {k: v[0] for k, v in RETURN_SPACING.items()}),
         ("pay-at-interview", PAY_AT_INTERVIEW),
         ("real-interview", REAL_INTERVIEWS),
         ("age", AGE_PARITY),
