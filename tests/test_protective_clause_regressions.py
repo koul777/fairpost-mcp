@@ -103,6 +103,26 @@ MUST_FLAG = {
     "review-cost-then-other-cost-waived": ("전형 비용은 지원자 부담, 교통비는 본인 부담이 아닙니다", "COST-001"),
     "assignment-owned-then-other-negation": ("과제 결과물은 회사 소유이며 사본은 반환하지 않습니다", "IP-001"),
     "ai-decides-then-no-review": ("AI가 최종 결정하며, 담당자는 검토하지 않습니다", "AI-001"),
+    # A protective phrase negated again must not hide a requirement that was
+    # reported before the new sensitive-item protections were introduced.
+    "pregnancy-request-cannot-be-omitted": ("임신 여부는 요구하지 않을 수 없습니다", "PREG-001"),
+    "pregnancy-question-denial-negated": ("임신 계획은 질문하지 않는 것이 아닙니다", "PREG-001"),
+    "child-question-double-negative": ("자녀 계획은 묻지 않지는 않습니다", "PREG-001"),
+    "appearance-evaluation-cannot-be-omitted": ("용모 단정 여부는 평가하지 않을 수 없습니다", "LOOK-001"),
+    "assets-request-denial-negated": ("재산 내역을 요구하지 않는 것은 아닙니다", "ASSET-001"),
+    "double-negative-then-unrelated-protection": (
+        "임신 여부는 요구하지 않을 수 없으며, 출신학교는 기재하지 마세요", "PREG-001"),
+    "same-gender-synonyms": ("성별: 여성, 여자", "SEX-001"),
+    "same-gender-repeated": ("성별: 남성, 남성", "SEX-001"),
+    "same-marital-status-repeated": ("미혼자, 미혼자 모두 지원 가능", "SEX-002"),
+    "ownership-denial-negated": ("과제 결과물은 회사 소유가 아닌 것은 아닙니다", "IP-001"),
+    "transfer-cannot-be-omitted": ("저작권은 회사에 귀속되지 않을 수 없습니다", "IP-001"),
+    "ownership-double-negative": ("과제 결과물은 회사 소유가 아니지 않습니다", "IP-001"),
+    "cost-absence-negated": ("채용 심사 비용의 본인 부담은 없지 않습니다", "COST-001"),
+    "cost-no-burden-denial-negated": ("채용 심사 비용의 본인 부담은 없는 것이 아닙니다", "COST-001"),
+    "ai-emphasized-decision-required": ("AI가 최종 결정을 하지는 않을 수 없습니다", "AI-001"),
+    "ai-emphasized-decision-denial-negated": ("AI가 최종 결정을 내리지도 않는 것은 아닙니다", "AI-001"),
+    "ai-emphasized-drop-denial-negated": ("AI 자동 탈락을 적용하지는 않지는 않습니다", "AI-001"),
 }
 
 # Linked or own-trigger questions the same defect removed.
@@ -232,6 +252,14 @@ PROTECTIVE_SILENT = {
     "ai-not-final-decision": ("AI가 최종 결정을 하지는 않으며 담당자가 검토합니다", {"AI-001", "Q-PROC-004"}),
     # "기재한 자," still joins the penalty after it, like "기재 시,".
     "written-by-person-then-unfit": ("출신학교를 기재한 자, 부적합 처리", {"Q-DIST-005", "Q-DIST-010"}),
+    "pregnancy-emphasized-no-request": ("임신 여부는 요구하지는 않습니다", {"PREG-001"}),
+    "pregnancy-emphasized-no-question": ("임신 계획은 질문하지도 않습니다", {"PREG-001"}),
+    "child-question-optional": ("자녀 계획은 묻지 않아도 됩니다", {"PREG-001"}),
+    "appearance-no-evaluation-planned": ("용모 단정 여부는 평가하지 않을 예정입니다", {"LOOK-001"}),
+    "both-genders-reversed": ("성별: 여성, 남성", {"SEX-001"}),
+    "both-marital-statuses-reversed": ("기혼자, 미혼자 모두 지원 가능", {"SEX-002"}),
+    "ai-no-decision-emphasized-too": ("AI가 최종 결정을 내리지도 않습니다", {"AI-001"}),
+    "ai-no-drop-emphasized": ("AI 자동 탈락을 적용하지는 않습니다", {"AI-001"}),
 }
 
 # 고/나/며 inside ordinary words (or the particle (이)나) between the candidate

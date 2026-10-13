@@ -181,6 +181,30 @@ AGE_PARITY = {
 }
 
 
+# A long exclusion context may contain an unrelated age restriction between
+# the program name and its age band. It must exclude only the band candidate.
+AGE_MIXED_CONTEXT = {
+    "act-before-unrelated-cap": (
+        "지원자격\n청년고용촉진 특별법 안내. 별도 직무는 만 35세 이하, 청년 범주는 34세 이하", "35세 이하"),
+    "act-after-unrelated-cap": (
+        "지원자격\n청년 범주는 만 34세 이하, 별도 직무는 만 35세 이하 (청년고용촉진 특별법 안내)", "35세 이하"),
+    "care-leaver-before-unrelated-cap": (
+        "지원자격\n자립준비청년 안내, 별도 직무는 만 39세 이하, 가점 연령은 34세 이하", "39세 이하"),
+    "act-before-unrelated-minimum": (
+        "지원자격\n청년고용촉진 특별법 안내, 별도 직무는 만 20세 이상, 가점 연령은 34세 이하", "20세 이상"),
+    "act-before-fullwidth-cap": (
+        "지원자격\n청년고용촉진 특별법 안내, 별도 직무는 만 ３９세 이하, 가점 연령은 34세 이하", "３９세 이하"),
+}
+
+
+@pytest.mark.parametrize(("text", "quoted"), AGE_MIXED_CONTEXT.values(), ids=AGE_MIXED_CONTEXT.keys())
+def test_age_exclusion_does_not_swallow_an_unrelated_requirement(text: str, quoted: str) -> None:
+    finding = next(f for f in _check(text)["findings"] if f["id"] == "AGE-002")
+    assert finding["matched_text"] == quoted
+    start, end = finding["offset"]
+    assert text[start:end] == quoted
+
+
 # DET-4 portal field layout (the Python expectations are in tests/test_extractor.py).
 PORTAL_PARITY = {
     "portal-fields": (
@@ -201,6 +225,7 @@ def _parity_cases() -> dict[str, str]:
         ("pay-at-interview", PAY_AT_INTERVIEW),
         ("real-interview", REAL_INTERVIEWS),
         ("age", AGE_PARITY),
+        ("age-mixed-context", {k: v[0] for k, v in AGE_MIXED_CONTEXT.items()}),
         ("portal", PORTAL_PARITY),
     ):
         for key, text in table.items():

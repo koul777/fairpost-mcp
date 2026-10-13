@@ -10,7 +10,7 @@ from .morph import ZERO_WIDTH, find_first, find_matches
 from .schema import SlotStatus
 
 
-SECTION_VERSION = "sections-v7-sensitive-items-review-stage-wording"
+SECTION_VERSION = "sections-v8-protective-double-negation"
 
 _SENTENCE_BOUNDARIES = ".!?。！？"
 _EVIDENCE_WINDOW_CODEPOINTS = 238
@@ -547,7 +547,9 @@ _PROTECTIVE = [
     r"re:(?:기재|표현)[^.!?\n]{0,100}(?:평가대상에서\s*제외|부적합|탈락처리)",
     r"re:블라인드[^.!?\n]{0,80}미준수",
     r"re:(?:미기재|미작성|미제출|누락)\s*(?:시|하면|할\s*경우|된\s*경우)[^.!?\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)[^.!?\n,]{0,12}(?:(?<=[\s은는이가도을를지익점락외합])(?:없|않)(?!도록|게)|아니|아닙|아님)",
-    r"re:(?:묻|질문하|요구하|평가하)지\s*(?:는|도)?\s*않",
+    # A negated request protects; denying that negation does not. In particular,
+    # "요구하지 않을 수 없습니다" still requests the item.
+    r"re:(?:묻|질문하|요구하|평가하)지\s*(?:는|도)?\s*않(?!을\s*수\s*없|는\s*것(?:은|이)?\s*(?:아니|아닙|아님)|지(?:는|도)?\s*않)",
     r"re:부착\s*(?:하지\s*마|불가|금지|불필요)",
     r"re:금지\s*(?:됩니다|됨)",
 ]
