@@ -1,9 +1,8 @@
 {
-  "checked_at": "2026-10-13T13:37:31+09:00",
+  "checked_at": "2026-10-13T13:46:12+09:00",
   "historical_paths_skipped": [
     "reports/github_ci_audit-2026-10-13.json",
     "reports/human_labeling_handoff.json",
-    "reports/installed_wheel_audit.json",
     "reports/mcp_client_audit.json",
     "reports/private_age_context_audit.json",
     "reports/private_criminal_record_context_audit.json",
@@ -32,9 +31,9 @@
   "reports": [
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
-      "expected_validation_source_fingerprint": "validation-6596cf0b571bc932ecfa69314daa6063d4545c645be33319aec0286b41126154",
+      "expected_validation_source_fingerprint": "validation-deb166ef0da1b21cd5cb0ffa648534d8e65b24583f3d1b002ec810d330215c6c",
       "matching_version": "match-2b470bfabfd83536",
       "matching_version_matches": true,
       "path": "reports/build_artifact-2h-candidate-2026-10-13.json",
@@ -60,9 +59,9 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
-      "expected_validation_source_fingerprint": "validation-6596cf0b571bc932ecfa69314daa6063d4545c645be33319aec0286b41126154",
+      "expected_validation_source_fingerprint": "validation-deb166ef0da1b21cd5cb0ffa648534d8e65b24583f3d1b002ec810d330215c6c",
       "matching_version": "match-fa5e6d7a5c7d2904",
       "matching_version_matches": false,
       "path": "reports/build_artifact-8h-candidate-2026-09-12.json",
@@ -90,9 +89,9 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
-      "expected_validation_source_fingerprint": "validation-6596cf0b571bc932ecfa69314daa6063d4545c645be33319aec0286b41126154",
+      "expected_validation_source_fingerprint": "validation-deb166ef0da1b21cd5cb0ffa648534d8e65b24583f3d1b002ec810d330215c6c",
       "matching_version": "match-fa5e6d7a5c7d2904",
       "matching_version_matches": false,
       "path": "reports/build_artifact-v0.4-candidate-2026-10-03.json",
@@ -162,7 +161,7 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
       "matching_version": null,
@@ -187,7 +186,7 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
       "matching_version": null,
@@ -212,7 +211,7 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
       "matching_version": null,
@@ -237,7 +236,7 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
       "matching_version": null,
@@ -262,7 +261,7 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
       "matching_version": null,
@@ -287,7 +286,7 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
       "matching_version": null,
@@ -312,7 +311,7 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
       "matching_version": null,
@@ -337,7 +336,7 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
       "matching_version": null,
@@ -362,7 +361,7 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
       "matching_version": null,
@@ -387,7 +386,7 @@
     },
     {
       "claims_current": true,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": "fairpost-distribution-audit-v2",
       "expected_validation_source_fingerprint": null,
       "matching_version": null,
@@ -397,7 +396,7 @@
       "ruleset_version_matches": null,
       "runtime_source_fingerprint_matches": true,
       "runtime_source_fingerprints": {
-        "runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac"
+        "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64"
       },
       "schema_version": "fairpost-distribution-audit-v2",
       "schema_version_matches": true,
@@ -575,6 +574,29 @@
     },
     {
       "claims_current": true,
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": "match-2b470bfabfd83536",
+      "matching_version_matches": true,
+      "path": "reports/installed_wheel_audit.json",
+      "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+      "ruleset_version_matches": true,
+      "runtime_source_fingerprint_matches": true,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64"
+      },
+      "schema_version": "fairpost-installed-wheel-audit-v1",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": null,
+      "stale_reasons": [],
+      "status": "current",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": true,
       "expected_runtime_source_fingerprint": null,
       "expected_schema_version": "fairpost-prd-corpus-summary-v1",
       "expected_validation_source_fingerprint": null,
@@ -701,7 +723,7 @@
     },
     {
       "claims_current": true,
-      "expected_runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+      "expected_runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
       "matching_version": "match-2b470bfabfd83536",
@@ -711,7 +733,7 @@
       "ruleset_version_matches": true,
       "runtime_source_fingerprint_matches": true,
       "runtime_source_fingerprints": {
-        "runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac"
+        "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64"
       },
       "schema_version": "fairpost-web-extension-audit-v1",
       "schema_version_matches": null,
@@ -744,12 +766,12 @@
       "validation_source_fingerprints": {}
     }
   ],
-  "reports_checked": 30,
-  "reports_current": 12,
+  "reports_checked": 31,
+  "reports_current": 13,
   "reports_snapshot_stale": 18,
   "reports_stale": 0,
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
-  "runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
+  "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
   "schema_version": "fairpost-evidence-version-audit-v1",
   "scope": "local",
   "stale_paths": [],

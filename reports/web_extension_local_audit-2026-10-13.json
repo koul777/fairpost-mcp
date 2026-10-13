@@ -4,13 +4,13 @@
   "evidence_status": "current",
   "evidence_scope": "local-integrated-web-bundle",
   "base_url": "http://127.0.0.1:8139",
-  "source_revision_at_ui_run": "37422414b1e18dd205798e8b9b3ee226528f78b0",
-  "source_revision_at_identity_check": "37422414b1e18dd205798e8b9b3ee226528f78b0",
+  "source_revision_at_ui_run": "b999ef4a5a5a6954b969c5ec2facbfc09a1580d9",
+  "source_revision_at_identity_check": "b999ef4a5a5a6954b969c5ec2facbfc09a1580d9",
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
   "matching_version": "match-2b470bfabfd83536",
-  "runtime_source_fingerprint": "runtime-7e5f855ffa908639a9e37c7d116cac60216abe77d8d8127605ece2245aea13ac",
-  "started_at": "2026-10-13T04:34:00.047Z",
-  "finished_at": "2026-10-13T04:34:56.663Z",
+  "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
+  "started_at": "2026-10-13T04:43:47.404Z",
+  "finished_at": "2026-10-13T04:44:12.348Z",
   "browser": {
     "name": "Chromium headless shell",
     "version": "153.0.8010.12",
@@ -32,10 +32,10 @@
     "passed": true,
     "existing_flow_checks_passed": 119,
     "existing_flow_checks_total": 119,
-    "new_regression_checks_passed": 34,
-    "new_regression_checks_total": 34,
-    "checks_passed": 153,
-    "checks_total": 153,
+    "new_regression_checks_passed": 46,
+    "new_regression_checks_total": 46,
+    "checks_passed": 165,
+    "checks_total": 165,
     "posting_network_requests": 0,
     "off_origin_requests": 0,
     "page_errors": 0,
@@ -49,6 +49,36 @@
     "clipboard_comparison": "Windows CRLF normalized to LF; all other characters compared exactly."
   },
   "new_regressions": [
+    {
+      "viewport": "desktop",
+      "name": "migration-write 이전 형식 잔존을 삭제 성공으로 표시하지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "migration-write 기존 기록과 작성 중 draft 보존",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "migration-write 저장소 복구 후 두 형식 모두 삭제",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "legacy-removal 이전 형식 잔존을 삭제 성공으로 표시하지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "legacy-removal 기존 기록과 작성 중 draft 보존",
+      "passed": true
+    },
+    {
+      "viewport": "desktop",
+      "name": "legacy-removal 저장소 복구 후 두 형식 모두 삭제",
+      "passed": true
+    },
     {
       "viewport": "desktop",
       "name": "삭제된 기록을 다른 탭 저장으로 복활시키지 않음",
@@ -132,6 +162,36 @@
     {
       "viewport": "desktop",
       "name": "명시적 보강 클릭만 3회, 편집·설정은 자동 호출 없음",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "migration-write 이전 형식 잔존을 삭제 성공으로 표시하지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "migration-write 기존 기록과 작성 중 draft 보존",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "migration-write 저장소 복구 후 두 형식 모두 삭제",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "legacy-removal 이전 형식 잔존을 삭제 성공으로 표시하지 않음",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "legacy-removal 기존 기록과 작성 중 draft 보존",
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "name": "legacy-removal 저장소 복구 후 두 형식 모두 삭제",
       "passed": true
     },
     {
@@ -223,9 +283,9 @@
   "static_asset_identity": {
     "web/app.js": {
       "status": 200,
-      "rawSha256": "sha256:baad99b9bfa06a9a71615db59bc20b621fefca3d3e1bc0e9a36b105bb897b355",
-      "canonicalSha256": "sha256:68bae355b5a0522e1c90484330108eb960fbc82bc2d61e544835585d3c84b685",
-      "expectedSha256": "sha256:68bae355b5a0522e1c90484330108eb960fbc82bc2d61e544835585d3c84b685",
+      "rawSha256": "sha256:31032a6b9682506e7eb7d12de62cda60f56e94b4f664869dbd8b09b23ff2882c",
+      "canonicalSha256": "sha256:6be5ae4dd2a842bd41edc4ed33403a07b97885d9c76a651320dc3d4f7c48b91a",
+      "expectedSha256": "sha256:6be5ae4dd2a842bd41edc4ed33403a07b97885d9c76a651320dc3d4f7c48b91a",
       "matches": true
     },
     "web/data.js": {
@@ -265,8 +325,8 @@
     }
   },
   "visual_inspection": {
-    "inspected_at": "2026-10-13T04:37:06.885Z",
-    "inspected_images": 16,
+    "inspected_at": "2026-10-13T04:45:27.050Z",
+    "inspected_images": 20,
     "blocking_issues": [],
     "observations": [
       "Book entry, easy/expert results, stale-state focus, and comparison remain legible at desktop and mobile widths.",
@@ -277,7 +337,7 @@
     "screenshots": [
       {
         "file": "desktop-book-entry.png",
-        "sha256": "f09fc74367351b330ee41e47f54e8e217e4c0cf55656b7a5799f37e13268ebdf",
+        "sha256": "eaef039359af5b81548a9143c43fe779b578a65d57f1eb24e05afa457efc0b5c",
         "inspected": true
       },
       {
@@ -287,22 +347,22 @@
       },
       {
         "file": "desktop-role-stale.png",
-        "sha256": "1cd3c1bb20ff82b1f7832072e5397f162e88614cbaa8fcafe1ffdeabf7f9652e",
+        "sha256": "da8b3c0b33f73544feebfbdb1a690b021dbe0da5858bba4240a75585b94f04de",
         "inspected": true
       },
       {
         "file": "desktop-expert-mode.png",
-        "sha256": "9ee8b721846f9d5c645a08e42ddac78bd211bdb3f969716a221db7f0192ce6d5",
+        "sha256": "dea790b723148d3596d75f26b8c878f42499736b101ec691496f94bb626dd5f3",
         "inspected": true
       },
       {
         "file": "desktop-comparison.png",
-        "sha256": "dae44cb1e8019aafdb9faf2bf73150b19c55b9a22b8e649eac28b0b26634b76a",
+        "sha256": "b175c90f5c837272d2e29a184e8702e569f917e3a1a7943e6cf6d9f6e7b8f05f",
         "inspected": true
       },
       {
         "file": "desktop-final-result.png",
-        "sha256": "d6339af52a511abb015344999ae44fdb24f9766aed8f956e8c15b2c29d17474d",
+        "sha256": "4ca45531f9be1af52e8f7f074c5194beb97efe5a8c627f07a1c0185aec3bae76",
         "inspected": true
       },
       {
@@ -317,7 +377,7 @@
       },
       {
         "file": "mobile-role-stale.png",
-        "sha256": "161f6f923412c2c408fab895ccb3e3d85a6a2c80923dbfeab67f8e2ecff626e3",
+        "sha256": "31c141e680e73142b88253d40aa0df30644503bfecb99f514a70ab6c4b40c71f",
         "inspected": true
       },
       {
@@ -336,13 +396,33 @@
         "inspected": true
       },
       {
+        "file": "desktop-migration-write-failed.png",
+        "sha256": "8985ee75df48562ef6ecb80d0786254cc99c82119ced92197b71a5061c52f708",
+        "inspected": true
+      },
+      {
+        "file": "desktop-legacy-removal-failed.png",
+        "sha256": "5260e7a1dcb6adce58faec32be386e0201794943771e259401f8a33d89cb50b1",
+        "inspected": true
+      },
+      {
         "file": "desktop-deleted-packet-guard.png",
         "sha256": "fc862be0ad23c6d153100bc83f6705826484879e19d14aabf8cdcb680cb27fd2",
         "inspected": true
       },
       {
         "file": "desktop-delete-failed.png",
-        "sha256": "f15895312b8082aef1b1a43e172bfeb375df604e9a637df62efaa67d73437ebc",
+        "sha256": "677fd3d1f53fe0ac1eb21b44ca4cea3218b8c47b46bb1094d3b32a9edb0e2fd6",
+        "inspected": true
+      },
+      {
+        "file": "mobile-migration-write-failed.png",
+        "sha256": "b05443d01dfebc415c38b97ccf3839581c6f8abdd2406364569288b4122660b1",
+        "inspected": true
+      },
+      {
+        "file": "mobile-legacy-removal-failed.png",
+        "sha256": "b05443d01dfebc415c38b97ccf3839581c6f8abdd2406364569288b4122660b1",
         "inspected": true
       },
       {
@@ -362,21 +442,21 @@
   "local_artifacts": [
     {
       "kind": "browser",
-      "directory": "integrated-run-2026-10-13T04-34-00-053Z",
+      "directory": "integrated-run-2026-10-13T04-43-47-407Z",
       "file": "report.json",
-      "sha256": "92ea7e7cf358a596a219c6498ef28f5016d9a97b08aa1b8bc0d8ecd15e7cee50"
+      "sha256": "01fed5ef84b7e7f05fb66566c973cac7e38cd0de93477b3397643b515503549b"
     },
     {
       "kind": "regression",
-      "directory": "regression-2026-10-13T04-34-00-047Z",
+      "directory": "regression-2026-10-13T04-43-47-404Z",
       "file": "report.json",
-      "sha256": "517cdf38def68beca90f3edc3a9f21a86b26aefcd92fc93e502638642f081aad"
+      "sha256": "f8f0b0d2f0e8827581e93599747d6a3a9ea28c763c8ce8ee485c4726d6b794de"
     },
     {
       "kind": "identity",
       "directory": "1h-web-qa",
-      "file": "local-identity.json",
-      "sha256": "abc85468c12a39ccd2b78a008534510f454d0d7088c50fcfb7a692f50034b750"
+      "file": "local-final-identity.json",
+      "sha256": "a7ce33aceb43e0b794fd5830f760d39501f26945863da5ecf2c3952821ee54e6"
     }
   ]
 }

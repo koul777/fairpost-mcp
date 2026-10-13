@@ -1,23 +1,25 @@
 {
   "schema_version": "fairpost-installed-wheel-audit-v1",
-  "evidence_status": "historical",
-  "checked_at": "2026-10-13T02:47:27.432585+00:00",
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
-  "matching_version": "match-2b470bfabfd83536",
-  "runtime_source_fingerprint": "runtime-a5ac2f00ccd1f191d716c50c8e59494f8e984c69b854c6d664681ec996c235e3",
-  "wheel_name": "fairpost-0.3.0-py3-none-any.whl",
-  "wheel_sha256": "b0e80f98e31b05583c882a525503ab99a30d4729a693685d51b5d2d10d772025",
-  "versions": {
-    "fairpost": "0.3.0",
-    "mcp": "1.30.0",
-    "httpx": "0.28.1",
-    "starlette": "1.7.0"
+  "recorded_at_utc": "2026-10-13T04:45:58+00:00",
+  "passed": true,
+  "wheel_file": "fairpost-0.3.0-py3-none-any.whl",
+  "wheel_sha256": "8b2451a552f61c1bf48614294c647e0484d5eb79ba8702752ad53184c4599fc6",
+  "installation": {
+    "fresh_virtual_environment": true,
+    "execution_outside_checkout": true,
+    "imports_from_virtual_environment": [
+      "core",
+      "mcp_server"
+    ],
+    "python_version": "Python 3.12.7",
+    "package_versions": {
+      "fairpost": "0.3.0",
+      "mcp": "1.30.0",
+      "httpx": "0.28.1",
+      "starlette": "1.7.0"
+    },
+    "default_user_storage_created": false
   },
-  "installed_outside_checkout": true,
-  "fresh_virtual_environment": true,
-  "synthetic_inputs_only": true,
-  "contains_posting_text": false,
-  "contains_credentials": false,
   "cli": {
     "passed": true,
     "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
@@ -32,6 +34,11 @@
       2,
       2
     ],
+    "invalid_batch_exit_codes": [
+      2,
+      2
+    ],
+    "invalid_batch_produced_no_partial_output": true,
     "bom_json_equivalent": true,
     "original_offsets_preserved": true
   },
@@ -51,7 +58,20 @@
       "start_role_review"
     ],
     "structured_and_plain_calls": true,
-    "empty_input_rejected": true
+    "empty_input_rejected": true,
+    "tool_count": 10
+  },
+  "storage": {
+    "passed": true,
+    "malformed_answer_operations_rejected": 15,
+    "mismatched_packet_operations_rejected": 2,
+    "original_file_bytes_preserved": true,
+    "valid_string_answer_roundtrip": true,
+    "healthy_packet_remains_readable": true,
+    "corrupt_answer_full_purge": true,
+    "errors_do_not_echo_synthetic_private_values": true,
+    "temporary_cases_removed": true,
+    "total_rejected_operations": 17
   },
   "web": {
     "passed": true,
@@ -65,11 +85,15 @@
     },
     "favicon_status": 200,
     "book_status": 307,
+    "invalid_host_status": 400,
     "optional_ai_configured": false,
     "server_stopped": true
   },
-  "elapsed_seconds": 13.23,
-  "passed": true,
-  "raw_report_sha256": "9318b4bb19e0ef4a10bd7eb21ba3b27b37e416e6d383372df6c6196e125f1866",
-  "superseded_reason": "Additional 2026-10-13 extension changes the runtime; prior observations and recorded hashes remain unchanged."
+  "elapsed_seconds": 17.12,
+  "evidence_status": "current",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+  "matching_version": "match-2b470bfabfd83536",
+  "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
+  "raw_report_sha256": "67045d4094568e8cf8bea5e8f08fd696ee02c10ef8d3a483fdf63fda994c4975",
+  "wheel_name": "fairpost-0.3.0-py3-none-any.whl"
 }
