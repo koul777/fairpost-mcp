@@ -838,7 +838,8 @@
       (store) => mergeRoleReviewPacket(store, roleReviewState),
       key
     );
-    roleReviewPersistent = outcome.ok;
+    // A failed later write does not remove the copy already in storage.
+    roleReviewPersistent = roleReviewPersistent || outcome.ok;
     roleReviewNotice.textContent = [...leadMessages, roleReviewStorageMessage(outcome)]
       .filter(Boolean)
       .join(" ");
@@ -989,6 +990,7 @@
   async function initializeRoleReview(result, text) {
     const sequence = ++roleReviewSequence;
     roleReviewState = null;
+    roleReviewPersistent = false;
     updateRoleReviewWriteState();
     roleReviewPanel.hidden = false;
     roleReviewNotice.textContent =
@@ -1132,6 +1134,27 @@
       showToast("공고문이 바뀌어 역할 기록을 저장하지 않았습니다. 작성 중인 메모는 그대로 있으니 '다시 검토'를 누른 뒤 기록하세요.");
       return;
     }
+    // Another tab may have deleted this packet, or started a new one for the
+    // same posting. Do not merge the deleted events back into localStorage.
+    if (roleReviewPersistent) {
+      const store = readRoleReviewStore();
+      const key = roleReviewPacketKey(roleReviewState);
+      const stillStored = store.packets.some((packet) =>
+        roleReviewPacketKey(packet) === key && packet.packet_id === roleReviewState.packet_id
+      );
+      if (store.writable && !stillStored) {
+        dropRoleReviewPanel();
+        roleReviewPanel.hidden = false;
+        roleReviewResolveEvent.replaceChildren();
+        roleReviewResolveEvent.disabled = true;
+        const message = "다른 탭에서 역할 기록이 삭제되거나 새로 시작되어 저장하지 않았습니다. 작성 중인 메모는 그대로 있으니 '검토 메모 만들기'를 다시 누른 뒤 기록하세요.";
+        roleReviewNotice.textContent = message;
+        setAssistBadge(roleReviewStatus, "다시 검토 필요", "error");
+        showToast(message);
+        roleReviewNote.focus();
+        return;
+      }
+    }
     if (roleReviewState.events.length >= ROLE_REVIEW_MAX_EVENTS) {
       showToast("역할 이벤트는 256개까지 기록할 수 있습니다.");
       return;
@@ -1267,6 +1290,12 @@
       }, null);
       removedFromStorage = outcome.ok;
       storedCount = outcome.storedCount;
+      if (!outcome.ok) {
+        roleReviewNotice.textContent =
+          "브라우저에 저장된 역할 기록을 삭제하지 못했습니다. 기록과 작성 중인 메모는 그대로 있습니다. 다시 시도하거나 브라우저 설정에서 이 사이트의 저장 데이터를 삭제하세요.";
+        showToast("브라우저에 저장된 역할 기록을 삭제하지 못했습니다. 기록은 그대로 있습니다.");
+        return;
+      }
     }
     dropRoleReviewPanel();
     showToast(
@@ -2909,6 +2938,7 @@
     resetAssistedReviewPanel();
     roleReviewSequence += 1;
     roleReviewState = null;
+    roleReviewPersistent = false;
     roleReviewPanel.hidden = true;
     roleReviewEvents.replaceChildren();
     setAssistBadge(roleReviewStatus, "대기");
@@ -3746,8 +3776,16 @@
   // earlier records are tab memory only and cannot be brought back.
   function reviewWorkSummary() {
     const answered = [...reviewAnswers.values()].filter((value) => (value || "").trim()).length;
+    const rewrites = [...rewriteDrafts.entries()].filter(([index, value]) => {
+      const target = rewriteTargets.get(index);
+      const replacement = value.replace(/\r\n?/gu, "\n");
+      if (!target || !replacement.trim() || replacement === target.original.replace(/\r\n?/gu, "\n")) return false;
+      // A just-applied rewrite is already in the recoverable posting text.
+      return input.value !== latestCheckedText.slice(0, target.start) + replacement + latestCheckedText.slice(target.end);
+    }).length;
     const parts = [];
     if (answered) parts.push(`담당자 답변 ${answered}개`);
+    if (rewrites) parts.push(`아직 공고에 반영하지 않은 줄 수정안 ${rewrites}개`);
     if (humanRecordHasContent(humanReviewRecord)) parts.push("검토 근거와 다음 행동 기록");
     if (previousReviewRecords.length) parts.push(`수정 전 기록 ${previousReviewRecords.length}개`);
     return parts.join(", ");

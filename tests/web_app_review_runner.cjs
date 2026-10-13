@@ -757,6 +757,29 @@ for (const relative of appSources) {
     progress: elements.get("role-review-progress").textContent,
   };
 
+  // A failed later save leaves an earlier storage copy in place. Deleting
+  // must still attempt storage, and must keep the visible state on failure.
+  const savedBeforeFailure = localReviewValues.get(STORE_KEY);
+  globalThis.localStorage = {
+    ...workingStorage,
+    setItem() { throw new Error("SecurityError: simulated write failure"); },
+  };
+  elements.get("role-review-note").value = "현재 세션에만 남은 추가 기록입니다.";
+  elements.get("role-review-record").trigger("click");
+  nodeAssert.equal(localReviewValues.get(STORE_KEY), savedBeforeFailure);
+  const eventsBeforeFailedDelete = elements.get("role-review-events").innerHTML;
+  elements.get("role-review-note").value = "삭제 실패 중에도 작성 중인 메모를 보존합니다.";
+  elements.get("role-review-evidence").value = "ncs-process";
+  elements.get("role-review-clear").trigger("click");
+  nodeAssert.equal(localReviewValues.get(STORE_KEY), savedBeforeFailure);
+  nodeAssert.equal(elements.get("role-review-panel").hidden, false);
+  nodeAssert.equal(elements.get("role-review-events").innerHTML, eventsBeforeFailedDelete);
+  nodeAssert.equal(elements.get("role-review-note").value, "삭제 실패 중에도 작성 중인 메모를 보존합니다.");
+  nodeAssert.equal(elements.get("role-review-evidence").value, "ncs-process");
+  nodeAssert.match(elements.get("toast").textContent, /삭제하지 못했습니다/);
+  nodeAssert.match(elements.get("role-review-notice").textContent, /다시 시도/);
+  globalThis.localStorage = workingStorage;
+
   // Deleting asks first and removes only this posting's packet.
   const promptsBeforeDelete = confirmPrompts.length;
   confirmAnswer = false;
@@ -881,6 +904,60 @@ for (const relative of appSources) {
   elements.get("check-button").trigger("click");
   await tick();
   clearAllDone.nextReviewSavesNothing = !localReviewValues.has(STORE_KEY);
+
+  // Model storage mutations from another tab without another VM: the write
+  // handler must re-read storage, preserve concurrent additions, and reject
+  // a deleted or replaced packet without writing old events back.
+  elements.get("role-review-action").value = "note";
+  elements.get("role-review-note").value = "다른 탭에서 삭제할 기존 기록입니다.";
+  elements.get("role-review-evidence").value = "";
+  elements.get("role-review-record").trigger("click");
+  const beforeOtherTab = readStore();
+  const activePacket = beforeOtherTab.packets[0];
+  const concurrentNote = "다른 탭에서 먼저 추가한 기록입니다.";
+  activePacket.events.push({
+    ...activePacket.events.at(-1),
+    event_id: "browser-event-concurrent-addition",
+    note: concurrentNote,
+  });
+  localReviewValues.set(STORE_KEY, JSON.stringify(beforeOtherTab));
+  elements.get("role-review-note").value = "현재 탭에서 추가하는 기록입니다.";
+  elements.get("role-review-record").trigger("click");
+  nodeAssert.ok(readStore().packets[0].events.some((event) => event.note === concurrentNote));
+  nodeAssert.ok(readStore().packets[0].events.some((event) => event.note === "현재 탭에서 추가하는 기록입니다."));
+  const currentTabDraft = "삭제 이후의 작성 중인 메모를 보존합니다.";
+  localReviewValues.delete(STORE_KEY);
+  elements.get("role-review-note").value = currentTabDraft;
+  elements.get("role-review-evidence").value = "ncs-process";
+  elements.get("role-review-record").trigger("click");
+  nodeAssert.equal(localReviewValues.has(STORE_KEY), false);
+  nodeAssert.equal(elements.get("role-review-note").value, currentTabDraft);
+  nodeAssert.equal(elements.get("role-review-evidence").value, "ncs-process");
+  nodeAssert.equal(elements.get("role-review-record").disabled, true);
+  nodeAssert.equal(elements.get("role-review-panel").hidden, false);
+  nodeAssert.match(elements.get("role-review-notice").textContent, /다른 탭/);
+  nodeAssert.match(elements.get("role-review-status").textContent, /다시 검토 필요/);
+  elements.get("check-button").trigger("click");
+  await tick();
+  elements.get("role-review-record").trigger("click");
+  nodeAssert.deepEqual(readStore().packets[0].events.filter((event) => event.actor_ref !== "system-chair").map((event) => event.note), [currentTabDraft]);
+
+  // Deletion followed by a fresh packet for the same posting has the same
+  // fingerprint/key. Its packet ID still separates it from the old copy.
+  const replacementStore = readStore();
+  replacementStore.packets[0].packet_id = "browser-packet-recreated-in-other-tab";
+  replacementStore.packets[0].events = [replacementStore.packets[0].events[0]];
+  localReviewValues.set(STORE_KEY, JSON.stringify(replacementStore));
+  const replacementRaw = localReviewValues.get(STORE_KEY);
+  elements.get("role-review-note").value = "다시 생성된 패킷 확인 전 임시 메모입니다.";
+  elements.get("role-review-record").trigger("click");
+  nodeAssert.equal(localReviewValues.get(STORE_KEY), replacementRaw);
+  nodeAssert.equal(elements.get("role-review-note").value, "다시 생성된 패킷 확인 전 임시 메모입니다.");
+  elements.get("check-button").trigger("click");
+  await tick();
+  elements.get("role-review-record").trigger("click");
+  nodeAssert.equal(readStore().packets[0].packet_id, "browser-packet-recreated-in-other-tab");
+  nodeAssert.equal(readStore().packets[0].events.length, 2);
 
   // Corrupt stored data is never overwritten.
   localReviewValues.set(STORE_KEY, "{not json");

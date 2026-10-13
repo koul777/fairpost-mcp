@@ -1398,6 +1398,36 @@ const PRIVATE_MARK = "개선흐름-PRIVATE-DRAFT";
     };
   }
 
+  // A draft in "이 줄 고쳐 쓰기" is also work that posting undo cannot
+  // restore. Both reset actions must name it and preserve it on cancellation.
+  for (const resetButton of ["clear-button", "sample-button"]) {
+    const draftOnly = boot({ templates: "file", confirmResult: false });
+    draftOnly.type(BASE_POSTING);
+    draftOnly.check();
+    const pendingRewrite = "- 직무 수행에 필요한 행정 경력 3년 이상";
+    draftOnly.draft(0, pendingRewrite);
+    draftOnly.el(resetButton).trigger("click");
+    assert.equal(draftOnly.confirmLog.length, 1, resetButton);
+    assert.ok(draftOnly.confirmLog[0].includes("줄 수정안 1개"), resetButton);
+    assert.equal(draftOnly.posting.value, BASE_POSTING, resetButton);
+    draftOnly.check();
+    assert.ok(draftOnly.el("easy-result").innerHTML.includes(escapeHtml(pendingRewrite)), resetButton);
+    draftOnly.confirmState.result = true;
+    draftOnly.el(resetButton).trigger("click");
+    assert.equal(draftOnly.confirmLog.length, 2, resetButton);
+    assert.equal(draftOnly.el("result-content").hidden, true, resetButton);
+  }
+  const appliedOnly = boot({ templates: "file" });
+  appliedOnly.type(BASE_POSTING);
+  appliedOnly.check();
+  appliedOnly.draft(0, "- 직무 수행에 필요한 행정 경력 3년 이상");
+  appliedOnly.apply(0);
+  const recoverableRewrite = appliedOnly.posting.value;
+  appliedOnly.el("clear-button").trigger("click");
+  assert.equal(appliedOnly.confirmLog.length, 0, "an applied draft is already recoverable with the posting");
+  appliedOnly.el("posting-undo").trigger("click");
+  assert.equal(appliedOnly.posting.value, recoverableRewrite);
+
   // 8b. WEB-2: a script that did not load is explained, not silent.
   {
     const noData = boot({ data: "none", templates: "none" });
