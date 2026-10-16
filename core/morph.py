@@ -348,6 +348,22 @@ def _match_view_plan(pattern: str) -> tuple[re.Pattern[str], tuple[str, ...]]:
     return pattern_to_regex(plain), _required_literals(plain)
 
 
+def _admits(
+    text: str, required: tuple[str, ...], required_any_of: tuple[tuple[str, ...], ...]
+) -> bool:
+    """True unless a required literal or every literal of an any-of group is missing."""
+    for literal in required:
+        if literal not in text:
+            return False
+    for group in required_any_of:
+        for literal in group:
+            if literal in text:
+                break
+        else:
+            return False
+    return True
+
+
 def _collect_matches(
     text: str,
     patterns: list[str],
@@ -374,9 +390,7 @@ def _collect_matches(
             # becomes a false positive.
             search_text, search_starts, search_ends = normalized
         else:
-            if all(literal in text for literal in required) and all(
-                any(literal in text for literal in group) for group in required_any_of
-            ):
+            if _admits(text, required, required_any_of):
                 for match in regex.finditer(text):
                     span = match.span()
                     if span not in found:
@@ -385,9 +399,7 @@ def _collect_matches(
                 continue
             regex, required = _match_view_plan(pattern)
             search_text, search_starts, search_ends = matched
-        if all(literal in search_text for literal in required) and all(
-            any(literal in search_text for literal in group) for group in required_any_of
-        ):
+        if _admits(search_text, required, required_any_of):
             for match in regex.finditer(search_text):
                 start, end = match.span()
                 if start == end:
