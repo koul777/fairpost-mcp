@@ -257,7 +257,11 @@ _REQUIRED_REPEATS = (
 )
 
 
-def _collect_required_runs(items: object, runs: list[str]) -> None:
+def _collect_required_runs(
+    items: object,
+    runs: list[str],
+    any_of: list[tuple[str, ...]] | None = None,
+) -> None:
     run: list[str] = []
     for op, argument in items:  # type: ignore[attr-defined]
         if op == _re_constants.LITERAL and _CASELESS_CHUNK.fullmatch(chr(argument)):
@@ -266,8 +270,24 @@ def _collect_required_runs(items: object, runs: list[str]) -> None:
         if run:
             runs.append("".join(run))
             run = []
+        if op == _re_constants.BRANCH and any_of is not None:
+            alternatives: list[str] = []
+            for branch in argument[1]:
+                if not isinstance(branch, _re_parser.SubPattern):
+                    raise TypeError("unexpected regex parse tree")
+                branch_runs: list[str] = []
+                # A representative must occur in every match of this branch;
+                # nested alternatives alone do not establish such a run.
+                _collect_required_runs(branch, branch_runs)
+                if not branch_runs:
+                    break
+                alternatives.append(max(branch_runs, key=len))
+            else:
+                if alternatives:
+                    any_of.append(tuple(dict.fromkeys(alternatives)))
+            continue
         # Only constructs that always match their body at least once are
-        # entered; branches, optional repeats and lookarounds are skipped.
+        # entered; optional repeats and lookarounds are skipped.
         if op == _re_constants.SUBPATTERN:
             body = argument[3]
         elif op in _REQUIRED_REPEATS and argument[0] >= 1:
@@ -278,35 +298,47 @@ def _collect_required_runs(items: object, runs: list[str]) -> None:
             continue
         if not isinstance(body, _re_parser.SubPattern):
             raise TypeError("unexpected regex parse tree")
-        _collect_required_runs(body, runs)
+        _collect_required_runs(body, runs, any_of)
     if run:
         runs.append("".join(run))
 
 
-def _regex_required_literals(expression: str) -> tuple[str, ...]:
-    """Caseless literal runs that every match of re.compile(expression, re.I) contains.
+def _regex_required_conditions(
+    expression: str,
+) -> tuple[tuple[str, ...], tuple[tuple[str, ...], ...]]:
+    """All-of and any-of caseless runs required by re.compile(expression, re.I).
 
     A match consumes each item of a sequence in order, so a run of uncased
     literal characters at sequence level (or inside a group or a repeat with
-    a minimum of one) appears verbatim in the matched text.
+    a minimum of one) appears verbatim in the matched text. A required branch
+    contributes an any-of condition only if every alternative has such a run.
     """
     if _re_parser is None:
-        return ()
+        return (), ()
     runs: list[str] = []
+    any_of: list[tuple[str, ...]] = []
     try:
-        _collect_required_runs(_re_parser.parse(expression, re.IGNORECASE), runs)
+        _collect_required_runs(_re_parser.parse(expression, re.IGNORECASE), runs, any_of)
     except Exception:  # an unknown parse tree only loses the prefilter
-        return ()
-    return tuple(dict.fromkeys(runs))
+        return (), ()
+    return tuple(dict.fromkeys(runs)), tuple(dict.fromkeys(any_of))
+
+
+def _regex_required_literals(expression: str) -> tuple[str, ...]:
+    """Caseless literal runs that every match of re.compile(expression, re.I) contains."""
+    return _regex_required_conditions(expression)[0]
 
 
 @lru_cache(maxsize=_CACHE_SIZE)
-def _pattern_plan(pattern: str) -> tuple[bool, re.Pattern[str], tuple[str, ...]]:
-    """(is a raw regex, compiled pattern, literals any match must contain)."""
+def _pattern_plan(
+    pattern: str,
+) -> tuple[bool, re.Pattern[str], tuple[str, ...], tuple[tuple[str, ...], ...]]:
+    """(is a raw regex, compiled pattern, required all-of runs, required any-of runs)."""
     regex = pattern_to_regex(pattern)
     if pattern.startswith("re:"):
-        return True, regex, _regex_required_literals(pattern[3:])
-    return False, regex, _required_literals(pattern)
+        required, any_of = _regex_required_conditions(pattern[3:])
+        return True, regex, required, any_of
+    return False, regex, _required_literals(pattern), ()
 
 
 @lru_cache(maxsize=_CACHE_SIZE)
@@ -323,11 +355,12 @@ def _collect_matches(
     # Keyed by (start, end): group(0) is always text[start:end] for raw and
     # source matches alike, so the span alone identifies a duplicate. The first
     # match found for a span is kept. A pattern is only scanned when the text
-    # contains every literal the pattern requires; otherwise it cannot match.
+    # contains every required literal and at least one literal from each
+    # required any-of group; otherwise it cannot match.
     found: dict[tuple[int, int], re.Match[str] | SourceMatch] = {}
     normalized_differs, normalized, match_differs, matched = _text_views(text)
     for pattern in patterns:
-        is_regex, regex, required = _pattern_plan(pattern)
+        is_regex, regex, required, required_any_of = _pattern_plan(pattern)
         if is_regex and normalized_differs:
             # A raw regex can miss a normalized candidate in its own lookahead
             # and incorrectly consume a later protective phrase. Once
@@ -341,10 +374,9 @@ def _collect_matches(
             # becomes a false positive.
             search_text, search_starts, search_ends = normalized
         else:
-            for literal in required:
-                if literal not in text:
-                    break
-            else:
+            if all(literal in text for literal in required) and all(
+                any(literal in text for literal in group) for group in required_any_of
+            ):
                 for match in regex.finditer(text):
                     span = match.span()
                     if span not in found:
@@ -353,10 +385,9 @@ def _collect_matches(
                 continue
             regex, required = _match_view_plan(pattern)
             search_text, search_starts, search_ends = matched
-        for literal in required:
-            if literal not in search_text:
-                break
-        else:
+        if all(literal in search_text for literal in required) and all(
+            any(literal in search_text for literal in group) for group in required_any_of
+        ):
             for match in regex.finditer(search_text):
                 start, end = match.span()
                 if start == end:
