@@ -163,11 +163,22 @@ def section_at(sections: list[Section], offset: int) -> str:
     return "전체"
 
 
+# A sentence boundary other than "." always ends a sentence. A "." does not
+# after a decimal digit (\d is str.isdecimal), nor between two ASCII letters or
+# digits ("a.b", "v1.2"). Lookbehinds see text before pos.
+# The first character class must contain exactly _SENTENCE_BOUNDARIES.
+_SENTENCE_MARK = re.compile(r"[.!?。！？](?:(?<!\.)|(?<!\d\.)(?:(?<![A-Za-z0-9]\.)|(?![A-Za-z0-9])))")
+
+
 def _sentence_marks(text: str, left: int, right: int) -> list[int]:
     # Numeric enumeration and dotted dates are part of the evidence, not sentences.
-    return [i for i in range(left, right) if text[i] in _SENTENCE_BOUNDARIES
-            and not (text[i] == "." and i > 0 and (text[i - 1].isdecimal()
-                     or (i + 1 < len(text) and _ASCII_ALNUM.match(text[i - 1]) and _ASCII_ALNUM.match(text[i + 1]))))]
+    # endpos is right + 1 so the lookahead of a "." at right - 1 still sees text[right].
+    marks: list[int] = []
+    for match in _SENTENCE_MARK.finditer(text, left, right + 1):
+        if match.start() >= right:
+            break
+        marks.append(match.start())
+    return marks
 
 
 def _evidence_line(text: str, start: int, end: int) -> str:
