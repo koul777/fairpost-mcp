@@ -1,7 +1,7 @@
 {
   "schema_version": "fairpost-web-extension-audit-v1",
   "audit_date": "2026-10-13",
-  "evidence_status": "current",
+  "evidence_status": "historical",
   "evidence_scope": "local-integrated-web-bundle",
   "base_url": "http://127.0.0.1:8139",
   "source_revision_at_ui_run": "b999ef4a5a5a6954b969c5ec2facbfc09a1580d9",
@@ -458,5 +458,7 @@
       "file": "local-final-identity.json",
       "sha256": "a7ce33aceb43e0b794fd5830f760d39501f26945863da5ecf2c3952821ee54e6"
     }
-  ]
+  ],
+  "historical_reason": "2026-10-16 엔진 성능 개선(d6fa877~9d22320) 뒤 재수행 전 기록. 탐지 결과·규칙셋·매칭 버전은 동일하며 런타임 소스만 바뀜",
+  "historical_marked_at": "2026-10-17T13:01:22+09:00"
 }

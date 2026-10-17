@@ -437,6 +437,119 @@ def test_regex_required_literals(expression: str, expected: tuple[str, ...]) -> 
     assert morph._regex_required_literals(expression) == expected
 
 
+_NOTICE_WITHOUT_RESULT_PATTERN = (
+    r"re:(?:별도|개별)?[ \t]*(?:통보|통지|안내|연락)[^\r\n]{0,16}"
+    r"(?:없이|하지[ \t]*않|없(?:음|습니다))[^\r\n]{0,16}(?:불합격|미합격|탈락)"
+)
+
+
+def test_notice_regex_plan_requires_each_branch_group() -> None:
+    is_regex, regex, required, any_of = morph._pattern_plan(_NOTICE_WITHOUT_RESULT_PATTERN)
+    assert is_regex
+    assert regex is pattern_to_regex(_NOTICE_WITHOUT_RESULT_PATTERN)
+    assert required == ()
+    assert any_of == (
+        ("통보", "통지", "안내", "연락"),
+        ("없이", "하지", "없"),
+        ("불합격", "미합격", "탈락"),
+    )
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        r"필수(?:통보|안내)",
+        r"필수(통보|안내)",
+        r"필수(?i:통보|안내)",
+        r"필수(?:통보|안내){1,2}",
+        r"필수(?:통보|안내)+?",
+        r"필수(?:통보|안내)++",
+        r"필수(?>통보|안내)",
+    ],
+)
+def test_regex_any_of_in_required_bodies(expression: str) -> None:
+    assert morph._regex_required_conditions(expression) == (
+        ("필수",),
+        (("통보", "안내"),),
+    )
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        r"(?:가|\d+)",
+        r"(?:가|)",
+        r"(?:가|나?)",
+        r"(?:가|(?=나))",
+        r"(?:가|(?!나))",
+        r"(?:가|(?<=나))",
+        r"(?:가|AI)",
+        r"(?:가|(나)?(?(1)다|라))",
+        r"(?:가|(?:통보|안내){1,2})",
+        r"(?:통보|안내)?",
+        r"(?:통보|안내){0,2}",
+        r"(?=(?:통보|안내))",
+        r"(",
+    ],
+)
+def test_regex_any_of_skips_unproven_requirements(expression: str) -> None:
+    assert morph._regex_required_conditions(expression) == ((), ())
+
+
+@pytest.mark.parametrize("prefix", ["모집공고\n", "모집\u200b공고\n"])
+@pytest.mark.parametrize("suffix", ["", "통보", "통보 없이", "없이 불합격"])
+def test_regex_any_of_skips_long_whitespace_scan(
+    prefix: str, suffix: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    is_regex, _regex, required, any_of = morph._pattern_plan(_NOTICE_WITHOUT_RESULT_PATTERN)
+
+    class UnexpectedScan:
+        def finditer(self, text: str):
+            pytest.fail("필수 문자열 조건이 없으면 정규식 탐색을 생략해야 합니다")
+
+    # Fail immediately if the quadratic scan is reached, keeping this
+    # regression fast even when the prefilter is broken. Cover both views
+    # and cases where an earlier any-of condition is already satisfied.
+    monkeypatch.setattr(
+        morph, "_pattern_plan", lambda _pattern: (is_regex, UnexpectedScan(), required, any_of)
+    )
+    assert find_matches(prefix + " " * 99990 + suffix, [_NOTICE_WITHOUT_RESULT_PATTERN]) == []
+
+
+@pytest.mark.parametrize("notice", ["통보", "통지", "안내", "연락"])
+@pytest.mark.parametrize("negation", ["없이", "하지 않음", "없음", "없습니다"])
+@pytest.mark.parametrize("result", ["불합격", "미합격", "탈락"])
+def test_notice_regex_any_of_preserves_matches(notice: str, negation: str, result: str) -> None:
+    text = f"결과: {notice} {negation} {result}\n별도\t{notice} {negation} {result}"
+    patterns = [_NOTICE_WITHOUT_RESULT_PATTERN]
+    for sample in (text, text.replace(notice, notice[0] + "\u200b" + notice[1:])):
+        expected = _ref_find_matches(sample, patterns)
+        assert len(expected) == 2
+        assert _describe(find_matches(sample, patterns)) == _describe(expected)
+
+
+@pytest.mark.parametrize(
+    ("pattern", "text"),
+    [
+        (r"re:(?:가|\d+)", "123"),
+        (r"re:(?:가|)", "나"),
+        (r"re:(?:가|나?)", "나"),
+        (r"re:(?:가|(?=나))", "나"),
+        (r"re:(?:가|AI)", "ai Ai AI"),
+        (r"re:(?:AI가|면접)", "ai가 Ai가 면접"),
+        (r"re:(?:K|면접)", "k K 면접"),
+        (r"re:필수(?:통보|안내)", "통보 필수안내 필수통\u200b보"),
+        (r"re:(?:통보|안내){1,2}", "통보안내 안내통보"),
+        (r"re:(?>통보|안내)", "통보 안내"),
+        (r"re:(?:통보|안내)?", "모집공고"),
+        (r"re:(?:통보|안내)", "통지 연락"),
+        ("지원 자격", "지원\u200b 자격 지원자격"),
+    ],
+)
+def test_regex_any_of_preserves_reference_matches(pattern: str, text: str) -> None:
+    assert _describe(find_matches(text, [pattern])) == _describe(_ref_find_matches(text, [pattern]))
+
+
 _ENGINE_POSTING = """2026년 행정직 채용
 
 자격요건

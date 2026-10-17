@@ -90,10 +90,12 @@
     "server_stopped": true
   },
   "elapsed_seconds": 13.05,
-  "evidence_status": "current",
+  "evidence_status": "historical",
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
   "matching_version": "match-2b470bfabfd83536",
   "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
   "raw_report_sha256": "02efd6ffe252c0aeb7b6f81181cea2a633705241865f5893ef4aacadd380a16f",
-  "wheel_name": "fairpost-0.3.0-py3-none-any.whl"
+  "wheel_name": "fairpost-0.3.0-py3-none-any.whl",
+  "historical_reason": "2026-10-16 엔진 성능 개선(d6fa877~9d22320) 뒤 재수행 전 기록. 탐지 결과·규칙셋·매칭 버전은 동일하며 런타임 소스만 바뀜",
+  "historical_marked_at": "2026-10-17T13:01:21+09:00"
 }

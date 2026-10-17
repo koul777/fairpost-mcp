@@ -607,6 +607,150 @@
   // re-enters itself while a loop is running.
   const PATTERN_PLAN_CACHE = new Map();
 
+  // Necessary conditions only: an unknown construct discards the entire
+  // filter, never the regex. Parse the Python source before its JS rewrite.
+  function regexRequiredConditions(source) {
+    const empty = () => ({ required: [], requiredAnyOf: [] });
+    let index = 0;
+    const fail = () => { throw new Error("unsupported regex condition syntax"); };
+
+    function escape() {
+      const character = source[index++];
+      if (character === undefined) fail();
+      const width = character === "x" ? 2 : character === "u" ? 4 : character === "U" ? 8 : 0;
+      if (width) {
+        if (!new RegExp(`^[0-9a-fA-F]{${width}}$`).test(source.slice(index, index + width))) fail();
+        index += width;
+      } else if (/[0-9]/.test(character)) {
+        while (index < source.length && /[0-9]/.test(source[index])) index += 1;
+      } else if (!/^[dDsSwWbBAZafnrtv\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]$/.test(character)) {
+        fail();
+      }
+    }
+
+    function characterClass() {
+      if (source[index] === "^") index += 1;
+      // As in pythonRegexSource, the first ] (also after ^) is a member.
+      if (source[index] === "]") index += 1;
+      while (index < source.length) {
+        const character = source[index++];
+        if (character === "]") return;
+        if (character === "\\") escape();
+      }
+      fail();
+    }
+
+    function branches(inGroup) {
+      const alternatives = [[]];
+      while (index < source.length) {
+        const character = source[index++];
+        if (character === ")") {
+          if (!inGroup) fail();
+          return alternatives;
+        }
+        if (character === "|") {
+          alternatives.push([]);
+          continue;
+        }
+        let atom = null;
+        if (character === "(") {
+          let lookaround = false;
+          if (source[index] === "?") {
+            if (source.startsWith("?:", index)) index += 2;
+            else if (source.startsWith("?=", index) || source.startsWith("?!", index)) {
+              index += 2;
+              lookaround = true;
+            } else if (source.startsWith("?<=", index) || source.startsWith("?<!", index)) {
+              index += 3;
+              lookaround = true;
+            } else if (source.startsWith("?P<", index)) {
+              const name = /^\?P<[A-Za-z_][A-Za-z_0-9]*>/.exec(source.slice(index));
+              if (!name) fail();
+              index += name[0].length;
+            } else fail();
+          }
+          const body = branches(true);
+          if (!lookaround) atom = body;
+        } else if (character === "[") characterClass();
+        else if (character === "\\") escape();
+        else if ("{}]*+?".includes(character)) fail();
+        else if (!".^$".includes(character) &&
+                 /^[\x21-\x40\x5b-\x60\x7b-\x7e\u1100-\u11ff\u3131-\u318e\uac00-\ud7a3]$/u.test(character)) {
+          // These code points have no other equivalents under JS iu folding.
+          // Other literals (including cased letters) break a required run.
+          atom = character;
+        }
+
+        let minimum = null;
+        const quantifier = source[index];
+        if (quantifier === "?" || quantifier === "*" || quantifier === "+") {
+          minimum = quantifier === "+" ? 1 : 0;
+          index += 1;
+        } else if (quantifier === "{") {
+          const repeat = /^\{(?:(\d+)(?:,(\d*))?|,(\d+))\}/.exec(source.slice(index));
+          if (!repeat) fail();
+          minimum = Number(repeat[1] || 0);
+          const maximum = repeat[3] !== undefined ? Number(repeat[3]) :
+            repeat[2] === undefined ? minimum : repeat[2] === "" ? Infinity : Number(repeat[2]);
+          if (!Number.isSafeInteger(minimum) ||
+              (maximum !== Infinity && !Number.isSafeInteger(maximum)) || maximum < minimum) fail();
+          index += repeat[0].length;
+        }
+        if (minimum !== null) {
+          // A quantifier belongs to this atom alone, never the preceding run.
+          if (minimum === 0 || typeof atom === "string") atom = null;
+          if (source[index] === "?" || source[index] === "+") index += 1;
+        }
+        alternatives[alternatives.length - 1].push(atom);
+      }
+      if (inGroup) fail();
+      return alternatives;
+    }
+
+    function collect(alternatives, required, anyOf) {
+      if (alternatives.length > 1) {
+        if (anyOf === null) return;
+        const representatives = [];
+        for (const alternative of alternatives) {
+          const runs = [];
+          // Deeper alternatives cannot supply an all-of representative.
+          collect([alternative], runs, null);
+          if (!runs.length) return;
+          representatives.push(runs.reduce((longest, run) => run.length > longest.length ? run : longest));
+        }
+        anyOf.push([...new Set(representatives)]);
+        return;
+      }
+      let run = "";
+      for (const atom of alternatives[0]) {
+        if (typeof atom === "string") {
+          run += atom;
+          continue;
+        }
+        if (run) required.push(run);
+        run = "";
+        if (atom !== null) collect(atom, required, anyOf);
+      }
+      if (run) required.push(run);
+    }
+
+    try {
+      const parsed = branches(false);
+      const result = empty();
+      collect(parsed, result.required, result.requiredAnyOf);
+      result.required = [...new Set(result.required)];
+      result.requiredAnyOf = [...new Map(result.requiredAnyOf.map((group) => [JSON.stringify(group), group])).values()];
+      return result;
+    } catch (_) {
+      return empty();
+    }
+  }
+
+  function satisfiesRegexConditions(text, plan) {
+    return plan.required.every((literal) => text.includes(literal)) &&
+      plan.requiredAnyOf.every((group) => group.some((literal) => text.includes(literal)));
+  }
+
   function patternPlan(pattern) {
     let plan = PATTERN_PLAN_CACHE.get(pattern);
     if (plan === undefined) {
@@ -615,7 +759,8 @@
       const normalizedPattern = isRegex ? pattern : matchPlain(pattern);
       const normalizedRegex =
         normalizedPattern === pattern ? regex : patternToRegex(normalizedPattern);
-      plan = { isRegex, regex, normalizedRegex };
+      const conditions = isRegex ? regexRequiredConditions(pattern.slice(3)) : { required: [], requiredAnyOf: [] };
+      plan = { isRegex, regex, normalizedRegex, ...conditions };
       if (PATTERN_PLAN_CACHE.size >= 4096) PATTERN_PLAN_CACHE.clear();
       PATTERN_PLAN_CACHE.set(pattern, plan);
     }
@@ -635,7 +780,7 @@
       const regex = plan.regex;
       regex.lastIndex = 0;
       let match;
-      const exactText = isRegex && normalizedChanged ? null : text;
+      const exactText = isRegex && (normalizedChanged || !satisfiesRegexConditions(text, plan)) ? null : text;
       while (exactText !== null && (match = regex.exec(exactText)) !== null) {
         const item = {
           start: match.index,
@@ -663,6 +808,7 @@
       // (plan.normalizedRegex is built from matchPlain(pattern) for literals.)
       const normalizedRegex = plan.normalizedRegex;
       normalizedRegex.lastIndex = 0;
+      if (isRegex && !satisfiesRegexConditions(searchView.normalized, plan)) return;
       while ((match = normalizedRegex.exec(searchView.normalized)) !== null) {
         if (match[0].length === 0) {
           normalizedRegex.lastIndex += 1;
