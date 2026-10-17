@@ -327,10 +327,15 @@ fairpost-mcp
 문자·일반 공고·긴 공백 입력(마지막 커밋 기준 Python·JavaScript 각 6종)은 10% 넘게 느려지지
 않았습니다. 마지막 커밋의 로컬 전체 검사는 **5,604개 통과·21개 환경 제약 건너뜀**입니다.
 
-**남은 일:** 이 변경은 `agent/2026-10-16-kpi-whitespace` 브랜치에 있으며, `main` 병합과
-[운영 웹 앱](https://fairmcp.vercel.app/web/) 배포 전입니다. GitHub CI는 `main` 푸시와 PR에서 실행되므로
-아직 돌지 않았습니다. 엔진 코드가 바뀌어 병합 전에 `python tools/refresh_evidence.py`로
-`reports/*.json` 검증 증거를 다시 만들어야 합니다.
+**병합 전 정리(2026-10-17):** 엔진 코드가 바뀌어 증거 버전 검사가 stale 8개로 실패했습니다.
+코퍼스 기반 보고서(웹·Python 비교, 엔진 성능, 규칙 적용 범위)는 런타임 소스와 무관해 그대로
+현재 증거입니다. `python tools/refresh_evidence.py`로 배포본 감사와 증거 버전 감사를 다시 만들었고,
+배포·브라우저가 필요한 보고서 6개(`production_rollout.json`, `installed_wheel_audit.json`,
+`github_ci_audit-…`, `vercel_public_check-…`, `web_extension_*_audit-…`)는 재수행 전까지
+`historical`로 표시했습니다. Linux·Python 3.13·Node 22 환경 전체 검사는 **5,625개 통과·건너뜀 0개**입니다.
+
+**남은 일:** [운영 웹 앱](https://fairmcp.vercel.app/web/) 재배포 후
+`tools/verify_vercel_deployment.py`로 `production_rollout.json`을 다시 기록해야 합니다.
 
 ### 2026-10-13 개선
 

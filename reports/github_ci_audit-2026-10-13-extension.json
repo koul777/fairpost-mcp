@@ -1,6 +1,6 @@
 {
   "schema_version": "fairpost-github-ci-audit-v1",
-  "evidence_status": "current",
+  "evidence_status": "historical",
   "generated_at": "2026-10-13T04:53:06.313002+00:00",
   "run": {
     "attempt": 1,
@@ -64,5 +64,7 @@
     }
   },
   "contains_posting_text": false,
-  "secret_recorded": false
+  "secret_recorded": false,
+  "historical_reason": "2026-10-16 엔진 성능 개선(d6fa877~9d22320) 뒤 재수행 전 기록. 탐지 결과·규칙셋·매칭 버전은 동일하며 런타임 소스만 바뀜",
+  "historical_marked_at": "2026-10-17T13:01:21+09:00"
 }

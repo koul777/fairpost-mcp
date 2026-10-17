@@ -128,5 +128,8 @@
     "source_commit": "66ff6e725da633cec73786c1033e3791bd46e935",
     "verified_by": "codex-extension-20261013",
     "approval_ref": "user-request-readme-commit-deploy-and-one-hour-extension"
-  }
+  },
+  "evidence_status": "historical",
+  "historical_reason": "2026-10-16 엔진 성능 개선(d6fa877~9d22320) 뒤 재수행 전 기록. 탐지 결과·규칙셋·매칭 버전은 동일하며 런타임 소스만 바뀜",
+  "historical_marked_at": "2026-10-17T13:01:21+09:00"
 }
