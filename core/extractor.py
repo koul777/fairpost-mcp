@@ -10,7 +10,7 @@ from .morph import ZERO_WIDTH, find_first, find_matches
 from .schema import SlotStatus
 
 
-SECTION_VERSION = "sections-v8-protective-double-negation"
+SECTION_VERSION = "sections-v9-protective-disclosure-penalty"
 
 _SENTENCE_BOUNDARIES = ".!?。！？"
 _EVIDENCE_WINDOW_CODEPOINTS = 238
@@ -548,6 +548,10 @@ def _component_present(slot_id: str, component: dict[str, Any], contexts: list[s
 # 기재하지 마세요", "사진 부착 불가", "키 170cm 등은 기재하지 마세요"), and
 # "묻지/질문하지/요구하지/평가하지 않", "부착하지 마", "금지됩니다" protect like
 # "기재하지" does; "요구하지 않" is not a requirement.
+# A penalty for writing the item in ("출신학교, 부모 직업 등을 기재해 제출하면
+# 감점", "가족관계를 기재할 경우 불이익") protects like a ban. A penalty for a
+# false or wrong entry ("허위 기재 시 불이익", "사실과 다르게 기재한 경우")
+# does not, and neither does a penalty declared absent.
 # web/engine.js keeps the same patterns (PROTECTIVE_* constants).
 _SENSITIVE_CANDIDATE = [
     "출신학교", "출신 학교", "신체 조건", "혼인", "부모", "형제자매", "가족",
@@ -559,6 +563,7 @@ _PROTECTIVE = [
     r"re:(?:수집|기재|작성)\s*(?:금지|불가|불필요|하지|받지)",
     r"re:(?:포함|제공)\s*하지",
     r"re:(?:기재|표현)[^.!?\n]{0,100}(?:평가대상에서\s*제외|부적합|탈락처리)",
+    r"re:(?<!미)(?<!허위)(?<!허위\s)(?<!잘못)(?<!잘못\s)(?<!다르게)(?<!다르게\s)(?:기재|작성|기입|표기)(?:\s*(?:하여|해서|해))?(?:\s*(?:제출|지원))?(?:(?:\s*(?:할|한|하는|될|된))?\s*(?:시|경우|때)|\s*(?:하면|되면))[^.!?\n]{0,24}(?:감점|불이익|불합격|실격)(?![^.!?\n,]{0,12}(?:(?<=[\s은는이가도을를지익점락외합격])(?:없|않)(?!도록|게)|아니|아닙|아님))",
     r"re:블라인드[^.!?\n]{0,80}미준수",
     r"re:(?:미기재|미작성|미제출|누락)\s*(?:시|하면|할\s*경우|된\s*경우)[^.!?\n]{0,60}?(?:불이익|탈락|제외|부적합|감점)[^.!?\n,]{0,12}(?:(?<=[\s은는이가도을를지익점락외합])(?:없|않)(?!도록|게)|아니|아닙|아님)",
     # A negated request protects; denying that negation does not. In particular,

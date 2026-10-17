@@ -86,7 +86,7 @@ for (let code = 0; code <= 0x10ffff; code += 1) {
 // It is found by its prefix, not a line number, so unrelated edits keep it.
 const targetLines = fs.readFileSync(path.join(root, "data/rules/questions.yaml"), "utf8")
   .split(/\r?\n/)
-  .filter((line) => line.trim().startsWith("- re:(?:별도|개별)?[ \\t]*(?:통보|통지|안내|연락)"));
+  .filter((line) => line.trim().startsWith("- re:(?:(?:별도|개별)[ \\t]*|(?<![ \\t])[ \\t]*)(?:통보|통지|안내|연락)"));
 assert.equal(targetLines.length, 1, "the whitespace-backtracking notice pattern");
 const targetLine = targetLines[0];
 assert.match(targetLine, /^\s*- re:/);
