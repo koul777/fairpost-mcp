@@ -1,0 +1,132 @@
+{
+  "schema_version": "fairpost-vercel-public-check-v1",
+  "verified_at": "2026-10-17T13:53:44+09:00",
+  "scope": "anonymous requests only",
+  "authenticated_checks_performed": false,
+  "token_used": false,
+  "assisted_review_called": false,
+  "production_url": "https://fairmcp.vercel.app",
+  "mcp_endpoint": "https://fairmcp.vercel.app/api/mcp",
+  "claude_mcp_endpoint": "https://fairmcp.vercel.app/api/claude-mcp",
+  "health_endpoint": "https://fairmcp.vercel.app/api/health",
+  "deployment_id": "dpl_HetbXhPJ27WQTTerA4KwusAXUwgy",
+  "health": {
+    "status": "ok",
+    "transport": "streamable-http",
+    "stateless": true,
+    "authentication": "bearer",
+    "claude_readonly_authentication": "bearer",
+    "answer_store": "disabled_on_remote_endpoint",
+    "remote_tool_profile": "read_only",
+    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+    "matching_version": "match-2b470bfabfd83536",
+    "runtime_source_fingerprint": "runtime-f2c45f6cfc11b9dec986c4cace1057bd1d20716154f5e9b4a866c26ff74f10a6",
+    "runtime_source_manifest": {
+      "api/__init__.py": "sha256:5dd6563c8b20a0e5a2992087f6b7ed54b913b6815c9e5ed66b0cf6193b09a6db",
+      "api/index.py": "sha256:3c89c8718fead938351646e2b7409b6a8869a4e50ea0b0b8958dfe245c2f76d3",
+      "cli/__init__.py": "sha256:b80a018d8b4ffe7cf54b808ca7fe23fca198290dc17fe23b05284e1a69775875",
+      "cli/main.py": "sha256:8fb8618c15939ce0ffbaf42f82b44c113fcbfc91dd9e908c418c609e296e3933",
+      "core/__init__.py": "sha256:1f4b6ebbb75d9c70325483a093aad7ade92441f955ae62b22030d456613f3db4",
+      "core/direct_identifiers.py": "sha256:8b1d59dadce381d5274e455ec8a3e38ca7feca712ba1c9f68877885a038e9bce",
+      "core/engine.py": "sha256:3b6707fee75820a34f915b9b12285e59b6c68498466251d60246a241ac2b4da4",
+      "core/extractor.py": "sha256:11ba6548624df1d5f7c62e9605dae9d8c77b19906a773c256a3088de93433bad",
+      "core/guidance.py": "sha256:bc9d95f8af027d6839cbef539ab57d12ada4e930ad2b7220b5eaec289d4198d7",
+      "core/loader.py": "sha256:214b6c3b50da9b55e9d02511602b3660abd2c0ea1c6c9673c11aba001a6bd48e",
+      "core/morph.py": "sha256:a215300c859758e05c9473547439fe9a789894e120399b58d2e5d9a5514e48b8",
+      "core/organization_guidance.py": "sha256:6a1009ac3d90446cda3126a615fc8924e44fc03707371b6ef6954d905300e7c1",
+      "core/review_packet.py": "sha256:6cd9b728654a03d71bc88109b424104acd8c8e2268c538ba133b5d9b18e2f623",
+      "core/schema.py": "sha256:e067dea55113337d0f174c33586a0c8d139aacc573ca6123e462cd8e295f3c64",
+      "data/guidance/ncs-fair-hiring.yaml": "sha256:ff27c3d749f8ce448ae3b5db3a5d78dcf218f373057c71cf1abcc70c30973888",
+      "data/guidance/organization-applicability.yaml": "sha256:b8af211ce2200bb3535a0f708fc599a6a6656b5caf5d5d6a4dbda52d50700e23",
+      "favicon.svg": "sha256:2cba31b6193973e4e35c633f68d7b5107ce88728bbec304aa2b545c4b54e4a5e",
+      "index.html": "sha256:42ce130243e4cf8c6d0b9d8aebf4263ccd0ef097d8f654f103b9a639d1af1621",
+      "mcp_server/__init__.py": "sha256:e6ecd0183af6363053f9570c25ee7cd555bce2deb3b5215a5791cde77633545d",
+      "mcp_server/assisted_review.py": "sha256:67aef528ff727e05d942c4397fd7865f6a18dd3eaf5e70a7b83640f0ff294b89",
+      "mcp_server/build_identity.py": "sha256:2dbbb515d1306757e1887a954e8f984326e76c49edd949443ee21ea3ab3e9a1a",
+      "mcp_server/local_runtime.py": "sha256:e25e9e94509cd5cca776e8d9f706782d1da89ae64a851fafd3772e99445a6fd1",
+      "mcp_server/remote.py": "sha256:35a0c19e6abb482363a77cff3572fffe89413ef1bad082615b7e687c838f3fe4",
+      "mcp_server/review.py": "sha256:f2f39108497b991ad8978f5ac0bdd2e9faf2f310ea39d97b29e2dbd38287face",
+      "mcp_server/server.py": "sha256:9e0ea34cef704dd1044bffb09cb2fc1daa0218d91f63629bbb2bca9bf16d8937",
+      "mcp_server/storage.py": "sha256:86b198f78e7db8dc32c4b497a7c2e2d1032bf08c2b0bb6facd0448aa5ea9ea94",
+      "pyproject.toml": "sha256:f9a9052c0318a3632c69c60fed56d952855285fb7e63d15718dad34ca4864b16",
+      "web/app.js": "sha256:6be5ae4dd2a842bd41edc4ed33403a07b97885d9c76a651320dc3d4f7c48b91a",
+      "web/data.js": "sha256:85e4852604d11df801e0d8c8b2bcf7b4399e04d979cbe65c2c1bbbd5ee912297",
+      "web/engine.js": "sha256:96082fe729e0ec6b3c0b08a454afe0bcbd5373aa080a97da2ef5031d78deae1d",
+      "web/index.html": "sha256:3cc4fc416a87334db48e16bec751e0e1f8235a32ba36edf7a1cd830c21256d66",
+      "web/posting-templates.js": "sha256:f16ad60eca3312f0e6cd54b351fa14a5fd70ed4e336dd2fb95691ad22e549e31",
+      "web/styles.css": "sha256:928023870e5cd8308ee6edd46cebccff068f4c72469fc2c0c197074f23adfc51"
+    },
+    "anonymous_access_controls": {
+      "enabled": false,
+      "strategy": "per_instance_client_fixed_window",
+      "requests_per_minute": 60,
+      "stores_raw_client_address": false,
+      "stores_request_content": false,
+      "client_key": "ephemeral_hmac_sha256",
+      "maximum_retention_seconds": 60,
+      "distributed": false
+    }
+  },
+  "book_entry": {
+    "url": "https://fairmcp.vercel.app/book",
+    "status_code": 307,
+    "location": "/web/?entry=book",
+    "expected_target": "/web/?entry=book"
+  },
+  "anonymous_responses": {
+    "mcp": {
+      "status_code": 401,
+      "www_authenticate": "Bearer"
+    },
+    "claude_mcp": {
+      "status_code": 401,
+      "www_authenticate": "Bearer"
+    }
+  },
+  "api_security_headers": {
+    "health": {
+      "cache_control": "no-store",
+      "content_type_options": "nosniff",
+      "frame_options": "DENY",
+      "referrer_policy": "no-referrer"
+    },
+    "mcp": {
+      "cache_control": "no-store",
+      "content_type_options": "nosniff",
+      "frame_options": "DENY",
+      "referrer_policy": "no-referrer"
+    },
+    "claude_mcp": {
+      "cache_control": "no-store",
+      "content_type_options": "nosniff",
+      "frame_options": "DENY",
+      "referrer_policy": "no-referrer"
+    }
+  },
+  "local_ruleset": {
+    "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+    "matching_version": "match-2b470bfabfd83536",
+    "rule_count": 71,
+    "runtime_source_fingerprint": "runtime-f2c45f6cfc11b9dec986c4cace1057bd1d20716154f5e9b4a866c26ff74f10a6"
+  },
+  "checks": {
+    "health_ok": true,
+    "ruleset_version_matches_local": true,
+    "matching_version_matches_local": true,
+    "runtime_source_fingerprint_matches_local": true,
+    "runtime_source_manifest_matches_local": true,
+    "book_entry_redirect_is_temporary": true,
+    "anonymous_mcp_gate_matches": true,
+    "claude_authentication_mode_matches": true,
+    "anonymous_claude_mcp_gate_matches": true,
+    "security_headers_present_on_api": true,
+    "anonymous_access_controls_present": true
+  },
+  "passed": true,
+  "secret_recorded": false,
+  "verification_context": {
+    "source_commit": "94084a3b763e0fcaa8f8ac5ef448f17d637aa081",
+    "verified_by": "claude-cloud-session",
+    "approval_ref": null
+  }
+}

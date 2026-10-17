@@ -334,8 +334,12 @@ fairpost-mcp
 `github_ci_audit-…`, `vercel_public_check-…`, `web_extension_*_audit-…`)는 재수행 전까지
 `historical`로 표시했습니다. Linux·Python 3.13·Node 22 환경 전체 검사는 **5,625개 통과·건너뜀 0개**입니다.
 
-**남은 일:** [운영 웹 앱](https://fairmcp.vercel.app/web/) 재배포 후
-`tools/verify_vercel_deployment.py`로 `production_rollout.json`을 다시 기록해야 합니다.
+**운영 배포(2026-10-17):** 병합 커밋 `94084a3`을 [운영 웹 앱](https://fairmcp.vercel.app/web/)에
+배포했습니다(`dpl_HetbXhPJ27WQTTerA4KwusAXUwgy`). `tools/verify_vercel_deployment.py --public-only`
+공개 검증 **11개 항목 모두 통과**했고, 운영 서버의 규칙셋·매칭 버전·런타임 지문과 소스 파일 33개 해시가
+로컬 빌드와 일치했습니다([`vercel_public_check-2026-10-17.json`](reports/vercel_public_check-2026-10-17.json)).
+결과는 [`production_rollout.json`](reports/production_rollout.json)에 현재 증거로 다시 기록했습니다.
+브라우저 기반 운영 감사와 토큰 인증 MCP 호출 검증은 이번에 다시 수행하지 않았습니다.
 
 ### 2026-10-13 개선
 

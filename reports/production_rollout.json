@@ -1,82 +1,77 @@
 {
   "schema_version": "fairpost-production-rollout-v1",
-  "evidence_status": "historical",
-  "checked_at": "2026-10-13T05:04:59.612591+00:00",
-  "evidence_scope": "extension_public_production_browser_local_install_and_ci",
+  "evidence_status": "current",
+  "checked_at": "2026-10-17T13:53:44+09:00",
+  "evidence_scope": "public_production_identity_local_validation_and_ci",
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
   "matching_version": "match-2b470bfabfd83536",
-  "runtime_source_fingerprint": "runtime-caaa4858d8e8e65b53975432bc4b8dda454ba2f9b3554a08e45b607894483d64",
-  "validation_source_fingerprint": "validation-deb166ef0da1b21cd5cb0ffa648534d8e65b24583f3d1b002ec810d330215c6c",
-  "source_commit": "66ff6e725da633cec73786c1033e3791bd46e935",
-  "deployment_id": "dpl_ASUp9R8KBCortQygzGxDLk84pDin",
+  "runtime_source_fingerprint": "runtime-f2c45f6cfc11b9dec986c4cace1057bd1d20716154f5e9b4a866c26ff74f10a6",
+  "validation_source_fingerprint": "validation-aac3e1a1a7f6b77e47e97c306090622ebc12ab2672f6246088491f6640d368dc",
+  "source_commit": "94084a3b763e0fcaa8f8ac5ef448f17d637aa081",
+  "deployment_id": "dpl_HetbXhPJ27WQTTerA4KwusAXUwgy",
   "production_url": "https://fairmcp.vercel.app",
+  "deployment": {
+    "method": "vercel_api_git_source",
+    "git_ref": "main",
+    "target": "production",
+    "created_at": "2026-10-17T13:50:37+09:00",
+    "ready_at": "2026-10-17T13:50:53+09:00",
+    "aliases": [
+      "fairmcp.vercel.app",
+      "fairmcp-hrkim.vercel.app",
+      "fairmcp-git-main-hrkim.vercel.app"
+    ],
+    "previous_production_deployment_id": "dpl_ASUp9R8KBCortQygzGxDLk84pDin"
+  },
   "public_verification": {
     "passed": true,
     "checks_passed": 11,
     "checks_total": 11,
-    "report": "reports/vercel_public_check-2026-10-13-extension.json",
-    "report_sha256": "c9ffb2907db3535d890ec92528a7c2fd56cfaf0ef4a33eac08fe70bae0fea981",
+    "report": "reports/vercel_public_check-2026-10-17.json",
+    "report_sha256": "a24ec6a0caa2f00ab541eebad00c7427cb9b271388f74cc016872d01d8af70e5",
+    "runtime_source_manifest_files": 33,
     "authenticated_checks_performed": false,
-    "token_used": false
+    "token_used": false,
+    "run_environment": "Vercel Sandbox (iad1), Python 3.14, clean checkout of source_commit"
   },
   "production_browser": {
-    "report": "reports/web_extension_production_audit-2026-10-13.json",
-    "report_sha256": "a01c99491be1030f1dabd9bd4cff28adc11fed127397287e57ff68b3df229945",
-    "passed": true,
-    "existing_flow_checks_passed": 119,
-    "existing_flow_checks_total": 119,
-    "new_regression_checks_passed": 46,
-    "new_regression_checks_total": 46,
-    "checks_passed": 165,
-    "checks_total": 165,
-    "posting_network_requests": 0,
-    "off_origin_requests": 0,
-    "page_errors": 0,
-    "console_errors": 0,
-    "identity_checks": {
-      "sourceUnchangedDuringIdentityCheck": true,
-      "browserRulesetMatchesRoot": true,
-      "allSixWebAssetsMatchRoot": true,
-      "healthOk": true,
-      "runtimeMatchesRoot": true,
-      "matchingVersionMatchesRoot": true,
-      "healthManifestMatchesRoot": true,
-      "noErrorsOrBlockedRequests": true
-    },
-    "clipboard_comparison": "Windows CRLF normalized to LF; all other characters compared exactly."
+    "status": "not_rerun",
+    "passed": null,
+    "reason": "이번 배포는 엔진 성능 변경만 포함하며 브라우저 기반 운영 감사는 다시 수행하지 않았다. 2026-10-13 감사 보고서는 historical이다.",
+    "previous_report": "reports/web_extension_production_audit-2026-10-13.json"
   },
   "local_validation": {
-    "passed": 5483,
-    "skipped": 21,
+    "passed": 5625,
+    "skipped": 0,
     "failed": 0,
-    "elapsed_seconds": 667.356,
-    "elapsed_seconds_source": "JUnit testsuite time; pytest console summary is 667.44 seconds",
-    "junit_sha256": "e4966e515d438bb8398e2af54c120a36ef9093d7c09abd00842201765a036602",
-    "validation_source_fingerprint": "validation-deb166ef0da1b21cd5cb0ffa648534d8e65b24583f3d1b002ec810d330215c6c",
+    "elapsed_seconds": 374.194,
+    "elapsed_seconds_source": "JUnit testsuite time",
+    "junit_sha256": "e83dae8fedbfba00cfd4d1a819ea20573360cb3499e890a0da01ce2a16fe97cf",
+    "validation_source_fingerprint": "validation-aac3e1a1a7f6b77e47e97c306090622ebc12ab2672f6246088491f6640d368dc",
     "node_required": true,
-    "skip_scope": "Windows bash/jq and symlink permission restrictions; no skips removed"
+    "environment": "Linux, Python 3.13, Node 22 (cloud workspace)"
   },
   "github_ci": {
-    "report": "reports/github_ci_audit-2026-10-13-extension.json",
-    "run_url": "https://github.com/koul777/fairpost-mcp/actions/runs/38348055648",
-    "source_commit": "66ff6e725da633cec73786c1033e3791bd46e935",
+    "run_url": "https://github.com/koul777/fairpost-mcp/actions/runs/39002289886",
+    "source_commit": "94084a3b763e0fcaa8f8ac5ef448f17d637aa081",
     "all_three_jobs_passed": true,
-    "linux_junit": {
-      "tests_passed": 5504,
-      "skipped": 0,
-      "sha256": "263e383beb1665563f0e96843f816d561400fe9af08a8eccf688f927fe464fb9",
-      "fresh_for_current_inputs": true
+    "jobs": {
+      "test": "success",
+      "test-windows": "success",
+      "test-python-latest": "success"
     },
-    "job_summaries": {
-      "test-windows": "5495 passed, 9 skipped in 218.50s",
-      "test": "5504 passed in 317.52s",
-      "test-python-latest": "5504 passed in 313.09s"
-    }
+    "linux_candidate_artifact": {
+      "name": "linux-candidate-evidence-94084a3b763e0fcaa8f8ac5ef448f17d637aa081",
+      "digest": "sha256:ff39ba739f420274dfedcb22aa80674de69f3f8f85ac422c3c6bf0516b39a777"
+    },
+    "job_test_counts_recorded": false,
+    "job_test_counts_note": "작업 환경에서 GitHub 로그 저장소 접근이 막혀 잡별 테스트 수는 옮기지 않았다."
   },
   "installed_wheel": {
-    "report": "reports/installed_wheel_audit.json",
-    "wheel_sha256": "84d800b57324bac962af30893aebe96483ed0bd875c5d0fb71792b59994e06c5",
-    "passed": true
+    "status": "verified_in_ci",
+    "detail": "CI test 잡의 'Build and verify candidate evidence' 단계에서 wheel 설치 후 규칙셋ㆍ매칭 버전ㆍ공개 MCP 도구 목록 smoke test 통과",
+    "standalone_report": "reports/installed_wheel_audit.json",
+    "standalone_report_status": "historical"
   },
   "web_parity": {
     "records": 2310,
@@ -84,9 +79,8 @@
     "report": "reports/web_engine_parity.json"
   },
   "assisted_review": {
-    "checked_at": "2026-10-13T04:53:39.201304+00:00",
-    "method": "GET",
-    "http_status": 200,
+    "checked_at": "2026-10-17T13:53:44+09:00",
+    "method": "GET /api/health (assisted_review 필드)",
     "ready": false,
     "ai_configured": false,
     "law_mcp_configured": true,
@@ -94,24 +88,16 @@
     "ai_api_called": false
   },
   "authenticated_mcp": {
-    "status": "not_rechecked_existing_credential_blocker",
+    "status": "not_rechecked_no_token_in_session",
     "tool_calls_verified": false,
-    "token_rotated": false,
-    "previous_observation": {
-      "source_commit": "7ed47c37c3dcbf040413b38451331afe4493629a",
-      "initialize_http_status": 401,
-      "evidence_status": "historical"
-    }
+    "token_rotated": false
   },
   "release_candidate": {
-    "report": "reports/build_artifact-1h-candidate-2026-10-13.json",
     "strict_ready": false,
     "authenticated_production_audit_current": false,
-    "test_evidence": "verified_linux_ci_junit"
+    "test_evidence": "local_junit_and_github_ci"
   },
   "contains_posting_text": false,
   "secret_recorded": false,
-  "release_ready": false,
-  "historical_reason": "2026-10-16 엔진 성능 개선(d6fa877~9d22320) 뒤 재수행 전 기록. 탐지 결과·규칙셋·매칭 버전은 동일하며 런타임 소스만 바뀜",
-  "historical_marked_at": "2026-10-17T13:01:21+09:00"
+  "release_ready": false
 }
