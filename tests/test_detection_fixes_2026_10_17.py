@@ -14,9 +14,10 @@ whitespace backtracking hot spot:
 * Rule regexes with two whitespace quantifiers around an optional token (or a
   leading optional whitespace run) backtracked quadratically on long blank runs.
 
-The KEPT cases include the shapes an independent review found the first draft
-of these exclusions suppressing: false or omitted entries, refusals of the older
-worker bands, and applicant restrictions written next to a military record.
+The KEPT cases include the shapes two rounds of independent review found earlier
+drafts of these exclusions suppressing: false or omitted entries, refusals of
+the older worker bands, preferences that do not name the bands, and applicant
+restrictions written next to a military record.
 
 Every case also runs through the browser engine and must match Python exactly.
 """
@@ -50,6 +51,9 @@ FIXED = {
     "older-worker-band-inline": ("우대사항\n고령자(만 55세 이상) 서류전형 가점 부여", "AGE-002"),
     "older-worker-band-range": ("우대사항\n준고령자(50세 이상 55세 미만) 우대", "AGE-002"),
     "older-worker-bands-listed": ("우대사항\n○ 준고령자(50세 이상 55세 미만) 및 고령자(55세 이상) 우대", "AGE-002"),
+    "older-worker-bands-named-in-list": (
+        "2) 고령자 및 준고령자, 장애인, 저소득층 등 우대\n고령자(55세 이상)\n준고령자(50세 이상)", "AGE-002"),
+    "older-worker-band-priority-hiring": ("우대사항\n고령자 및 준고령자 우선 채용\n고령자(55세 이상)", "AGE-002"),
     "family-written-in-penalised": (
         "유의사항\n출신학교, 부모 직업, 가족관계 등을 기재해 제출하면 감점 등 불이익이 있을 수 있습니다.",
         "FAMILY-001"),
@@ -90,6 +94,25 @@ KEPT = {
     "record-men-only-apply": ("제출서류\n주민등록초본: 남성만 응시 가능", "SEX-001"),
     "age-limit-release-refused": ("지원자격\n연령 제한 해제 불가", "AGE-002"),
     "age-limit-not-dropped": ("지원자격\n연령제한 삭제는 하지 않습니다.", "AGE-002"),
+    # Shapes the second draft still suppressed (independent re-review).
+    "family-false-entry-as-list-item": ("유의사항\n부모 직업, 경력 허위 기재 시 불합격", "FAMILY-001"),
+    "family-false-entry-joined": ("유의사항\n부모 직업, 학력사항 허위기재 시 합격 취소 및 불이익", "FAMILY-001"),
+    "family-gap-differs": ("유의사항\n부모 직업 기재 시 사실과 다를 경우 불합격", "FAMILY-001"),
+    "family-gap-mistake": ("유의사항\n부모 직업 기재 시 착오로 인한 불이익", "FAMILY-001"),
+    "family-gap-missing-proof": ("유의사항\n부모 직업 기재 시 증빙 미제출하면 불이익", "FAMILY-001"),
+    "older-band-other-preference": (
+        "우대사항: 취업지원대상자 및 장애인 우대\n응시자격: 고령자(55세 이상)는 응시 대상이 아님", "AGE-002"),
+    "older-band-under-unrelated-heading": ("우대사항\n- 관련 자격증 소지자\n지원자격\n- 준고령자(50세 이상 55세 미만)", "AGE-002"),
+    "older-band-dropped-out": ("취업지원대상자 우대\n※ 고령자(55세 이상)는 이번 채용 대상에서 빠집니다", "AGE-002"),
+    "older-band-failed": ("장애인 우대, 고령자(55세 이상)는 서류전형 탈락", "AGE-002"),
+    "older-band-not-preferred": ("우대사항\n고령자(55세 이상) 우대 대상 아님", "AGE-002"),
+    "older-band-lowest-priority": ("우대사항\n고령자(55세 이상) 우선 순위 최하", "AGE-002"),
+    "older-band-penalised": ("우대사항\n고령자(55세 이상) 서류전형 감점", "AGE-002"),
+    "military-men-only-women-refused": ("지원자격\n병역 : 남성만 해당, 여성은 응시 불가", "SEX-001"),
+    "military-men-only-veterans": ("자격요건\n병역: (남성만) 군필자", "SEX-001"),
+    "military-men-only-then-apply": ("지원자격\n병역사항(남성만) 지원 가능", "SEX-001"),
+    "age-limit-release-not-possible": ("지원자격\n연령 제한 해제는 불가", "AGE-002"),
+    "age-limit-abolition-hard": ("지원자격\n연령 제한 폐지는 어렵습니다", "AGE-002"),
 }
 
 
@@ -163,8 +186,8 @@ def test_rule_regexes_have_no_empty_alternative() -> None:
     assert offenders == []
 
 
-# Inputs that reach the rewritten regexes inside the engine (each took 4-5 s in
-# Python before the fix and well under 0.1 s after). The dictionary patterns for
+# Inputs that reach the rewritten regexes inside the engine (each of the first
+# four took 4-5 s in Python before the fix and well under 0.1 s after). The dictionary patterns for
 # 최종학력ㆍ학력사항ㆍ전공명 only run inside a 600-character context window, so a
 # blank run after those words was never an engine hot spot.
 LONG_BLANK_RUNS = {
@@ -172,6 +195,10 @@ LONG_BLANK_RUNS = {
     "result-notice-tabs": "탈락 시 연락 없음\n" + "\t" * 20000 + "x",
     "staff-wanted": "모집\n남성 직원" + " " * 20000 + "x",
     "gender-headcount": "모집\n여성" + " " * 20000 + "x",
+    # An earlier draft of the FAMILY-001 exclusion split each Hangul run of an
+    # item list in many ways (about 55 s in Python for this input).
+    "item-list-backtracking": "유의사항\n" + (
+        "가족 직업/" + "/".join(["가나다라마바사아"] * 6) + " 기재\n부모 직업 기재 시 감점\n") * 80,
 }
 
 

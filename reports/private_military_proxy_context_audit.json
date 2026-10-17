@@ -6,8 +6,8 @@
   "evidence_status": "historical",
   "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
   "source_matching_version": "match-674b70d043fc8b4a",
-  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-5ce563ab4daa",
-  "current_matching_version": "match-7e115ff59b77606f",
+  "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-639a95fa2e8e",
+  "current_matching_version": "match-f02acb1ae6d82a2e",
   "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
   "baseline_scope": {
     "sector": "private",
