@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-17T13:01:30+09:00",
+  "checked_at": "2026-10-17T13:56:57+09:00",
   "historical_paths_skipped": [
     "reports/github_ci_audit-2026-10-13-extension.json",
     "reports/github_ci_audit-2026-10-13.json",
@@ -21,7 +21,6 @@
     "reports/private_result_notice_context_audit.json",
     "reports/private_return_context_audit.json",
     "reports/private_review_model_triage.json",
-    "reports/production_rollout.json",
     "reports/publication-validation-2026-10-09.json",
     "reports/vercel_public_check-2026-10-13-extension.json",
     "reports/vercel_public_check-2026-10-13.json",
@@ -371,6 +370,29 @@
     },
     {
       "claims_current": true,
+      "expected_runtime_source_fingerprint": "runtime-f2c45f6cfc11b9dec986c4cace1057bd1d20716154f5e9b4a866c26ff74f10a6",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": "match-2b470bfabfd83536",
+      "matching_version_matches": true,
+      "path": "reports/production_rollout.json",
+      "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+      "ruleset_version_matches": true,
+      "runtime_source_fingerprint_matches": true,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-f2c45f6cfc11b9dec986c4cace1057bd1d20716154f5e9b4a866c26ff74f10a6"
+      },
+      "schema_version": "fairpost-production-rollout-v1",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": null,
+      "stale_reasons": [],
+      "status": "current",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": true,
       "expected_runtime_source_fingerprint": null,
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
@@ -382,6 +404,30 @@
       "runtime_source_fingerprint_matches": null,
       "runtime_source_fingerprints": {},
       "schema_version": null,
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": null,
+      "stale_reasons": [],
+      "status": "current",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": true,
+      "expected_runtime_source_fingerprint": "runtime-f2c45f6cfc11b9dec986c4cace1057bd1d20716154f5e9b4a866c26ff74f10a6",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": null,
+      "matching_version_matches": null,
+      "path": "reports/vercel_public_check-2026-10-17.json",
+      "ruleset_version": null,
+      "ruleset_version_matches": null,
+      "runtime_source_fingerprint_matches": true,
+      "runtime_source_fingerprints": {
+        "health.runtime_source_fingerprint": "runtime-f2c45f6cfc11b9dec986c4cace1057bd1d20716154f5e9b4a866c26ff74f10a6",
+        "local_ruleset.runtime_source_fingerprint": "runtime-f2c45f6cfc11b9dec986c4cace1057bd1d20716154f5e9b4a866c26ff74f10a6"
+      },
+      "schema_version": "fairpost-vercel-public-check-v1",
       "schema_version_matches": null,
       "scope": "local",
       "snapshot_of": null,
@@ -433,8 +479,8 @@
       "validation_source_fingerprints": {}
     }
   ],
-  "reports_checked": 17,
-  "reports_current": 11,
+  "reports_checked": 19,
+  "reports_current": 13,
   "reports_snapshot_stale": 6,
   "reports_stale": 0,
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
