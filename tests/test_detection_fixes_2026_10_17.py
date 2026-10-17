@@ -14,7 +14,7 @@ whitespace backtracking hot spot:
 * Rule regexes with two whitespace quantifiers around an optional token (or a
   leading optional whitespace run) backtracked quadratically on long blank runs.
 
-The KEPT cases include the shapes two rounds of independent review found earlier
+The KEPT cases include the shapes three rounds of independent review found earlier
 drafts of these exclusions suppressing: false or omitted entries, refusals of
 the older worker bands, preferences that do not name the bands, and applicant
 restrictions written next to a military record.
@@ -113,6 +113,22 @@ KEPT = {
     "military-men-only-then-apply": ("지원자격\n병역사항(남성만) 지원 가능", "SEX-001"),
     "age-limit-release-not-possible": ("지원자격\n연령 제한 해제는 불가", "AGE-002"),
     "age-limit-abolition-hard": ("지원자격\n연령 제한 폐지는 어렵습니다", "AGE-002"),
+    # Shapes the third draft still suppressed (independent re-review).
+    "family-unlisted-false-word": ("유의사항\n부모 직업, 경력사항 과장 기재 시 불이익", "FAMILY-001"),
+    "family-made-up-entry": ("유의사항\n부모 직업, 날조 기재 시 실격", "FAMILY-001"),
+    "family-other-person": ("유의사항\n부모 직업, 타인 정보 기재 시 실격", "FAMILY-001"),
+    "family-penalty-waived": ("유의사항\n부모 직업을 기재하면 감점을 면제합니다", "FAMILY-001"),
+    "military-women-refused-next-line": ("지원자격\n병역: 남성만 해당\n여성 지원 불가", "SEX-001"),
+    "military-women-limited": ("지원자격\n병역사항 : 남성만 해당 (여성 지원 제한)", "SEX-001"),
+    "military-women-not-hired": ("지원자격\n병역: 남성만 해당, 여성은 채용하지 않음", "SEX-001"),
+    "military-row-then-preference": ("지원자격\n병역(남성만), 군필자 우대", "SEX-001"),
+    "older-band-extra-test": ("고령자 우대\n고령자(55세 이상) 응시 시 체력 검사 별도 실시 후 결정", "AGE-002"),
+    "older-band-past-preference": (
+        "고령자(55세 이상) 우대는 2024년 공고에서만 적용되었으며 이번 채용은 응시 불가", "AGE-002"),
+    "older-band-asked-to-refrain": ("고령자 우대\n고령자(55세 이상)는 응시를 자제하여 주시기 바랍니다", "AGE-002"),
+    "older-band-preference-dropped": ("우대사항\n고령자(55세 이상) 우선 채용 대상에서 빠짐", "AGE-002"),
+    "age-limit-release-refused-word": ("지원자격\n연령 제한 해제 불허", "AGE-002"),
+    "age-limit-removal-undecided": ("지원자격\n연령제한 삭제는 추후 결정", "AGE-002"),
 }
 
 
@@ -199,6 +215,9 @@ LONG_BLANK_RUNS = {
     # item list in many ways (about 55 s in Python for this input).
     "item-list-backtracking": "유의사항\n" + (
         "가족 직업/" + "/".join(["가나다라마바사아"] * 6) + " 기재\n부모 직업 기재 시 감점\n") * 80,
+    # An earlier draft of the AGE-002 preference list let 와/과 sit inside an item,
+    # so a run of them split exponentially (about 62 s in Python for this input).
+    "preference-list-backtracking": ("지원자격\n고령자" + "와과" * 30 + " 우대 55세 이하\n") * 3,
 }
 
 
