@@ -113,11 +113,17 @@ def _default_data_dir() -> Path:
 
 DEFAULT_DATA_DIR = _default_data_dir()
 
+# PyYAML builds with libyaml (the usual wheels, including the Vercel runtime)
+# parse the rule files about eight times faster than the pure Python parser.
+# Both feed the same SafeConstructor and resolver, so the loaded values are
+# identical; tests/test_yaml_loader_parity.py checks that for every data file.
+_SAFE_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 
 def _load_yaml(path: Path) -> Any:
     try:
         with path.open("r", encoding="utf-8") as handle:
-            return yaml.safe_load(handle)
+            return yaml.load(handle, Loader=_SAFE_LOADER)
     except (OSError, yaml.YAMLError) as exc:
         raise RuleLoadError(f"{path}: 읽을 수 없는 YAML: {exc}") from exc
 
