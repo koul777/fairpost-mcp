@@ -541,9 +541,9 @@ def _label_body_unit(
 # finds the same matches.
 _REWRITES_AVOID_WHITESPACE = not any(char.isspace() for source, _target in MORPH_REWRITES for char in source)
 _CONTEXT_FREE_LEAVES = frozenset(
-    getattr(_re_constants, name)
-    for name in ("LITERAL", "NOT_LITERAL", "ANY", "IN", "GROUPREF")
-    if _re_constants is not None and hasattr(_re_constants, name)
+    (_re_constants.LITERAL, _re_constants.NOT_LITERAL, _re_constants.ANY, _re_constants.IN, _re_constants.GROUPREF)
+    if _re_constants is not None
+    else ()
 )
 _CONTEXT_FREE_REPEATS = frozenset(
     getattr(_re_constants, name)
