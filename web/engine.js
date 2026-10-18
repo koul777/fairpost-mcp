@@ -141,8 +141,8 @@
     ["이신", "인"],
     ["으신", "은"],
   ];
-  const MORPH_CACHE = new Map();
-  const MATCH_CACHE = new Map();
+  const MORPH_CACHE = viewCache(256);
+  const MATCH_CACHE = viewCache(256);
   const ZERO_WIDTH = new Set(["\u200b", "\u200c", "\u200d", "\ufeff"]);
 
   // The Python core is the reference. Its str.isspace(), str.strip() and re
@@ -263,19 +263,29 @@
     return count;
   }
 
-  // Map-based LRU helpers shared by the per-string view caches.
-  function lruGet(cache, key) {
-    const cached = cache.get(key);
-    if (cached !== undefined) {
-      cache.delete(key);
-      cache.set(key, cached);
-    }
-    return cached;
+  // Two-generation caches for the per-string views. A hit in the current
+  // generation costs one lookup (an LRU deletes and re-inserts on every
+  // hit), a hit in the previous one carries the entry over, and at most
+  // two generations of `limit` entries are kept.
+  function viewCache(limit) {
+    return { current: new Map(), previous: new Map(), limit };
   }
 
-  function lruSet(cache, key, value, limit) {
-    if (cache.size >= limit) cache.delete(cache.keys().next().value);
-    cache.set(key, value);
+  function cacheGet(cache, key) {
+    let value = cache.current.get(key);
+    if (value === undefined) {
+      value = cache.previous.get(key);
+      if (value !== undefined) cacheSet(cache, key, value);
+    }
+    return value;
+  }
+
+  function cacheSet(cache, key, value) {
+    if (cache.current.size >= cache.limit) {
+      cache.previous = cache.current;
+      cache.current = new Map();
+    }
+    cache.current.set(key, value);
   }
 
   function trimPythonWhitespace(value) {
@@ -429,7 +439,7 @@
   const MORPH_TARGET = new Map(MORPH_REWRITES);
 
   function morphTextWithOffsets(text) {
-    const cached = lruGet(MORPH_CACHE, text);
+    const cached = cacheGet(MORPH_CACHE, text);
     if (cached !== undefined) return cached;
     MORPH_SOURCE.lastIndex = 0;
     let match = MORPH_SOURCE.exec(text);
@@ -472,7 +482,7 @@
       }
       result = { normalized, starts, ends, identity: false };
     }
-    lruSet(MORPH_CACHE, text, result, 512);
+    cacheSet(MORPH_CACHE, text, result);
     return result;
   }
 
@@ -480,14 +490,14 @@
     return morphTextWithOffsets(text).normalized;
   }
 
-  const NORMALIZED_CACHE = new Map();
+  const NORMALIZED_CACHE = viewCache(256);
 
   // Code points (pairs whole, lone surrogates alone, as for...of yields
   // them) are rewritten one at a time: zero-width characters are dropped,
   // "\r"/"\n"/"\t" kept, other Python whitespace becomes " ", and everything
   // else becomes its own per-character NFKC form.
   function normalizedTextWithOffsets(text) {
-    const cached = lruGet(NORMALIZED_CACHE, text);
+    const cached = cacheGet(NORMALIZED_CACHE, text);
     if (cached !== undefined) return cached;
     const length = text.length;
     // Fast scan: stop at the first code point the rewrite would change.
@@ -542,7 +552,7 @@
       }
       result = { normalized, starts, ends, identity: false };
     }
-    lruSet(NORMALIZED_CACHE, text, result, 512);
+    cacheSet(NORMALIZED_CACHE, text, result);
     return result;
   }
 
@@ -559,7 +569,7 @@
   }
 
   function matchTextWithOffsets(text) {
-    const cached = lruGet(MATCH_CACHE, text);
+    const cached = cacheGet(MATCH_CACHE, text);
     if (cached !== undefined) return cached;
     const base = normalizedTextWithOffsets(text);
     const morph = morphTextWithOffsets(base.normalized);
@@ -579,20 +589,20 @@
       }
       result = { normalized: morph.normalized, starts, ends, identity: false };
     }
-    lruSet(MATCH_CACHE, text, result, 512);
+    cacheSet(MATCH_CACHE, text, result);
     return result;
   }
 
   // Mirrors _text_views: both views of a text and whether each differs from
   // it. Consecutive findMatches calls often scan the same text (a section
   // for every slot, the source for every rule), so the last one is kept.
-  const TEXT_VIEWS_CACHE = new Map();
+  const TEXT_VIEWS_CACHE = viewCache(256);
   let lastViewsText = null;
   let lastViews = null;
 
   function textViews(text) {
     if (text === lastViewsText) return lastViews;
-    let views = lruGet(TEXT_VIEWS_CACHE, text);
+    let views = cacheGet(TEXT_VIEWS_CACHE, text);
     if (views === undefined) {
       const normalized = normalizedTextWithOffsets(text);
       const matched = matchTextWithOffsets(text);
@@ -612,7 +622,7 @@
         normalizedTarget,
         matchedTarget,
       };
-      lruSet(TEXT_VIEWS_CACHE, text, views, 512);
+      cacheSet(TEXT_VIEWS_CACHE, text, views);
     }
     lastViewsText = text;
     lastViews = views;
