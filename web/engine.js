@@ -583,22 +583,89 @@
     return result;
   }
 
-  function matchPlain(text) {
-    return morphPlain(normalizedTextWithOffsets(text).normalized);
+  // Mirrors _text_views: both views of a text and whether each differs from
+  // it. Consecutive findMatches calls often scan the same text (a section
+  // for every slot, the source for every rule), so the last one is kept.
+  const TEXT_VIEWS_CACHE = new Map();
+  let lastViewsText = null;
+  let lastViews = null;
+
+  function textViews(text) {
+    if (text === lastViewsText) return lastViews;
+    let views = lruGet(TEXT_VIEWS_CACHE, text);
+    if (views === undefined) {
+      const normalized = normalizedTextWithOffsets(text);
+      const matched = matchTextWithOffsets(text);
+      // The strings findMatches scans, each with its own literal filter.
+      const source = scanTarget(text);
+      const normalizedTarget =
+        normalized.normalized === text ? source : scanTarget(normalized.normalized);
+      const matchedTarget =
+        matched.normalized === text ? source :
+          matched.normalized === normalized.normalized ? normalizedTarget : scanTarget(matched.normalized);
+      views = {
+        normalized,
+        normalizedDiffers: normalized.normalized !== text,
+        matched,
+        matchDiffers: matched.normalized !== text,
+        source,
+        normalizedTarget,
+        matchedTarget,
+      };
+      lruSet(TEXT_VIEWS_CACHE, text, views, 512);
+    }
+    lastViewsText = text;
+    lastViews = views;
+    return views;
   }
 
-  // value.toLocaleLowerCase("ko"), memoized (the locale-aware call costs about
-  // ten times a Map lookup and the same matched words recur constantly).
-  const LOWER_KO_CACHE = new Map();
+  // A string findMatches scans. Once it has been asked for literals often
+  // enough to pay for it, it gets a filter of the code-unit pairs it holds:
+  // a clear bit proves that a literal with that pair does not occur, and a
+  // set bit is still confirmed with includes(), so answers never change.
+  function scanTarget(value) {
+    return { value, checks: 0, bits: null, mask: 0 };
+  }
 
-  function lowerKo(value) {
-    let lowered = LOWER_KO_CACHE.get(value);
-    if (lowered === undefined) {
-      lowered = value.toLocaleLowerCase("ko");
-      if (LOWER_KO_CACHE.size >= 8192) LOWER_KO_CACHE.clear();
-      LOWER_KO_CACHE.set(value, lowered);
+  function buildPairFilter(target) {
+    const value = target.value;
+    // About eight bits per pair keeps false hits rare. The bits sit 16 to a
+    // small-integer array slot: a typed array this size would allocate its
+    // buffer outside the heap, which costs more than the scans it saves.
+    let size = 256;
+    while (size < value.length * 8 && size < 1 << 22) size *= 2;
+    const bits = new Array(size >>> 4).fill(0);
+    const mask = size - 1;
+    let previous = value.charCodeAt(0);
+    for (let index = 1; index < value.length; index += 1) {
+      const code = value.charCodeAt(index);
+      const hash = (previous * 31 + code) & mask;
+      bits[hash >>> 4] |= 1 << (hash & 15);
+      previous = code;
     }
-    return lowered;
+    target.bits = bits;
+    target.mask = mask;
+    return bits;
+  }
+
+  // target.value.includes(literal), with the filter in front once built.
+  function targetIncludes(target, literal) {
+    let bits = target.bits;
+    if (bits === null) {
+      target.checks += 1;
+      if (target.checks <= 16 || target.value.length < 32) return target.value.includes(literal);
+      bits = buildPairFilter(target);
+    }
+    const mask = target.mask;
+    for (let index = 0; index + 1 < literal.length; index += 1) {
+      const hash = (literal.charCodeAt(index) * 31 + literal.charCodeAt(index + 1)) & mask;
+      if ((bits[hash >>> 4] & (1 << (hash & 15))) === 0) return false;
+    }
+    return target.value.includes(literal);
+  }
+
+  function matchPlain(text) {
+    return morphPlain(normalizedTextWithOffsets(text).normalized);
   }
 
   // Per pattern: the regex for the source text and the one for the
@@ -746,9 +813,38 @@
     }
   }
 
+  // Mirrors _admits: false when a required literal, or every literal of a
+  // required any-of group, is missing from the scanned string.
+  function admits(target, required, requiredAnyOf) {
+    for (let index = 0; index < required.length; index += 1) {
+      if (!targetIncludes(target, required[index])) return false;
+    }
+    for (let index = 0; index < requiredAnyOf.length; index += 1) {
+      const group = requiredAnyOf[index];
+      let found = false;
+      for (let member = 0; member < group.length && !found; member += 1) {
+        found = targetIncludes(target, group[member]);
+      }
+      if (!found) return false;
+    }
+    return true;
+  }
+
   function satisfiesRegexConditions(text, plan) {
-    return plan.required.every((literal) => text.includes(literal)) &&
-      plan.requiredAnyOf.every((group) => group.some((literal) => text.includes(literal)));
+    return admits(scanTarget(text), plan.required, plan.requiredAnyOf);
+  }
+
+  // Same character set as _CASELESS_CHUNK: no other code point folds to
+  // these under JS "iu" (or Python re.I) matching.
+  const CASELESS_CHUNK = /^[\x21-\x40\x5b-\x60\x7b-\x7e\u1100-\u11ff\u3131-\u318e\u4e00-\u9fff\uac00-\ud7a3]+$/u;
+
+  // Mirrors _required_literals: patternToRegex joins the non-whitespace
+  // chunks of a literal pattern with \s*, so every match contains each
+  // caseless chunk verbatim.
+  function requiredLiterals(pattern) {
+    if (pattern.startsWith("re:")) return [];
+    const chunks = pattern.normalize("NFC").split(PYTHON_WHITESPACE_RUN);
+    return chunks.filter((chunk) => CASELESS_CHUNK.test(chunk));
   }
 
   function patternPlan(pattern) {
@@ -760,7 +856,11 @@
       const normalizedRegex =
         normalizedPattern === pattern ? regex : patternToRegex(normalizedPattern);
       const conditions = isRegex ? regexRequiredConditions(pattern.slice(3)) : { required: [], requiredAnyOf: [] };
-      plan = { isRegex, regex, normalizedRegex, ...conditions };
+      // The literals each regex needs, for the text and for the searched
+      // view; a literal's match-view regex has its own (_match_view_plan).
+      const textRequired = isRegex ? conditions.required : requiredLiterals(pattern);
+      const viewRequired = isRegex ? conditions.required : requiredLiterals(normalizedPattern);
+      plan = { isRegex, regex, normalizedRegex, ...conditions, textRequired, viewRequired };
       if (PATTERN_PLAN_CACHE.size >= 4096) PATTERN_PLAN_CACHE.clear();
       PATTERN_PLAN_CACHE.set(pattern, plan);
     }
@@ -769,38 +869,45 @@
 
   function findMatches(text, patterns) {
     const matches = [];
-    const seen = new Set();
-    const normalizedView = normalizedTextWithOffsets(text);
-    const matchView = matchTextWithOffsets(text);
-    const needsMatchView = matchView.normalized !== text;
-    const normalizedChanged = normalizedView.normalized !== text;
-    patterns.forEach((pattern) => {
-      const plan = patternPlan(pattern);
+    // Keyed by span, as in _collect_matches: item.text is always
+    // text.slice(start, end), so the span alone identifies a duplicate.
+    let seen = null;
+    const spanBase = text.length + 1;
+    const views = textViews(text);
+    const normalizedView = views.normalized;
+    const matchView = views.matched;
+    const needsMatchView = views.matchDiffers;
+    const normalizedChanged = views.normalizedDiffers;
+    for (let index = 0; index < patterns.length; index += 1) {
+      const plan = patternPlan(patterns[index]);
       const isRegex = plan.isRegex;
       const regex = plan.regex;
       regex.lastIndex = 0;
       let match;
-      const exactText = isRegex && (normalizedChanged || !satisfiesRegexConditions(text, plan)) ? null : text;
-      while (exactText !== null && (match = regex.exec(exactText)) !== null) {
-        const item = {
-          start: match.index,
-          end: match.index + match[0].length,
-          text: match[0],
-        };
-        const key = `${item.start}:${item.end}:${lowerKo(item.text)}`;
-        if (!seen.has(key)) {
-          matches.push(item);
-          seen.add(key);
+      // A pattern is only scanned when the text holds its required literals.
+      if (!(isRegex && normalizedChanged) && admits(views.source, plan.textRequired, plan.requiredAnyOf)) {
+        while ((match = regex.exec(text)) !== null) {
+          const start = match.index;
+          const end = start + match[0].length;
+          const key = start * spanBase + end;
+          if (seen === null) seen = new Set();
+          if (!seen.has(key)) {
+            matches.push({ start, end, text: match[0] });
+            seen.add(key);
+          }
+          if (match[0].length === 0) regex.lastIndex += 1;
         }
-        if (match[0].length === 0) regex.lastIndex += 1;
       }
       let searchView;
+      let searchTarget;
       if (isRegex) {
-        if (!normalizedChanged) return;
+        if (!normalizedChanged) continue;
         searchView = normalizedView;
+        searchTarget = views.normalizedTarget;
       } else {
-        if (!needsMatchView) return;
+        if (!needsMatchView) continue;
         searchView = matchView;
+        searchTarget = views.matchedTarget;
       }
       // Keep regex exclusions on the same NFKC/zero-width-normalized view as
       // literal candidates so protective wording cannot become a false
@@ -808,7 +915,7 @@
       // (plan.normalizedRegex is built from matchPlain(pattern) for literals.)
       const normalizedRegex = plan.normalizedRegex;
       normalizedRegex.lastIndex = 0;
-      if (isRegex && !satisfiesRegexConditions(searchView.normalized, plan)) return;
+      if (!admits(searchTarget, plan.viewRequired, plan.requiredAnyOf)) continue;
       while ((match = normalizedRegex.exec(searchView.normalized)) !== null) {
         if (match[0].length === 0) {
           normalizedRegex.lastIndex += 1;
@@ -816,14 +923,14 @@
         }
         const start = searchView.starts[match.index];
         const end = searchView.ends[match.index + match[0].length - 1];
-        const item = { start, end, text: text.slice(start, end) };
-        const key = `${start}:${end}:${lowerKo(item.text)}`;
+        const key = start * spanBase + end;
+        if (seen === null) seen = new Set();
         if (!seen.has(key)) {
-          matches.push(item);
+          matches.push({ start, end, text: text.slice(start, end) });
           seen.add(key);
         }
       }
-    });
+    }
     return matches.sort(
       (a, b) =>
         a.start - b.start ||
