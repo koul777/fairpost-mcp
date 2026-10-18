@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from functools import lru_cache, wraps
 import re
 import unicodedata
 from typing import Any, Callable, TypeVar
 
-from .morph import ZERO_WIDTH, find_first, find_matches
+from .morph import MORPH_REWRITES, ZERO_WIDTH, find_first, find_matches, pattern_to_regex
 from .schema import SlotStatus
+
+try:  # Parser of the standard re module, used to tell context-free patterns apart.
+    from re import _constants as _re_constants, _parser as _re_parser
+except ImportError:  # pragma: no cover - layout of a future Python
+    _re_constants = _re_parser = None
 
 
 SECTION_VERSION = "sections-v8-protective-double-negation"
@@ -124,8 +130,30 @@ class Section:
     text: str
 
 
+# Hangul syllables and ASCII letters are their own NFKC form, are neither
+# whitespace nor heading decoration and casefold to one character, so each of
+# them stays in a cleaned heading and in a compact value. A line with more than
+# 30 of them cannot be a heading, whatever normalization does to the rest.
+_KEPT_LETTERS = "가-힣A-Za-z"
+
+
+@lru_cache(maxsize=64)
+def _kept_letters_at_least(count: int) -> re.Pattern[str]:
+    # Possessive runs: a line with fewer letters fails without backtracking.
+    return re.compile(rf"(?:[^{_KEPT_LETTERS}]*+[{_KEPT_LETTERS}]){{{count}}}")
+
+
+_MORE_THAN_30_KEPT_LETTERS = _kept_letters_at_least(31)
+
+
+def _more_kept_letters_than(line: str, count: int) -> bool:
+    return len(line) > count and _kept_letters_at_least(count + 1).match(line) is not None
+
+
 @_memoized_string_function
 def _heading_name(line: str) -> str | None:
+    if len(line) > 30 and _MORE_THAN_30_KEPT_LETTERS.match(line):
+        return None
     cleaned = _HEADING_DECORATION.sub("", _normalized_heading(line).strip())
     if not cleaned or len(cleaned) > 30:
         return None
@@ -187,10 +215,15 @@ def _evidence_line(text: str, start: int, end: int) -> str:
     if line_end == -1:
         line_end = len(text)
 
-    before = _sentence_marks(text, line_start, start)
-    segment_start = before[-1] + 1 if before else line_start
-    after = _sentence_marks(text, end, line_end)
-    segment_end = after[0] + 1 if after else line_end
+    # The last mark of _sentence_marks(text, line_start, start) and the first of
+    # _sentence_marks(text, end, line_end), without building either list.
+    segment_start = line_start
+    for match in _SENTENCE_MARK.finditer(text, line_start, start + 1):
+        if match.start() >= start:
+            break
+        segment_start = match.start() + 1
+    after = _SENTENCE_MARK.search(text, end, line_end + 1)
+    segment_end = after.start() + 1 if after is not None and after.start() < line_end else line_end
 
     segment = text[segment_start:segment_end]
     if len(segment) <= _EVIDENCE_WINDOW_CODEPOINTS:
@@ -265,6 +298,15 @@ def _compact(value: str) -> str:
     return _WHITESPACE.sub("", _HEADING_DECORATION.sub("", _normalized_heading(value).strip())).casefold()
 
 
+def _same_compact(line: str, value: str) -> bool:
+    """_compact(line) == _compact(value), without normalizing a line that holds
+    more kept letters than _compact(value) has characters."""
+    target = _compact(value)
+    if _more_kept_letters_than(line, len(target)):
+        return False
+    return _compact(line) == target
+
+
 # Derived once from the constants above; the lists themselves are never mutated.
 _DUTY_HEADING_COMPACTS = frozenset(_compact(heading) for heading in _DUTY_HEADINGS)
 _BARE_STAGE_COMPACTS = frozenset(_compact(term) for term in _BARE_STAGE_TERMS)
@@ -314,6 +356,8 @@ def _indent(line: str) -> int:
 @_memoized_string_function
 def _heading_like(line: str) -> bool:
     """A short line that is not a sentence, so it can title the block below it."""
+    if len(line) > 30 and _MORE_THAN_30_KEPT_LETTERS.match(line):
+        return False
     cleaned = _HEADING_DECORATION.sub("", _normalized_heading(line).strip())
     return 0 < len(cleaned) <= 30 and cleaned[-1] not in _SENTENCE_END
 
@@ -430,6 +474,18 @@ def _context_allowed(slot_id: str, line: str, section: Section, offset: int) -> 
     return True
 
 
+def _context_allowed_once(
+    memo: dict[tuple[str, bool], bool], slot_id: str, line: str, section: Section, offset: int
+) -> bool:
+    """_context_allowed for one slot and section; the offset only matters through
+    _in_duty_block, so a line is judged once per duty-block side."""
+    key = (line, _in_duty_block(section, offset))
+    allowed = memo.get(key)
+    if allowed is None:
+        allowed = memo[key] = _context_allowed(slot_id, line, section, offset)
+    return allowed
+
+
 def _label_body_unit(
     section: Section, definition: dict[str, Any], slot_id: str, line: str, right: int, offset: int
 ) -> tuple[int, int, str] | None:
@@ -468,9 +524,120 @@ def _label_body_unit(
     return body_start, end, line + "\n" + body
 
 
-def _candidate_units(section: Section, definition: dict[str, Any], slot_id: str) -> list[tuple[int, int, str]]:
+# --- section scans ---------------------------------------------------------------
+# Every slot scans every section with its accept patterns, and most sections hold
+# none of them. A pattern is context-free when its regex has no anchor, word
+# boundary or lookaround: whether it matches a stretch of text then does not
+# depend on the text around it. If such a pattern matches inside a section,
+# scanning the whole text finds a match of it that overlaps or touches that
+# section (finditer is leftmost-first, so it only passes over a match for one
+# that overlaps it). The views find_matches also searches keep this when the
+# section starts and ends at whitespace: normalization works per character and
+# no morph rewrite source holds whitespace, so the views of the section text lie
+# inside the views of the whole text. A pattern that can match the empty string
+# is left out, because an empty match is reported in the raw view only.
+# So one scan of the whole text tells which sections can hold a context-free
+# match. The other sections are scanned with the remaining patterns only, which
+# finds the same matches.
+_REWRITES_AVOID_WHITESPACE = not any(char.isspace() for source, _target in MORPH_REWRITES for char in source)
+_CONTEXT_FREE_LEAVES = frozenset(
+    (_re_constants.LITERAL, _re_constants.NOT_LITERAL, _re_constants.ANY, _re_constants.IN, _re_constants.GROUPREF)
+    if _re_constants is not None
+    else ()
+)
+_CONTEXT_FREE_REPEATS = frozenset(
+    getattr(_re_constants, name)
+    for name in ("MAX_REPEAT", "MIN_REPEAT", "POSSESSIVE_REPEAT")
+    if _re_constants is not None and hasattr(_re_constants, name)
+)
+
+
+def _context_free_items(items: Any) -> bool:
+    for op, argument in items:
+        if op in _CONTEXT_FREE_LEAVES:
+            continue
+        if op == _re_constants.BRANCH:
+            branches = argument[1]
+        elif op == _re_constants.SUBPATTERN:
+            branches = [argument[3]]
+        elif op in _CONTEXT_FREE_REPEATS:
+            branches = [argument[2]]
+        elif op == getattr(_re_constants, "ATOMIC_GROUP", None):
+            branches = [argument]
+        elif op == _re_constants.GROUPREF_EXISTS:
+            branches = [branch for branch in argument[1:] if branch is not None]
+        else:
+            return False  # an anchor, \b, a lookaround or an unknown construct
+        if not all(_context_free_items(branch) for branch in branches):
+            return False
+    return True
+
+
+@lru_cache(maxsize=1024)
+def _context_free(pattern: str) -> bool:
+    if _re_parser is None:
+        return False
+    regex = pattern_to_regex(pattern)
+    if regex.fullmatch("") is not None:
+        return False
+    try:
+        return _context_free_items(_re_parser.parse(regex.pattern, regex.flags))
+    except Exception:  # an unknown parse tree only loses the shortcut
+        return False
+
+
+@lru_cache(maxsize=256)
+def _context_free_split(patterns: tuple[str, ...]) -> tuple[list[str], list[str]]:
+    """(context-free patterns, the others), each in their original order."""
+    return ([pattern for pattern in patterns if _context_free(pattern)],
+            [pattern for pattern in patterns if not _context_free(pattern)])
+
+
+def _whitespace_aligned(text: str, sections: list[Section]) -> bool:
+    """The sections tile text in order and each one after the first starts after whitespace."""
+    position = 0
+    for section in sections:
+        if (section.start != position or section.end - position != len(section.text)
+                or not text.startswith(section.text, position)
+                or (position and not text[position - 1].isspace())):
+            return False
+        position = section.end
+    return position == len(text)
+
+
+def _section_accept_matches(
+    text: str, sections: list[Section], patterns: list[str], aligned: bool
+) -> list[list[Any]]:
+    """find_matches(section.text, patterns) for each section, in section order."""
+    context_free, others = _context_free_split(tuple(patterns))
+    if not aligned or not context_free:
+        return [find_matches(section.text, patterns) for section in sections]
+    scan = [False] * len(sections)
+    found = find_matches(text, context_free)
+    if found:
+        starts = [section.start for section in sections]
+        ends = [section.end for section in sections]
+        for match in found:
+            for index in range(bisect_left(ends, match.start()), bisect_right(starts, match.end())):
+                scan[index] = True
+    return [find_matches(section.text, patterns) if scan[index]
+            else find_matches(section.text, others) if others else []
+            for index, section in enumerate(sections)]
+
+
+def _heading_labels_body(slot_id: str, section: Section) -> bool:
+    """Whether a section yields a unit even without an accept match (see below)."""
+    return slot_id == "contact_point" and section.name == "문의처"
+
+
+def _candidate_units(
+    section: Section, definition: dict[str, Any], slot_id: str, matches: list[Any] | None = None
+) -> list[tuple[int, int, str]]:
     units: list[tuple[int, int, str]] = []
-    for match in find_matches(section.text, definition.get("accept_patterns", [])):
+    allowed: dict[tuple[str, bool], bool] = {}
+    if matches is None:
+        matches = find_matches(section.text, definition.get("accept_patterns", []))
+    for match in matches:
         left, right = _line_bounds(section.text, match.start(), match.end())
         line = section.text[left:right]
         if (slot_id == "selection_stages"
@@ -478,7 +645,7 @@ def _candidate_units(section: Section, definition: dict[str, Any], slot_id: str)
                 and not _stage_context(section, _bare_stage_sentence(section.text, match.start(), match.end()))):
             continue  # "고객 인터뷰", "민원 서류접수", "임원 면접 일정 조율": work, not an applicant stage.
         line_is_heading = _heading_name(line) is not None
-        heading = line_is_heading or _compact(line) == _compact(match.group(0))
+        heading = line_is_heading or _same_compact(line, match.group(0))
         if slot_id in {"selection_stages", "ai_disclosure"} and (
             find_first(line, _STAGE_EVENTS)
             or (not line_is_heading and _line_marker(line)[0] in {"item", "mark", "note"})
@@ -493,10 +660,11 @@ def _candidate_units(section: Section, definition: dict[str, Any], slot_id: str)
             unit = _label_body_unit(section, definition, slot_id, line, right, match.start())
             if unit is not None:
                 units.append(unit)
-        elif (_context_allowed(slot_id, line, section, match.start())
-              and _context_allowed(slot_id, _evidence_line(section.text, match.start(), match.end()), section, match.start())):
+        elif (_context_allowed_once(allowed, slot_id, line, section, match.start())
+              and _context_allowed_once(allowed, slot_id, _evidence_line(section.text, match.start(), match.end()),
+                                        section, match.start())):
             units.append((match.start(), match.end(), line))
-    if slot_id == "contact_point" and section.name == "문의처" and not units:
+    if not units and _heading_labels_body(slot_id, section):
         # The 문의처 heading itself ("문의", "▶ 문의") labels its body: a phone,
         # an e-mail or a department ("총무과", "인사과 채용담당") there is the
         # contact point even without a word such as 문의 or 담당자 on its line.
@@ -516,7 +684,7 @@ def _component_present(slot_id: str, component: dict[str, Any], contexts: list[s
                     left, right = _line_bounds(context, match.start(), match.end())
                     header = context[left:right]
                     body = context[right + 1:].split("\n")[0]
-                    if (_compact(header) != _compact(match.group(0))
+                    if (not _same_compact(header, match.group(0))
                             or not find_first(body, _DATE_CONTENT)
                             or find_first(body.strip(), _DEFERRED_BODY)):
                         continue
@@ -691,15 +859,34 @@ def _protective_clause_governs(source: str, start: int, end: int) -> bool:
             and find_first(tail[:following.start()], _PROTECTIVE_DIRECT_GAP) is not None)
 
 
+_INTERVIEW_TERMS = ["면접", "인터뷰"]
+_DEFECTOR_TERMS = ["북한이탈주민", "북한이탈 주민", "탈북자"]
+_TENURE_TERMS = ["재직 기간", "근속 기간"]
+
+
+@_memoized_string_function
+def _candidate_terms(candidate: str) -> tuple[bool, bool, bool, bool]:
+    """(sensitive item, interview, defector, tenure): the candidate tests of
+    source_candidate_allowed, which rules repeat for the same matched text."""
+    return (
+        find_first(candidate, _SENSITIVE_CANDIDATE) is not None
+        and find_first(candidate, _NOT_AN_INFORMATION_ITEM) is None,
+        find_first(candidate, _INTERVIEW_TERMS) is not None,
+        find_first(candidate, _DEFECTOR_TERMS) is not None,
+        find_first(candidate, _TENURE_TERMS) is not None,
+    )
+
+
 def source_candidate_allowed(source: str, start: int, end: int, sections: list[Section], layer: str) -> bool:
     """Reject a context reversal while still considering later real candidates."""
-    line = _evidence_line(source, start, end)
-    candidate = source[start:end]
-    section = next((s for s in sections if s.start <= start < s.end), None)
-    if (find_first(candidate, _SENSITIVE_CANDIDATE) and not find_first(candidate, _NOT_AN_INFORMATION_ITEM)
-            and _protective_clause_governs(source, start, end)):
+    sensitive, interview, defector, tenure = _candidate_terms(source[start:end])
+    if sensitive and _protective_clause_governs(source, start, end):
         return False
-    if layer == "question" and find_first(candidate, ["면접", "인터뷰"]):
+    if layer != "question" or not (interview or defector or tenure):
+        return True
+    line = _evidence_line(source, start, end)
+    section = next((s for s in sections if s.start <= start < s.end), None)
+    if interview:
         if section is not None and _in_duty_block(section, start - section.start):
             return False
         if find_first(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"]):
@@ -708,7 +895,7 @@ def source_candidate_allowed(source: str, start: int, end: int, sections: list[S
         if (_bare_stage_match(source, start, end) and find_first(line, _DUTY_CONTEXT)
                 and not _hiring_context(line, section)):
             return False
-    if layer == "question" and find_first(candidate, ["북한이탈주민", "북한이탈 주민", "탈북자"]):
+    if defector:
         row_start = source.rfind("<tr", 0, start)
         row_end = source.find("</tr>", end)
         table_preference = False
@@ -718,7 +905,7 @@ def source_candidate_allowed(source: str, start: int, end: int, sections: list[S
         proof_only = find_first(line, ["등록확인서", "증명서"]) and not find_first(line, ["지원 불가", "채용 제외", "신원조회"])
         if (table_preference or proof_only or (section is not None and section.name == "우대사항")) and not find_first(line, ["제외", "불가", "제한", "신원조회"]):
             return False
-    if layer == "question" and find_first(candidate, ["재직 기간", "근속 기간"]):
+    if tenure:
         if find_first(line, ["형법", "범한 자", "벌금형", "선고받"]):
             return False
     return True
@@ -744,12 +931,17 @@ def extract_slots(
     text: str, sections: list[Section], slot_definitions: dict[str, Any]
 ) -> list[SlotStatus]:
     statuses: list[SlotStatus] = []
+    aligned = _REWRITES_AVOID_WHITESPACE and _whitespace_aligned(text, sections)
     for slot_id in sorted(slot_definitions):
         definition = slot_definitions[slot_id]
-        preferred = [s for s in sections if s.name in definition.get("search_sections", [])]
-        search_order = preferred + [s for s in sections if s not in preferred]
-        candidates = [(section, unit) for section in search_order
-                      for unit in _candidate_units(section, definition, slot_id)]
+        search_sections = definition.get("search_sections", [])
+        # Preferred sections first; a section equal to a preferred one has its name.
+        search_order = ([index for index, s in enumerate(sections) if s.name in search_sections]
+                        + [index for index, s in enumerate(sections) if s.name not in search_sections])
+        section_matches = _section_accept_matches(text, sections, definition.get("accept_patterns", []), aligned)
+        candidates = [(sections[index], unit) for index in search_order
+                      if section_matches[index] or _heading_labels_body(slot_id, sections[index])
+                      for unit in _candidate_units(sections[index], definition, slot_id, section_matches[index])]
         contexts = [unit[2] for _, unit in candidates]
         components_found = sorted(c["id"] for c in definition.get("components", [])
                                   if _component_present(slot_id, c, contexts))
