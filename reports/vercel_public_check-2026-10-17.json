@@ -128,5 +128,8 @@
     "source_commit": "94084a3b763e0fcaa8f8ac5ef448f17d637aa081",
     "verified_by": "claude-cloud-session",
     "approval_ref": null
-  }
+  },
+  "evidence_status": "historical",
+  "historical_reason": "2026-10-18 웹 UI 개편(편집기 표시·다크 모드 등)으로 런타임 지문이 바뀜. 운영 재배포 전 기록이므로 재배포 뒤 다시 확인",
+  "historical_marked_at": "2026-10-18T17:46:45+09:00"
 }

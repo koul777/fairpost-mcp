@@ -1,6 +1,6 @@
 {
   "schema_version": "fairpost-production-rollout-v1",
-  "evidence_status": "current",
+  "evidence_status": "historical",
   "checked_at": "2026-10-17T13:53:44+09:00",
   "evidence_scope": "public_production_identity_local_validation_and_ci",
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
@@ -99,5 +99,7 @@
   },
   "contains_posting_text": false,
   "secret_recorded": false,
-  "release_ready": false
+  "release_ready": false,
+  "historical_reason": "2026-10-18 웹 UI 개편(편집기 표시·다크 모드 등)으로 런타임 지문이 바뀜. 운영 재배포 전 기록이므로 재배포 뒤 다시 확인",
+  "historical_marked_at": "2026-10-18T17:46:44+09:00"
 }
