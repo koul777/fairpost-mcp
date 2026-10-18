@@ -135,8 +135,19 @@ class Section:
 # them stays in a cleaned heading and in a compact value. A line with more than
 # 30 of them cannot be a heading, whatever normalization does to the rest.
 _KEPT_LETTERS = "가-힣A-Za-z"
-_MORE_THAN_30_KEPT_LETTERS = re.compile(rf"(?:[^{_KEPT_LETTERS}]*+[{_KEPT_LETTERS}]){{31}}")
-_NOT_KEPT_LETTERS = re.compile(rf"[^{_KEPT_LETTERS}]+")
+
+
+@lru_cache(maxsize=64)
+def _kept_letters_at_least(count: int) -> re.Pattern[str]:
+    # Possessive runs: a line with fewer letters fails without backtracking.
+    return re.compile(rf"(?:[^{_KEPT_LETTERS}]*+[{_KEPT_LETTERS}]){{{count}}}")
+
+
+_MORE_THAN_30_KEPT_LETTERS = _kept_letters_at_least(31)
+
+
+def _more_kept_letters_than(line: str, count: int) -> bool:
+    return len(line) > count and _kept_letters_at_least(count + 1).match(line) is not None
 
 
 @_memoized_string_function
@@ -204,10 +215,15 @@ def _evidence_line(text: str, start: int, end: int) -> str:
     if line_end == -1:
         line_end = len(text)
 
-    before = _sentence_marks(text, line_start, start)
-    segment_start = before[-1] + 1 if before else line_start
-    after = _sentence_marks(text, end, line_end)
-    segment_end = after[0] + 1 if after else line_end
+    # The last mark of _sentence_marks(text, line_start, start) and the first of
+    # _sentence_marks(text, end, line_end), without building either list.
+    segment_start = line_start
+    for match in _SENTENCE_MARK.finditer(text, line_start, start + 1):
+        if match.start() >= start:
+            break
+        segment_start = match.start() + 1
+    after = _SENTENCE_MARK.search(text, end, line_end + 1)
+    segment_end = after.start() + 1 if after is not None and after.start() < line_end else line_end
 
     segment = text[segment_start:segment_end]
     if len(segment) <= _EVIDENCE_WINDOW_CODEPOINTS:
@@ -283,10 +299,10 @@ def _compact(value: str) -> str:
 
 
 def _same_compact(line: str, value: str) -> bool:
-    """_compact(line) == _compact(value), without normalizing a long uncached line
-    that holds more kept letters than _compact(value) has characters."""
+    """_compact(line) == _compact(value), without normalizing a line that holds
+    more kept letters than _compact(value) has characters."""
     target = _compact(value)
-    if len(line) > _STRING_CACHE_MAX_CHARS and len(_NOT_KEPT_LETTERS.sub("", line)) > len(target):
+    if _more_kept_letters_than(line, len(target)):
         return False
     return _compact(line) == target
 
@@ -458,6 +474,18 @@ def _context_allowed(slot_id: str, line: str, section: Section, offset: int) -> 
     return True
 
 
+def _context_allowed_once(
+    memo: dict[tuple[str, bool], bool], slot_id: str, line: str, section: Section, offset: int
+) -> bool:
+    """_context_allowed for one slot and section; the offset only matters through
+    _in_duty_block, so a line is judged once per duty-block side."""
+    key = (line, _in_duty_block(section, offset))
+    allowed = memo.get(key)
+    if allowed is None:
+        allowed = memo[key] = _context_allowed(slot_id, line, section, offset)
+    return allowed
+
+
 def _label_body_unit(
     section: Section, definition: dict[str, Any], slot_id: str, line: str, right: int, offset: int
 ) -> tuple[int, int, str] | None:
@@ -597,10 +625,16 @@ def _section_accept_matches(
             for index, section in enumerate(sections)]
 
 
+def _heading_labels_body(slot_id: str, section: Section) -> bool:
+    """Whether a section yields a unit even without an accept match (see below)."""
+    return slot_id == "contact_point" and section.name == "문의처"
+
+
 def _candidate_units(
     section: Section, definition: dict[str, Any], slot_id: str, matches: list[Any] | None = None
 ) -> list[tuple[int, int, str]]:
     units: list[tuple[int, int, str]] = []
+    allowed: dict[tuple[str, bool], bool] = {}
     if matches is None:
         matches = find_matches(section.text, definition.get("accept_patterns", []))
     for match in matches:
@@ -626,10 +660,11 @@ def _candidate_units(
             unit = _label_body_unit(section, definition, slot_id, line, right, match.start())
             if unit is not None:
                 units.append(unit)
-        elif (_context_allowed(slot_id, line, section, match.start())
-              and _context_allowed(slot_id, _evidence_line(section.text, match.start(), match.end()), section, match.start())):
+        elif (_context_allowed_once(allowed, slot_id, line, section, match.start())
+              and _context_allowed_once(allowed, slot_id, _evidence_line(section.text, match.start(), match.end()),
+                                        section, match.start())):
             units.append((match.start(), match.end(), line))
-    if slot_id == "contact_point" and section.name == "문의처" and not units:
+    if not units and _heading_labels_body(slot_id, section):
         # The 문의처 heading itself ("문의", "▶ 문의") labels its body: a phone,
         # an e-mail or a department ("총무과", "인사과 채용담당") there is the
         # contact point even without a word such as 문의 or 담당자 on its line.
@@ -886,6 +921,7 @@ def extract_slots(
                         + [index for index, s in enumerate(sections) if s.name not in search_sections])
         section_matches = _section_accept_matches(text, sections, definition.get("accept_patterns", []), aligned)
         candidates = [(sections[index], unit) for index in search_order
+                      if section_matches[index] or _heading_labels_body(slot_id, sections[index])
                       for unit in _candidate_units(sections[index], definition, slot_id, section_matches[index])]
         contexts = [unit[2] for _, unit in candidates]
         components_found = sorted(c["id"] for c in definition.get("components", [])

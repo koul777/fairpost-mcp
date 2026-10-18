@@ -169,6 +169,39 @@ def _heading_like_reference(line: str) -> bool:
     return 0 < len(cleaned) <= 30 and cleaned[-1] not in extractor._SENTENCE_END
 
 
+def _evidence_line_reference(text: str, start: int, end: int) -> str:
+    """_evidence_line as it read before it stopped building the mark lists."""
+    line_start = text.rfind("\n", 0, start) + 1
+    line_end = text.find("\n", end)
+    if line_end == -1:
+        line_end = len(text)
+    before = extractor._sentence_marks(text, line_start, start)
+    segment_start = before[-1] + 1 if before else line_start
+    after = extractor._sentence_marks(text, end, line_end)
+    segment_end = after[0] + 1 if after else line_end
+    segment = text[segment_start:segment_end]
+    window = extractor._EVIDENCE_WINDOW_CODEPOINTS
+    if len(segment) <= window:
+        return segment.strip()
+    relative_start = start - segment_start
+    relative_end = end - segment_start
+    window_start = max(0, relative_start - 96)
+    window_end = min(len(segment), max(relative_end + 96, window_start + window))
+    window_start = max(0, window_end - window)
+    evidence = segment[window_start:window_end].strip()
+    return ("…" if window_start else "") + evidence + ("…" if window_end < len(segment) else "")
+
+
+def test_evidence_line_equals_the_mark_list_definition() -> None:
+    rng = random.Random(2026)
+    pieces = ["가", "a", "1", ".", "!", "?", "。", " ", "\n", "v1.2", "3.5", "a.b", "다.", "x" * 120]
+    for _ in range(3000):
+        text = "".join(rng.choice(pieces) for _ in range(rng.randrange(1, 30)))
+        start = rng.randrange(0, len(text) + 1)
+        end = rng.randrange(start, len(text) + 1)
+        assert extractor._evidence_line(text, start, end) == _evidence_line_reference(text, start, end), (text, start, end)
+
+
 def test_sections_that_do_not_tile_the_text_use_the_plain_scan() -> None:
     text = "안내\n전형절차\n서류전형\n면접\n"
     tiled = split_sections(text)
