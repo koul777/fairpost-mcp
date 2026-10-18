@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import codecs
 import json
 from pathlib import Path
@@ -189,7 +188,6 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 2
     from core import FairpostEngine, RuleLoadError
-    from mcp_server.review import LiveLawVerifier, prepare_hr_review_packet
 
     if values and values[0] == "purge-answers":
         return _purge_answers(values[1:])
@@ -205,6 +203,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     verifier = None
     if args.review_packet:
+        # Only the HR review packet needs asyncio and the review module; a
+        # plain check skips loading them.
+        import asyncio
+
+        from mcp_server.review import LiveLawVerifier, prepare_hr_review_packet
+
         try:
             verifier = LiveLawVerifier.from_environment()
         except ValueError as exc:

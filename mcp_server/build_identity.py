@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import functools
 import hashlib
 from pathlib import Path
 import sys
@@ -96,7 +97,15 @@ RUNTIME_SOURCE_FILES = (
 
 
 def _canonical_python_source(path: Path) -> bytes:
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=path.name)
+    return _canonical_python_text(path.read_text(encoding="utf-8"), path.name)
+
+
+# Keyed by the source text, so an edited file is parsed again. The health
+# endpoint builds the fingerprint and the manifest from the same files, and
+# parsing plus dumping every module twice cost about 150 ms on a cold start.
+@functools.lru_cache(maxsize=64)
+def _canonical_python_text(text: str, filename: str) -> bytes:
+    tree = ast.parse(text, filename=filename)
     # Keep one canonical AST shape across every supported Python boundary.
     # Python 3.12 added empty ``type_params`` fields, while Python 3.13 began
     # hiding empty fields from ast.dump() unless show_empty is requested.
