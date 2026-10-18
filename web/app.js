@@ -192,6 +192,14 @@
   const modeExpertButton = document.getElementById("mode-expert");
   const easyResult = document.getElementById("easy-result");
   const reviewNav = document.getElementById("review-nav");
+  const postingHighlights = document.getElementById("posting-highlights");
+  const findingStepper = document.getElementById("finding-stepper");
+  const findingStepLabel = document.getElementById("finding-step-label");
+  const findingPrevButton = document.getElementById("finding-prev");
+  const findingNextButton = document.getElementById("finding-next");
+  const downloadButton = document.getElementById("download-button");
+  const emptySampleButton = document.getElementById("empty-sample");
+  const findingsList = document.getElementById("findings-list");
   const humanRecordFields = new Map([
     ["evidence", document.getElementById("human-review-evidence")],
     ["reason", document.getElementById("human-review-reason")],
@@ -1405,6 +1413,8 @@
       renderSlots(latestResult.slots, latestResult.questions);
       renderQuestions(latestResult.questions);
       updateHumanReviewState();
+      setActiveFinding(activeFindingIndex);
+      scheduleSectionSpy();
     }
     if (!persist) return;
     const storage = roleReviewStorage();
@@ -1435,6 +1445,252 @@
       cursor = end;
     });
     return markup + escapeHtml(codePoints.slice(cursor).join(""));
+  }
+
+  // Editor highlights: the result's marks drawn in a layer behind the
+  // transparent posting field, numbered like the easy-mode cards, so the reader
+  // sees where each card points without leaving the editor. Shown only while
+  // the field holds exactly the checked text; any edit hides them until the
+  // next review, because the offsets belong to the checked text.
+  let findingRanges = [];
+  let activeFindingIndex = -1;
+  let flashTimer = null;
+
+  function orderedFindingRanges(result, text) {
+    return [...result.findings]
+      .sort((left, right) => left.offset[0] - right.offset[0] || left.offset[1] - right.offset[1])
+      .map((finding, index) => ({
+        index,
+        id: finding.id,
+        start: codePointsToCodeUnits(text, finding.offset[0]),
+        end: codePointsToCodeUnits(text, finding.offset[1]),
+      }));
+  }
+
+  function findingRangesFresh() {
+    return Boolean(latestResult) && latestCheckedText === input.value && findingRanges.length > 0;
+  }
+
+  function renderPostingHighlights() {
+    if (!findingRangesFresh()) {
+      postingHighlights.innerHTML = "";
+      postingHighlights.hidden = true;
+      updateFindingStepper();
+      return;
+    }
+    const text = input.value;
+    let cursor = 0;
+    let markup = "";
+    findingRanges.forEach((range) => {
+      // Overlapping candidates keep the first mark, as in the easy result.
+      if (range.start < cursor) return;
+      markup += escapeHtml(text.slice(cursor, range.start));
+      markup += `<mark class="posting-mark${range.index === activeFindingIndex ? " is-active" : ""}" data-n="${range.index + 1}">${escapeHtml(text.slice(range.start, range.end))}</mark>`;
+      cursor = range.end;
+    });
+    // The zero-width space keeps a trailing line break on its own line.
+    postingHighlights.innerHTML = `<div class="posting-highlights-inner">${markup}${escapeHtml(text.slice(cursor))}​</div>`;
+    postingHighlights.hidden = false;
+    syncPostingHighlights();
+    updateFindingStepper();
+  }
+
+  // Keeps the layer on the field's text box: same font, padding and wrapping,
+  // the field's inner width (a scrollbar narrows it) and its scroll offset.
+  function syncPostingHighlights() {
+    if (postingHighlights.hidden || typeof window.getComputedStyle !== "function") return;
+    try {
+      const style = window.getComputedStyle(input);
+      MIRROR_STYLE_PROPERTIES.forEach((name) => {
+        postingHighlights.style[name] = style[name];
+      });
+      postingHighlights.style.left = `${input.offsetLeft + (parseFloat(style.borderLeftWidth) || 0)}px`;
+      postingHighlights.style.top = `${input.offsetTop + (parseFloat(style.borderTopWidth) || 0)}px`;
+      postingHighlights.style.width = `${input.clientWidth}px`;
+      postingHighlights.style.height = `${input.clientHeight}px`;
+      const inner = postingHighlights.firstElementChild;
+      if (inner && inner.style) inner.style.transform = `translateY(${-input.scrollTop}px)`;
+    } catch (_error) {
+      // The marks are a convenience; the cards still carry every finding.
+    }
+  }
+
+  function updateFindingStepper() {
+    const total = findingRanges.length;
+    findingStepper.hidden = !latestResult || !total;
+    if (!total) return;
+    const fresh = findingRangesFresh();
+    findingStepLabel.textContent = fresh && activeFindingIndex >= 0
+      ? `표현 ${activeFindingIndex + 1}/${total}`
+      : `표현 ${total}개`;
+    [findingPrevButton, findingNextButton].forEach((button) => {
+      if (fresh) button.removeAttribute("aria-disabled");
+      else button.setAttribute("aria-disabled", "true");
+    });
+  }
+
+  function findingCards() {
+    if (appBody.dataset.mode === "expert") {
+      return typeof findingsList.querySelectorAll === "function"
+        ? Array.from(findingsList.querySelectorAll("[data-finding-index]"))
+        : [];
+    }
+    return typeof easyResult.querySelectorAll === "function"
+      ? Array.from(easyResult.querySelectorAll("[data-finding-index]"))
+      : [];
+  }
+
+  function setActiveFinding(index) {
+    activeFindingIndex = index;
+    if (typeof postingHighlights.querySelectorAll === "function") {
+      postingHighlights.querySelectorAll(".posting-mark").forEach((mark) => {
+        mark.classList.toggle("is-active", Number(mark.dataset.n) === index + 1);
+      });
+    }
+    findingCards().forEach((card) => {
+      card.classList.toggle("is-linked", Number(card.dataset.findingIndex) === index);
+    });
+    updateFindingStepper();
+  }
+
+  function flashElement(element) {
+    if (!element || !element.classList) return;
+    element.classList.remove("is-flash");
+    // Reading the size restarts the animation when the same card flashes twice.
+    void element.offsetWidth;
+    element.classList.add("is-flash");
+    window.clearTimeout(flashTimer);
+    flashTimer = window.setTimeout(() => element.classList.remove("is-flash"), 1400);
+  }
+
+  // Brings the card of finding `index` into view beside the pinned editor.
+  // On a narrow screen the result sits below the editor, so moving the page
+  // away from the field being edited would be a surprise: the mark and the
+  // counter change, the page stays.
+  function revealFindingCard(index) {
+    if (
+      typeof window.matchMedia !== "function" ||
+      !window.matchMedia("(min-width: 1101px)").matches
+    ) {
+      return;
+    }
+    const card = findingCards().find((item) => Number(item.dataset.findingIndex) === index);
+    if (!card || typeof card.scrollIntoView !== "function") return;
+    card.scrollIntoView({ block: "center" });
+    flashElement(card);
+  }
+
+  function selectFinding(index) {
+    const range = findingRanges[index];
+    if (!range) return;
+    setActiveFinding(index);
+    input.focus();
+    if (typeof input.setSelectionRange === "function") {
+      programSelection = { start: range.start, end: range.end, value: input.value };
+      input.setSelectionRange(range.start, range.end);
+    }
+    revealPostingPosition(range.start);
+    syncPostingHighlights();
+    revealFindingCard(index);
+  }
+
+  function stepFinding(delta) {
+    if (!latestResult || !findingRanges.length) return;
+    if (!findingRangesFresh()) {
+      showToast("공고문이 바뀌었습니다. '검토 메모 만들기'를 다시 누르면 위치가 새로 계산됩니다.");
+      return;
+    }
+    const total = findingRanges.length;
+    const next = activeFindingIndex < 0
+      ? (delta > 0 ? 0 : total - 1)
+      : (activeFindingIndex + delta + total) % total;
+    selectFinding(next);
+  }
+
+  // The finding under a plain caret (no range selected) in the checked text.
+  function findingAtCaret() {
+    if (!findingRangesFresh()) return -1;
+    const caret = input.selectionStart;
+    if (!Number.isInteger(caret) || input.selectionEnd !== caret) return -1;
+    const hit = findingRanges.find((range) => caret >= range.start && caret <= range.end);
+    return hit ? hit.index : -1;
+  }
+
+  // A question card lives in a folded perspective group (easy) or in the
+  // posting list (expert); open what holds it, then bring it into view.
+  function jumpToQuestion(questionId) {
+    const article = document.getElementById(`question-${questionId}`);
+    if (!article || typeof article.scrollIntoView !== "function") return;
+    for (let node = article.parentElement; node; node = node.parentElement) {
+      if (node.tagName === "DETAILS") node.open = true;
+    }
+    article.scrollIntoView({ block: "center" });
+    if (typeof article.focus === "function") article.focus({ preventScroll: true });
+    flashElement(article);
+  }
+
+  // Section nav: marks the section being read with aria-current.
+  const SPY_SECTION_IDS = [
+    "easy-findings-heading", "easy-missing-heading", "findings-heading", "slots-heading",
+    "questions-heading", "human-review-heading", "improvement-title",
+  ];
+  let spyScheduled = false;
+
+  function updateSectionSpy() {
+    spyScheduled = false;
+    if (resultContent.hidden || typeof document.querySelectorAll !== "function") return;
+    const limit = (window.innerHeight || 800) * 0.3;
+    let current = "";
+    SPY_SECTION_IDS.forEach((id) => {
+      const heading = document.getElementById(id);
+      if (!heading || typeof heading.getBoundingClientRect !== "function" || !heading.offsetParent) return;
+      if (heading.getBoundingClientRect().top <= limit) current = id;
+    });
+    document.querySelectorAll(".review-nav a").forEach((link) => {
+      if (link.getAttribute("href") === `#${current}`) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    });
+  }
+
+  function scheduleSectionSpy() {
+    if (spyScheduled) return;
+    spyScheduled = true;
+    if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(updateSectionSpy);
+    else window.setTimeout(updateSectionSpy, 50);
+  }
+
+  function reportFileName() {
+    const now = new Date();
+    const pad = (value) => String(value).padStart(2, "0");
+    return `fairpost-검토메모-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.txt`;
+  }
+
+  // Saves the same text as "메모 복사" to a file on this device. Nothing is
+  // sent: the file is made in the page and handed to the browser's download.
+  function downloadReport() {
+    if (!latestResult) return;
+    if (latestCheckedText !== input.value) {
+      showToast("공고문이 바뀌어 지금은 메모를 저장하지 않습니다. '다시 검토'를 누른 뒤 저장하세요.");
+      return;
+    }
+    if (typeof Blob !== "function" || typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+      showToast("이 브라우저에서는 파일로 저장할 수 없습니다. '메모 복사'를 사용하세요.");
+      return;
+    }
+    try {
+      const file = new Blob(["﻿" + makeReport(latestResult)], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = reportFileName();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast("검토 메모를 텍스트 파일로 저장했습니다. 파일은 이 기기에만 저장됩니다.");
+    } catch (_error) {
+      showToast("브라우저에서 메모 파일을 만들지 못했습니다. '메모 복사'를 사용하세요.");
+    }
   }
 
   function humanRecordHasContent(record) {
@@ -1489,12 +1745,17 @@
     else staleBanner.classList.remove("is-stale");
     staleRecheckButton.hidden = !stale;
     copyButton.disabled = !latestResult;
+    downloadButton.disabled = !latestResult;
     if (stale) {
       copyButton.setAttribute("aria-disabled", "true");
       copyButton.setAttribute("aria-describedby", "stale-banner-text");
+      downloadButton.setAttribute("aria-disabled", "true");
+      downloadButton.setAttribute("aria-describedby", "stale-banner-text");
     } else {
       copyButton.removeAttribute("aria-disabled");
       copyButton.removeAttribute("aria-describedby");
+      downloadButton.removeAttribute("aria-disabled");
+      downloadButton.removeAttribute("aria-describedby");
     }
     updateRoleReviewWriteState();
   }
@@ -2252,6 +2513,16 @@
     return `<p class="easy-context"><span class="easy-context-label">공고문의 해당 줄</span><span class="easy-context-line">${escapeHtml(before)}<mark class="easy-mark">${escapeHtml(matched)}</mark>${escapeHtml(after)}</span></p>`;
   }
 
+  // The questions the engine linked to a finding, shown in its card so the
+  // reader goes from the wording to what the organisation has to answer.
+  function linkedQuestionsBlock(questions, findingId) {
+    const linked = questions.filter((question) => (question.linked_findings || []).includes(findingId));
+    if (!linked.length) return "";
+    return `<details class="linked-questions"><summary>이 표현과 함께 확인할 질문 ${linked.length}개</summary><ul>${linked
+      .map((question) => `<li><button type="button" class="linked-question" data-question-jump="${escapeHtml(question.id)}">${escapeHtml(question.question)}</button></li>`)
+      .join("")}</ul></details>`;
+  }
+
   function renderEasy(result, text) {
     const orderedFindings = [...result.findings].sort(
       (left, right) =>
@@ -2284,7 +2555,7 @@
               .map((alternative) => `<li>${escapeHtml(alternative)}</li>`)
               .join("")}</ul></div>`
           : "";
-        return `<li class="easy-finding">
+        return `<li class="easy-finding" data-finding-index="${index}">
           <div class="easy-finding-head">
             <span class="easy-number" aria-hidden="true">${index + 1}</span>
             <q class="easy-quote">${escapeHtml(finding.matched_text)}</q>
@@ -2293,6 +2564,7 @@
           ${findingContextLine(text, unitStart, unitEnd, rewriteTargets.get(index))}
           <p class="easy-why"><strong>왜 다시 볼까요?</strong> ${escapeHtml(finding.message)}</p>
           ${alternatives}
+          ${linkedQuestionsBlock(result.questions, finding.id)}
           <div class="easy-finding-foot">
             <span>관련 법: ${escapeHtml(finding.basis.law)} ${escapeHtml(finding.basis.article)}</span>
             <button type="button" class="button button-quiet" data-select-start="${unitStart}" data-select-end="${unitEnd}">공고문에서 이 부분 선택</button>
@@ -2984,6 +3256,10 @@
     emptyState.hidden = false;
     resultContent.hidden = true;
     copyButton.disabled = true;
+    downloadButton.disabled = true;
+    findingRanges = [];
+    activeFindingIndex = -1;
+    renderPostingHighlights();
     updateAnswerProgress();
   }
 
@@ -2994,6 +3270,9 @@
         '<div class="none-item">법령 조항과 함께 표시할 표현이 확인되지 않았습니다.</div>';
       return;
     }
+    const text = input.value;
+    const spans = lineSpans(text);
+    const rangeById = new Map(findingRanges.map((range) => [range.id, range]));
     container.innerHTML = findings
       .map((finding) => {
         const alternatives = finding.alternatives.length
@@ -3001,17 +3280,23 @@
               .map(escapeHtml)
               .join(" · ")}</p>`
           : "";
-        return `<article class="finding-item">
+        const range = rangeById.get(finding.id);
+        const lineIndex = range ? spans.findIndex((span) => range.start >= span.start && range.start <= span.end) : -1;
+        const where = lineIndex >= 0 ? `${lineIndex + 1}번째 줄` : "";
+        const linked = (latestResult ? latestResult.questions : [])
+          .filter((question) => (question.linked_findings || []).includes(finding.id));
+        return `<article class="finding-item"${range ? ` data-finding-index="${range.index}"` : ""}>
           <div class="item-main">
             <div class="item-meta">
               <span class="id-tag">${escapeHtml(finding.id)}</span>
               <span class="dimension-tag">${escapeHtml(finding.dimension)}</span>
               <span class="severity-tag severity-${escapeHtml(finding.severity)}"><span class="visually-hidden">검토 우선도 </span>${escapeHtml(reviewPriorityLabel(finding.severity))}</span>
-              <span>${escapeHtml(finding.section)} · ${finding.offset[0]}–${finding.offset[1]}</span>
+              <span>${escapeHtml(finding.section)}${where ? ` · ${where}` : ""}</span>
             </div>
             <p class="item-title">${escapeHtml(finding.message)}</p>
-            <p class="match-row">원문 <mark class="matched-text">${escapeHtml(finding.matched_text)}</mark></p>
+            <p class="match-row">원문 <mark class="matched-text">${escapeHtml(finding.matched_text)}</mark>${range ? ` <button type="button" class="link-button" data-finding-select="${range.index}">공고문에서 보기</button>` : ""}</p>
             ${alternatives}
+            ${linked.length ? `<p class="linked-row"><span>연결 질문</span>${linked.map((question) => `<button type="button" class="linked-chip" data-question-jump="${escapeHtml(question.id)}">${escapeHtml(question.id)}</button>`).join("")}</p>` : ""}
           </div>
           <details class="basis-detail">
             <summary>근거 조항 원문</summary>
@@ -3346,6 +3631,8 @@
 
   function render(result) {
     latestResult = result;
+    findingRanges = orderedFindingRanges(result, input.value);
+    activeFindingIndex = -1;
     document.getElementById("finding-count").textContent = result.counts.findings;
     document.getElementById("missing-count").textContent = result.counts.not_found;
     document.getElementById("question-count").textContent =
@@ -3364,6 +3651,9 @@
     emptyState.hidden = true;
     resultContent.hidden = false;
     copyButton.disabled = false;
+    downloadButton.disabled = false;
+    renderPostingHighlights();
+    scheduleSectionSpy();
     updateComparison(result, input.value);
     humanRecordFields.forEach((field, key) => { field.value = humanReviewRecord[key]; });
     renderPreviousHumanReviews();
@@ -3714,11 +4004,44 @@
     markAssistedSettingsChanged("공고문이 바뀌었습니다.");
     rememberPostingSelection();
     updatePostingImprovementState();
+    renderPostingHighlights();
   });
-  // Tracks the caret (UTF-16 code units) for "커서 위치에 넣기".
-  ["select", "keyup", "click"].forEach((type) =>
-    input.addEventListener(type, rememberPostingSelection)
-  );
+  // Tracks the caret (UTF-16 code units) for "커서 위치에 넣기". A plain caret
+  // inside a marked wording also points the card list at that finding.
+  input.addEventListener("select", rememberPostingSelection);
+  input.addEventListener("keyup", () => {
+    rememberPostingSelection();
+    const hit = findingAtCaret();
+    if (hit >= 0 && hit !== activeFindingIndex) setActiveFinding(hit);
+  });
+  input.addEventListener("click", () => {
+    rememberPostingSelection();
+    const hit = findingAtCaret();
+    if (hit < 0) return;
+    setActiveFinding(hit);
+    revealFindingCard(hit);
+  });
+  input.addEventListener("scroll", syncPostingHighlights);
+  findingPrevButton.addEventListener("click", () => stepFinding(-1));
+  findingNextButton.addEventListener("click", () => stepFinding(1));
+  downloadButton.addEventListener("click", downloadReport);
+  emptySampleButton.addEventListener("click", () => {
+    if (loadSample()) runCheck();
+  });
+  if (typeof window.addEventListener === "function") {
+    window.addEventListener("scroll", scheduleSectionSpy, { passive: true });
+    window.addEventListener("resize", () => {
+      syncPostingHighlights();
+      scheduleSectionSpy();
+    });
+  }
+  if (typeof window.ResizeObserver === "function") {
+    try {
+      new window.ResizeObserver(() => syncPostingHighlights()).observe(input);
+    } catch (_error) {
+      // Without the observer the layer still follows window resizes.
+    }
+  }
   checkButton.addEventListener("click", runCheck);
   // Ctrl+Enter (⌘+Enter on macOS) checks from the editor. Skip while a
   // Korean IME is still composing so the last syllable is not lost.
@@ -3944,6 +4267,11 @@
       resultsTitle.focus();
       return;
     }
+    const questionButton = target.closest("[data-question-jump]");
+    if (questionButton) {
+      jumpToQuestion(questionButton.dataset.questionJump);
+      return;
+    }
     const selectButton = target.closest("[data-select-start]");
     if (!selectButton) return;
     // Offsets belong to the checked text; after an edit they point elsewhere.
@@ -3953,11 +4281,43 @@
     }
     const start = Number(selectButton.dataset.selectStart);
     const end = Number(selectButton.dataset.selectEnd);
+    const card = selectButton.closest("[data-finding-index]");
+    if (card) setActiveFinding(Number(card.dataset.findingIndex));
     input.focus();
     if (typeof input.setSelectionRange === "function") {
       input.setSelectionRange(start, end);
     }
     revealPostingPosition(start);
+  });
+
+  findingsList.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!target || typeof target.closest !== "function") return;
+    const questionButton = target.closest("[data-question-jump]");
+    if (questionButton) {
+      jumpToQuestion(questionButton.dataset.questionJump);
+      return;
+    }
+    const selectButton = target.closest("[data-finding-select]");
+    if (!selectButton) return;
+    if (!findingRangesFresh()) {
+      showToast("공고문이 바뀌었습니다. '검토 메모 만들기'를 다시 누르면 위치가 새로 계산됩니다.");
+      return;
+    }
+    selectFinding(Number(selectButton.dataset.findingSelect));
+  });
+  // Pointing at a card (mouse or keyboard focus) lights up its mark in the editor.
+  function followCard(event) {
+    const target = event.target;
+    if (!target || typeof target.closest !== "function" || !findingRangesFresh()) return;
+    const card = target.closest("[data-finding-index]");
+    if (!card) return;
+    const index = Number(card.dataset.findingIndex);
+    if (index !== activeFindingIndex) setActiveFinding(index);
+  }
+  [easyResult, findingsList].forEach((container) => {
+    container.addEventListener("mouseover", followCard);
+    container.addEventListener("focusin", followCard);
   });
 
   roleReviewRecord.addEventListener("click", recordRoleReviewEvent);

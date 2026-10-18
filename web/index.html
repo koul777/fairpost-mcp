@@ -7,8 +7,9 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
     >
-    <meta name="color-scheme" content="light">
-    <meta name="theme-color" content="#f2f5f2">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#f2f5f2" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0e1613" media="(prefers-color-scheme: dark)">
     <title>fairpost | 채용공고 검토 메모</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css">
@@ -133,13 +134,16 @@
         </div>
         </details>
         <p id="posting-scope-hint" class="input-scope-hint">붙여 넣은 텍스트만 검토합니다. 이미지·첨부에만 있는 내용은 따로 확인하세요.</p>
-        <textarea
-          id="posting-input"
-          spellcheck="false"
-          placeholder="채용공고문 원문을 여기에 붙여 넣으세요. 처음이라면 위의 '예시 입력'을 눌러 보세요."
-          aria-label="채용공고문 원문"
-          aria-describedby="posting-scope-hint posting-input-error posting-size-hint"
-        ></textarea>
+        <div class="posting-field">
+          <div id="posting-highlights" class="posting-highlights" aria-hidden="true" hidden></div>
+          <textarea
+            id="posting-input"
+            spellcheck="false"
+            placeholder="채용공고문 원문을 여기에 붙여 넣으세요. 처음이라면 위의 '예시 입력'을 눌러 보세요."
+            aria-label="채용공고문 원문"
+            aria-describedby="posting-scope-hint posting-input-error posting-size-hint"
+          ></textarea>
+        </div>
         <p id="posting-input-error" class="field-error" hidden></p>
         <p id="posting-size-hint" class="input-scope-hint posting-size-hint" hidden></p>
         <div class="assisted-option advanced-only">
@@ -192,6 +196,11 @@
             <span id="char-count">0자</span>
             <span class="shortcut-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd>로 바로 검토</span>
           </div>
+          <div id="finding-stepper" class="finding-stepper" role="group" aria-label="표시된 표현 차례로 보기" hidden>
+            <button id="finding-prev" class="stepper-button" type="button"><span aria-hidden="true">‹</span><span class="visually-hidden">이전 표현</span></button>
+            <span id="finding-step-label" class="finding-step-label" aria-live="polite">표현</span>
+            <button id="finding-next" class="stepper-button" type="button"><span aria-hidden="true">›</span><span class="visually-hidden">다음 표현</span></button>
+          </div>
           <button id="check-button" class="button button-primary" type="button">
             검토 메모 만들기
           </button>
@@ -205,10 +214,16 @@
             <h2 id="results-title" tabindex="-1">검토 메모</h2>
             <p id="results-note" class="results-note">판정이 아니라 수정·확인 질문을 정리한 로컬 검토 메모입니다.</p>
           </div>
-          <button id="copy-button" class="button button-secondary" type="button" disabled>
-            <span aria-hidden="true">⧉</span>
-            메모 복사
-          </button>
+          <div class="toolbar-actions">
+            <button id="download-button" class="button button-quiet" type="button" disabled>
+              <span aria-hidden="true">↓</span>
+              파일로 저장
+            </button>
+            <button id="copy-button" class="button button-secondary" type="button" disabled>
+              <span aria-hidden="true">⧉</span>
+              메모 복사
+            </button>
+          </div>
         </div>
         <div id="stale-banner" class="stale-banner">
           <p id="stale-banner-text" class="stale-banner-text" role="status"></p>
@@ -231,6 +246,8 @@
             </svg>
           </div>
           <p>공고문을 입력하면 검토 담당자가 수정·확인할 표현, 안내 항목, 질문이 근거와 함께 표시됩니다.</p>
+          <button id="empty-sample" class="button button-primary empty-sample" type="button">예시 공고로 바로 검토해 보기</button>
+          <p class="empty-sample-note">예시 공고문을 넣고 바로 검토합니다. 이 브라우저 안에서만 처리합니다.</p>
           <ol class="easy-steps easy-only" aria-label="사용 순서">
             <li><strong>붙여 넣기</strong> 왼쪽 칸에 채용공고문을 붙여 넣거나 '예시 입력'을 누릅니다.</li>
             <li><strong>검토하기</strong> '검토 메모 만들기'를 누릅니다. 공고문은 이 브라우저 밖으로 나가지 않습니다.</li>
@@ -242,7 +259,7 @@
         <div id="result-content" class="result-content" hidden>
           <details class="review-scope">
             <summary>검토 범위·법령 기준 보기</summary>
-            <aside class="disclaimer" id="disclaimer"></aside>
+            <div class="disclaimer" id="disclaimer" role="note"></div>
           </details>
 
           <div class="review-boundary" role="note">
