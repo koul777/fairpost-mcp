@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from functools import lru_cache, wraps
 import re
 import unicodedata
 from typing import Any, Callable, TypeVar
 
-from .morph import ZERO_WIDTH, find_first, find_matches
+from .morph import MORPH_REWRITES, ZERO_WIDTH, find_first, find_matches, pattern_to_regex
 from .schema import SlotStatus
+
+try:  # Parser of the standard re module, used to tell context-free patterns apart.
+    from re import _constants as _re_constants, _parser as _re_parser
+except ImportError:  # pragma: no cover - layout of a future Python
+    _re_constants = _re_parser = None
 
 
 SECTION_VERSION = "sections-v8-protective-double-negation"
@@ -468,9 +474,114 @@ def _label_body_unit(
     return body_start, end, line + "\n" + body
 
 
-def _candidate_units(section: Section, definition: dict[str, Any], slot_id: str) -> list[tuple[int, int, str]]:
+# --- section scans ---------------------------------------------------------------
+# Every slot scans every section with its accept patterns, and most sections hold
+# none of them. A pattern is context-free when its regex has no anchor, word
+# boundary or lookaround: whether it matches a stretch of text then does not
+# depend on the text around it. If such a pattern matches inside a section,
+# scanning the whole text finds a match of it that overlaps or touches that
+# section (finditer is leftmost-first, so it only passes over a match for one
+# that overlaps it). The views find_matches also searches keep this when the
+# section starts and ends at whitespace: normalization works per character and
+# no morph rewrite source holds whitespace, so the views of the section text lie
+# inside the views of the whole text. A pattern that can match the empty string
+# is left out, because an empty match is reported in the raw view only.
+# So one scan of the whole text tells which sections can hold a context-free
+# match. The other sections are scanned with the remaining patterns only, which
+# finds the same matches.
+_REWRITES_AVOID_WHITESPACE = not any(char.isspace() for source, _target in MORPH_REWRITES for char in source)
+_CONTEXT_FREE_LEAVES = frozenset(
+    getattr(_re_constants, name)
+    for name in ("LITERAL", "NOT_LITERAL", "ANY", "IN", "GROUPREF")
+    if _re_constants is not None and hasattr(_re_constants, name)
+)
+_CONTEXT_FREE_REPEATS = frozenset(
+    getattr(_re_constants, name)
+    for name in ("MAX_REPEAT", "MIN_REPEAT", "POSSESSIVE_REPEAT")
+    if _re_constants is not None and hasattr(_re_constants, name)
+)
+
+
+def _context_free_items(items: Any) -> bool:
+    for op, argument in items:
+        if op in _CONTEXT_FREE_LEAVES:
+            continue
+        if op == _re_constants.BRANCH:
+            branches = argument[1]
+        elif op == _re_constants.SUBPATTERN:
+            branches = [argument[3]]
+        elif op in _CONTEXT_FREE_REPEATS:
+            branches = [argument[2]]
+        elif op == getattr(_re_constants, "ATOMIC_GROUP", None):
+            branches = [argument]
+        elif op == _re_constants.GROUPREF_EXISTS:
+            branches = [branch for branch in argument[1:] if branch is not None]
+        else:
+            return False  # an anchor, \b, a lookaround or an unknown construct
+        if not all(_context_free_items(branch) for branch in branches):
+            return False
+    return True
+
+
+@lru_cache(maxsize=1024)
+def _context_free(pattern: str) -> bool:
+    if _re_parser is None:
+        return False
+    regex = pattern_to_regex(pattern)
+    if regex.fullmatch("") is not None:
+        return False
+    try:
+        return _context_free_items(_re_parser.parse(regex.pattern, regex.flags))
+    except Exception:  # an unknown parse tree only loses the shortcut
+        return False
+
+
+@lru_cache(maxsize=256)
+def _context_free_split(patterns: tuple[str, ...]) -> tuple[list[str], list[str]]:
+    """(context-free patterns, the others), each in their original order."""
+    return ([pattern for pattern in patterns if _context_free(pattern)],
+            [pattern for pattern in patterns if not _context_free(pattern)])
+
+
+def _whitespace_aligned(text: str, sections: list[Section]) -> bool:
+    """The sections tile text in order and each one after the first starts after whitespace."""
+    position = 0
+    for section in sections:
+        if (section.start != position or section.end - position != len(section.text)
+                or not text.startswith(section.text, position)
+                or (position and not text[position - 1].isspace())):
+            return False
+        position = section.end
+    return position == len(text)
+
+
+def _section_accept_matches(
+    text: str, sections: list[Section], patterns: list[str], aligned: bool
+) -> list[list[Any]]:
+    """find_matches(section.text, patterns) for each section, in section order."""
+    context_free, others = _context_free_split(tuple(patterns))
+    if not aligned or not context_free:
+        return [find_matches(section.text, patterns) for section in sections]
+    scan = [False] * len(sections)
+    found = find_matches(text, context_free)
+    if found:
+        starts = [section.start for section in sections]
+        ends = [section.end for section in sections]
+        for match in found:
+            for index in range(bisect_left(ends, match.start()), bisect_right(starts, match.end())):
+                scan[index] = True
+    return [find_matches(section.text, patterns) if scan[index]
+            else find_matches(section.text, others) if others else []
+            for index, section in enumerate(sections)]
+
+
+def _candidate_units(
+    section: Section, definition: dict[str, Any], slot_id: str, matches: list[Any] | None = None
+) -> list[tuple[int, int, str]]:
     units: list[tuple[int, int, str]] = []
-    for match in find_matches(section.text, definition.get("accept_patterns", [])):
+    if matches is None:
+        matches = find_matches(section.text, definition.get("accept_patterns", []))
+    for match in matches:
         left, right = _line_bounds(section.text, match.start(), match.end())
         line = section.text[left:right]
         if (slot_id == "selection_stages"
@@ -744,12 +855,16 @@ def extract_slots(
     text: str, sections: list[Section], slot_definitions: dict[str, Any]
 ) -> list[SlotStatus]:
     statuses: list[SlotStatus] = []
+    aligned = _REWRITES_AVOID_WHITESPACE and _whitespace_aligned(text, sections)
     for slot_id in sorted(slot_definitions):
         definition = slot_definitions[slot_id]
-        preferred = [s for s in sections if s.name in definition.get("search_sections", [])]
-        search_order = preferred + [s for s in sections if s not in preferred]
-        candidates = [(section, unit) for section in search_order
-                      for unit in _candidate_units(section, definition, slot_id)]
+        search_sections = definition.get("search_sections", [])
+        # Preferred sections first; a section equal to a preferred one has its name.
+        search_order = ([index for index, s in enumerate(sections) if s.name in search_sections]
+                        + [index for index, s in enumerate(sections) if s.name not in search_sections])
+        section_matches = _section_accept_matches(text, sections, definition.get("accept_patterns", []), aligned)
+        candidates = [(sections[index], unit) for index in search_order
+                      for unit in _candidate_units(sections[index], definition, slot_id, section_matches[index])]
         contexts = [unit[2] for _, unit in candidates]
         components_found = sorted(c["id"] for c in definition.get("components", [])
                                   if _component_present(slot_id, c, contexts))
