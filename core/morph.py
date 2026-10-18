@@ -386,8 +386,17 @@ _ListPlan = tuple[
 _OPEN_GATE = re.compile("")
 _LIST_PLANS: dict[tuple[str, ...], _ListPlan] = {}
 _LIST_PLAN_LIMIT = 4096
-# The _pattern_plan the cached list plans were built with; a replaced
-# _pattern_plan (tests patch it) invalidates them.
+# Results of _collect_matches for texts of at least this many characters, by
+# (text, patterns). The engine and the slot extractor scan the same section or
+# posting text with the same pattern list several times per check; shorter
+# texts are cheaper to scan again than to cache.
+_RESULTS: dict[
+    tuple[str, tuple[str, ...]], dict[tuple[int, int], re.Match[str] | SourceMatch]
+] = {}
+_RESULT_MIN_CHARS = 128
+_RESULT_LIMIT = _CACHE_SIZE
+# The _pattern_plan the cached list plans and results were built with; a
+# replaced _pattern_plan (tests patch it) invalidates them.
 _list_plan_source: object = None
 
 
@@ -444,6 +453,29 @@ def _collect_matches(
     text: str,
     patterns: list[str],
 ) -> dict[tuple[int, int], re.Match[str] | SourceMatch]:
+    # The returned dict may be shared through _RESULTS: callers only read it.
+    global _list_plan_source
+    if _list_plan_source is not _pattern_plan:
+        _LIST_PLANS.clear()
+        _RESULTS.clear()
+        _list_plan_source = _pattern_plan
+    key = tuple(patterns)
+    if len(text) < _RESULT_MIN_CHARS:
+        return _scan_matches(text, key)
+    result_key = (text, key)
+    found = _RESULTS.get(result_key)
+    if found is None:
+        found = _scan_matches(text, key)
+        if len(_RESULTS) >= _RESULT_LIMIT:
+            _RESULTS.clear()
+        _RESULTS[result_key] = found
+    return found
+
+
+def _scan_matches(
+    text: str,
+    key: tuple[str, ...],
+) -> dict[tuple[int, int], re.Match[str] | SourceMatch]:
     # Keyed by (start, end): group(0) is always text[start:end] for raw and
     # source matches alike, so the span alone identifies a duplicate. The first
     # match found for a span is kept. A pattern is only scanned when the text
@@ -451,11 +483,6 @@ def _collect_matches(
     # required any-of group; otherwise it cannot match. The gates of the list
     # plan check that for the whole list at once: when no view it would scan
     # opens, no pattern is admitted anywhere and nothing can match.
-    global _list_plan_source
-    if _list_plan_source is not _pattern_plan:
-        _LIST_PLANS.clear()
-        _list_plan_source = _pattern_plan
-    key = tuple(patterns)
     plan = _LIST_PLANS.get(key)
     if plan is None:
         if len(_LIST_PLANS) >= _LIST_PLAN_LIMIT:
