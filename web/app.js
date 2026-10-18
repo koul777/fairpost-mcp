@@ -1455,20 +1455,20 @@
   }
 
   function highlightedPosting(text, orderedFindings) {
-    const codePoints = Array.from(text);
+    const unit = (offset) => codePointsToCodeUnits(text, offset);
     let cursor = 0;
     let markup = "";
     orderedFindings.forEach((finding, index) => {
       const [start, end] = finding.offset;
       // Overlapping candidates keep the first highlight; the card still lists both.
       if (start < cursor) return;
-      markup += escapeHtml(codePoints.slice(cursor, start).join(""));
+      markup += escapeHtml(text.slice(unit(cursor), unit(start)));
       markup += `<mark class="easy-mark">${escapeHtml(
-        codePoints.slice(start, end).join("")
+        text.slice(unit(start), unit(end))
       )}<sup>${index + 1}</sup></mark>`;
       cursor = end;
     });
-    return markup + escapeHtml(codePoints.slice(cursor).join(""));
+    return markup + escapeHtml(text.slice(unit(cursor)));
   }
 
   // Editor highlights: the result's marks drawn in a layer behind the
@@ -1917,20 +1917,24 @@
     "\n", "\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029",
   ]);
   const LINE_BREAK_PATTERN = /\r\n|[\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029]/u;
+  const LINE_BREAK_SEARCH = new RegExp(LINE_BREAK_PATTERN.source, "gu");
+  let lineSpansMemo = { text: null, spans: null };
 
   // One entry per line, in UTF-16 code units: [start, end) is the line without
-  // its boundary and `next` is where the following line starts.
+  // its boundary and `next` is where the following line starts. A review asks
+  // for the same posting's lines more than once, so the spans of the last text
+  // are kept; callers only read them.
   function lineSpans(text) {
+    if (lineSpansMemo.text === text) return lineSpansMemo.spans;
     const spans = [];
     let start = 0;
-    for (let index = 0; index < text.length; index += 1) {
-      if (!LINE_BREAK_CHARS.has(text[index])) continue;
-      const width = text[index] === "\r" && text[index + 1] === "\n" ? 2 : 1;
-      spans.push({ start, end: index, next: index + width });
-      start = index + width;
-      index += width - 1;
+    LINE_BREAK_SEARCH.lastIndex = 0;
+    for (let match = LINE_BREAK_SEARCH.exec(text); match; match = LINE_BREAK_SEARCH.exec(text)) {
+      spans.push({ start, end: match.index, next: match.index + match[0].length });
+      start = match.index + match[0].length;
     }
     if (start < text.length) spans.push({ start, end: text.length, next: text.length });
+    lineSpansMemo = { text, spans };
     return spans;
   }
 
@@ -4026,8 +4030,15 @@
     postingSizeHint.hidden = !long;
   }
 
+  // Array.from(text).length without building the array on every keystroke:
+  // only a surrogate pair makes two code units one code point.
+  function codePointCount(text) {
+    const pairs = text.match(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g);
+    return text.length - (pairs ? pairs.length : 0);
+  }
+
   input.addEventListener("input", () => {
-    const length = Array.from(input.value).length;
+    const length = codePointCount(input.value);
     charCount.textContent = `${length.toLocaleString("ko-KR")}자`;
     updatePostingSizeHint(length);
     if (input.value.trim()) setFieldError(input, postingInputError, "");
