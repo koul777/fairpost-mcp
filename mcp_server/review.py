@@ -10,19 +10,18 @@ from pathlib import Path
 import re
 import time
 import uuid
-from typing import Any, AsyncIterator, Literal
+from typing import TYPE_CHECKING, Any, AsyncIterator, Literal
 from urllib.parse import urlsplit
 
 import anyio
-import httpx
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-from mcp.client.streamable_http import streamable_http_client
 
 from core import FairpostEngine
 from core.guidance import GuidanceContext, load_guidance_catalog
 from core.schema import CheckResult, Finding
 from core.review_packet import ReviewEvent, ReviewPacket, posting_fingerprint
+
+if TYPE_CHECKING:
+    from mcp import ClientSession
 
 
 MAX_UPSTREAM_TEXT_CHARS = 100_000
@@ -325,6 +324,8 @@ def _retrieved_article(text: str, law: str, article: str) -> bool:
 def upstream_http_status(exc: BaseException) -> int | None:
     """Find an upstream HTTP status in an exception, its causes or groups."""
 
+    import httpx
+
     pending: list[BaseException] = [exc]
     seen: set[int] = set()
     while pending and len(seen) < 32:
@@ -472,6 +473,13 @@ class LiveLawVerifier:
 
     @asynccontextmanager
     async def _session(self) -> AsyncIterator[ClientSession]:
+        # The MCP client and httpx load only when a live lookup runs, so a
+        # plain check or a review packet without Korean Law MCP stays fast.
+        import httpx
+        from mcp import ClientSession, StdioServerParameters
+        from mcp.client.stdio import stdio_client
+        from mcp.client.streamable_http import streamable_http_client
+
         if self.config.transport == "http":
             headers = {}
             if self.config.bearer_token:
