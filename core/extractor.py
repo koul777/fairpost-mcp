@@ -130,8 +130,19 @@ class Section:
     text: str
 
 
+# Hangul syllables and ASCII letters are their own NFKC form, are neither
+# whitespace nor heading decoration and casefold to one character, so each of
+# them stays in a cleaned heading and in a compact value. A line with more than
+# 30 of them cannot be a heading, whatever normalization does to the rest.
+_KEPT_LETTERS = "가-힣A-Za-z"
+_MORE_THAN_30_KEPT_LETTERS = re.compile(rf"(?:[^{_KEPT_LETTERS}]*+[{_KEPT_LETTERS}]){{31}}")
+_NOT_KEPT_LETTERS = re.compile(rf"[^{_KEPT_LETTERS}]+")
+
+
 @_memoized_string_function
 def _heading_name(line: str) -> str | None:
+    if len(line) > 30 and _MORE_THAN_30_KEPT_LETTERS.match(line):
+        return None
     cleaned = _HEADING_DECORATION.sub("", _normalized_heading(line).strip())
     if not cleaned or len(cleaned) > 30:
         return None
@@ -271,6 +282,15 @@ def _compact(value: str) -> str:
     return _WHITESPACE.sub("", _HEADING_DECORATION.sub("", _normalized_heading(value).strip())).casefold()
 
 
+def _same_compact(line: str, value: str) -> bool:
+    """_compact(line) == _compact(value), without normalizing a long uncached line
+    that holds more kept letters than _compact(value) has characters."""
+    target = _compact(value)
+    if len(line) > _STRING_CACHE_MAX_CHARS and len(_NOT_KEPT_LETTERS.sub("", line)) > len(target):
+        return False
+    return _compact(line) == target
+
+
 # Derived once from the constants above; the lists themselves are never mutated.
 _DUTY_HEADING_COMPACTS = frozenset(_compact(heading) for heading in _DUTY_HEADINGS)
 _BARE_STAGE_COMPACTS = frozenset(_compact(term) for term in _BARE_STAGE_TERMS)
@@ -320,7 +340,9 @@ def _indent(line: str) -> int:
 @_memoized_string_function
 def _heading_like(line: str) -> bool:
     """A short line that is not a sentence, so it can title the block below it."""
-    cleaned = _HEADING_DECORATION.sub("", _normalized_heading(line).strip())
+    if len(line) > 30 and _MORE_THAN_30_KEPT_LETTERS.match(line):
+        return False
+    cleaned =_HEADING_DECORATION.sub("", _normalized_heading(line).strip())
     return 0 < len(cleaned) <= 30 and cleaned[-1] not in _SENTENCE_END
 
 
@@ -589,7 +611,7 @@ def _candidate_units(
                 and not _stage_context(section, _bare_stage_sentence(section.text, match.start(), match.end()))):
             continue  # "고객 인터뷰", "민원 서류접수", "임원 면접 일정 조율": work, not an applicant stage.
         line_is_heading = _heading_name(line) is not None
-        heading = line_is_heading or _compact(line) == _compact(match.group(0))
+        heading = line_is_heading or _same_compact(line, match.group(0))
         if slot_id in {"selection_stages", "ai_disclosure"} and (
             find_first(line, _STAGE_EVENTS)
             or (not line_is_heading and _line_marker(line)[0] in {"item", "mark", "note"})
@@ -627,7 +649,7 @@ def _component_present(slot_id: str, component: dict[str, Any], contexts: list[s
                     left, right = _line_bounds(context, match.start(), match.end())
                     header = context[left:right]
                     body = context[right + 1:].split("\n")[0]
-                    if (_compact(header) != _compact(match.group(0))
+                    if (not _same_compact(header, match.group(0))
                             or not find_first(body, _DATE_CONTENT)
                             or find_first(body.strip(), _DEFERRED_BODY)):
                         continue
