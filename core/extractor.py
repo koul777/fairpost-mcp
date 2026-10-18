@@ -358,7 +358,7 @@ def _heading_like(line: str) -> bool:
     """A short line that is not a sentence, so it can title the block below it."""
     if len(line) > 30 and _MORE_THAN_30_KEPT_LETTERS.match(line):
         return False
-    cleaned =_HEADING_DECORATION.sub("", _normalized_heading(line).strip())
+    cleaned = _HEADING_DECORATION.sub("", _normalized_heading(line).strip())
     return 0 < len(cleaned) <= 30 and cleaned[-1] not in _SENTENCE_END
 
 
