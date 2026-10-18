@@ -1161,13 +1161,15 @@
   // A sentence boundary at code unit i: one of . ! ? 。 ！ ？, except a "."
   // after a digit or between two ASCII letters/digits.
   function isSentenceMark(text, i) {
-    const character = text[i];
+    // . ! ? 。 ！ ？ by code unit, so the common case builds no string.
+    const code = text.charCodeAt(i);
     if (
-      character !== "." && character !== "!" && character !== "?" &&
-      character !== "。" && character !== "！" && character !== "？"
+      code !== 0x2e && code !== 0x21 && code !== 0x3f &&
+      code !== 0x3002 && code !== 0xff01 && code !== 0xff1f
     ) {
       return false;
     }
+    const character = text[i];
     // Python reads text[i - 1] as a whole code point, so an astral digit
     // (e.g. U+1D7CF) before "." must be tested as its surrogate pair.
     return !(character === "." && i > 0 && (/^\p{Nd}$/u.test(codePointEndingAt(text, i)) || (/[A-Za-z0-9]/u.test(text[i - 1]) && /[A-Za-z0-9]/u.test(text[i + 1] || ""))));
@@ -1202,23 +1204,25 @@
     const [segmentStart, segmentEnd] = sentenceBounds(text, start, end);
     const segment = text.slice(segmentStart, segmentEnd);
     const limit = 238;
-    if (codePointLength(segment) <= limit) {
+    const total = codePointLength(segment);
+    if (total <= limit) {
       return trimPythonWhitespace(segment);
     }
-    const codePoints = Array.from(segment);
-    const relativeStart = Array.from(text.slice(segmentStart, start)).length;
-    const relativeEnd = Array.from(text.slice(segmentStart, end)).length;
+    // Code point positions as Array.from(segment) numbers them; the window
+    // is cut by walking code points instead of building that array.
+    const relativeStart = codePointLength(text.slice(segmentStart, start));
+    const relativeEnd = codePointLength(text.slice(segmentStart, end));
     let windowStart = Math.max(0, relativeStart - 96);
     const windowEnd = Math.min(
-      codePoints.length,
+      total,
       Math.max(relativeEnd + 96, windowStart + limit)
     );
     windowStart = Math.max(0, windowEnd - limit);
-    const evidence = trimPythonWhitespace(
-      codePoints.slice(windowStart, windowEnd).join("")
-    );
+    const from = moveCodePointsRight(segment, 0, windowStart);
+    const to = moveCodePointsRight(segment, from, windowEnd - windowStart);
+    const evidence = trimPythonWhitespace(segment.slice(from, to));
     return `${windowStart ? "…" : ""}${evidence}${
-      windowEnd < codePoints.length ? "…" : ""
+      windowEnd < total ? "…" : ""
     }`;
   }
 
@@ -1290,8 +1294,9 @@
   }
 
   function headingLike(line) {
-    const cleaned = Array.from(stripHeadingDecoration(line));
-    return cleaned.length > 0 && cleaned.length <= 30 && !SENTENCE_END.includes(cleaned[cleaned.length - 1]);
+    const cleaned = stripHeadingDecoration(line);
+    const length = codePointLength(cleaned);
+    return length > 0 && length <= 30 && !SENTENCE_END.includes(codePointEndingAt(cleaned, cleaned.length));
   }
 
   // Mirrors _duty_block_end_in: where the duty list under a duty heading ends.
@@ -1412,7 +1417,7 @@
     let end = cursor;
     let bodyStart = cursor;
     const bodyParts = [];
-    while (cursor < section.text.length && Array.from(section.text.slice(right, cursor)).length < 600) {
+    while (cursor < section.text.length && codePointLength(section.text.slice(right, cursor)) < 600) {
       end = section.text.indexOf("\n", cursor);
       if (end === -1) end = section.text.length;
       const body = section.text.slice(cursor, end);
@@ -1436,9 +1441,18 @@
 
   function candidateUnits(section, definition, slotId) {
     const units = [];
+    // Matches on one line share the same line string, so the per-line
+    // caches and views find it by identity instead of rehashing a copy.
+    let lineLeft = -1;
+    let lineRight = -1;
+    let line = "";
     for (const match of findMatches(section.text, definition.accept_patterns || [])) {
       const [left, right] = lineBounds(section.text, match.start, match.end);
-      const line = section.text.slice(left, right);
+      if (left !== lineLeft || right !== lineRight) {
+        lineLeft = left;
+        lineRight = right;
+        line = section.text.slice(left, right);
+      }
       if (slotId === "selection_stages" && bareStageMatch(section.text, match.start, match.end) && !stageContext(section, bareStageSentence(section.text, match.start, match.end))) continue;
       let heading = headingName(line) !== null || compactHeading(line) === compactHeading(match.text);
       if (["selection_stages", "ai_disclosure"].includes(slotId) && (findFirst(line, STAGE_EVENTS) || (headingName(line) === null && ["item", "mark", "note"].includes(lineMarker(line)[0])))) heading = false;
@@ -1460,10 +1474,12 @@
     return units;
   }
 
+  // Repeated contexts (several units on one line) give the same answer, so
+  // each distinct context is checked once; the evidence line is built only
+  // for the schedule check that reads it.
   function componentPresent(slotId, component, contexts) {
-    return contexts.some((context) => findMatches(context, component.patterns || []).some((match) => {
-      const evidence = evidenceLine(context, match.start, match.end);
-      if (slotId === "schedule" && ["application_date", "assessment_date"].includes(component.id) && !findFirst(evidence, DATE_CONTENT)) {
+    return [...new Set(contexts)].some((context) => findMatches(context, component.patterns || []).some((match) => {
+      if (slotId === "schedule" && ["application_date", "assessment_date"].includes(component.id) && !findFirst(evidenceLine(context, match.start, match.end), DATE_CONTENT)) {
         const [left, right] = lineBounds(context, match.start, match.end);
         const header = context.slice(left, right);
         const body = context.slice(right + 1).split("\n")[0];
@@ -1545,17 +1561,19 @@
   // Mirrors _protective_sentence: the sentence span inside the evidence window.
   function protectiveSentence(source, start, end) {
     let [left, right] = sentenceBounds(source, start, end);
-    if (codePointLength(source.slice(left, right)) > 238) {
-      const codePoints = Array.from(source.slice(left, right));
-      // Never look further than the evidence window the reviewer is shown.
-      const relativeStart = Array.from(source.slice(left, start)).length;
-      const relativeEnd = Array.from(source.slice(left, end)).length;
+    const segment = source.slice(left, right);
+    const total = codePointLength(segment);
+    if (total > 238) {
+      // Never look further than the evidence window the reviewer is shown
+      // (cut as in evidenceLine, by walking code points).
+      const relativeStart = codePointLength(source.slice(left, start));
+      const relativeEnd = codePointLength(source.slice(left, end));
       let windowStart = Math.max(0, relativeStart - 96);
-      const windowEnd = Math.min(codePoints.length, Math.max(relativeEnd + 96, windowStart + 238));
+      const windowEnd = Math.min(total, Math.max(relativeEnd + 96, windowStart + 238));
       windowStart = Math.max(0, windowEnd - 238);
       const base = left;
-      left = base + codePoints.slice(0, windowStart).join("").length;
-      right = base + codePoints.slice(0, windowEnd).join("").length;
+      left = base + moveCodePointsRight(segment, 0, windowStart);
+      right = base + moveCodePointsRight(segment, 0, windowEnd);
     }
     return [left, right];
   }
@@ -1609,7 +1627,8 @@
     const clause = source.slice(clauseStart, clauseEnd);
     if (findFirst(clause, PROTECTIVE_OMISSION_PENALTY)) return false;
     if (!findFirst(clause, PROTECTIVE)) return false;
-    const tail = Array.from(source.slice(match.end, clauseEnd)).slice(0, 60).join("");
+    const rest = source.slice(match.end, clauseEnd);
+    const tail = rest.slice(0, moveCodePointsRight(rest, 0, 60));
     const requirement = findFirst(tail, PROTECTIVE_REQUIREMENT);
     if (!requirement) return true;
     // A protection directly after the candidate governs it; a later
@@ -1631,7 +1650,7 @@
       const rowStart = source.lastIndexOf("<tr", match.start);
       const rowEnd = source.indexOf("</tr>", match.end);
       let tablePreference = false;
-      if (rowStart >= 0 && rowEnd >= 0 && !source.slice(rowStart, match.start).includes("</tr>") && Array.from(source.slice(rowStart, rowEnd)).length < 1800) {
+      if (rowStart >= 0 && rowEnd >= 0 && !source.slice(rowStart, match.start).includes("</tr>") && codePointLength(source.slice(rowStart, rowEnd)) < 1800) {
         const row = source.slice(rowStart, rowEnd).replace(/<[^>]+>/gu, "");
         tablePreference = Boolean(findFirst(row, ["가산점", "가점", "re:만점의\\s*\\d+%", "re:점수\\s*만점의\\s*\\d+%"])) && !findFirst(row, ["지원 불가", "채용 제외", "신원조회"]);
       }
@@ -1663,12 +1682,22 @@
       const candidates = searchOrder.flatMap((section) => candidateUnits(section, definition, slotId).map((unit) => ({section, unit})));
       const contexts = candidates.map((c) => c.unit.context);
       const componentsFound = (definition.components || []).filter((c) => componentPresent(slotId, c, contexts)).map((c) => c.id).sort();
-      const first = candidates.reduce((best, candidate) => {
-        if (!best) return candidate;
-        const a = candidateRank(slotId, candidate.unit.context);
-        const b = candidateRank(slotId, best.unit.context);
-        return a[0] > b[0] || (a[0] === b[0] && a[1] > b[1]) ? candidate : best;
-      }, null);
+      // As max(candidates, key=_candidate_rank): each candidate is ranked
+      // once, and the first of the highest rank wins.
+      let first = null;
+      let firstRank = null;
+      candidates.forEach((candidate) => {
+        if (first === null) {
+          first = candidate;
+          return;
+        }
+        if (firstRank === null) firstRank = candidateRank(slotId, first.unit.context);
+        const rank = candidateRank(slotId, candidate.unit.context);
+        if (rank[0] > firstRank[0] || (rank[0] === firstRank[0] && rank[1] > firstRank[1])) {
+          first = candidate;
+          firstRank = rank;
+        }
+      });
       return {
         slot:slotId, label:definition.label, found:Boolean(first),
         components_found:componentsFound, components_total:(definition.components || []).length,
