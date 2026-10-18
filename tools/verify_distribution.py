@@ -226,6 +226,7 @@ SYNTHETIC_PRIVACY_EXAMPLES = {
     ),
     "tests/test_engine.py": (b"recruit@example.com", b"02-1234-5678"),
     "tests/test_extractor_helpers.py": (b"02-1234-5678",),
+    "tests/test_extractor_section_scans.py": (b"02-123-4567", b"hr@example.com"),
     "tests/test_heading_duty_regressions.py": (b"02-1234-5678",),
     "tests/test_morph_fast_paths.py": (b"recruit@example.com", b"02-1234-5678"),
     "tests/test_notice_deferred_regressions.py": (b"02-1234-5678",),
