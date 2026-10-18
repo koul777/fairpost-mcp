@@ -3483,3 +3483,602 @@ body[data-mode="easy"] .review-boundary::before {
   .stale-banner.is-stale .button { flex: 1 1 100%; }
   .load-error .button { flex: 1 1 100%; }
 }
+
+/* Web UX 2026-10-18: marks in the editor, stepping through findings, questions
+   linked from each card, the section being read, calmer work counts, dark
+   mode, arrival motion and print. Text sizes here stay at 12px or larger. */
+
+/* Editor: the marks sit in a layer behind a transparent field, so the text the
+   reader types is the textarea's own text and the marks only colour behind it. */
+.posting-field {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+}
+
+.posting-field #posting-input {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+.posting-highlights {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: transparent;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+
+.posting-mark {
+  position: relative;
+  border-radius: 5px;
+  background: var(--mark);
+  box-shadow: inset 0 -2px 0 var(--mark-line);
+  color: transparent;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+/* Card number above the start of each mark; the field's text stays on top. */
+/* Card number above the start of each mark. It is yellow with a dark digit so
+   the field's own text, drawn on top, stays readable where the two meet. */
+.posting-mark::before {
+  content: attr(data-n);
+  position: absolute;
+  top: -12px;
+  left: -8px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 1px solid rgba(61, 50, 20, 0.35);
+  border-radius: 9px;
+  background: var(--yellow);
+  color: #2b2410;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 15px;
+  text-align: center;
+}
+
+.posting-mark.is-active {
+  background: var(--yellow);
+  box-shadow: 0 0 0 3px rgba(242, 201, 76, 0.45);
+}
+
+.posting-mark.is-active::before {
+  border-color: var(--green-dark);
+  background: var(--green);
+  color: #ffffff;
+}
+
+/* Footer: char count, the finding stepper and the check button share a row. */
+.editor-footer {
+  flex-wrap: wrap;
+}
+
+.finding-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  padding: 2px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  box-shadow: var(--shadow-xs);
+}
+
+.stepper-button {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  transition: background-color 150ms ease;
+}
+
+.stepper-button:hover {
+  background: var(--soft-2);
+}
+
+.stepper-button[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.finding-step-label {
+  min-width: 78px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Results toolbar: save and copy side by side. */
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Empty state: one obvious way to see the tool working. */
+.empty-sample {
+  margin-top: 18px;
+}
+
+.empty-sample-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* A card and its mark point at each other. */
+.easy-finding,
+.finding-item,
+.question-item {
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.easy-finding.is-linked,
+.finding-item.is-linked {
+  border-color: var(--mark-line);
+  box-shadow: 0 0 0 3px rgba(242, 201, 76, 0.32), var(--shadow-sm);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .is-flash {
+    animation: fairpost-flash 1.4s var(--ease) 1;
+  }
+}
+
+@keyframes fairpost-flash {
+  0% { box-shadow: 0 0 0 0 rgba(242, 201, 76, 0); }
+  18% { box-shadow: 0 0 0 7px rgba(242, 201, 76, 0.55); }
+  100% { box-shadow: 0 0 0 0 rgba(242, 201, 76, 0); }
+}
+
+/* Questions linked to a finding, inside its card (easy) or as chips (expert). */
+.linked-questions {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--soft);
+}
+
+.linked-questions > summary {
+  min-height: 44px;
+  padding: 11px 42px 11px 14px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.linked-questions ul {
+  margin: 0;
+  padding: 0 10px 10px;
+  display: grid;
+  gap: 6px;
+  list-style: none;
+}
+
+.linked-question {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: left;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.linked-question::after {
+  content: " →";
+  color: var(--green);
+  font-weight: 800;
+}
+
+.linked-question:hover {
+  border-color: var(--green-line);
+  background: var(--green-soft);
+}
+
+.linked-row {
+  margin: 10px 0 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.linked-chip {
+  min-height: 32px;
+  padding: 4px 11px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.linked-chip:hover {
+  border-color: var(--green-line);
+  background: var(--green-soft);
+}
+
+.link-button {
+  margin-left: 6px;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: var(--blue-ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Section nav: the section being read. */
+.review-nav a[aria-current="location"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #ffffff;
+}
+
+/* Calmer work counts: the tiles are a to-do list, not a scoreboard. */
+.summary-strip div {
+  padding-left: 16px;
+  background: var(--soft);
+  box-shadow: none;
+}
+
+.summary-strip div::before {
+  display: none;
+}
+
+.summary-strip strong {
+  font-size: 24px;
+}
+
+/* One neutral card edge for every finding; the priority stays a text label. */
+.finding-item:has(.severity-high),
+.finding-item:has(.severity-medium),
+.finding-item:has(.severity-low) {
+  box-shadow: var(--shadow-xs);
+}
+
+/* Easy cards: a little tighter so more of the list fits on screen. */
+.easy-finding {
+  padding: 14px 16px;
+}
+
+.easy-finding-head {
+  margin-bottom: 8px;
+}
+
+.easy-finding-foot {
+  margin-top: 12px;
+  padding-top: 10px;
+}
+
+.easy-headline {
+  font-size: 17px;
+}
+
+/* Arrival: results rise in once per review; skipped with reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .easy-headline,
+  .easy-findings > li,
+  .item-list > article,
+  .slot-grid > div,
+  .easy-missing > li {
+    animation: fairpost-rise 420ms var(--ease) both;
+  }
+
+  .easy-findings > li:nth-child(2),
+  .item-list > article:nth-child(2),
+  .slot-grid > div:nth-child(2) { animation-delay: 40ms; }
+  .easy-findings > li:nth-child(3),
+  .item-list > article:nth-child(3),
+  .slot-grid > div:nth-child(3) { animation-delay: 80ms; }
+  .easy-findings > li:nth-child(4),
+  .item-list > article:nth-child(4),
+  .slot-grid > div:nth-child(4) { animation-delay: 120ms; }
+  .easy-findings > li:nth-child(5),
+  .item-list > article:nth-child(5),
+  .slot-grid > div:nth-child(5) { animation-delay: 160ms; }
+  .easy-findings > li:nth-child(n + 6),
+  .item-list > article:nth-child(n + 6),
+  .slot-grid > div:nth-child(n + 6) { animation-delay: 200ms; }
+
+  .posting-highlights:not([hidden]) .posting-mark {
+    animation: fairpost-mark 520ms var(--ease) both;
+  }
+}
+
+@keyframes fairpost-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fairpost-mark {
+  from { background-color: transparent; box-shadow: inset 0 0 0 var(--mark-line); }
+  to { background-color: var(--mark); box-shadow: inset 0 -2px 0 var(--mark-line); }
+}
+
+/* Dark mode follows the system setting (no stored toggle). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    color: #e4ece7;
+    background: #0e1613;
+
+    --ink: #e8efe9;
+    --ink-2: #c9d5ce;
+    --muted: #9fb0a7;
+    --line: #26332d;
+    --line-2: #34443c;
+    --line-3: #4a5d53;
+    --bg: #0e1613;
+    --panel: #141e1a;
+    --soft: #18241f;
+    --soft-2: #1d2a24;
+
+    --green: #4cc690;
+    --green-dark: #3aa877;
+    --green-ink: #8fe0b8;
+    --green-soft: #15291f;
+    --green-soft-2: #1d3a2b;
+    --green-line: #2f5f47;
+    --mark: #4a3f12;
+    --mark-line: #c9a42c;
+    --mark-ink: #fbe7a4;
+
+    --amber: #e3a04a;
+    --amber-ink: #f3c98c;
+    --amber-soft: #2b2112;
+    --amber-line: #5d4520;
+    --red: #e07b70;
+    --red-ink: #f2aaa2;
+    --red-soft: #2e1916;
+    --red-line: #5c2d27;
+    --blue: #7db6dc;
+    --blue-ink: #a9d1ee;
+    --blue-soft: #14232e;
+    --blue-line: #284457;
+    --violet: #b5a0ee;
+    --violet-ink: #cfc2f7;
+    --violet-soft: #221d33;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 3px 8px -4px rgba(0, 0, 0, 0.5);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px -14px rgba(0, 0, 0, 0.7);
+    --shadow-lg: 0 22px 48px -18px rgba(0, 0, 0, 0.8);
+  }
+
+  body {
+    background:
+      radial-gradient(1100px 420px at 0% -8%, rgba(76, 198, 144, 0.08), transparent 62%),
+      radial-gradient(900px 380px at 100% -6%, rgba(242, 201, 76, 0.06), transparent 58%),
+      var(--bg);
+  }
+
+  button:focus-visible,
+  select:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible,
+  pre:focus-visible,
+  a:focus-visible,
+  #comparison-title:focus-visible,
+  #improvement-title:focus-visible,
+  #assisted-review-heading:focus-visible,
+  .question-item:focus-visible,
+  #results-title:focus-visible {
+    outline-color: #8cc8f0;
+  }
+
+  .app-header,
+  .review-nav {
+    background: rgba(20, 30, 26, 0.88);
+  }
+
+  @supports ((-webkit-backdrop-filter: blur(8px)) or (backdrop-filter: blur(8px))) {
+    .review-nav {
+      background: rgba(20, 30, 26, 0.78);
+    }
+  }
+
+  .book-entry-steps li {
+    background: rgba(20, 30, 26, 0.82);
+  }
+
+  .ill-lens {
+    fill: rgba(20, 30, 26, 0.72);
+  }
+
+  #posting-input::placeholder {
+    color: #7f9086;
+  }
+
+  .assisted-option,
+  .easy-headline,
+  .book-entry {
+    background: var(--soft);
+  }
+
+  .easy-missing li,
+  .template-text {
+    background: var(--soft);
+  }
+
+  .severity-medium {
+    background: var(--amber-soft);
+    color: var(--amber-ink);
+  }
+
+  .assist-badge.active,
+  .disclaimer,
+  .review-boundary,
+  .id-tag,
+  .dimension-tag,
+  .scope-tag,
+  .link-tag,
+  .severity-tag,
+  .organization-context,
+  .organization-context strong,
+  .applicability-tag,
+  .slot-question-detail > summary,
+  .common-checklist > summary,
+  .common-checklist > summary small,
+  .easy-fix,
+  .record-status,
+  .role-review-boundary,
+  .role-review-actions strong,
+  .role-review-events li,
+  .role-review-events li strong,
+  .role-review-events li small,
+  .role-review-system-event,
+  .assisted-review-notice,
+  .book-entry,
+  .book-entry-steps li,
+  .placeholder-found-hint,
+  .easy-slot-follow-up,
+  .template-condition {
+    color: var(--ink-2);
+  }
+
+  .severity-high {
+    color: var(--red-ink);
+  }
+
+  .role-review-boundary {
+    border-left-color: var(--blue-line);
+    background: var(--blue-soft);
+  }
+
+  .role-review-help {
+    color: var(--amber-ink);
+  }
+
+  .button-deploy,
+  .button-deploy:hover {
+    border-color: var(--green);
+    background: var(--green);
+    color: #0e1613;
+  }
+
+  .button-quiet:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: var(--soft-2);
+  }
+
+  .toast {
+    background: #e8efe9;
+    color: #0e1613;
+  }
+
+  .easy-number {
+    background: #e8efe9;
+    color: #0e1613;
+  }
+
+  .posting-mark.is-active::before {
+    color: #0e1613;
+  }
+
+  .review-nav a[aria-current="location"] {
+    border-color: var(--green);
+    background: var(--green);
+    color: #0e1613;
+  }
+
+  .button-primary {
+    color: #0e1613;
+  }
+
+  select,
+  input,
+  textarea {
+    color: var(--ink);
+  }
+}
+
+/* Print: the memo, without the editor, navigation or controls. */
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .app-header .header-actions,
+  .skip-link,
+  .load-notices,
+  .book-entry,
+  .editor-pane,
+  .review-nav,
+  .result-jump,
+  .toolbar-actions,
+  .stale-banner,
+  .app-footer,
+  .toast,
+  .role-review-disclosure,
+  .linked-questions,
+  .rewrite-detail,
+  .template-actions,
+  .easy-finding-foot .button {
+    display: none !important;
+  }
+
+  .workspace {
+    display: block;
+    padding: 0;
+  }
+
+  .results-pane {
+    border: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .easy-finding,
+  .finding-item,
+  .question-item {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+
+  details > summary::after {
+    display: none;
+  }
+
+  * {
+    animation: none !important;
+  }
+}
