@@ -20,7 +20,7 @@ import pytest
 
 from core import FairpostEngine, extractor
 from core.extractor import Section, split_sections
-from core.morph import find_matches
+from core.morph import find_first, find_matches
 
 
 def _spans(matches) -> list[tuple[int, int, str]]:
@@ -200,6 +200,23 @@ def test_evidence_line_equals_the_mark_list_definition() -> None:
         start = rng.randrange(0, len(text) + 1)
         end = rng.randrange(start, len(text) + 1)
         assert extractor._evidence_line(text, start, end) == _evidence_line_reference(text, start, end), (text, start, end)
+
+
+@pytest.mark.parametrize(
+    "candidate",
+    ["출신학교", "가족 같은 분위기", "가족", "1차 면접", "인터뷰", "북한이탈 주민", "탈북자", "재직 기간", "근속\n기간",
+     "키 175cm", "면접관", "", "x" * 1500 + "면접"],
+)
+def test_candidate_terms_equal_the_direct_tests(candidate: str) -> None:
+    expected = (
+        bool(find_first(candidate, extractor._SENSITIVE_CANDIDATE))
+        and not find_first(candidate, extractor._NOT_AN_INFORMATION_ITEM),
+        bool(find_first(candidate, ["면접", "인터뷰"])),
+        bool(find_first(candidate, ["북한이탈주민", "북한이탈 주민", "탈북자"])),
+        bool(find_first(candidate, ["재직 기간", "근속 기간"])),
+    )
+    for _ in range(2):  # the second call is served from the cache
+        assert extractor._candidate_terms(candidate) == expected
 
 
 def test_sections_that_do_not_tile_the_text_use_the_plain_scan() -> None:

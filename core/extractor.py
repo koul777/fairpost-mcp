@@ -859,15 +859,34 @@ def _protective_clause_governs(source: str, start: int, end: int) -> bool:
             and find_first(tail[:following.start()], _PROTECTIVE_DIRECT_GAP) is not None)
 
 
+_INTERVIEW_TERMS = ["면접", "인터뷰"]
+_DEFECTOR_TERMS = ["북한이탈주민", "북한이탈 주민", "탈북자"]
+_TENURE_TERMS = ["재직 기간", "근속 기간"]
+
+
+@_memoized_string_function
+def _candidate_terms(candidate: str) -> tuple[bool, bool, bool, bool]:
+    """(sensitive item, interview, defector, tenure): the candidate tests of
+    source_candidate_allowed, which rules repeat for the same matched text."""
+    return (
+        find_first(candidate, _SENSITIVE_CANDIDATE) is not None
+        and find_first(candidate, _NOT_AN_INFORMATION_ITEM) is None,
+        find_first(candidate, _INTERVIEW_TERMS) is not None,
+        find_first(candidate, _DEFECTOR_TERMS) is not None,
+        find_first(candidate, _TENURE_TERMS) is not None,
+    )
+
+
 def source_candidate_allowed(source: str, start: int, end: int, sections: list[Section], layer: str) -> bool:
     """Reject a context reversal while still considering later real candidates."""
-    line = _evidence_line(source, start, end)
-    candidate = source[start:end]
-    section = next((s for s in sections if s.start <= start < s.end), None)
-    if (find_first(candidate, _SENSITIVE_CANDIDATE) and not find_first(candidate, _NOT_AN_INFORMATION_ITEM)
-            and _protective_clause_governs(source, start, end)):
+    sensitive, interview, defector, tenure = _candidate_terms(source[start:end])
+    if sensitive and _protective_clause_governs(source, start, end):
         return False
-    if layer == "question" and find_first(candidate, ["면접", "인터뷰"]):
+    if layer != "question" or not (interview or defector or tenure):
+        return True
+    line = _evidence_line(source, start, end)
+    section = next((s for s in sections if s.start <= start < s.end), None)
+    if interview:
         if section is not None and _in_duty_block(section, start - section.start):
             return False
         if find_first(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"]):
@@ -876,7 +895,7 @@ def source_candidate_allowed(source: str, start: int, end: int, sections: list[S
         if (_bare_stage_match(source, start, end) and find_first(line, _DUTY_CONTEXT)
                 and not _hiring_context(line, section)):
             return False
-    if layer == "question" and find_first(candidate, ["북한이탈주민", "북한이탈 주민", "탈북자"]):
+    if defector:
         row_start = source.rfind("<tr", 0, start)
         row_end = source.find("</tr>", end)
         table_preference = False
@@ -886,7 +905,7 @@ def source_candidate_allowed(source: str, start: int, end: int, sections: list[S
         proof_only = find_first(line, ["등록확인서", "증명서"]) and not find_first(line, ["지원 불가", "채용 제외", "신원조회"])
         if (table_preference or proof_only or (section is not None and section.name == "우대사항")) and not find_first(line, ["제외", "불가", "제한", "신원조회"]):
             return False
-    if layer == "question" and find_first(candidate, ["재직 기간", "근속 기간"]):
+    if tenure:
         if find_first(line, ["형법", "범한 자", "벌금형", "선고받"]):
             return False
     return True
