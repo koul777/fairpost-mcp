@@ -114,6 +114,28 @@ JS_ONLY_CONSTANTS = frozenset(
         "CHAR_KNOWN",  # bit flags of the per-character state table
         "CHAR_KEEP_TEXT",
         "CHAR_KEEP_HEADING",
+        "NO_SCAN",  # marks a pattern whose scan was skipped because a required literal is missing
+        "SCAN_MEMO_MIN",  # shortest text whose per-pattern scans are kept with its views
+        # Wording lists that candidateUnits, contextAllowed and sourceCandidateAllowed
+        # wrote inline; hoisted so the pattern-list cache finds them by identity.
+        # Their contents are compared with core/extractor.py by the string-list tests.
+        "INTERVIEW_TEASERS",
+        "EXPERIENCE_TERMS",
+        "PARTICIPATION_TERMS",
+        "PAY_TERMS",
+        "EMERGENCY_CONTACT_TERMS",
+        "APPLICATION_FORM_TERMS",
+        "INQUIRY_TERMS",
+        "CONTACT_ASK_TERMS",
+        "DEFECTOR_TERMS",
+        "BONUS_ROW_TERMS",
+        "NO_ENTRY_TERMS",
+        "EXCLUSION_TERMS",
+        "CRIMINAL_TERMS",
+        "APPLICATION_PERIOD_TERMS",
+        "OPEN_ENDED_TERMS",
+        "CONTACT_RANK_TERMS",
+        "CRITERIA_RANK_TERMS",
     }
 )
 

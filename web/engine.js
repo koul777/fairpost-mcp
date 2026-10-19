@@ -438,6 +438,13 @@
   );
   const MORPH_TARGET = new Map(MORPH_REWRITES);
 
+  // Built here, not where the view-building loops run: a hot loop that is
+  // compiled before one of its literals has run deoptimizes at that literal
+  // over and over.
+  function makeView(normalized, starts, ends, identity) {
+    return { normalized, starts, ends, identity };
+  }
+
   function morphTextWithOffsets(text) {
     const cached = cacheGet(MORPH_CACHE, text);
     if (cached !== undefined) return cached;
@@ -445,7 +452,7 @@
     let match = MORPH_SOURCE.exec(text);
     let result;
     if (match === null) {
-      result = { normalized: text, starts: null, ends: null, identity: true };
+      result = makeView(text, null, null, true);
     } else {
       const pieces = [];
       const rewrites = [];
@@ -480,7 +487,7 @@
         starts[out] = position;
         ends[out] = position + 1;
       }
-      result = { normalized, starts, ends, identity: false };
+      result = makeView(normalized, starts, ends, false);
     }
     cacheSet(MORPH_CACHE, text, result);
     return result;
@@ -496,12 +503,20 @@
   // them) are rewritten one at a time: zero-width characters are dropped,
   // "\r"/"\n"/"\t" kept, other Python whitespace becomes " ", and everything
   // else becomes its own per-character NFKC form.
+  // A run of code units the rewrite below always keeps: printable ASCII, line
+  // and tab characters, Hangul syllables, CJK ideographs and some common
+  // punctuation. None is a surrogate, zero-width, other whitespace or changed
+  // by NFKC, so one native scan replaces the check of each unit.
+  const KEPT_RUN = /[\n\r\t\x20-\x7e\u00b7\u2013\u2014\u2018-\u201d\u2022\u203b\u2192\u25a0-\u25ff\u3001\u3002\u300c-\u3011\u4e00-\u9fff\uac00-\ud7a3]*/y;
+
   function normalizedTextWithOffsets(text) {
     const cached = cacheGet(NORMALIZED_CACHE, text);
     if (cached !== undefined) return cached;
     const length = text.length;
     // Fast scan: stop at the first code point the rewrite would change.
-    let index = 0;
+    KEPT_RUN.lastIndex = 0;
+    KEPT_RUN.test(text);
+    let index = KEPT_RUN.lastIndex;
     let astral = false;
     while (index < length) {
       const code = text.charCodeAt(index);
@@ -517,7 +532,7 @@
     }
     let result;
     if (index === length && !astral) {
-      result = { normalized: text, starts: null, ends: null, identity: true };
+      result = makeView(text, null, null, true);
     } else {
       // Build the rewritten text, then the offsets of each of its code units.
       // A surrogate pair is one code point whose units both map to [i, i + 2).
@@ -550,7 +565,7 @@
         }
         cursor += width;
       }
-      result = { normalized, starts, ends, identity: false };
+      result = makeView(normalized, starts, ends, false);
     }
     cacheSet(NORMALIZED_CACHE, text, result);
     return result;
@@ -579,7 +594,7 @@
     } else if (base.identity) {
       // base.starts[i] === i and base.ends[i - 1] === i, so composing with
       // an identity base leaves the morph offsets as they are.
-      result = { normalized: morph.normalized, starts: morph.starts, ends: morph.ends, identity: false };
+      result = makeView(morph.normalized, morph.starts, morph.ends, false);
     } else {
       const starts = new Int32Array(morph.starts.length);
       const ends = new Int32Array(morph.ends.length);
@@ -587,7 +602,7 @@
         starts[index] = base.starts[morph.starts[index]];
         ends[index] = base.ends[morph.ends[index] - 1];
       }
-      result = { normalized: morph.normalized, starts, ends, identity: false };
+      result = makeView(morph.normalized, starts, ends, false);
     }
     cacheSet(MATCH_CACHE, text, result);
     return result;
@@ -621,6 +636,7 @@
         source,
         normalizedTarget,
         matchedTarget,
+        scans: null,
       };
       cacheSet(TEXT_VIEWS_CACHE, text, views);
     }
@@ -857,6 +873,14 @@
     return chunks.filter((chunk) => CASELESS_CHUNK.test(chunk));
   }
 
+  // The text of a literal pattern that is a single caseless chunk (no
+  // whitespace): its regex matches exactly where indexOf finds the text.
+  function singleChunk(pattern) {
+    if (pattern.startsWith("re:")) return null;
+    const chunks = pattern.normalize("NFC").split(PYTHON_WHITESPACE_RUN);
+    return chunks.length === 1 && CASELESS_CHUNK.test(chunks[0]) ? chunks[0] : null;
+  }
+
   function patternPlan(pattern) {
     let plan = PATTERN_PLAN_CACHE.get(pattern);
     if (plan === undefined) {
@@ -870,73 +894,232 @@
       // view; a literal's match-view regex has its own (_match_view_plan).
       const textRequired = isRegex ? conditions.required : requiredLiterals(pattern);
       const viewRequired = isRegex ? conditions.required : requiredLiterals(normalizedPattern);
-      plan = { isRegex, regex, normalizedRegex, ...conditions, textRequired, viewRequired };
+      const literal = singleChunk(pattern);
+      const viewLiteral = literal === null ? null : singleChunk(normalizedPattern);
+      plan = { pattern, isRegex, regex, normalizedRegex, ...conditions, textRequired, viewRequired, literal, viewLiteral };
       if (PATTERN_PLAN_CACHE.size >= 4096) PATTERN_PLAN_CACHE.clear();
       PATTERN_PLAN_CACHE.set(pattern, plan);
     }
     return plan;
   }
 
+  // What one pattern finds in a text, as match objects with source offsets:
+  // the source scan first, then the scan of the searched view, a span listed
+  // once. NO_SCAN: no regex ran because a required literal is missing.
+  const NO_SCAN = [];
+
+  function scanPattern(text, views, plan) {
+    let found = NO_SCAN;
+    let match;
+    // Every use of a shared global regex starts from 0, even when rejected.
+    if (plan.isRegex) plan.regex.lastIndex = 0;
+    // A pattern is only scanned when the text holds its required literals.
+    // Matches of one global scan never repeat a span.
+    if (!(plan.isRegex && views.normalizedDiffers) && admits(views.source, plan.textRequired, plan.requiredAnyOf)) {
+      found = [];
+      const literal = plan.literal;
+      if (literal !== null) {
+        for (let at = text.indexOf(literal); at !== -1; at = text.indexOf(literal, at + literal.length)) {
+          found.push({ start: at, end: at + literal.length, text: literal });
+        }
+      } else {
+        const regex = plan.regex;
+        regex.lastIndex = 0;
+        while ((match = regex.exec(text)) !== null) {
+          const start = match.index;
+          found.push({ start, end: start + match[0].length, text: match[0] });
+          if (match[0].length === 0) regex.lastIndex += 1;
+        }
+      }
+    }
+    let searchView;
+    let searchTarget;
+    if (plan.isRegex) {
+      if (!views.normalizedDiffers) return found;
+      searchView = views.normalized;
+      searchTarget = views.normalizedTarget;
+    } else {
+      if (!views.matchDiffers) return found;
+      searchView = views.matched;
+      searchTarget = views.matchedTarget;
+    }
+    // Keep regex exclusions on the same NFKC/zero-width-normalized view as
+    // literal candidates so protective wording cannot become a false
+    // positive merely because it contains compatibility or invisible text.
+    // (plan.normalizedRegex is built from matchPlain(pattern) for literals.)
+    if (!admits(searchTarget, plan.viewRequired, plan.requiredAnyOf)) return found;
+    // A view match is kept unless the source scan listed its span.
+    const spanBase = text.length + 1;
+    const seen = new Set();
+    if (found === NO_SCAN) found = [];
+    else for (let index = 0; index < found.length; index += 1) seen.add(found[index].start * spanBase + found[index].end);
+    const view = searchView.normalized;
+    const starts = searchView.starts;
+    const ends = searchView.ends;
+    const viewLiteral = plan.viewLiteral;
+    if (viewLiteral !== null) {
+      for (let at = view.indexOf(viewLiteral); at !== -1; at = view.indexOf(viewLiteral, at + viewLiteral.length)) {
+        const start = starts[at];
+        const end = ends[at + viewLiteral.length - 1];
+        const key = start * spanBase + end;
+        if (!seen.has(key)) {
+          found.push({ start, end, text: text.slice(start, end) });
+          seen.add(key);
+        }
+      }
+      return found;
+    }
+    const normalizedRegex = plan.normalizedRegex;
+    normalizedRegex.lastIndex = 0;
+    while ((match = normalizedRegex.exec(view)) !== null) {
+      if (match[0].length === 0) {
+        normalizedRegex.lastIndex += 1;
+        continue;
+      }
+      const start = starts[match.index];
+      const end = ends[match.index + match[0].length - 1];
+      const key = start * spanBase + end;
+      if (!seen.has(key)) {
+        found.push({ start, end, text: text.slice(start, end) });
+        seen.add(key);
+      }
+    }
+    return found;
+  }
+
+  // Scans of a text this long are kept with its views: the rules and slots
+  // repeat patterns, and one text (the posting) is scanned for all of them.
+  const SCAN_MEMO_MIN = 256;
+
+  // --- pattern lists ----------------------------------------------------------
+  // A list of patterns that is scanned again and again (a rule's triggers, a
+  // slot's accept patterns) keeps its plans, resolved once, and a gate: for
+  // each pattern one literal it needs, so that a text holding none of them
+  // (as source, normalized or matched string, whichever the pattern scans)
+  // is answered with no match for the whole list.
+  const PATTERN_LISTS = new WeakMap();
+
+  // The literal, or any-of group of literals, that a pattern's scan needs.
+  function requirementOf(required, requiredAnyOf) {
+    if (required.length) return required.reduce((best, item) => (item.length > best.length ? item : best));
+    if (requiredAnyOf.length) return requiredAnyOf.reduce((best, group) => (group.length < best.length ? group : best));
+    return null;
+  }
+
+  function addRequirement(requirements, requirement) {
+    const key = typeof requirement === "string" ? requirement : JSON.stringify(requirement);
+    if (!requirements.some((item) => (typeof item === "string" ? item : JSON.stringify(item)) === key)) {
+      requirements.push(requirement);
+    }
+  }
+
+  function buildGate(plans) {
+    const gate = { source: [], matched: [], normalized: [], matchOpen: false, normalizedOpen: false };
+    for (let index = 0; index < plans.length; index += 1) {
+      const plan = plans[index];
+      const text = requirementOf(plan.textRequired, plan.requiredAnyOf);
+      if (text === null) return null;
+      addRequirement(gate.source, text);
+      const view = requirementOf(plan.viewRequired, plan.requiredAnyOf);
+      if (plan.isRegex) {
+        if (view === null) gate.normalizedOpen = true;
+        else addRequirement(gate.normalized, view);
+      } else if (view === null) {
+        gate.matchOpen = true;
+      } else {
+        addRequirement(gate.matched, view);
+      }
+    }
+    return gate;
+  }
+
+  function patternList(patterns) {
+    let list = PATTERN_LISTS.get(patterns);
+    if (list !== undefined) {
+      // A list is looked up by its array: check that it is still the same patterns.
+      const plans = list.plans;
+      let same = plans.length === patterns.length;
+      for (let index = 0; same && index < plans.length; index += 1) {
+        same = plans[index].pattern === patterns[index];
+      }
+      if (same) return list;
+    }
+    const plans = patterns.map(patternPlan);
+    list = { plans, gate: buildGate(plans) };
+    PATTERN_LISTS.set(patterns, list);
+    return list;
+  }
+
+  function holds(target, requirement) {
+    if (typeof requirement === "string") return targetIncludes(target, requirement);
+    for (let index = 0; index < requirement.length; index += 1) {
+      if (targetIncludes(target, requirement[index])) return true;
+    }
+    return false;
+  }
+
+  // False when no pattern of the gated list can find anything in the text.
+  function gateAdmits(gate, views) {
+    for (let index = 0; index < gate.source.length; index += 1) {
+      if (holds(views.source, gate.source[index])) return true;
+    }
+    if (views.matchDiffers) {
+      if (gate.matchOpen) return true;
+      for (let index = 0; index < gate.matched.length; index += 1) {
+        if (holds(views.matchedTarget, gate.matched[index])) return true;
+      }
+    }
+    if (views.normalizedDiffers) {
+      if (gate.normalizedOpen) return true;
+      for (let index = 0; index < gate.normalized.length; index += 1) {
+        if (holds(views.normalizedTarget, gate.normalized[index])) return true;
+      }
+    }
+    return false;
+  }
+
+  // The plans of `patterns`, or null when the list is gated and `views` fail it.
+  function plansFor(patterns, views) {
+    if (patterns.length < 3) return patterns.map(patternPlan);
+    const list = patternList(patterns);
+    return list.gate !== null && !gateAdmits(list.gate, views) ? null : list.plans;
+  }
+
   function findMatches(text, patterns) {
+    const views = textViews(text);
+    const plans = plansFor(patterns, views);
+    return plans === null ? [] : matchPlans(text, views, plans);
+  }
+
+  function matchPlans(text, views, plans) {
     const matches = [];
     // Keyed by span, as in _collect_matches: item.text is always
     // text.slice(start, end), so the span alone identifies a duplicate.
     let seen = null;
     const spanBase = text.length + 1;
-    const views = textViews(text);
-    const normalizedView = views.normalized;
-    const matchView = views.matched;
-    const needsMatchView = views.matchDiffers;
-    const normalizedChanged = views.normalizedDiffers;
-    for (let index = 0; index < patterns.length; index += 1) {
-      const plan = patternPlan(patterns[index]);
-      const isRegex = plan.isRegex;
-      const regex = plan.regex;
-      regex.lastIndex = 0;
-      let match;
-      // A pattern is only scanned when the text holds its required literals.
-      if (!(isRegex && normalizedChanged) && admits(views.source, plan.textRequired, plan.requiredAnyOf)) {
-        while ((match = regex.exec(text)) !== null) {
-          const start = match.index;
-          const end = start + match[0].length;
-          const key = start * spanBase + end;
-          if (seen === null) seen = new Set();
-          if (!seen.has(key)) {
-            matches.push({ start, end, text: match[0] });
-            seen.add(key);
-          }
-          if (match[0].length === 0) regex.lastIndex += 1;
-        }
-      }
-      let searchView;
-      let searchTarget;
-      if (isRegex) {
-        if (!normalizedChanged) continue;
-        searchView = normalizedView;
-        searchTarget = views.normalizedTarget;
+    let memo = null;
+    if (text.length >= SCAN_MEMO_MIN) {
+      memo = views.scans;
+      if (memo === null) memo = views.scans = new Map();
+    }
+    for (let index = 0; index < plans.length; index += 1) {
+      const plan = plans[index];
+      let found;
+      if (memo === null) {
+        found = scanPattern(text, views, plan);
       } else {
-        if (!needsMatchView) continue;
-        searchView = matchView;
-        searchTarget = views.matchedTarget;
-      }
-      // Keep regex exclusions on the same NFKC/zero-width-normalized view as
-      // literal candidates so protective wording cannot become a false
-      // positive merely because it contains compatibility or invisible text.
-      // (plan.normalizedRegex is built from matchPlain(pattern) for literals.)
-      const normalizedRegex = plan.normalizedRegex;
-      normalizedRegex.lastIndex = 0;
-      if (!admits(searchTarget, plan.viewRequired, plan.requiredAnyOf)) continue;
-      while ((match = normalizedRegex.exec(searchView.normalized)) !== null) {
-        if (match[0].length === 0) {
-          normalizedRegex.lastIndex += 1;
-          continue;
+        found = memo.get(plan);
+        if (found === undefined) {
+          found = scanPattern(text, views, plan);
+          if (found !== NO_SCAN) memo.set(plan, found);
         }
-        const start = searchView.starts[match.index];
-        const end = searchView.ends[match.index + match[0].length - 1];
-        const key = start * spanBase + end;
+      }
+      for (let item = 0; item < found.length; item += 1) {
+        const match = found[item];
+        const key = match.start * spanBase + match.end;
         if (seen === null) seen = new Set();
         if (!seen.has(key)) {
-          matches.push({ start, end, text: text.slice(start, end) });
+          matches.push(match);
           seen.add(key);
         }
       }
@@ -1076,7 +1259,27 @@
     return aliasCanonical.has(compact) ? aliasCanonical.get(compact) : null;
   }
 
+  // A heading keeps at most 30 code points once its decoration is stripped.
+  // The decoration never holds a Hangul syllable, ASCII letter or CJK
+  // ideograph, and NFKC leaves those as they are, so a line with more than 30
+  // of them is no heading (counted by code unit, stopping at the 31st).
+  function hasManyLetters(line) {
+    let letters = 0;
+    for (let index = 0; index < line.length; index += 1) {
+      const code = line.charCodeAt(index);
+      if (
+        (code >= 0xac00 && code <= 0xd7a3) || (code >= 0x61 && code <= 0x7a) ||
+        (code >= 0x41 && code <= 0x5a) || (code >= 0x4e00 && code <= 0x9fff)
+      ) {
+        letters += 1;
+        if (letters > 30) return true;
+      }
+    }
+    return false;
+  }
+
   function headingName(line) {
+    if (line.length > 30 && hasManyLetters(line)) return null;
     const cached = HEADING_NAME_CACHE.get(line);
     if (cached !== undefined) return cached;
     return memoSet(HEADING_NAME_CACHE, line, uncachedHeadingName(line));
@@ -1247,6 +1450,7 @@
   // Keep identical to _DEFERRED_BODY in core/extractor.py (see the comment there).
   const DEFERRED_BODY = ["re:^(?:(?:추후|차후|나중에|미정)[^\\n]*|(?![^\\n]*(?:(?:19|20)\\d{2}\\s*[./-]\\s*\\d{1,2}|\\d{1,2}\\s*[./]\\s*\\d{1,2}|\\d{1,4}\\s*(?:년|월|일|시|주)|\\d[\\d,.]{0,15}\\s*(?:[천백만억]\\s*)*원))(?:(?:별도|상세|예정)[^\\n]*(?:안내|공지|협의|예정|미정|문의|통보|참조|확인)[^\\n]*|예정[^\\n]{0,12}|별도|상세))$"];
   const DATE_CONTENT = ["re:\\d{1,4}[./-]\\d{1,2}|(?:19|20)\\d{2}\\s*[./-]\\s*\\d{1,2}","re:\\d+\\s*(?:년|월|일|시|주)","상시","수시", "채용시까지", "채용 시까지"];
+  const DATE_NUMERIC_TERMS = DATE_CONTENT.slice(0, 2);
   const STAGE_EVENTS = ["서류전형","면접전형","필기전형","서류접수","직무 인터뷰","실무 인터뷰","화상 인터뷰","문화적합성 인터뷰","코딩테스트","코딩 테스트","AI 역량검사","AI 면접","서류 전형","면접 전형","필기 전형", "AI 사전면접", "AI 자기소개서 평가", "서류 검토", "AI 영상면접", "서류 심사", "면접 심사", "면접 시험"];
   // Keep identical to _BARE_STAGE_TERMS, _STAGE_SECTIONS, _STAGE_MARKERS,
   // _LINE_MARKER and _SENTENCE_END in core/extractor.py.
@@ -1261,6 +1465,25 @@
   );
   const SENTENCE_END = ".!?。다요음함임";
   const DUTY_BLOCK_CACHE = new Map();
+  // Lists of three or more patterns are cached by array identity (patternList),
+  // so the ones used on hot paths are built once here, not at each call.
+  const INTERVIEW_TEASERS = ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"];
+  const EXPERIENCE_TERMS = ["경험", "경력", "설계", "연구", "개발", "운영"];
+  const PARTICIPATION_TERMS = ["지원자", "응시자", "채용 과정", "전형 절차", "실시", "참여", "진행"];
+  const PAY_TERMS = ["급여", "보수", "연봉", "월급", "시급", "임금"];
+  const EMERGENCY_CONTACT_TERMS = ["비상연락처", "본인휴대폰", "본인 연락처"];
+  const APPLICATION_FORM_TERMS = ["지원서", "입사지원", "개인정보", "인적사항", "기재", "등록"];
+  const INQUIRY_TERMS = ["문의", "담당 부서", "채용팀", "인사팀"];
+  const CONTACT_ASK_TERMS = ["문의", "연락", "전화", "담당 부서"];
+  const DEFECTOR_TERMS = ["북한이탈주민", "북한이탈 주민", "탈북자"];
+  const BONUS_ROW_TERMS = ["가산점", "가점", "re:만점의\\s*\\d+%", "re:점수\\s*만점의\\s*\\d+%"];
+  const NO_ENTRY_TERMS = ["지원 불가", "채용 제외", "신원조회"];
+  const EXCLUSION_TERMS = ["제외", "불가", "제한", "신원조회"];
+  const CRIMINAL_TERMS = ["형법", "범한 자", "벌금형", "선고받"];
+  const APPLICATION_PERIOD_TERMS = ["접수 기간", "공고 기간", "모집 기간"];
+  const OPEN_ENDED_TERMS = ["채용시까지", "채용 시까지", "상시모집", "상시 모집"];
+  const CONTACT_RANK_TERMS = ["문의", "담당 부서", "인사팀", "채용팀"];
+  const CRITERIA_RANK_TERMS = ["평가 항목", "배점", "평가 기준"];
   const ATTACHMENT_SUFFIX = pythonRegex("\\.(?:pdf|hwpx?|hml|docx?|zip)\\s*$", "iu");
 
   function lineBounds(text, start, end) {
@@ -1403,22 +1626,35 @@
 
   function contextAllowed(slotId, line, section, offset) {
     if (slotId !== "qualification_rationale" && inDutyBlock(section, offset)) return false;
-    if (slotId === "selection_stages" && findFirst(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"])) return false;
+    if (slotId === "selection_stages" && findFirst(line, INTERVIEW_TEASERS)) return false;
     if (["ai_disclosure", "evaluation_criteria", "selection_stages"].includes(slotId)) {
-      if (["자격요건", "우대사항"].includes(section.name) && findFirst(line, ["경험", "경력", "설계", "연구", "개발", "운영"]) && !findFirst(line, ["지원자", "응시자", "채용 과정", "전형 절차", "실시", "참여", "진행"])) return false;
+      if (["자격요건", "우대사항"].includes(section.name) && findFirst(line, EXPERIENCE_TERMS) && !findFirst(line, PARTICIPATION_TERMS)) return false;
       if (findFirst(line, DUTY_CONTEXT) && !hiringContext(line, section)) return false;
     }
     if (slotId === "qualification_rationale" && ATTACHMENT_SUFFIX.test(line)) return false;
-    if (slotId === "compensation" && line.includes("유지보수") && !findFirst(line.replaceAll("유지보수", ""), ["급여", "보수", "연봉", "월급", "시급", "임금"])) return false;
+    if (slotId === "compensation" && line.includes("유지보수") && !findFirst(line.replaceAll("유지보수", ""), PAY_TERMS)) return false;
     if (slotId === "contact_point") {
-      if (findFirst(line, ["비상연락처", "본인휴대폰", "본인 연락처"])) return false;
-      if (findFirst(line, ["지원서", "입사지원", "개인정보", "인적사항", "기재", "등록"]) && !findFirst(line, ["문의", "담당 부서", "채용팀", "인사팀"])) return false;
+      if (findFirst(line, EMERGENCY_CONTACT_TERMS)) return false;
+      if (findFirst(line, APPLICATION_FORM_TERMS) && !findFirst(line, INQUIRY_TERMS)) return false;
     }
     if (slotId === "contact_point" && section.name !== "문의처") {
-      if (findFirst(line, CONTACT_NON_CHANNEL) && !findFirst(line, ["문의", "연락", "전화", "담당 부서"])) return false;
+      if (findFirst(line, CONTACT_NON_CHANNEL) && !findFirst(line, CONTACT_ASK_TERMS)) return false;
       if (!findFirst(line, CONTACT_CONTEXT)) return false;
     }
     return true;
+  }
+
+  // The patterns that make a label's body count, per slot definition.
+  const SUPPORT_LISTS = new WeakMap();
+
+  function supportPatterns(definition, slotId) {
+    let lists = SUPPORT_LISTS.get(definition);
+    if (lists === undefined) {
+      const base = [...(definition.accept_patterns || []), ...(definition.components || []).flatMap((c) => c.patterns || [])];
+      lists = { base, schedule: [...base, ...DATE_CONTENT] };
+      SUPPORT_LISTS.set(definition, lists);
+    }
+    return slotId === "schedule" ? lists.schedule : lists.base;
   }
 
   // Mirrors _label_body_unit: the body a label line anchors, or null.
@@ -1442,21 +1678,19 @@
     }
     if (!bodyParts.length) return null;
     const body = bodyParts.join("\n");
-    const support = [...(definition.accept_patterns || []), ...(definition.components || []).flatMap((c) => c.patterns || [])];
-    if (slotId === "schedule") support.push(...DATE_CONTENT);
-    if (!findFirst(body, support) && !(["preference_items", "evaluation_criteria"].includes(slotId) && Array.from(trimPythonWhitespace(body)).length >= 4)) return null;
+    if (!findFirst(body, supportPatterns(definition, slotId)) && !(["preference_items", "evaluation_criteria"].includes(slotId) && Array.from(trimPythonWhitespace(body)).length >= 4)) return null;
     if (!contextAllowed(slotId, body, section, offset)) return null;
     return {start:bodyStart, end, context:line + "\n" + body};
   }
 
-  function candidateUnits(section, definition, slotId) {
+  function candidateUnits(section, definition, slotId, plans) {
     const units = [];
     // Matches on one line share the same line string, so the per-line
     // caches and views find it by identity instead of rehashing a copy.
     let lineLeft = -1;
     let lineRight = -1;
     let line = "";
-    for (const match of findMatches(section.text, definition.accept_patterns || [])) {
+    for (const match of plans.length === 0 ? [] : matchPlans(section.text, textViews(section.text), plans)) {
       const [left, right] = lineBounds(section.text, match.start, match.end);
       if (left !== lineLeft || right !== lineRight) {
         lineLeft = left;
@@ -1488,6 +1722,7 @@
   // each distinct context is checked once; the evidence line is built only
   // for the schedule check that reads it.
   function componentPresent(slotId, component, contexts) {
+    if (contexts.length === 0) return false;
     return [...new Set(contexts)].some((context) => findMatches(context, component.patterns || []).some((match) => {
       if (slotId === "schedule" && ["application_date", "assessment_date"].includes(component.id) && !findFirst(evidenceLine(context, match.start, match.end), DATE_CONTENT)) {
         const [left, right] = lineBounds(context, match.start, match.end);
@@ -1647,49 +1882,102 @@
     return Boolean(following) && following.start < requirement.start && Boolean(findFirst(tail.slice(0, following.start), PROTECTIVE_DIRECT_GAP));
   }
 
+  // What sourceCandidateAllowed asks of a candidate's own text; the same few
+  // texts come up for every rule that matches them.
+  const CANDIDATE_TRAIT_CACHE = viewCache(512);
+
+  function candidateTraits(text) {
+    let traits = cacheGet(CANDIDATE_TRAIT_CACHE, text);
+    if (traits === undefined) {
+      traits = {
+        sensitive: Boolean(findFirst(text, SENSITIVE_CANDIDATE)) && !findFirst(text, NOT_AN_INFORMATION_ITEM),
+        interview: Boolean(findFirst(text, ["면접", "인터뷰"])),
+        defector: Boolean(findFirst(text, DEFECTOR_TERMS)),
+        tenure: Boolean(findFirst(text, ["재직 기간", "근속 기간"])),
+      };
+      cacheSet(CANDIDATE_TRAIT_CACHE, text, traits);
+    }
+    return traits;
+  }
+
   function sourceCandidateAllowed(source, match, sections, layer) {
+    const traits = candidateTraits(match.text);
+    if (traits.sensitive && protectiveClauseGoverns(source, match)) return false;
+    // Only the question checks below read the evidence line and the section.
+    if (layer !== "question" || !(traits.interview || traits.defector || traits.tenure)) return true;
     const line = evidenceLine(source, match.start, match.end);
     const section = sections.find((s) => s.start <= match.start && match.start < s.end);
-    if (findFirst(match.text, SENSITIVE_CANDIDATE) && !findFirst(match.text, NOT_AN_INFORMATION_ITEM) && protectiveClauseGoverns(source, match)) return false;
-    if (layer === "question" && findFirst(match.text, ["면접", "인터뷰"])) {
+    if (traits.interview) {
       if (section && inDutyBlock(section, match.start - section.start)) return false;
-      if (findFirst(line, ["인터뷰 자세히", "인터뷰 보기", "팀원 인터뷰", "현직자 인터뷰"])) return false;
+      if (findFirst(line, INTERVIEW_TEASERS)) return false;
       if (bareStageMatch(source, match.start, match.end) && findFirst(line, DUTY_CONTEXT) && !hiringContext(line, section)) return false;
     }
-    if (layer === "question" && findFirst(match.text, ["북한이탈주민", "북한이탈 주민", "탈북자"])) {
+    if (traits.defector) {
       const rowStart = source.lastIndexOf("<tr", match.start);
       const rowEnd = source.indexOf("</tr>", match.end);
       let tablePreference = false;
       if (rowStart >= 0 && rowEnd >= 0 && !source.slice(rowStart, match.start).includes("</tr>") && codePointLength(source.slice(rowStart, rowEnd)) < 1800) {
         const row = source.slice(rowStart, rowEnd).replace(/<[^>]+>/gu, "");
-        tablePreference = Boolean(findFirst(row, ["가산점", "가점", "re:만점의\\s*\\d+%", "re:점수\\s*만점의\\s*\\d+%"])) && !findFirst(row, ["지원 불가", "채용 제외", "신원조회"]);
+        tablePreference = Boolean(findFirst(row, BONUS_ROW_TERMS)) && !findFirst(row, NO_ENTRY_TERMS);
       }
-      const proofOnly = findFirst(line, ["등록확인서", "증명서"]) && !findFirst(line, ["지원 불가", "채용 제외", "신원조회"]);
-      if ((tablePreference || proofOnly || section?.name === "우대사항") && !findFirst(line, ["제외", "불가", "제한", "신원조회"])) return false;
+      const proofOnly = findFirst(line, ["등록확인서", "증명서"]) && !findFirst(line, NO_ENTRY_TERMS);
+      if ((tablePreference || proofOnly || section?.name === "우대사항") && !findFirst(line, EXCLUSION_TERMS)) return false;
     }
-    if (layer === "question" && findFirst(match.text, ["재직 기간", "근속 기간"]) && findFirst(line, ["형법", "범한 자", "벌금형", "선고받"])) return false;
+    if (traits.tenure && findFirst(line, CRIMINAL_TERMS)) return false;
     return true;
   }
 
   function candidateRank(slotId, context) {
     const plain = context.replace(/<[^>]+>/gu, "");
     if (slotId === "schedule") {
-      const numeric = Boolean(findFirst(context, DATE_CONTENT.slice(0, 2)));
-      const period = Boolean(findFirst(context, ["접수 기간", "공고 기간", "모집 기간"]));
-      return [(numeric && period) || findFirst(context, ["채용시까지", "채용 시까지"]) ? 2 : Number(numeric), Number(Boolean(findFirst(context, ["채용시까지", "채용 시까지", "상시모집", "상시 모집"])) )];
+      const numeric = Boolean(findFirst(context, DATE_NUMERIC_TERMS));
+      const period = Boolean(findFirst(context, APPLICATION_PERIOD_TERMS));
+      return [(numeric && period) || findFirst(context, ["채용시까지", "채용 시까지"]) ? 2 : Number(numeric), Number(Boolean(findFirst(context, OPEN_ENDED_TERMS)) )];
     }
     if (slotId === "selection_stages") return [Number(/[→>▶]/u.test(plain)), new Set(findMatches(plain, STAGE_EVENTS).map((m) => m.text)).size];
-    if (slotId === "contact_point") return [Number(Boolean(findFirst(context, ["문의", "담당 부서", "인사팀", "채용팀"]))), 0];
-    if (slotId === "evaluation_criteria") return [Number(Boolean(findFirst(context, ["평가 항목", "배점", "평가 기준"]))), 0];
+    if (slotId === "contact_point") return [Number(Boolean(findFirst(context, CONTACT_RANK_TERMS))), 0];
+    if (slotId === "evaluation_criteria") return [Number(Boolean(findFirst(context, CRITERIA_RANK_TERMS))), 0];
     return [0, 0];
   }
 
+  // The plans of the accept patterns that can match anywhere in `text`. Every
+  // section is a run of whole lines of `text`: its source, normalized and
+  // matched strings are substrings of those of `text`, so a pattern whose
+  // required literals are missing from all three of them cannot match in any
+  // section either.
+  function plansPresent(views, patterns) {
+    const plans = patterns.length < 3 ? patterns.map(patternPlan) : patternList(patterns).plans;
+    let kept = null;
+    for (let index = 0; index < plans.length; index += 1) {
+      const plan = plans[index];
+      let present = admits(views.source, plan.textRequired, plan.requiredAnyOf);
+      if (!present) {
+        present = admits(plan.isRegex ? views.normalizedTarget : views.matchedTarget, plan.viewRequired, plan.requiredAnyOf);
+      }
+      if (present) {
+        if (kept !== null) kept.push(plan);
+      } else if (kept === null) {
+        kept = plans.slice(0, index);
+      }
+    }
+    return kept === null ? plans : kept;
+  }
+
   function extractSlots(text, sections, definitions) {
+    return extractSlotsIn(text, sections, definitions, false);
+  }
+
+  // `wholeLines`: the sections are the run of whole lines splitSections cuts
+  // `text` into, which patternsPresent relies on.
+  function extractSlotsIn(text, sections, definitions, wholeLines) {
+    const views = wholeLines ? textViews(text) : null;
     return Object.keys(definitions).sort().map((slotId) => {
       const definition = definitions[slotId];
+      const accept = definition.accept_patterns || [];
+      const plans = views === null ? accept.map(patternPlan) : plansPresent(views, accept);
       const preferred = sections.filter((s) => (definition.search_sections || []).includes(s.name));
       const searchOrder = preferred.concat(sections.filter((s) => !preferred.includes(s)));
-      const candidates = searchOrder.flatMap((section) => candidateUnits(section, definition, slotId).map((unit) => ({section, unit})));
+      const candidates = searchOrder.flatMap((section) => candidateUnits(section, definition, slotId, plans).map((unit) => ({section, unit})));
       const contexts = candidates.map((c) => c.unit.context);
       const componentsFound = (definition.components || []).filter((c) => componentPresent(slotId, c, contexts)).map((c) => c.id).sort();
       // As max(candidates, key=_candidate_rank): each candidate is ranked
@@ -1770,7 +2058,7 @@
     if (!data) throw new Error("fairpost 사전 번들을 찾을 수 없습니다.");
     const source = normalize(text);
     const sections = splitSections(source);
-    const slots = extractSlots(source, sections, data.slots);
+    const slots = extractSlotsIn(source, sections, data.slots, true);
     const slotsById = Object.fromEntries(slots.map((slot) => [slot.slot, slot]));
     const answers = savedAnswers || {};
     const findings = [];
