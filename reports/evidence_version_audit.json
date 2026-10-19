@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-18T17:49:09+09:00",
+  "checked_at": "2026-10-19T02:13:14+09:00",
   "historical_paths_skipped": [
     "reports/github_ci_audit-2026-10-13-extension.json",
     "reports/github_ci_audit-2026-10-13.json",
@@ -37,9 +37,9 @@
   "reports": [
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-807d4e5f351d4fe43ad2cf806adc946bf7d1ea4029bfa7bbfe899e2d33ddd29e",
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
       "expected_schema_version": null,
-      "expected_validation_source_fingerprint": "validation-058eaa7581aecdd1ae4ab12a5f68a669ff01bf54f161afe970d24758f0bd1794",
+      "expected_validation_source_fingerprint": "validation-e5853edd2ff5dd6ae88f97e17d1ab0fddba13cf11342e54fe811d3acc39a9d30",
       "matching_version": "match-2b470bfabfd83536",
       "matching_version_matches": true,
       "path": "reports/build_artifact-1h-candidate-2026-10-13.json",
@@ -65,9 +65,9 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-807d4e5f351d4fe43ad2cf806adc946bf7d1ea4029bfa7bbfe899e2d33ddd29e",
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
       "expected_schema_version": null,
-      "expected_validation_source_fingerprint": "validation-058eaa7581aecdd1ae4ab12a5f68a669ff01bf54f161afe970d24758f0bd1794",
+      "expected_validation_source_fingerprint": "validation-e5853edd2ff5dd6ae88f97e17d1ab0fddba13cf11342e54fe811d3acc39a9d30",
       "matching_version": "match-2b470bfabfd83536",
       "matching_version_matches": true,
       "path": "reports/build_artifact-2h-candidate-2026-10-13.json",
@@ -93,9 +93,9 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-807d4e5f351d4fe43ad2cf806adc946bf7d1ea4029bfa7bbfe899e2d33ddd29e",
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
       "expected_schema_version": null,
-      "expected_validation_source_fingerprint": "validation-058eaa7581aecdd1ae4ab12a5f68a669ff01bf54f161afe970d24758f0bd1794",
+      "expected_validation_source_fingerprint": "validation-e5853edd2ff5dd6ae88f97e17d1ab0fddba13cf11342e54fe811d3acc39a9d30",
       "matching_version": "match-fa5e6d7a5c7d2904",
       "matching_version_matches": false,
       "path": "reports/build_artifact-8h-candidate-2026-09-12.json",
@@ -123,9 +123,9 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-807d4e5f351d4fe43ad2cf806adc946bf7d1ea4029bfa7bbfe899e2d33ddd29e",
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
       "expected_schema_version": null,
-      "expected_validation_source_fingerprint": "validation-058eaa7581aecdd1ae4ab12a5f68a669ff01bf54f161afe970d24758f0bd1794",
+      "expected_validation_source_fingerprint": "validation-e5853edd2ff5dd6ae88f97e17d1ab0fddba13cf11342e54fe811d3acc39a9d30",
       "matching_version": "match-fa5e6d7a5c7d2904",
       "matching_version_matches": false,
       "path": "reports/build_artifact-v0.4-candidate-2026-10-03.json",
@@ -195,7 +195,207 @@
     },
     {
       "claims_current": false,
-      "expected_runtime_source_fingerprint": "runtime-807d4e5f351d4fe43ad2cf806adc946bf7d1ea4029bfa7bbfe899e2d33ddd29e",
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": null,
+      "matching_version_matches": null,
+      "path": "reports/distribution_audit-8h-2026-09-12-buildfix.json",
+      "ruleset_version": null,
+      "ruleset_version_matches": null,
+      "runtime_source_fingerprint_matches": false,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-9e00e68b905e239c6e4ad52b4811282a14a8507d5f9b23ca871b2995288cfbd3"
+      },
+      "schema_version": "fairpost-distribution-audit-v2",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "distribution_audit.json",
+      "stale_reasons": [
+        "runtime_source_fingerprint_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": null,
+      "matching_version_matches": null,
+      "path": "reports/distribution_audit-8h-2026-09-12-final.json",
+      "ruleset_version": null,
+      "ruleset_version_matches": null,
+      "runtime_source_fingerprint_matches": false,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-9e00e68b905e239c6e4ad52b4811282a14a8507d5f9b23ca871b2995288cfbd3"
+      },
+      "schema_version": "fairpost-distribution-audit-v2",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "distribution_audit.json",
+      "stale_reasons": [
+        "runtime_source_fingerprint_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": null,
+      "matching_version_matches": null,
+      "path": "reports/distribution_audit-8h-2026-09-12-handoff-final.json",
+      "ruleset_version": null,
+      "ruleset_version_matches": null,
+      "runtime_source_fingerprint_matches": false,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-9e00e68b905e239c6e4ad52b4811282a14a8507d5f9b23ca871b2995288cfbd3"
+      },
+      "schema_version": "fairpost-distribution-audit-v2",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "distribution_audit.json",
+      "stale_reasons": [
+        "runtime_source_fingerprint_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": null,
+      "matching_version_matches": null,
+      "path": "reports/distribution_audit-8h-2026-09-12-handoff-final2.json",
+      "ruleset_version": null,
+      "ruleset_version_matches": null,
+      "runtime_source_fingerprint_matches": false,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-9e00e68b905e239c6e4ad52b4811282a14a8507d5f9b23ca871b2995288cfbd3"
+      },
+      "schema_version": "fairpost-distribution-audit-v2",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "distribution_audit.json",
+      "stale_reasons": [
+        "runtime_source_fingerprint_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": null,
+      "matching_version_matches": null,
+      "path": "reports/distribution_audit-8h-2026-09-12-handoff-final3.json",
+      "ruleset_version": null,
+      "ruleset_version_matches": null,
+      "runtime_source_fingerprint_matches": false,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-9e00e68b905e239c6e4ad52b4811282a14a8507d5f9b23ca871b2995288cfbd3"
+      },
+      "schema_version": "fairpost-distribution-audit-v2",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "distribution_audit.json",
+      "stale_reasons": [
+        "runtime_source_fingerprint_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": null,
+      "matching_version_matches": null,
+      "path": "reports/distribution_audit-8h-2026-09-12-handoff-final4.json",
+      "ruleset_version": null,
+      "ruleset_version_matches": null,
+      "runtime_source_fingerprint_matches": false,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-9e00e68b905e239c6e4ad52b4811282a14a8507d5f9b23ca871b2995288cfbd3"
+      },
+      "schema_version": "fairpost-distribution-audit-v2",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "distribution_audit.json",
+      "stale_reasons": [
+        "runtime_source_fingerprint_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": null,
+      "matching_version_matches": null,
+      "path": "reports/distribution_audit-8h-2026-09-12-handoff.json",
+      "ruleset_version": null,
+      "ruleset_version_matches": null,
+      "runtime_source_fingerprint_matches": false,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-9e00e68b905e239c6e4ad52b4811282a14a8507d5f9b23ca871b2995288cfbd3"
+      },
+      "schema_version": "fairpost-distribution-audit-v2",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "distribution_audit.json",
+      "stale_reasons": [
+        "runtime_source_fingerprint_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": null,
+      "matching_version_matches": null,
+      "path": "reports/distribution_audit-8h-2026-09-12-release.json",
+      "ruleset_version": null,
+      "ruleset_version_matches": null,
+      "runtime_source_fingerprint_matches": false,
+      "runtime_source_fingerprints": {
+        "runtime_source_fingerprint": "runtime-9e00e68b905e239c6e4ad52b4811282a14a8507d5f9b23ca871b2995288cfbd3"
+      },
+      "schema_version": "fairpost-distribution-audit-v2",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "distribution_audit.json",
+      "stale_reasons": [
+        "runtime_source_fingerprint_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
       "expected_schema_version": null,
       "expected_validation_source_fingerprint": null,
       "matching_version": null,
@@ -220,7 +420,7 @@
     },
     {
       "claims_current": true,
-      "expected_runtime_source_fingerprint": "runtime-807d4e5f351d4fe43ad2cf806adc946bf7d1ea4029bfa7bbfe899e2d33ddd29e",
+      "expected_runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
       "expected_schema_version": "fairpost-distribution-audit-v2",
       "expected_validation_source_fingerprint": null,
       "matching_version": null,
@@ -230,7 +430,7 @@
       "ruleset_version_matches": null,
       "runtime_source_fingerprint_matches": true,
       "runtime_source_fingerprints": {
-        "runtime_source_fingerprint": "runtime-807d4e5f351d4fe43ad2cf806adc946bf7d1ea4029bfa7bbfe899e2d33ddd29e"
+        "runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b"
       },
       "schema_version": "fairpost-distribution-audit-v2",
       "schema_version_matches": true,
@@ -259,6 +459,126 @@
       "snapshot_of": null,
       "stale_reasons": [],
       "status": "current",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": null,
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": "match-fa5e6d7a5c7d2904",
+      "matching_version_matches": false,
+      "path": "reports/evidence_version_audit-8h-2026-09-12-handoff-final.json",
+      "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+      "ruleset_version_matches": false,
+      "runtime_source_fingerprint_matches": null,
+      "runtime_source_fingerprints": {},
+      "schema_version": "fairpost-evidence-version-audit-v1",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "evidence_version_audit.json",
+      "stale_reasons": [
+        "ruleset_version_mismatch",
+        "matching_version_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": null,
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": "match-fa5e6d7a5c7d2904",
+      "matching_version_matches": false,
+      "path": "reports/evidence_version_audit-8h-2026-09-12-handoff-final2.json",
+      "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+      "ruleset_version_matches": false,
+      "runtime_source_fingerprint_matches": null,
+      "runtime_source_fingerprints": {},
+      "schema_version": "fairpost-evidence-version-audit-v1",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "evidence_version_audit.json",
+      "stale_reasons": [
+        "ruleset_version_mismatch",
+        "matching_version_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": null,
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": "match-fa5e6d7a5c7d2904",
+      "matching_version_matches": false,
+      "path": "reports/evidence_version_audit-8h-2026-09-12-handoff.json",
+      "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+      "ruleset_version_matches": false,
+      "runtime_source_fingerprint_matches": null,
+      "runtime_source_fingerprints": {},
+      "schema_version": "fairpost-evidence-version-audit-v1",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "evidence_version_audit.json",
+      "stale_reasons": [
+        "ruleset_version_mismatch",
+        "matching_version_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": null,
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": "match-fa5e6d7a5c7d2904",
+      "matching_version_matches": false,
+      "path": "reports/evidence_version_audit-8h-2026-09-12-release.json",
+      "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+      "ruleset_version_matches": false,
+      "runtime_source_fingerprint_matches": null,
+      "runtime_source_fingerprints": {},
+      "schema_version": "fairpost-evidence-version-audit-v1",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "evidence_version_audit.json",
+      "stale_reasons": [
+        "ruleset_version_mismatch",
+        "matching_version_mismatch"
+      ],
+      "status": "stale",
+      "validation_source_fingerprint_matches": null,
+      "validation_source_fingerprints": {}
+    },
+    {
+      "claims_current": false,
+      "expected_runtime_source_fingerprint": null,
+      "expected_schema_version": null,
+      "expected_validation_source_fingerprint": null,
+      "matching_version": "match-fa5e6d7a5c7d2904",
+      "matching_version_matches": false,
+      "path": "reports/evidence_version_audit-8h-2026-09-12.json",
+      "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-6851e8d3a528",
+      "ruleset_version_matches": false,
+      "runtime_source_fingerprint_matches": null,
+      "runtime_source_fingerprints": {},
+      "schema_version": "fairpost-evidence-version-audit-v1",
+      "schema_version_matches": null,
+      "scope": "local",
+      "snapshot_of": "evidence_version_audit.json",
+      "stale_reasons": [
+        "ruleset_version_mismatch",
+        "matching_version_mismatch"
+      ],
+      "status": "stale",
       "validation_source_fingerprint_matches": null,
       "validation_source_fingerprints": {}
     },
@@ -434,12 +754,12 @@
       "validation_source_fingerprints": {}
     }
   ],
-  "reports_checked": 17,
+  "reports_checked": 30,
   "reports_current": 11,
-  "reports_snapshot_stale": 6,
+  "reports_snapshot_stale": 19,
   "reports_stale": 0,
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
-  "runtime_source_fingerprint": "runtime-807d4e5f351d4fe43ad2cf806adc946bf7d1ea4029bfa7bbfe899e2d33ddd29e",
+  "runtime_source_fingerprint": "runtime-a14d4897349236dc0dc6e3e57c359cf0c8e13b21af3d7c939b52b12842d9c78b",
   "schema_version": "fairpost-evidence-version-audit-v1",
   "scope": "local",
   "stale_paths": [],
@@ -448,7 +768,20 @@
     "reports/build_artifact-2h-candidate-2026-10-13.json",
     "reports/build_artifact-8h-candidate-2026-09-12.json",
     "reports/build_artifact-v0.4-candidate-2026-10-03.json",
+    "reports/distribution_audit-8h-2026-09-12-buildfix.json",
+    "reports/distribution_audit-8h-2026-09-12-final.json",
+    "reports/distribution_audit-8h-2026-09-12-handoff-final.json",
+    "reports/distribution_audit-8h-2026-09-12-handoff-final2.json",
+    "reports/distribution_audit-8h-2026-09-12-handoff-final3.json",
+    "reports/distribution_audit-8h-2026-09-12-handoff-final4.json",
+    "reports/distribution_audit-8h-2026-09-12-handoff.json",
+    "reports/distribution_audit-8h-2026-09-12-release.json",
     "reports/distribution_audit-8h-final.json",
+    "reports/evidence_version_audit-8h-2026-09-12-handoff-final.json",
+    "reports/evidence_version_audit-8h-2026-09-12-handoff-final2.json",
+    "reports/evidence_version_audit-8h-2026-09-12-handoff.json",
+    "reports/evidence_version_audit-8h-2026-09-12-release.json",
+    "reports/evidence_version_audit-8h-2026-09-12.json",
     "reports/evidence_version_audit-8h-final.json"
   ]
 }

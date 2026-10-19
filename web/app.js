@@ -1426,25 +1426,49 @@
     }
   }
 
+  // Engine offsets count code points; String#slice and the field's selection
+  // count UTF-16 code units. The two differ only after a character outside
+  // the BMP, so a posting without one needs no conversion, and any other
+  // posting is mapped in one pass instead of one pass per offset.
+  let codeUnitOffsets = { text: null, units: null };
+
   function codePointsToCodeUnits(text, codePointOffset) {
-    return Array.from(text).slice(0, codePointOffset).join("").length;
+    if (!Number.isInteger(codePointOffset) || codePointOffset < 0) {
+      return Array.from(text).slice(0, codePointOffset).join("").length;
+    }
+    if (codeUnitOffsets.text !== text) {
+      let units = null;
+      if (/[\uD800-\uDFFF]/.test(text)) {
+        units = [0];
+        let unit = 0;
+        for (const point of text) {
+          unit += point.length;
+          units.push(unit);
+        }
+      }
+      codeUnitOffsets = { text, units };
+    }
+    const units = codeUnitOffsets.units;
+    return units
+      ? units[Math.min(codePointOffset, units.length - 1)]
+      : Math.min(codePointOffset, text.length);
   }
 
   function highlightedPosting(text, orderedFindings) {
-    const codePoints = Array.from(text);
+    const unit = (offset) => codePointsToCodeUnits(text, offset);
     let cursor = 0;
     let markup = "";
     orderedFindings.forEach((finding, index) => {
       const [start, end] = finding.offset;
       // Overlapping candidates keep the first highlight; the card still lists both.
       if (start < cursor) return;
-      markup += escapeHtml(codePoints.slice(cursor, start).join(""));
+      markup += escapeHtml(text.slice(unit(cursor), unit(start)));
       markup += `<mark class="easy-mark">${escapeHtml(
-        codePoints.slice(start, end).join("")
+        text.slice(unit(start), unit(end))
       )}<sup>${index + 1}</sup></mark>`;
       cursor = end;
     });
-    return markup + escapeHtml(codePoints.slice(cursor).join(""));
+    return markup + escapeHtml(text.slice(unit(cursor)));
   }
 
   // Editor highlights: the result's marks drawn in a layer behind the
@@ -1488,30 +1512,46 @@
       markup += `<mark class="posting-mark${range.index === activeFindingIndex ? " is-active" : ""}" data-n="${range.index + 1}">${escapeHtml(text.slice(range.start, range.end))}</mark>`;
       cursor = range.end;
     });
+    // Size and style the layer while it is empty, then fill it: the posting
+    // text in it is laid out once, in the field's font and width.
+    postingHighlights.innerHTML = "";
+    postingHighlights.hidden = false;
+    const scrollTop = syncPostingHighlights();
     // The zero-width space keeps a trailing line break on its own line.
     postingHighlights.innerHTML = `<div class="posting-highlights-inner">${markup}${escapeHtml(text.slice(cursor))}​</div>`;
-    postingHighlights.hidden = false;
-    syncPostingHighlights();
+    const inner = postingHighlights.firstElementChild;
+    if (scrollTop !== null && inner && inner.style) inner.style.transform = `translateY(${-scrollTop}px)`;
     updateFindingStepper();
   }
 
   // Keeps the layer on the field's text box: same font, padding and wrapping,
   // the field's inner width (a scrollbar narrows it) and its scroll offset.
+  // Every value is read before any is written: a read after a write makes the
+  // browser recompute style and layout again. Returns the field's scroll
+  // offset, or null when layout is not available.
   function syncPostingHighlights() {
-    if (postingHighlights.hidden || typeof window.getComputedStyle !== "function") return;
+    if (postingHighlights.hidden || typeof window.getComputedStyle !== "function") return null;
     try {
       const style = window.getComputedStyle(input);
-      MIRROR_STYLE_PROPERTIES.forEach((name) => {
-        postingHighlights.style[name] = style[name];
+      const mirrored = MIRROR_STYLE_PROPERTIES.map((name) => style[name]);
+      const left = input.offsetLeft + (parseFloat(style.borderLeftWidth) || 0);
+      const top = input.offsetTop + (parseFloat(style.borderTopWidth) || 0);
+      const width = input.clientWidth;
+      const height = input.clientHeight;
+      const scrollTop = input.scrollTop;
+      MIRROR_STYLE_PROPERTIES.forEach((name, index) => {
+        postingHighlights.style[name] = mirrored[index];
       });
-      postingHighlights.style.left = `${input.offsetLeft + (parseFloat(style.borderLeftWidth) || 0)}px`;
-      postingHighlights.style.top = `${input.offsetTop + (parseFloat(style.borderTopWidth) || 0)}px`;
-      postingHighlights.style.width = `${input.clientWidth}px`;
-      postingHighlights.style.height = `${input.clientHeight}px`;
+      postingHighlights.style.left = `${left}px`;
+      postingHighlights.style.top = `${top}px`;
+      postingHighlights.style.width = `${width}px`;
+      postingHighlights.style.height = `${height}px`;
       const inner = postingHighlights.firstElementChild;
-      if (inner && inner.style) inner.style.transform = `translateY(${-input.scrollTop}px)`;
+      if (inner && inner.style) inner.style.transform = `translateY(${-scrollTop}px)`;
+      return scrollTop;
     } catch (_error) {
       // The marks are a convenience; the cards still carry every finding.
+      return null;
     }
   }
 
@@ -1877,20 +1917,24 @@
     "\n", "\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029",
   ]);
   const LINE_BREAK_PATTERN = /\r\n|[\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029]/u;
+  const LINE_BREAK_SEARCH = new RegExp(LINE_BREAK_PATTERN.source, "gu");
+  let lineSpansMemo = { text: null, spans: null };
 
   // One entry per line, in UTF-16 code units: [start, end) is the line without
-  // its boundary and `next` is where the following line starts.
+  // its boundary and `next` is where the following line starts. A review asks
+  // for the same posting's lines more than once, so the spans of the last text
+  // are kept; callers only read them.
   function lineSpans(text) {
+    if (lineSpansMemo.text === text) return lineSpansMemo.spans;
     const spans = [];
     let start = 0;
-    for (let index = 0; index < text.length; index += 1) {
-      if (!LINE_BREAK_CHARS.has(text[index])) continue;
-      const width = text[index] === "\r" && text[index + 1] === "\n" ? 2 : 1;
-      spans.push({ start, end: index, next: index + width });
-      start = index + width;
-      index += width - 1;
+    LINE_BREAK_SEARCH.lastIndex = 0;
+    for (let match = LINE_BREAK_SEARCH.exec(text); match; match = LINE_BREAK_SEARCH.exec(text)) {
+      spans.push({ start, end: match.index, next: match.index + match[0].length });
+      start = match.index + match[0].length;
     }
     if (start < text.length) spans.push({ start, end: text.length, next: text.length });
+    lineSpansMemo = { text, spans };
     return spans;
   }
 
@@ -3986,8 +4030,15 @@
     postingSizeHint.hidden = !long;
   }
 
+  // Array.from(text).length without building the array on every keystroke:
+  // only a surrogate pair makes two code units one code point.
+  function codePointCount(text) {
+    const pairs = text.match(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g);
+    return text.length - (pairs ? pairs.length : 0);
+  }
+
   input.addEventListener("input", () => {
-    const length = Array.from(input.value).length;
+    const length = codePointCount(input.value);
     charCount.textContent = `${length.toLocaleString("ko-KR")}자`;
     updatePostingSizeHint(length);
     if (input.value.trim()) setFieldError(input, postingInputError, "");

@@ -364,19 +364,144 @@ def _admits(
     return True
 
 
+# (pattern, is a raw regex, compiled pattern, required all-of runs, required
+# any-of runs), i.e. the pattern and its _pattern_plan.
+_Entry = tuple[
+    str,
+    bool,
+    re.Pattern[str],
+    tuple[str, ...],
+    tuple[tuple[str, ...], ...],
+]
+# (entries, gate for the raw view of every pattern, gate for the raw view of
+# literal patterns, gate for regex patterns, gate for the match view).
+_ListPlan = tuple[
+    tuple[_Entry, ...],
+    re.Pattern[str] | None,
+    re.Pattern[str] | None,
+    re.Pattern[str] | None,
+    re.Pattern[str] | None,
+]
+# Finds every text: the gate of a pattern group with an unconditional member.
+_OPEN_GATE = re.compile("")
+_LIST_PLANS: dict[tuple[str, ...], _ListPlan] = {}
+_LIST_PLAN_LIMIT = 4096
+# Results of _collect_matches for texts of at least this many characters, by
+# (text, patterns). The engine and the slot extractor scan the same section or
+# posting text with the same pattern list several times per check; shorter
+# texts are cheaper to scan again than to cache.
+_RESULTS: dict[
+    tuple[str, tuple[str, ...]], dict[tuple[int, int], re.Match[str] | SourceMatch]
+] = {}
+_RESULT_MIN_CHARS = 128
+_RESULT_LIMIT = _CACHE_SIZE
+# The _pattern_plan the cached list plans and results were built with; a
+# replaced _pattern_plan (tests patch it) invalidates them.
+_list_plan_source: object = None
+
+
+def _gate(
+    conditions: list[tuple[tuple[str, ...], tuple[tuple[str, ...], ...]]],
+) -> re.Pattern[str] | None:
+    """Exact regex that finds a text only if some condition can still hold there.
+
+    Each (required, any_of) condition contributes one required literal, or
+    every literal of one any-of group: a text without them fails _admits for
+    that condition. None means there is no condition, _OPEN_GATE that one of
+    them requires nothing.
+    """
+    if not conditions:
+        return None
+    keys: list[str] = []
+    for required, any_of in conditions:
+        if required:
+            keys.append(max(required, key=len))
+        elif any_of:
+            keys.extend(any_of[0])
+        else:
+            return _OPEN_GATE
+    return re.compile("|".join(re.escape(key) for key in dict.fromkeys(keys)))
+
+
+def _build_list_plan(patterns: tuple[str, ...]) -> _ListPlan:
+    entries: list[_Entry] = []
+    literal_conditions: list[tuple[tuple[str, ...], tuple[tuple[str, ...], ...]]] = []
+    regex_conditions: list[tuple[tuple[str, ...], tuple[tuple[str, ...], ...]]] = []
+    view_conditions: list[tuple[tuple[str, ...], tuple[tuple[str, ...], ...]]] = []
+    for pattern in patterns:
+        is_regex, regex, required, required_any_of = _pattern_plan(pattern)
+        if is_regex:
+            regex_conditions.append((required, required_any_of))
+        else:
+            literal_conditions.append((required, required_any_of))
+            # The literals of _match_view_plan(pattern), without compiling it:
+            # that stays lazy because a folded pattern can be an invalid regex.
+            view_conditions.append(
+                (_required_literals(_match_plain(pattern)), required_any_of)
+            )
+        entries.append((pattern, is_regex, regex, required, required_any_of))
+    return (
+        tuple(entries),
+        _gate(literal_conditions + regex_conditions),
+        _gate(literal_conditions),
+        _gate(regex_conditions),
+        _gate(view_conditions),
+    )
+
+
 def _collect_matches(
     text: str,
     patterns: list[str],
+) -> dict[tuple[int, int], re.Match[str] | SourceMatch]:
+    # The returned dict may be shared through _RESULTS: callers only read it.
+    global _list_plan_source
+    if _list_plan_source is not _pattern_plan:
+        _LIST_PLANS.clear()
+        _RESULTS.clear()
+        _list_plan_source = _pattern_plan
+    key = tuple(patterns)
+    if len(text) < _RESULT_MIN_CHARS:
+        return _scan_matches(text, key)
+    result_key = (text, key)
+    found = _RESULTS.get(result_key)
+    if found is None:
+        found = _scan_matches(text, key)
+        if len(_RESULTS) >= _RESULT_LIMIT:
+            _RESULTS.clear()
+        _RESULTS[result_key] = found
+    return found
+
+
+def _scan_matches(
+    text: str,
+    key: tuple[str, ...],
 ) -> dict[tuple[int, int], re.Match[str] | SourceMatch]:
     # Keyed by (start, end): group(0) is always text[start:end] for raw and
     # source matches alike, so the span alone identifies a duplicate. The first
     # match found for a span is kept. A pattern is only scanned when the text
     # contains every required literal and at least one literal from each
-    # required any-of group; otherwise it cannot match.
-    found: dict[tuple[int, int], re.Match[str] | SourceMatch] = {}
+    # required any-of group; otherwise it cannot match. The gates of the list
+    # plan check that for the whole list at once: when no view it would scan
+    # opens, no pattern is admitted anywhere and nothing can match.
+    plan = _LIST_PLANS.get(key)
+    if plan is None:
+        if len(_LIST_PLANS) >= _LIST_PLAN_LIMIT:
+            _LIST_PLANS.clear()
+        plan = _LIST_PLANS[key] = _build_list_plan(key)
+    entries, raw_gate, literal_gate, regex_gate, view_gate = plan
     normalized_differs, normalized, match_differs, matched = _text_views(text)
-    for pattern in patterns:
-        is_regex, regex, required, required_any_of = _pattern_plan(pattern)
+    if normalized_differs:
+        is_open = (literal_gate is not None and literal_gate.search(text)) or (
+            regex_gate is not None and regex_gate.search(normalized[0])
+        )
+    else:
+        is_open = raw_gate is not None and raw_gate.search(text)
+    if not is_open and not (
+        match_differs and view_gate is not None and view_gate.search(matched[0])
+    ):
+        return {}
+    found: dict[tuple[int, int], re.Match[str] | SourceMatch] = {}
+    for pattern, is_regex, regex, required, required_any_of in entries:
         if is_regex and normalized_differs:
             # A raw regex can miss a normalized candidate in its own lookahead
             # and incorrectly consume a later protective phrase. Once

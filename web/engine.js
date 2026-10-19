@@ -141,8 +141,8 @@
     ["이신", "인"],
     ["으신", "은"],
   ];
-  const MORPH_CACHE = new Map();
-  const MATCH_CACHE = new Map();
+  const MORPH_CACHE = viewCache(256);
+  const MATCH_CACHE = viewCache(256);
   const ZERO_WIDTH = new Set(["\u200b", "\u200c", "\u200d", "\ufeff"]);
 
   // The Python core is the reference. Its str.isspace(), str.strip() and re
@@ -263,19 +263,29 @@
     return count;
   }
 
-  // Map-based LRU helpers shared by the per-string view caches.
-  function lruGet(cache, key) {
-    const cached = cache.get(key);
-    if (cached !== undefined) {
-      cache.delete(key);
-      cache.set(key, cached);
-    }
-    return cached;
+  // Two-generation caches for the per-string views. A hit in the current
+  // generation costs one lookup (an LRU deletes and re-inserts on every
+  // hit), a hit in the previous one carries the entry over, and at most
+  // two generations of `limit` entries are kept.
+  function viewCache(limit) {
+    return { current: new Map(), previous: new Map(), limit };
   }
 
-  function lruSet(cache, key, value, limit) {
-    if (cache.size >= limit) cache.delete(cache.keys().next().value);
-    cache.set(key, value);
+  function cacheGet(cache, key) {
+    let value = cache.current.get(key);
+    if (value === undefined) {
+      value = cache.previous.get(key);
+      if (value !== undefined) cacheSet(cache, key, value);
+    }
+    return value;
+  }
+
+  function cacheSet(cache, key, value) {
+    if (cache.current.size >= cache.limit) {
+      cache.previous = cache.current;
+      cache.current = new Map();
+    }
+    cache.current.set(key, value);
   }
 
   function trimPythonWhitespace(value) {
@@ -429,7 +439,7 @@
   const MORPH_TARGET = new Map(MORPH_REWRITES);
 
   function morphTextWithOffsets(text) {
-    const cached = lruGet(MORPH_CACHE, text);
+    const cached = cacheGet(MORPH_CACHE, text);
     if (cached !== undefined) return cached;
     MORPH_SOURCE.lastIndex = 0;
     let match = MORPH_SOURCE.exec(text);
@@ -472,7 +482,7 @@
       }
       result = { normalized, starts, ends, identity: false };
     }
-    lruSet(MORPH_CACHE, text, result, 512);
+    cacheSet(MORPH_CACHE, text, result);
     return result;
   }
 
@@ -480,14 +490,14 @@
     return morphTextWithOffsets(text).normalized;
   }
 
-  const NORMALIZED_CACHE = new Map();
+  const NORMALIZED_CACHE = viewCache(256);
 
   // Code points (pairs whole, lone surrogates alone, as for...of yields
   // them) are rewritten one at a time: zero-width characters are dropped,
   // "\r"/"\n"/"\t" kept, other Python whitespace becomes " ", and everything
   // else becomes its own per-character NFKC form.
   function normalizedTextWithOffsets(text) {
-    const cached = lruGet(NORMALIZED_CACHE, text);
+    const cached = cacheGet(NORMALIZED_CACHE, text);
     if (cached !== undefined) return cached;
     const length = text.length;
     // Fast scan: stop at the first code point the rewrite would change.
@@ -542,7 +552,7 @@
       }
       result = { normalized, starts, ends, identity: false };
     }
-    lruSet(NORMALIZED_CACHE, text, result, 512);
+    cacheSet(NORMALIZED_CACHE, text, result);
     return result;
   }
 
@@ -559,7 +569,7 @@
   }
 
   function matchTextWithOffsets(text) {
-    const cached = lruGet(MATCH_CACHE, text);
+    const cached = cacheGet(MATCH_CACHE, text);
     if (cached !== undefined) return cached;
     const base = normalizedTextWithOffsets(text);
     const morph = morphTextWithOffsets(base.normalized);
@@ -579,26 +589,93 @@
       }
       result = { normalized: morph.normalized, starts, ends, identity: false };
     }
-    lruSet(MATCH_CACHE, text, result, 512);
+    cacheSet(MATCH_CACHE, text, result);
     return result;
+  }
+
+  // Mirrors _text_views: both views of a text and whether each differs from
+  // it. Consecutive findMatches calls often scan the same text (a section
+  // for every slot, the source for every rule), so the last one is kept.
+  const TEXT_VIEWS_CACHE = viewCache(256);
+  let lastViewsText = null;
+  let lastViews = null;
+
+  function textViews(text) {
+    if (text === lastViewsText) return lastViews;
+    let views = cacheGet(TEXT_VIEWS_CACHE, text);
+    if (views === undefined) {
+      const normalized = normalizedTextWithOffsets(text);
+      const matched = matchTextWithOffsets(text);
+      // The strings findMatches scans, each with its own literal filter.
+      const source = scanTarget(text);
+      const normalizedTarget =
+        normalized.normalized === text ? source : scanTarget(normalized.normalized);
+      const matchedTarget =
+        matched.normalized === text ? source :
+          matched.normalized === normalized.normalized ? normalizedTarget : scanTarget(matched.normalized);
+      views = {
+        normalized,
+        normalizedDiffers: normalized.normalized !== text,
+        matched,
+        matchDiffers: matched.normalized !== text,
+        source,
+        normalizedTarget,
+        matchedTarget,
+      };
+      cacheSet(TEXT_VIEWS_CACHE, text, views);
+    }
+    lastViewsText = text;
+    lastViews = views;
+    return views;
+  }
+
+  // A string findMatches scans. Once it has been asked for literals often
+  // enough to pay for it, it gets a filter of the code-unit pairs it holds:
+  // a clear bit proves that a literal with that pair does not occur, and a
+  // set bit is still confirmed with includes(), so answers never change.
+  function scanTarget(value) {
+    return { value, checks: 0, bits: null, mask: 0 };
+  }
+
+  function buildPairFilter(target) {
+    const value = target.value;
+    // About eight bits per pair keeps false hits rare. The bits sit 16 to a
+    // small-integer array slot: a typed array this size would allocate its
+    // buffer outside the heap, which costs more than the scans it saves.
+    let size = 256;
+    while (size < value.length * 8 && size < 1 << 22) size *= 2;
+    const bits = new Array(size >>> 4).fill(0);
+    const mask = size - 1;
+    let previous = value.charCodeAt(0);
+    for (let index = 1; index < value.length; index += 1) {
+      const code = value.charCodeAt(index);
+      const hash = (previous * 31 + code) & mask;
+      bits[hash >>> 4] |= 1 << (hash & 15);
+      previous = code;
+    }
+    target.bits = bits;
+    target.mask = mask;
+    return bits;
+  }
+
+  // target.value.includes(literal), with the filter in front once built.
+  function targetIncludes(target, literal) {
+    let bits = target.bits;
+    if (bits === null) {
+      target.checks += 1;
+      if (target.checks <= 16 || target.value.length < 32) return target.value.includes(literal);
+      bits = buildPairFilter(target);
+    }
+    const mask = target.mask;
+    for (let index = 0; index + 1 < literal.length; index += 1) {
+      const hash = (literal.charCodeAt(index) * 31 + literal.charCodeAt(index + 1)) & mask;
+      if ((bits[hash >>> 4] & (1 << (hash & 15))) === 0) return false;
+    }
+    return target.value.includes(literal);
   }
 
   function matchPlain(text) {
     return morphPlain(normalizedTextWithOffsets(text).normalized);
-  }
-
-  // value.toLocaleLowerCase("ko"), memoized (the locale-aware call costs about
-  // ten times a Map lookup and the same matched words recur constantly).
-  const LOWER_KO_CACHE = new Map();
-
-  function lowerKo(value) {
-    let lowered = LOWER_KO_CACHE.get(value);
-    if (lowered === undefined) {
-      lowered = value.toLocaleLowerCase("ko");
-      if (LOWER_KO_CACHE.size >= 8192) LOWER_KO_CACHE.clear();
-      LOWER_KO_CACHE.set(value, lowered);
-    }
-    return lowered;
   }
 
   // Per pattern: the regex for the source text and the one for the
@@ -746,9 +823,38 @@
     }
   }
 
+  // Mirrors _admits: false when a required literal, or every literal of a
+  // required any-of group, is missing from the scanned string.
+  function admits(target, required, requiredAnyOf) {
+    for (let index = 0; index < required.length; index += 1) {
+      if (!targetIncludes(target, required[index])) return false;
+    }
+    for (let index = 0; index < requiredAnyOf.length; index += 1) {
+      const group = requiredAnyOf[index];
+      let found = false;
+      for (let member = 0; member < group.length && !found; member += 1) {
+        found = targetIncludes(target, group[member]);
+      }
+      if (!found) return false;
+    }
+    return true;
+  }
+
   function satisfiesRegexConditions(text, plan) {
-    return plan.required.every((literal) => text.includes(literal)) &&
-      plan.requiredAnyOf.every((group) => group.some((literal) => text.includes(literal)));
+    return admits(scanTarget(text), plan.required, plan.requiredAnyOf);
+  }
+
+  // Same character set as _CASELESS_CHUNK: no other code point folds to
+  // these under JS "iu" (or Python re.I) matching.
+  const CASELESS_CHUNK = /^[\x21-\x40\x5b-\x60\x7b-\x7e\u1100-\u11ff\u3131-\u318e\u4e00-\u9fff\uac00-\ud7a3]+$/u;
+
+  // Mirrors _required_literals: patternToRegex joins the non-whitespace
+  // chunks of a literal pattern with \s*, so every match contains each
+  // caseless chunk verbatim.
+  function requiredLiterals(pattern) {
+    if (pattern.startsWith("re:")) return [];
+    const chunks = pattern.normalize("NFC").split(PYTHON_WHITESPACE_RUN);
+    return chunks.filter((chunk) => CASELESS_CHUNK.test(chunk));
   }
 
   function patternPlan(pattern) {
@@ -760,7 +866,11 @@
       const normalizedRegex =
         normalizedPattern === pattern ? regex : patternToRegex(normalizedPattern);
       const conditions = isRegex ? regexRequiredConditions(pattern.slice(3)) : { required: [], requiredAnyOf: [] };
-      plan = { isRegex, regex, normalizedRegex, ...conditions };
+      // The literals each regex needs, for the text and for the searched
+      // view; a literal's match-view regex has its own (_match_view_plan).
+      const textRequired = isRegex ? conditions.required : requiredLiterals(pattern);
+      const viewRequired = isRegex ? conditions.required : requiredLiterals(normalizedPattern);
+      plan = { isRegex, regex, normalizedRegex, ...conditions, textRequired, viewRequired };
       if (PATTERN_PLAN_CACHE.size >= 4096) PATTERN_PLAN_CACHE.clear();
       PATTERN_PLAN_CACHE.set(pattern, plan);
     }
@@ -769,38 +879,45 @@
 
   function findMatches(text, patterns) {
     const matches = [];
-    const seen = new Set();
-    const normalizedView = normalizedTextWithOffsets(text);
-    const matchView = matchTextWithOffsets(text);
-    const needsMatchView = matchView.normalized !== text;
-    const normalizedChanged = normalizedView.normalized !== text;
-    patterns.forEach((pattern) => {
-      const plan = patternPlan(pattern);
+    // Keyed by span, as in _collect_matches: item.text is always
+    // text.slice(start, end), so the span alone identifies a duplicate.
+    let seen = null;
+    const spanBase = text.length + 1;
+    const views = textViews(text);
+    const normalizedView = views.normalized;
+    const matchView = views.matched;
+    const needsMatchView = views.matchDiffers;
+    const normalizedChanged = views.normalizedDiffers;
+    for (let index = 0; index < patterns.length; index += 1) {
+      const plan = patternPlan(patterns[index]);
       const isRegex = plan.isRegex;
       const regex = plan.regex;
       regex.lastIndex = 0;
       let match;
-      const exactText = isRegex && (normalizedChanged || !satisfiesRegexConditions(text, plan)) ? null : text;
-      while (exactText !== null && (match = regex.exec(exactText)) !== null) {
-        const item = {
-          start: match.index,
-          end: match.index + match[0].length,
-          text: match[0],
-        };
-        const key = `${item.start}:${item.end}:${lowerKo(item.text)}`;
-        if (!seen.has(key)) {
-          matches.push(item);
-          seen.add(key);
+      // A pattern is only scanned when the text holds its required literals.
+      if (!(isRegex && normalizedChanged) && admits(views.source, plan.textRequired, plan.requiredAnyOf)) {
+        while ((match = regex.exec(text)) !== null) {
+          const start = match.index;
+          const end = start + match[0].length;
+          const key = start * spanBase + end;
+          if (seen === null) seen = new Set();
+          if (!seen.has(key)) {
+            matches.push({ start, end, text: match[0] });
+            seen.add(key);
+          }
+          if (match[0].length === 0) regex.lastIndex += 1;
         }
-        if (match[0].length === 0) regex.lastIndex += 1;
       }
       let searchView;
+      let searchTarget;
       if (isRegex) {
-        if (!normalizedChanged) return;
+        if (!normalizedChanged) continue;
         searchView = normalizedView;
+        searchTarget = views.normalizedTarget;
       } else {
-        if (!needsMatchView) return;
+        if (!needsMatchView) continue;
         searchView = matchView;
+        searchTarget = views.matchedTarget;
       }
       // Keep regex exclusions on the same NFKC/zero-width-normalized view as
       // literal candidates so protective wording cannot become a false
@@ -808,7 +925,7 @@
       // (plan.normalizedRegex is built from matchPlain(pattern) for literals.)
       const normalizedRegex = plan.normalizedRegex;
       normalizedRegex.lastIndex = 0;
-      if (isRegex && !satisfiesRegexConditions(searchView.normalized, plan)) return;
+      if (!admits(searchTarget, plan.viewRequired, plan.requiredAnyOf)) continue;
       while ((match = normalizedRegex.exec(searchView.normalized)) !== null) {
         if (match[0].length === 0) {
           normalizedRegex.lastIndex += 1;
@@ -816,14 +933,14 @@
         }
         const start = searchView.starts[match.index];
         const end = searchView.ends[match.index + match[0].length - 1];
-        const item = { start, end, text: text.slice(start, end) };
-        const key = `${start}:${end}:${lowerKo(item.text)}`;
+        const key = start * spanBase + end;
+        if (seen === null) seen = new Set();
         if (!seen.has(key)) {
-          matches.push(item);
+          matches.push({ start, end, text: text.slice(start, end) });
           seen.add(key);
         }
       }
-    });
+    }
     return matches.sort(
       (a, b) =>
         a.start - b.start ||
@@ -1054,13 +1171,15 @@
   // A sentence boundary at code unit i: one of . ! ? 。 ！ ？, except a "."
   // after a digit or between two ASCII letters/digits.
   function isSentenceMark(text, i) {
-    const character = text[i];
+    // . ! ? 。 ！ ？ by code unit, so the common case builds no string.
+    const code = text.charCodeAt(i);
     if (
-      character !== "." && character !== "!" && character !== "?" &&
-      character !== "。" && character !== "！" && character !== "？"
+      code !== 0x2e && code !== 0x21 && code !== 0x3f &&
+      code !== 0x3002 && code !== 0xff01 && code !== 0xff1f
     ) {
       return false;
     }
+    const character = text[i];
     // Python reads text[i - 1] as a whole code point, so an astral digit
     // (e.g. U+1D7CF) before "." must be tested as its surrogate pair.
     return !(character === "." && i > 0 && (/^\p{Nd}$/u.test(codePointEndingAt(text, i)) || (/[A-Za-z0-9]/u.test(text[i - 1]) && /[A-Za-z0-9]/u.test(text[i + 1] || ""))));
@@ -1095,23 +1214,25 @@
     const [segmentStart, segmentEnd] = sentenceBounds(text, start, end);
     const segment = text.slice(segmentStart, segmentEnd);
     const limit = 238;
-    if (codePointLength(segment) <= limit) {
+    const total = codePointLength(segment);
+    if (total <= limit) {
       return trimPythonWhitespace(segment);
     }
-    const codePoints = Array.from(segment);
-    const relativeStart = Array.from(text.slice(segmentStart, start)).length;
-    const relativeEnd = Array.from(text.slice(segmentStart, end)).length;
+    // Code point positions as Array.from(segment) numbers them; the window
+    // is cut by walking code points instead of building that array.
+    const relativeStart = codePointLength(text.slice(segmentStart, start));
+    const relativeEnd = codePointLength(text.slice(segmentStart, end));
     let windowStart = Math.max(0, relativeStart - 96);
     const windowEnd = Math.min(
-      codePoints.length,
+      total,
       Math.max(relativeEnd + 96, windowStart + limit)
     );
     windowStart = Math.max(0, windowEnd - limit);
-    const evidence = trimPythonWhitespace(
-      codePoints.slice(windowStart, windowEnd).join("")
-    );
+    const from = moveCodePointsRight(segment, 0, windowStart);
+    const to = moveCodePointsRight(segment, from, windowEnd - windowStart);
+    const evidence = trimPythonWhitespace(segment.slice(from, to));
     return `${windowStart ? "…" : ""}${evidence}${
-      windowEnd < codePoints.length ? "…" : ""
+      windowEnd < total ? "…" : ""
     }`;
   }
 
@@ -1183,8 +1304,9 @@
   }
 
   function headingLike(line) {
-    const cleaned = Array.from(stripHeadingDecoration(line));
-    return cleaned.length > 0 && cleaned.length <= 30 && !SENTENCE_END.includes(cleaned[cleaned.length - 1]);
+    const cleaned = stripHeadingDecoration(line);
+    const length = codePointLength(cleaned);
+    return length > 0 && length <= 30 && !SENTENCE_END.includes(codePointEndingAt(cleaned, cleaned.length));
   }
 
   // Mirrors _duty_block_end_in: where the duty list under a duty heading ends.
@@ -1305,7 +1427,7 @@
     let end = cursor;
     let bodyStart = cursor;
     const bodyParts = [];
-    while (cursor < section.text.length && Array.from(section.text.slice(right, cursor)).length < 600) {
+    while (cursor < section.text.length && codePointLength(section.text.slice(right, cursor)) < 600) {
       end = section.text.indexOf("\n", cursor);
       if (end === -1) end = section.text.length;
       const body = section.text.slice(cursor, end);
@@ -1329,9 +1451,18 @@
 
   function candidateUnits(section, definition, slotId) {
     const units = [];
+    // Matches on one line share the same line string, so the per-line
+    // caches and views find it by identity instead of rehashing a copy.
+    let lineLeft = -1;
+    let lineRight = -1;
+    let line = "";
     for (const match of findMatches(section.text, definition.accept_patterns || [])) {
       const [left, right] = lineBounds(section.text, match.start, match.end);
-      const line = section.text.slice(left, right);
+      if (left !== lineLeft || right !== lineRight) {
+        lineLeft = left;
+        lineRight = right;
+        line = section.text.slice(left, right);
+      }
       if (slotId === "selection_stages" && bareStageMatch(section.text, match.start, match.end) && !stageContext(section, bareStageSentence(section.text, match.start, match.end))) continue;
       let heading = headingName(line) !== null || compactHeading(line) === compactHeading(match.text);
       if (["selection_stages", "ai_disclosure"].includes(slotId) && (findFirst(line, STAGE_EVENTS) || (headingName(line) === null && ["item", "mark", "note"].includes(lineMarker(line)[0])))) heading = false;
@@ -1353,10 +1484,12 @@
     return units;
   }
 
+  // Repeated contexts (several units on one line) give the same answer, so
+  // each distinct context is checked once; the evidence line is built only
+  // for the schedule check that reads it.
   function componentPresent(slotId, component, contexts) {
-    return contexts.some((context) => findMatches(context, component.patterns || []).some((match) => {
-      const evidence = evidenceLine(context, match.start, match.end);
-      if (slotId === "schedule" && ["application_date", "assessment_date"].includes(component.id) && !findFirst(evidence, DATE_CONTENT)) {
+    return [...new Set(contexts)].some((context) => findMatches(context, component.patterns || []).some((match) => {
+      if (slotId === "schedule" && ["application_date", "assessment_date"].includes(component.id) && !findFirst(evidenceLine(context, match.start, match.end), DATE_CONTENT)) {
         const [left, right] = lineBounds(context, match.start, match.end);
         const header = context.slice(left, right);
         const body = context.slice(right + 1).split("\n")[0];
@@ -1438,17 +1571,19 @@
   // Mirrors _protective_sentence: the sentence span inside the evidence window.
   function protectiveSentence(source, start, end) {
     let [left, right] = sentenceBounds(source, start, end);
-    if (codePointLength(source.slice(left, right)) > 238) {
-      const codePoints = Array.from(source.slice(left, right));
-      // Never look further than the evidence window the reviewer is shown.
-      const relativeStart = Array.from(source.slice(left, start)).length;
-      const relativeEnd = Array.from(source.slice(left, end)).length;
+    const segment = source.slice(left, right);
+    const total = codePointLength(segment);
+    if (total > 238) {
+      // Never look further than the evidence window the reviewer is shown
+      // (cut as in evidenceLine, by walking code points).
+      const relativeStart = codePointLength(source.slice(left, start));
+      const relativeEnd = codePointLength(source.slice(left, end));
       let windowStart = Math.max(0, relativeStart - 96);
-      const windowEnd = Math.min(codePoints.length, Math.max(relativeEnd + 96, windowStart + 238));
+      const windowEnd = Math.min(total, Math.max(relativeEnd + 96, windowStart + 238));
       windowStart = Math.max(0, windowEnd - 238);
       const base = left;
-      left = base + codePoints.slice(0, windowStart).join("").length;
-      right = base + codePoints.slice(0, windowEnd).join("").length;
+      left = base + moveCodePointsRight(segment, 0, windowStart);
+      right = base + moveCodePointsRight(segment, 0, windowEnd);
     }
     return [left, right];
   }
@@ -1502,7 +1637,8 @@
     const clause = source.slice(clauseStart, clauseEnd);
     if (findFirst(clause, PROTECTIVE_OMISSION_PENALTY)) return false;
     if (!findFirst(clause, PROTECTIVE)) return false;
-    const tail = Array.from(source.slice(match.end, clauseEnd)).slice(0, 60).join("");
+    const rest = source.slice(match.end, clauseEnd);
+    const tail = rest.slice(0, moveCodePointsRight(rest, 0, 60));
     const requirement = findFirst(tail, PROTECTIVE_REQUIREMENT);
     if (!requirement) return true;
     // A protection directly after the candidate governs it; a later
@@ -1524,7 +1660,7 @@
       const rowStart = source.lastIndexOf("<tr", match.start);
       const rowEnd = source.indexOf("</tr>", match.end);
       let tablePreference = false;
-      if (rowStart >= 0 && rowEnd >= 0 && !source.slice(rowStart, match.start).includes("</tr>") && Array.from(source.slice(rowStart, rowEnd)).length < 1800) {
+      if (rowStart >= 0 && rowEnd >= 0 && !source.slice(rowStart, match.start).includes("</tr>") && codePointLength(source.slice(rowStart, rowEnd)) < 1800) {
         const row = source.slice(rowStart, rowEnd).replace(/<[^>]+>/gu, "");
         tablePreference = Boolean(findFirst(row, ["가산점", "가점", "re:만점의\\s*\\d+%", "re:점수\\s*만점의\\s*\\d+%"])) && !findFirst(row, ["지원 불가", "채용 제외", "신원조회"]);
       }
@@ -1556,12 +1692,22 @@
       const candidates = searchOrder.flatMap((section) => candidateUnits(section, definition, slotId).map((unit) => ({section, unit})));
       const contexts = candidates.map((c) => c.unit.context);
       const componentsFound = (definition.components || []).filter((c) => componentPresent(slotId, c, contexts)).map((c) => c.id).sort();
-      const first = candidates.reduce((best, candidate) => {
-        if (!best) return candidate;
-        const a = candidateRank(slotId, candidate.unit.context);
-        const b = candidateRank(slotId, best.unit.context);
-        return a[0] > b[0] || (a[0] === b[0] && a[1] > b[1]) ? candidate : best;
-      }, null);
+      // As max(candidates, key=_candidate_rank): each candidate is ranked
+      // once, and the first of the highest rank wins.
+      let first = null;
+      let firstRank = null;
+      candidates.forEach((candidate) => {
+        if (first === null) {
+          first = candidate;
+          return;
+        }
+        if (firstRank === null) firstRank = candidateRank(slotId, first.unit.context);
+        const rank = candidateRank(slotId, candidate.unit.context);
+        if (rank[0] > firstRank[0] || (rank[0] === firstRank[0] && rank[1] > firstRank[1])) {
+          first = candidate;
+          firstRank = rank;
+        }
+      });
       return {
         slot:slotId, label:definition.label, found:Boolean(first),
         components_found:componentsFound, components_total:(definition.components || []).length,
