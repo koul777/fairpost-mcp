@@ -903,6 +903,14 @@
     return plan;
   }
 
+  // Where a global "u" regex goes on after an empty match at `index`: the next
+  // code point, as re.finditer does. Plain lastIndex += 1 inside a surrogate
+  // pair makes V8 start again at the pair's first unit and find the same empty
+  // match for ever.
+  function afterEmptyMatch(text, index) {
+    return index + codePointWidth(text, index, text.charCodeAt(index));
+  }
+
   // What one pattern finds in a text, as match objects with source offsets:
   // the source scan first, then the scan of the searched view, a span listed
   // once. NO_SCAN: no regex ran because a required literal is missing.
@@ -928,7 +936,7 @@
         while ((match = regex.exec(text)) !== null) {
           const start = match.index;
           found.push({ start, end: start + match[0].length, text: match[0] });
-          if (match[0].length === 0) regex.lastIndex += 1;
+          if (match[0].length === 0) regex.lastIndex = afterEmptyMatch(text, start);
         }
       }
     }
@@ -973,7 +981,7 @@
     normalizedRegex.lastIndex = 0;
     while ((match = normalizedRegex.exec(view)) !== null) {
       if (match[0].length === 0) {
-        normalizedRegex.lastIndex += 1;
+        normalizedRegex.lastIndex = afterEmptyMatch(view, match.index);
         continue;
       }
       const start = starts[match.index];
