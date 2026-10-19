@@ -17,7 +17,9 @@ whitespace backtracking hot spot:
 The KEPT cases include the shapes three rounds of independent review found earlier
 drafts of these exclusions suppressing: false or omitted entries, refusals of
 the older worker bands, preferences that do not name the bands, and applicant
-restrictions written next to a military record.
+restrictions written next to a military record. The 2026-10-20 reintegration
+review added refusals one blank-padded table cell away, women refusals the
+military-record exclusion did not list, and age caps written near the bands.
 
 Every case also runs through the browser engine and must match Python exactly.
 """
@@ -62,6 +64,15 @@ FIXED = {
     "military-record-copy": ("제출서류\n주민등록등본 1부, 주민등록초본(남성만) 1부", "SEX-001"),
     "military-record-copy-note": ("제출서류\n※ 주민등록초본은 남성에 한함(병역사항 기재)", "SEX-001"),
     "military-record-field": ("제출서류\n병역사항(남성만 해당) 증빙 1부", "SEX-001"),
+    # The same fixes with mild blank runs inside (reintegration review, 2026-10-20).
+    "age-limit-removed-trailing-blanks": ("응시자격\n※ 수정 내용: 응시자격 중 연령제한 삭제" + " " * 10, "AGE-002"),
+    "older-worker-band-preferred-tabs": (
+        "우대사항\n고령자 및 준고령자 우대\n고령자(55세 이상)\t\t\n준고령자(50세 이상)", "AGE-002"),
+    "older-worker-band-inline-blanks": ("우대사항\n고령자(만 55세 이상)" + " " * 12 + "서류전형 가점 부여", "AGE-002"),
+    "family-written-in-penalised-blanks": (
+        "유의사항\n출신학교, 부모 직업, 가족관계 등을 기재해 제출하면" + " " * 8 + "감점", "FAMILY-001"),
+    "military-record-copy-blanks": ("제출서류\n주민등록등본 1부, 주민등록초본(남성만)" + " " * 6 + "1부", "SEX-001"),
+    "military-record-field-trailing-blanks": ("제출서류\n병역사항(남성만 해당) 증빙 1부" + " " * 20 + "\n기타 서류", "SEX-001"),
 }
 
 # (text, finding that must still appear)
@@ -129,6 +140,38 @@ KEPT = {
     "older-band-preference-dropped": ("우대사항\n고령자(55세 이상) 우선 채용 대상에서 빠짐", "AGE-002"),
     "age-limit-release-refused-word": ("지원자격\n연령 제한 해제 불허", "AGE-002"),
     "age-limit-removal-undecided": ("지원자격\n연령제한 삭제는 추후 결정", "AGE-002"),
+    # A refusal one table cell away, after a run of blanks (reintegration review,
+    # 2026-10-20). The exclusions used to count the blanks toward their distance
+    # limits, so the refusal fell out of reach and the finding was hidden.
+    "age-limit-removal-planned-cell": ("지원자격\n연령제한 삭제" + " " * 24 + "예정", "AGE-002"),
+    "age-limit-release-refused-cell": ("지원자격\n연령 제한 해제" + " " * 40 + "불가", "AGE-002"),
+    "age-limit-not-dropped-cell": ("지원자격\n연령제한 삭제는" + " " * 16 + "하지 않습니다.", "AGE-002"),
+    "family-no-penalty-cell": ("유의사항\n부모 직업 기재 시 불이익" + " " * 30 + "없음", "FAMILY-001"),
+    "family-purpose-clause-cell": ("유의사항\n부모 직업 기재 시 불이익이" + " " * 20 + "없도록 정확히 기재 바랍니다.", "FAMILY-001"),
+    "military-women-refused-cell": ("지원자격\n병역 : 남성만 해당" + " " * 40 + "여성은 응시 불가", "SEX-001"),
+    "military-paren-women-refused-cell": ("제출서류\n병역(남성만)" + " " * 100 + "여성 지원 불가", "SEX-001"),
+    "military-veterans-cell": ("자격요건\n병역: (남성만)" + " " * 40 + "군필자", "SEX-001"),
+    "military-then-apply-cell": ("지원자격\n병역사항(남성만)" + " " * 40 + "지원 가능", "SEX-001"),
+    "older-band-not-preferred-cell": ("우대사항\n고령자(55세 이상) 우대" + " " * 100 + "대상 아님", "AGE-002"),
+    "older-band-refused-next-line-cell": (
+        "고령자 및 준고령자 우대\n고령자(55세 이상)\n※ 위 해당자는" + " " * 40 + "지원 불가", "AGE-002"),
+    "age-limit-removal-planned-tabs": ("지원자격\n연령제한 삭제\t\t\t예정", "AGE-002"),
+    "military-women-refused-tabs": ("지원자격\n병역 : 남성만 해당\t\t\t\t여성은 응시 불가", "SEX-001"),
+    "family-no-penalty-tabs": ("유의사항\n부모 직업 기재 시 불이익\t\t\t없음", "FAMILY-001"),
+    # Refusals of women the military-record exclusion did not list (reintegration review).
+    "military-women-penalised": ("제출서류\n주민등록초본(남성만) 1부, 여성 감점", "SEX-001"),
+    "military-women-not-hired-an-ham": ("제출서류\n병역사항(남성만 해당)\n여성 채용 안 함", "SEX-001"),
+    "military-women-disadvantaged": ("제출서류\n병역사항(남성만) 제출. 여성은 불리", "SEX-001"),
+    "military-men-limited-after-record": ("제출서류\n병역(남성만) 제출, 남성에 한정", "SEX-001"),
+    "military-women-declined": ("제출서류\n병역(남성만), 여성 사절", "SEX-001"),
+    "military-women-dropped": ("제출서류\n병역(남성만), 여성 지원자 탈락 처리", "SEX-001"),
+    # A 50/55 age cap between the preference heading and the band (reintegration review).
+    "older-band-cap55-between": (
+        "우대사항\n고령자 및 준고령자 우대\n응시연령: 만 55세 이하\n고령자(55세 이상)\n준고령자(50세 이상)", "AGE-002"),
+    "older-band-cap50-between": ("우대사항\n고령자 및 준고령자 우대\n만 50세 이하만 응시 가능\n고령자(55세 이상)", "AGE-002"),
+    "older-band-cap55-second-sentence": (
+        "우대사항\n고령자(55세 이상) 우대합니다. 응시 가능 연령은 만 55세 이하입니다.", "AGE-002"),
+    "older-band-cap50-next-line": ("고령자 우대\n고령자(55세 이상)\n응시 연령 : 만 50세 이하", "AGE-002"),
 }
 
 
