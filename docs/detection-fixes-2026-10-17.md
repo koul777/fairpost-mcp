@@ -190,6 +190,27 @@ PR #16(웹 화면), PR #17(성능) 뒤의 main(`41e7c9e`) 위에 이 수정을 �
 - 코퍼스 집계: 같은 train 입력(공개 210건, 민간 2,100건)으로 다시 센 `law_rule_posting_hits`가 그대로여서
   `provenance.corpus_hits`는 고치지 않아도 됨.
 
+### 증거 재생성 (2026-10-20)
+
+규칙셋ㆍ매칭 버전이 바뀌어 비공개 코퍼스가 있는 PC에서 코퍼스 기반 증거를 다시 만듦. `tools/refresh_evidence.py`로
+같은 입력(입력 건수ㆍSHA-256이 이전 증거와 같을 때만 반영)에서 다시 만들었고, 보고서 안에는 원문ㆍ레코드 ID가
+없음. 규칙 패턴과 데이터 파일은 바꾸지 않음.
+
+| 보고서 | 입력 | 결과 |
+|---|---|---|
+| `web_engine_parity.json` | `.corpus-final` train 2,310건 | Pythonㆍ웹 불일치 0 |
+| `engine_performance.json` | 같은 train 앞 500건 | 초당 670.1건(5회 중앙값, p95 3.92ms). 측정 시각과 PC 부하가 달라 이전 값(초당 512.2건)과 직접 비교하지 않음 |
+| `question_relevance_audit.json` | `.corpus-prd` train 420건 | 질문 활성화 수 변화 없음 |
+| `corpus_rule_coverage.json` | `.corpus` train 210건 | 규칙 적중 수 변화 없음 |
+| `private_fairness_audit.json`, `private_open_training_analysis.json` | 민간 train 2,100건 | 건수 변화 없음, 버전만 갱신 |
+| `private_review_sampling_audit.json` | 같은 2,100건에서 임시 큐로 재생성 | 후보 3,033건, 선택 230행으로 이전과 같음. 로컬 `.private-review` 큐는 건드리지 않음 |
+
+- 질문 활성화 수가 그대로여서 `question_relevance_manual_review.json`에 새 항목을 더하지 않음.
+- 과거 비공개 문맥 감사 15개는 측정값과 `source_*` 버전을 그대로 두고 `current_ruleset_version`ㆍ`current_matching_version`만
+  새 버전으로 갱신함. `historical` 표시도 유지함.
+- 배포본 감사(`distribution_audit.json`)와 증거 버전 감사(`evidence_version_audit.json`)는 다른 보고서를 모두 쓴 뒤
+  다시 만듦. 로컬 전체 검사는 5,763개 통과ㆍ36개 환경 제약 건너뜀(bash와 jq 없음 8, 심볼릭 링크 권한 13, libyaml 없음 15).
+
 ### 남은 한계
 
 - 창 끝 사각: 제외 판정은 후보 앞뒤 창(이번에 120자)으로 자른 글에서 하므로, 거절어가 창 밖에 있으면 보이지 않고
