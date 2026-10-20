@@ -106,7 +106,7 @@
       "records": 0
     }
   ],
-  "matching_version": "match-2b470bfabfd83536",
+  "matching_version": "match-6610ccb35e08759a",
   "privacy_boundary": {
     "contains_organization_identifiers": false,
     "contains_personal_identifiers": false,
@@ -376,7 +376,7 @@
       "records": 0
     }
   ],
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-36f30cccacd4",
   "schema_version": "private-fairness-audit-v1",
   "slots_found": [
     {

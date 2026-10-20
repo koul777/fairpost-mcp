@@ -41,7 +41,7 @@
     "SEX-001": 628,
     "SEX-002": 0
   },
-  "matching_version": "match-2b470bfabfd83536",
+  "matching_version": "match-6610ccb35e08759a",
   "question_posting_hits": {
     "Q-DIST-001": 760,
     "Q-DIST-002": 2081,
@@ -96,7 +96,7 @@
     "Q-PROC-013": 2100,
     "Q-PROC-014": 0
   },
-  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-bb9129d56827",
+  "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-36f30cccacd4",
   "slot_found_posting_hits": {
     "ai_disclosure": 0,
     "appeal_channel": 0,
