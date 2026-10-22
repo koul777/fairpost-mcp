@@ -89,7 +89,7 @@
   "source_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-719744e1e32b",
   "source_matching_version": "match-674b70d043fc8b4a",
   "current_ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-36f30cccacd4",
-  "current_matching_version": "match-6610ccb35e08759a",
+  "current_matching_version": "match-ae2f8b43f9de8d64",
   "historical_reason": "No deterministic regenerator exists; historical model/context aggregates were not rerun.",
   "not_human_labels": true,
   "not_performance_measurement": true,
