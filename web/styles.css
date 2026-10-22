@@ -4010,8 +4010,33 @@ body[data-mode="easy"] .review-boundary::before {
     color: #0e1613;
   }
 
+  /* The field keeps its light text in dark mode, so the chosen mark gets a dark
+     amber fill (5.8:1) and a yellow ring instead of the light yellow fill. */
+  .posting-mark.is-active {
+    background: #6b5a17;
+    box-shadow: 0 0 0 2px var(--yellow);
+  }
+
   .posting-mark.is-active::before {
     color: #0e1613;
+  }
+
+  /* White text sits on a light surface in dark mode (--ink is light, --green is
+     mint), so these take the same dark text as .easy-number and .toast. */
+  .skip-link,
+  .skip-link:focus {
+    color: #0e1613;
+  }
+
+  .book-entry .book-entry-kicker,
+  .easy-steps li::before,
+  .book-entry-steps li::before,
+  .human-review-panel label::before {
+    color: #0e1613;
+  }
+
+  ::selection {
+    background: rgba(242, 201, 76, 0.35);
   }
 
   .review-nav a[aria-current="location"] {
