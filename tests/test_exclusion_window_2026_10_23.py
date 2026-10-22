@@ -19,7 +19,14 @@ import sys
 import pytest
 
 from core import FairpostEngine
-from core.morph import EXCLUDE_LOOKAHEAD, find_matches, is_excluded
+from core.morph import (
+    EXCLUDE_LOOKAHEAD,
+    _bounded_regex,
+    _window_admits,
+    find_matches,
+    is_excluded,
+    pattern_to_regex,
+)
 from web_engine import web_check_batch
 
 
@@ -98,18 +105,82 @@ def test_terms_read_the_text_around_the_window(case: dict, expected: bool, slice
     assert _sliced(case["text"], case["start"], case["end"], exclusion) is sliced
 
 
-@pytest.mark.requires_node
-def test_web_exclusion_check_matches_python(tmp_path: Path) -> None:
-    cases = [case for case, _, _ in UNIT_CASES.values()]
-    path = tmp_path / "cases.json"
-    path.write_text(json.dumps(cases, ensure_ascii=False), encoding="utf-8")
+def _run_probe(tmp_path: Path, request: dict) -> dict:
+    path = tmp_path / "request.json"
+    path.write_text(json.dumps(request, ensure_ascii=False), encoding="utf-8")
     done = subprocess.run(
         ["node", str(JS_PROBE), str(path)], cwd=ROOT, capture_output=True, text=True,
         encoding="utf-8", check=True, timeout=60,
     )
-    web = json.loads(done.stdout)["results"]
+    return json.loads(done.stdout)
+
+
+@pytest.mark.requires_node
+def test_web_exclusion_check_matches_python(tmp_path: Path) -> None:
+    cases = [case for case, _, _ in UNIT_CASES.values()]
+    web = _run_probe(tmp_path, {"cases": cases})["results"]
     assert web == [is_excluded(c["text"], c["start"], c["end"], c["excludes"]) for c in cases]
     assert web == [expected for _, expected, _ in UNIT_CASES.values()]
+
+
+_ADMITS_TEXT = "응시자격 연령 제한 삭제 예정"
+_AT = _ADMITS_TEXT.index("삭제")
+# (left, right, required, required any-of): a literal counts only when it lies
+# wholly inside [left, right), as str.find(literal, left, right) finds it.
+ADMITS_CASES = [
+    (0, _AT + 2, ["삭제"], []),
+    (0, _AT + 1, ["삭제"], []),
+    (_AT, len(_ADMITS_TEXT), ["삭제"], []),
+    (_AT + 1, len(_ADMITS_TEXT), ["삭제"], []),
+    (0, len(_ADMITS_TEXT), ["삭제"], [["없음", "예정"]]),
+    (0, _AT + 2, ["삭제"], [["없음", "예정"]]),
+    (0, 3, [], []),
+]
+
+
+@pytest.mark.requires_node
+def test_web_literal_prefilter_stays_inside_the_window(tmp_path: Path) -> None:
+    # Before the fix the web prefilter searched from the window start to the
+    # end of the posting when a literal was missing (Python stopped at the
+    # window end): 100,000 checks on a 1,000,000-character posting took
+    # several seconds. The vm stops the loop after 2 seconds.
+    request = {
+        "admits": [[_ADMITS_TEXT, *case] for case in ADMITS_CASES],
+        "admitsLoop": {"length": 1_000_000, "calls": 100_000, "window": 200, "literal": "삭제"},
+    }
+    web = _run_probe(tmp_path, request)
+    python = [
+        _window_admits(_ADMITS_TEXT, left, right, tuple(required), tuple(map(tuple, any_of)))
+        for left, right, required, any_of in ADMITS_CASES
+    ]
+    assert web["admits"] == python == [True, False, True, False, True, False, True]
+    assert web["loopSeconds"] is not None
+
+
+# Python accepts global inline flags only at the start of a pattern, so the
+# bounded retry keeps them in front of its group. A verbose pattern is not
+# wrapped (a trailing comment would swallow the added lookahead): its retry
+# falls back to the match inside the window, as before 2026-10-23. Such terms
+# can only come from data/local_rules.yaml; the web bundle has none (a RegExp
+# rejects "(?i)" outright).
+INLINE_FLAG_TERMS = {
+    "leading-ignorecase": ("re:(?i)남성[^\\n]{0,20}지원", True),
+    "two-leading-flags": ("re:(?i)(?s)남성.{0,20}지원", True),
+    "verbose": ("re:(?x) 남성 [^\\n]{0,20} 지원  # 설명", False),
+}
+
+
+@pytest.mark.parametrize("term, wrapped", INLINE_FLAG_TERMS.values(), ids=INLINE_FLAG_TERMS.keys())
+def test_inline_flag_terms_survive_the_bounded_retry(term: str, wrapped: bool) -> None:
+    exclusion = {"term": term, "window": 6}
+    # The greedy match runs to the second 지원, past the window end, so the
+    # bounded retry runs; the first 지원 is inside the window.
+    case = _case("남성 지원 가능 및 지원", "남성", exclusion)
+    assert (_bounded_regex(pattern_to_regex(term), 3) is not None) is wrapped
+    assert is_excluded(case["text"], case["start"], case["end"], case["excludes"]) is True
+    assert _sliced(case["text"], case["start"], case["end"], exclusion) is True
+    outside = _case("남성은 무관하며 지원", "남성", {**exclusion, "window": 3})
+    assert is_excluded(outside["text"], outside["start"], outside["end"], outside["excludes"]) is False
 
 
 # --- rules of data/ ---------------------------------------------------------------

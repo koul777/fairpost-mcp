@@ -1178,7 +1178,9 @@
   }
 
   // _bounded_regex: the sticky regex, accepted only where at least
-  // `remaining` code points follow its match.
+  // `remaining` code points follow its match; null when it does not compile.
+  // (A pattern with Python's global inline flags, the case _bounded_regex
+  // handles, is not a valid RegExp to begin with: patternToRegex throws.)
   function boundedOf(regex, remaining) {
     let byCount = BOUNDED.get(regex);
     if (byCount === undefined) {
@@ -1188,10 +1190,14 @@
     let bounded = byCount.get(remaining);
     if (bounded === undefined) {
       if (byCount.size >= BOUNDED_LIMIT) byCount.clear();
-      bounded = new RegExp(
-        `(?:${regex.source})(?=[\\s\\S]{${remaining}})`,
-        regex.flags.replace("g", "") + "y"
-      );
+      try {
+        bounded = new RegExp(
+          `(?:${regex.source})(?=[\\s\\S]{${remaining}})`,
+          regex.flags.replace("g", "") + "y"
+        );
+      } catch (_) {
+        bounded = null;
+      }
       byCount.set(remaining, bounded);
     }
     return bounded;
@@ -1222,12 +1228,13 @@
   }
 
   // _window_admits: every required literal, and one literal of each any-of
-  // group, lies wholly inside text[left, right).
+  // group, lies wholly inside text[left, right). The search stays inside the
+  // window, as str.find(literal, left, right) does: indexOf from `left` would
+  // read on to the end of the posting when the literal is missing.
   function windowAdmits(text, left, right, required, requiredAnyOf) {
-    const inside = (literal) => {
-      const at = text.indexOf(literal, left);
-      return at !== -1 && at + literal.length <= right;
-    };
+    if (required.length === 0 && requiredAnyOf.length === 0) return true;
+    const span = text.slice(left, right);
+    const inside = (literal) => span.includes(literal);
     for (let index = 0; index < required.length; index += 1) {
       if (!inside(required[index])) return false;
     }
@@ -1256,8 +1263,14 @@
       let match = sticky.exec(text);
       if (match !== null && start + match[0].length > right) {
         const bounded = boundedOf(regex, codePointLength(text.slice(right, limit)));
-        bounded.lastIndex = start;
-        match = bounded.exec(visible);
+        if (bounded === null) {
+          // As in _window_spans: the match on text[:right].
+          sticky.lastIndex = start;
+          match = sticky.exec(text.slice(0, right));
+        } else {
+          bounded.lastIndex = start;
+          match = bounded.exec(visible);
+        }
       }
       if (match === null) {
         position = afterEmptyMatch(text, start);

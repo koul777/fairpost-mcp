@@ -558,20 +558,36 @@ def find_matches(
 # the match that is kept otherwise read the whole text. See
 # docs/exclusion-window-2026-10-23.md.
 EXCLUDE_LOOKAHEAD = 1024
-_BOUNDED: dict[tuple[re.Pattern[str], int], re.Pattern[str]] = {}
+_BOUNDED: dict[tuple[re.Pattern[str], int], re.Pattern[str] | None] = {}
 _BOUNDED_LIMIT = 4096
+# Global inline flags such as "(?i)" may only open a pattern, so they stay in
+# front of the group that wraps the rest.
+_LEADING_FLAGS = re.compile(r"(?:\(\?[aiLmsux]+\))+")
 
 
-def _bounded_regex(regex: re.Pattern[str], remaining: int) -> re.Pattern[str]:
-    """regex, accepted only where at least ``remaining`` characters follow its match."""
+def _bounded_regex(regex: re.Pattern[str], remaining: int) -> re.Pattern[str] | None:
+    """regex, accepted only where at least ``remaining`` characters follow its match.
+
+    None when the pattern cannot be wrapped: a verbose pattern (a trailing
+    comment would swallow the added lookahead) or one that does not compile.
+    """
     key = (regex, remaining)
-    bounded = _BOUNDED.get(key)
-    if bounded is None:
-        if len(_BOUNDED) >= _BOUNDED_LIMIT:
-            _BOUNDED.clear()
-        bounded = _BOUNDED[key] = re.compile(
-            f"(?:{regex.pattern})(?=[\\s\\S]{{{remaining}}})", regex.flags
-        )
+    if key in _BOUNDED:
+        return _BOUNDED[key]
+    if len(_BOUNDED) >= _BOUNDED_LIMIT:
+        _BOUNDED.clear()
+    bounded = None
+    if not regex.flags & re.VERBOSE:
+        leading = _LEADING_FLAGS.match(regex.pattern)
+        flags = leading.group() if leading else ""
+        body = regex.pattern[len(flags) :]
+        try:
+            bounded = re.compile(
+                f"{flags}(?:{body})(?=[\\s\\S]{{{remaining}}})", regex.flags
+            )
+        except re.error:
+            bounded = None
+    _BOUNDED[key] = bounded
     return bounded
 
 
@@ -587,6 +603,8 @@ def _window_spans(
     EXCLUDE_LOOKAHEAD. The match kept there is regex.match on the whole text
     when it ends by ``right``; when it runs past ``right``, the first match at
     the same start that ends by ``right`` with assertions reading text[:limit].
+    A pattern that _bounded_regex cannot wrap falls back to the match on
+    text[:right], as the check before 2026-10-23 did.
     """
     limit = min(len(text), right + EXCLUDE_LOOKAHEAD)
     position = left
@@ -599,7 +617,11 @@ def _window_spans(
             return
         match = regex.match(text, start)
         if match is not None and match.end() > right:
-            match = _bounded_regex(regex, limit - right).match(text, start, limit)
+            bounded = _bounded_regex(regex, limit - right)
+            if bounded is None:
+                match = regex.match(text, start, right)
+            else:
+                match = bounded.match(text, start, limit)
         if match is None:
             position = start + 1
             continue
