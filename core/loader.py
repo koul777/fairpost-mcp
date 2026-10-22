@@ -53,8 +53,8 @@ QUESTION_REVIEW_SCOPES = {"posting", "common"}
 # point order (Python and web/engine.js alike), so the id shape is fixed here.
 RULE_ID_PATTERN = re.compile(r"[A-Z]+(?:-[A-Z]+)*-[0-9]{3}")
 MATCH_ENGINE_VERSION = (
-    "engine-v5-normalized-regex-context-groups-first-match-overlap-candidate-"
-    "exclude-section-slots"
+    "engine-v6-normalized-regex-context-groups-first-match-overlap-candidate-"
+    "exclude-section-slots-exclude-window-reads-text"
 )
 REQUIRED_STATUTE_ARTICLES = {
     "age-discrimination-act": {"제4조의4", "제4조의5"},

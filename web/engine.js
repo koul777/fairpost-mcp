@@ -1157,6 +1157,154 @@
     return a.length === b.length ? 0 : a.length < b.length ? -1 : 1;
   }
 
+  // How many code points past the end of an exclusion window the search for a
+  // term's start and the bounded retry in windowHit may read. Assertions of
+  // the match that is kept otherwise read the whole text. Same value and
+  // meaning as core.morph.EXCLUDE_LOOKAHEAD.
+  const EXCLUDE_LOOKAHEAD = 1024;
+  const BOUNDED_LIMIT = 4096;
+  const STICKY = new WeakMap();
+  const BOUNDED = new WeakMap();
+
+  // A global regex as a sticky one: exec matches at lastIndex only, as
+  // re.match(text, pos) does.
+  function stickyOf(regex) {
+    let sticky = STICKY.get(regex);
+    if (sticky === undefined) {
+      sticky = new RegExp(regex.source, regex.flags.replace("g", "") + "y");
+      STICKY.set(regex, sticky);
+    }
+    return sticky;
+  }
+
+  // _bounded_regex: the sticky regex, accepted only where at least
+  // `remaining` code points follow its match.
+  function boundedOf(regex, remaining) {
+    let byCount = BOUNDED.get(regex);
+    if (byCount === undefined) {
+      byCount = new Map();
+      BOUNDED.set(regex, byCount);
+    }
+    let bounded = byCount.get(remaining);
+    if (bounded === undefined) {
+      if (byCount.size >= BOUNDED_LIMIT) byCount.clear();
+      bounded = new RegExp(
+        `(?:${regex.source})(?=[\\s\\S]{${remaining}})`,
+        regex.flags.replace("g", "") + "y"
+      );
+      byCount.set(remaining, bounded);
+    }
+    return bounded;
+  }
+
+  // First index whose offset is at least `value` (view offsets only grow).
+  function firstAtLeast(offsets, value) {
+    let low = 0;
+    let high = offsets.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (offsets[middle] < value) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  }
+
+  // First index whose offset is above `value`.
+  function firstAbove(offsets, value) {
+    let low = 0;
+    let high = offsets.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (offsets[middle] <= value) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  }
+
+  // _window_admits: every required literal, and one literal of each any-of
+  // group, lies wholly inside text[left, right).
+  function windowAdmits(text, left, right, required, requiredAnyOf) {
+    const inside = (literal) => {
+      const at = text.indexOf(literal, left);
+      return at !== -1 && at + literal.length <= right;
+    };
+    for (let index = 0; index < required.length; index += 1) {
+      if (!inside(required[index])) return false;
+    }
+    for (let index = 0; index < requiredAnyOf.length; index += 1) {
+      if (!requiredAnyOf[index].some(inside)) return false;
+    }
+    return true;
+  }
+
+  // _window_spans and the overlap test of _term_in_window, in code units:
+  // whether a match of `regex` (global) that starts and ends inside
+  // [left, right] of `text` overlaps `overlap` (any match when null). A view
+  // match counts only when non-empty and is tested at its source offsets.
+  function windowHit(regex, text, left, right, view, overlap) {
+    const limit = moveCodePointsRight(text, right, EXCLUDE_LOOKAHEAD);
+    const visible = limit === text.length ? text : text.slice(0, limit);
+    let position = left;
+    while (position <= right) {
+      regex.lastIndex = position;
+      const found = regex.exec(visible);
+      if (found === null) return false;
+      const start = found.index;
+      if (start > right) return false;
+      const sticky = stickyOf(regex);
+      sticky.lastIndex = start;
+      let match = sticky.exec(text);
+      if (match !== null && start + match[0].length > right) {
+        const bounded = boundedOf(regex, codePointLength(text.slice(right, limit)));
+        bounded.lastIndex = start;
+        match = bounded.exec(visible);
+      }
+      if (match === null) {
+        position = afterEmptyMatch(text, start);
+        continue;
+      }
+      const end = start + match[0].length;
+      if (view === null) {
+        if (overlap === null || (start < overlap.end && end > overlap.start)) return true;
+      } else if (end > start) {
+        const sourceStart = view.starts[start];
+        const sourceEnd = view.ends[end - 1];
+        if (overlap === null || (sourceStart < overlap.end && sourceEnd > overlap.start)) return true;
+      }
+      position = end > start ? end : afterEmptyMatch(text, start);
+    }
+    return false;
+  }
+
+  // _term_in_window: the scans of scanPattern, each limited to the window
+  // [left, right] of the source mapped into the view it reads.
+  function termInWindow(text, left, right, pattern, overlap) {
+    const plan = patternPlan(pattern);
+    const views = textViews(text);
+    if (
+      !(plan.isRegex && views.normalizedDiffers) &&
+      windowAdmits(text, left, right, plan.textRequired, plan.requiredAnyOf) &&
+      windowHit(plan.regex, text, left, right, null, overlap)
+    ) {
+      return true;
+    }
+    let view = null;
+    if (plan.isRegex) {
+      if (views.normalizedDiffers) view = views.normalized;
+    } else if (views.matchDiffers) {
+      view = views.matched;
+    }
+    if (view === null) return false;
+    // A view that differs from its text always has offsets.
+    const viewLeft = firstAtLeast(view.starts, left);
+    const viewRight = firstAbove(view.ends, right);
+    return (
+      viewRight >= viewLeft &&
+      windowAdmits(view.normalized, viewLeft, viewRight, plan.viewRequired, plan.requiredAnyOf) &&
+      windowHit(plan.normalizedRegex, view.normalized, viewLeft, viewRight, view, overlap)
+    );
+  }
+
   function isExcluded(text, match, excludes) {
     return excludes.some((exclusion) => {
       if (
@@ -1168,17 +1316,13 @@
       const window = Number(exclusion.window || 0);
       const left = moveCodePointsLeft(text, match.start, window);
       const right = moveCodePointsRight(text, match.end, window);
-      const termMatches = findMatches(text.slice(left, right), [
+      return termInWindow(
+        text,
+        left,
+        right,
         String(exclusion.term),
-      ]);
-      if (exclusion.overlap_candidate) {
-        const relativeStart = match.start - left;
-        const relativeEnd = match.end - left;
-        return termMatches.some(
-          (item) => item.start < relativeEnd && item.end > relativeStart
-        );
-      }
-      return termMatches.length > 0;
+        exclusion.overlap_candidate ? match : null
+      );
     });
   }
 
