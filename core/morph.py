@@ -553,9 +553,9 @@ def find_matches(
     return [found[span] for span in sorted(found)]
 
 
-# How many characters past the end of an exclusion window the search for a
-# term's start and the bounded retry in _window_spans may read. Assertions of
-# the match that is kept otherwise read the whole text. See
+# How many characters past the end of an exclusion or context-group window the
+# search for a term's start and the bounded retry in _window_spans may read.
+# Assertions of the match that is kept otherwise read the whole text. See
 # docs/exclusion-window-2026-10-23.md.
 EXCLUDE_LOOKAHEAD = 1024
 _BOUNDED: dict[tuple[re.Pattern[str], int], re.Pattern[str] | None] = {}
@@ -717,3 +717,14 @@ def is_excluded(text: str, start: int, end: int, excludes: list[dict]) -> bool:
         if _term_in_window(text, left, right, str(exclusion["term"]), overlap):
             return True
     return False
+
+
+def found_in_window(text: str, left: int, right: int, patterns: list[str]) -> bool:
+    """Whether a pattern matches inside [left, right] of text.
+
+    find_first on text[left:right], except that lookarounds, ``^`` and ``$``
+    read the text itself, as in is_excluded.
+    """
+    return any(
+        _term_in_window(text, left, right, str(pattern), None) for pattern in patterns
+    )

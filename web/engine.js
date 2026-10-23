@@ -1530,12 +1530,6 @@
     return cursor;
   }
 
-  function codePointWindow(text, match, window) {
-    const left = moveCodePointsLeft(text, match.start, window);
-    const right = moveCodePointsRight(text, match.end, window);
-    return text.slice(left, right);
-  }
-
   // A sentence boundary at code unit i: one of . ! ? 。 ！ ？, except a "."
   // after a digit or between two ASCII letters/digits.
   function isSentenceMark(text, i) {
@@ -2209,12 +2203,17 @@
     return triggerReason === "presence" ? 2 : 3;
   }
 
+  // _matches_context_groups: found_in_window over each group's window.
   function matchesContextGroups(source, match, trigger) {
     const contextGroups = trigger.context_groups;
     if (!contextGroups) return true;
     return Object.values(contextGroups).every((group) => {
-      const context = codePointWindow(source, match, group.window);
-      return Boolean(findFirst(context, group.patterns));
+      const window = Number(group.window);
+      const left = moveCodePointsLeft(source, match.start, window);
+      const right = moveCodePointsRight(source, match.end, window);
+      return group.patterns.some((pattern) =>
+        termInWindow(source, left, right, String(pattern), null)
+      );
     });
   }
 

@@ -5,7 +5,7 @@ from typing import Any
 
 from .extractor import extract_slots, section_at, source_candidate_allowed, split_sections
 from .loader import Ruleset, load_ruleset
-from .morph import find_first, find_matches, is_excluded, normalize
+from .morph import find_matches, found_in_window, is_excluded, normalize
 from .schema import Basis, CheckResult, Finding, Question, QuestionReference
 
 
@@ -25,10 +25,9 @@ def _matches_context_groups(
         return True
     for group in context_groups.values():
         window = int(group["window"])
-        context = source[
-            max(0, match.start() - window) : min(len(source), match.end() + window)
-        ]
-        if find_first(context, group["patterns"]) is None:
+        left = max(0, match.start() - window)
+        right = min(len(source), match.end() + window)
+        if not found_in_window(source, left, right, group["patterns"]):
             return False
     return True
 

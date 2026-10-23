@@ -212,6 +212,8 @@ Pythonㆍ웹 무작위 30,000건과 경계 179건 불일치 0. 새 테스트는 
   수에 비례해 늘어남. 후보 400개와 공백 10만 개 합성 입력에서 Python 제외 판정이 약 0.02초에서 약 0.07초.
 - 같은 창 문제가 남은 곳: 트리거의 `context_groups`(`core/engine.py` `_matches_context_groups`)와
   `source_candidate_allowed`(`core/extractor.py`)는 여전히 창으로 자른 조각에서 찾음. 이번 범위 밖임.
+  `context_groups`는 engine-v7에서 같은 방식으로 고침(`docs/context-window-2026-10-23.md`).
+  `source_candidate_allowed`는 조사만 하고 기록함(같은 문서).
 - `candidate` 필터는 후보 글 자체에만 적용함(의도한 설계). 후보 앞 글자를 보는 lookbehind는 후보 글의 시작을
   글 시작으로 봄.
 - 공백 사다리의 family-omission-penalty 두 자리 20건은 main에서도 표시되지 않음. 이번 변경과 무관함.
