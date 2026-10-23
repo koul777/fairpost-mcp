@@ -3,11 +3,9 @@
   "audit_date": "2026-10-23",
   "evidence_status": "current",
   "evidence_scope": "local-integrated-web-bundle",
-  "integration_commit": "0cffa4acb6b8874d47c50a750e628185054b0dff",
+  "integration_commit": "8b4df43c2055ec543a85ceda4024974924634c19",
   "integration_branch": "overnight/2026-10-23",
-  "integration_worktree_changes": [
-    "web/styles.css, uncommitted (worktree HEAD 573fdd0 has web, core and mcp_server files identical to 0cffa4a): in the dark block the active mark fill #6b5a17 becomes #4f4210, ::selection alpha 0.35 becomes 0.25, and the comment above the active rule is extended (4 lines added, 3 removed)"
-  ],
+  "integration_worktree_changes": [],
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-36f30cccacd4",
   "matching_version": "match-ae2f8b43f9de8d64",
   "runtime_source_fingerprint": "runtime-99db90b68b75318e3c5e6126d6967e85b32e435be33217ecea7bc5b180b44e4c",
@@ -299,10 +297,20 @@
         "partly": ["P1 (focus moved away: fixed; right after Next: R1)"],
         "new": ["R1"],
         "still_open": ["P5", "P6", "P7", "P8", "P9", "P10", "V6"],
-        "capture_advice": "overlap consecutive segment captures by the sticky bar height (about 45 px); applied in this run",
+        "capture_advice": "overlap consecutive segment captures by the sticky bar height (about 45 px); applied in this run, complete on desktop and tablet, short by about 16 px on mobile (T1)",
         "file_local": "tmp\\overnight-2026-10-23\\viewer\\review-2.md (outside the repository)"
       },
-      "note": "The viewer has not reread the run reported here; the visual worker read the screenshots listed by count in visual_inspection."
+      "third_review": {
+        "run": "run-2026-10-23T09-07-09 (integrated worktree, R1 fix commit 8b4df43)",
+        "method": "Pixel comparison of the 162 non-segment screenshots against the second-review run (115 identical, 11 below threshold, 36 changed in 47 regions, all viewed; 8 stepping pairs enlarged); blank-band check of all 360 segment captures (0 blank, 7 boundaries viewed).",
+        "resolved": ["R1"],
+        "measured": "selection on the active mark 4.98:1 (computed 4.93:1) in all three viewports; active mark alone 8.47:1; selection over the field 7.94:1; the yellow ring (10.76:1 against the dark field) carries the active marker because the active fill is almost the same as the other marks (1.05:1)",
+        "new_product_issues": 0,
+        "harness_finding": ["T1 (mobile segment boundaries lose about 16 px, 162 boundaries)"],
+        "still_open": ["P5", "P6", "P7", "P8", "P9", "P10", "V6"],
+        "file_local": "tmp\\overnight-2026-10-23\\viewer\\review-3.md (outside the repository)"
+      },
+      "note": "The third review covers the run reported here; the visual worker also read the screenshots counted in visual_inspection."
     },
     "blocking_issues": [],
     "issues": [
@@ -360,7 +368,7 @@
         "status": "fixed",
         "severity": "major",
         "title": "Step selection on top of the active mark fill gave 3.28:1 in dark mode",
-        "detail": "A step selects the finding text, so the dark selection color (alpha 0.35) lay on the new active fill #6b5a17: 3.25:1 right after Next (viewer 3.28:1). Now active fill #4f4210 and selection alpha 0.25: 4.96:1 with the selection on the active mark, 8.47:1 without, 7.9:1 over the field, 5.15:1 over the other marks. Found by the viewer in the second review; the earlier probe measured the selection over the field only. The harness now measures the selection stack over every mark.",
+        "detail": "A step selects the finding text, so the dark selection color (alpha 0.35) lay on the new active fill #6b5a17: 3.25:1 right after Next (viewer 3.28:1). Now active fill #4f4210 and selection alpha 0.25: 4.96:1 with the selection on the active mark, 8.47:1 without, 7.9:1 over the field, 5.15:1 over the other marks. Found by the viewer in the second review; the earlier probe measured the selection over the field only. The harness now measures the selection stack over every mark. The viewer's third review measured 4.98:1 from pixels with the selection on the active mark (8.47:1 once focus moves away) in all three viewports and resolved R1.",
         "screenshots": ["desktop-dark__10-stepper-1.png", "tablet-dark__10-stepper-1.png", "mobile-dark__10-stepper-1.png"],
         "location": "web/styles.css .posting-mark.is-active and ::selection (dark block)"
       },
@@ -370,9 +378,19 @@
         "status": "resolved in harness",
         "severity": "major (confirm)",
         "title": "Full-page captures blank below about y 16,400 px",
-        "detail": "Reproduced: a desktop full-page capture (1366x24934) differs from scroll captures in 8 of 30 segments (y 16580 to 22383); Chromium capture limit, not layout. Pages over 15,000 px are now captured per scroll position, each shot overlapping the previous by the sticky jump bar height so no boundary band is missed (360 segments, 0 blank).",
+        "detail": "Reproduced: a desktop full-page capture (1366x24934) differs from scroll captures in 8 of 30 segments (y 16580 to 22383); Chromium capture limit, not layout. Pages over 15,000 px are now captured per scroll position, each shot overlapping the previous by the bar height plus a margin: 71 px for the 66 px bar on desktop and tablet (no band is lost), but only 50 px on mobile where the bar height was measured as 0 (about 16 px lost at each mobile boundary, see T1). 360 segments, 0 blank.",
         "screenshots": ["desktop-light__25-easy-all-open-full__s20.png"],
         "location": "visual/tools/audit.cjs"
+      },
+      {
+        "id": "T1",
+        "viewer_id": "review 3",
+        "status": "open",
+        "severity": "low",
+        "title": "Mobile scroll captures leave about 16 px bands at boundaries",
+        "detail": "The harness measured the sticky bar as 0 px on the mobile layout and fell back to a 50 px overlap, but the bar is 66 px there, so about 16 px at each of 162 mobile boundaries ((45-1 + 38-1) x 2 schemes) appears in no capture. Desktop and tablet are complete. Fix: match the bar selector to the mobile layout, or default the overlap to 71 px or more when the bar cannot be measured; needs a browser rerun to take effect. Found in the third review.",
+        "screenshots": ["mobile-light__25-easy-all-open-full__s20.png", "mobile-light__25-easy-all-open-full__s21.png"],
+        "location": "visual/tools/audit.cjs shotSegments()"
       },
       {
         "id": "V3",
@@ -465,7 +483,7 @@
     "observations": [
       "First screen, /book entry, paste, check, marks, stepper, linked questions, jump bar, expert view, copy, save, rewrite, stale banner, re-check with comparison, clear and undo render without clipping, overlap or breakage in light and dark at 1366, 820 and 390 px in the screenshots read.",
       "Dark mode after the fixes: badges show dark digits on mint, the active mark shows light text on dark amber with a yellow ring, selected field text is readable.",
-      "Pages over 15,000 px are captured per scroll position with an overlap equal to the sticky bar; the part that was blank in full-page captures shows the question groups.",
+      "Pages over 15,000 px are captured per scroll position, overlapping by 71 px on desktop and tablet and by 50 px on mobile (bar not measured); the part that was blank in full-page captures shows the question groups.",
       "Dark mode right after Next: active mark fill #4f4210 with the step selection on top, light text readable (4.93:1) and the yellow ring marks the chosen finding.",
       "At 820 px a pointer resting on a card can pre-select a finding after a check (stepper shows k/N); this is the documented hover-follow behavior."
     ]
@@ -611,7 +629,7 @@
   },
   "style_change": {
     "file": "web/styles.css",
-    "commit": "1229563 (merged into 0cffa4a) plus an uncommitted follow-up in the working tree (active fill #4f4210, selection alpha 0.25)",
+    "commit": "1229563 (merged into 0cffa4a); follow-up 8b4df43 (active fill #4f4210, selection alpha 0.25)",
     "added_lines": 26,
     "placement": "inside the existing @media (prefers-color-scheme: dark) block, no deleted lines",
     "rules": [
@@ -660,6 +678,9 @@
     "long_page_capture": {
       "segments_in_run": 360,
       "blank_segments": 0,
+      "overlap_px": {"desktop_tablet": 71, "mobile": 50},
+      "sticky_bar_measured_px": {"desktop_tablet": 66, "mobile": 0},
+      "known_gap": "mobile boundaries lose about 16 px each (162 boundaries); the tool is not fixed yet (issue T1)",
       "legacy_check": {"image": "1366x24934", "segments": 30, "segments_differing": 8, "first_differing_y": 16580, "last_differing_y": 22383}
     }
   },
@@ -676,12 +697,12 @@
   "artifacts": {
     "local_directory": "C:\\workspace\\fairmcp\\tmp\\overnight-2026-10-23\\visual\\run-2026-10-23T09-07-09",
     "manifest_file": "manifest.json",
-    "manifest_sha256": "f1b288afa60728b276a2f2b8369296b7e65a760c274489ed28e4e5938a5efa9f",
+    "manifest_sha256": "ab66f6e48221caa682bda554f16b2a73c5c9f37849b14a75bb01579dada5c17e",
     "manifest_entries": 674,
     "raw_report_file": "raw/raw-report.json",
     "raw_report_sha256": "a479af0e9e6f9a708936fa931b523f2a02e36116f917d6cbcea4826907863075",
     "inspection_file": "inspection.json",
-    "inspection_sha256": "b94f77f1638572534fa4304fe80a0340c9b52828c7958ff3f310fad51058c85b",
+    "inspection_sha256": "ab7fe7b28d0c3f9a90050e95a0109a3ae769ddb22da62fb4c91f5db6cc3999db",
     "screenshot_count": 522,
     "tile_count": 124,
     "harness_file": "visual/tools/audit.cjs",
@@ -705,10 +726,11 @@
     "AI and law-MCP supplement not exercised (no keys, run button never pressed); zero non-GET requests does not test that path.",
     "No screen reader, 200/400 percent zoom, 320 px reflow, text-spacing override, forced-colors or print check.",
     "axe cannot decide color-contrast for gradients, images, overlaps and generated content; manual scans skip text over background images (427). The scans caught the viewer's dark-mode findings only after being extended, so other unmeasured combinations may remain. Not a claim of full WCAG conformance.",
-    "Screenshots: the viewer read all 174 images of an earlier run; the visual worker read 52 of 522 images of this run plus 3 tiles. The viewer has not reread this run.",
+    "Screenshots: the viewer read all 174 images of an earlier run; the visual worker read 52 of 522 images of this run plus 3 tiles. The viewer's second review covered the earlier integrated run and the third review this run (pixel comparison plus samples).",
     "Clipboard checked with Chromium permissions on loopback (CRLF/LF and BOM normalized); pasting into another application not tested.",
     "Shared PC under memory pressure: the harness waits for 4 GB free before each scenario (0 wait, minimum sampled 4.24 GB). An earlier exploratory run had one Chromium crash and one launch at 2.59 GB free; neither is part of this report.",
-    "Bound to merge commit 0cffa4a plus the uncommitted web/styles.css follow-up (active fill #4f4210, selection alpha 0.25); committing it or any further engine or web change makes the runtime fingerprint, and this report, stale until the audit is rerun.",
+    "Bound to commit 8b4df43 (R1 fix). The web, core and mcp_server files of the worktree at report time are identical to the files tested and the runtime fingerprint is unchanged; any later engine or web change makes the fingerprint, and this report, stale until the audit is rerun.",
+    "Mobile scroll-position captures overlap by 50 px instead of the 66 px sticky bar: about 16 px at each of 162 mobile boundaries appears in no capture. Cause: the bar height was measured as 0 on the mobile layout and the 50 px default applied. Fix: match the selector to the mobile layout or default to 71 px or more. Desktop and tablet captures are complete. Found in the third review; not rerun.",
     "Open: V3 to V8, P5, P6, P10 (P5 needs app.js; P6 and P10 need behavior or design decisions, P10 also changes light mode)."
   ]
 }
