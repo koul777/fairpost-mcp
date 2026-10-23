@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from core import FairpostEngine
-from core.morph import find_first, find_matches, normalize
+from core.morph import EXCLUDE_LOOKAHEAD, find_first, find_matches, normalize
 from web_engine import web_check_batch
 
 
@@ -61,6 +61,14 @@ CASES = {
     # Unchanged: a plain request inside the window, and one that runs past it.
     "plain-request-inside": (_posting("학력사항", "\n"), True, True),
     "request-crosses-window-end": (_posting("학력사항", "\n", gap=-1), False, False),
+    # Known limit: the search for a start reads EXCLUDE_LOOKAHEAD characters past
+    # the window, so "무관" ending at that cut looks like a whole "무관" line
+    # although the line goes on ("한 직무입니다"). One blank fewer or more and
+    # the real line is seen.
+    "line-goes-on-past-lookahead-limit": (
+        _posting("학력사항", " " * (EXCLUDE_LOOKAHEAD - 3) + "무관 한 직무입니다\n"), False, True),
+    "line-goes-on-before-lookahead-limit": (
+        _posting("학력사항", " " * (EXCLUDE_LOOKAHEAD - 4) + "무관 한 직무입니다\n"), True, True),
 }
 
 
