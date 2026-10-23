@@ -5,11 +5,14 @@
   "evidence_scope": "local-integrated-web-bundle",
   "integration_commit": "0cffa4acb6b8874d47c50a750e628185054b0dff",
   "integration_branch": "overnight/2026-10-23",
+  "integration_worktree_changes": [
+    "web/styles.css, uncommitted (worktree HEAD 573fdd0 has web, core and mcp_server files identical to 0cffa4a): in the dark block the active mark fill #6b5a17 becomes #4f4210, ::selection alpha 0.35 becomes 0.25, and the comment above the active rule is extended (4 lines added, 3 removed)"
+  ],
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-36f30cccacd4",
   "matching_version": "match-ae2f8b43f9de8d64",
-  "runtime_source_fingerprint": "runtime-51505bf2b74e6b97998c99f046610cee0dfa3e2cf3b17690a55b66d57cb92893",
-  "started_at": "2026-10-22T23:07:42.831Z",
-  "finished_at": "2026-10-22T23:18:19.999Z",
+  "runtime_source_fingerprint": "runtime-99db90b68b75318e3c5e6126d6967e85b32e435be33217ecea7bc5b180b44e4c",
+  "started_at": "2026-10-23T00:07:10.776Z",
+  "finished_at": "2026-10-23T00:16:26.570Z",
   "browser": {
     "name": "Chromium headless shell",
     "version": "153.0.8010.12",
@@ -19,8 +22,8 @@
   "synthetic_inputs_only": true,
   "verification": {
     "passed": true,
-    "checks_passed": 1296,
-    "checks_total": 1296,
+    "checks_passed": 1338,
+    "checks_total": 1338,
     "failed_checks": 0,
     "production_verified": false,
     "axe_executed": true,
@@ -41,8 +44,8 @@
       "touch_emulation": "mouse",
       "initial_mode": "easy",
       "book_redirect_status": 307,
-      "checks_passed": 172,
-      "checks_total": 172,
+      "checks_passed": 179,
+      "checks_total": 179,
       "horizontal_overflow": false,
       "duplicate_dom_ids": [],
       "counts": {"findings": 3, "missing": 7, "questions": 11},
@@ -54,10 +57,10 @@
       "non_get_requests": 0,
       "console_errors": 0,
       "page_errors": 0,
-      "screenshots": {"total": 75, "scroll_segments": 51, "read_by_visual_worker": 11},
+      "screenshots": {"total": 79, "scroll_segments": 55, "read_by_visual_worker": 11},
       "long_page_captures": [
-        {"state": "easy-all-open-full", "page_height": 24934, "segments": 28, "blank_segments": 0},
-        {"state": "expert-all-open-full", "page_height": 20421, "segments": 23, "blank_segments": 0}
+        {"state": "easy-all-open-full", "page_height": 24934, "segments": 30, "overlap_px": 71, "blank_segments": 0},
+        {"state": "expert-all-open-full", "page_height": 20421, "segments": 25, "overlap_px": 71, "blank_segments": 0}
       ]
     },
     {
@@ -69,8 +72,8 @@
       "touch_emulation": "mouse",
       "initial_mode": "easy",
       "book_redirect_status": 307,
-      "checks_passed": 172,
-      "checks_total": 172,
+      "checks_passed": 179,
+      "checks_total": 179,
       "horizontal_overflow": false,
       "duplicate_dom_ids": [],
       "counts": {"findings": 3, "missing": 7, "questions": 11},
@@ -82,10 +85,10 @@
       "non_get_requests": 0,
       "console_errors": 0,
       "page_errors": 0,
-      "screenshots": {"total": 75, "scroll_segments": 51, "read_by_visual_worker": 10},
+      "screenshots": {"total": 79, "scroll_segments": 55, "read_by_visual_worker": 11},
       "long_page_captures": [
-        {"state": "easy-all-open-full", "page_height": 24934, "segments": 28, "blank_segments": 0},
-        {"state": "expert-all-open-full", "page_height": 20421, "segments": 23, "blank_segments": 0}
+        {"state": "easy-all-open-full", "page_height": 24934, "segments": 30, "overlap_px": 71, "blank_segments": 0},
+        {"state": "expert-all-open-full", "page_height": 20421, "segments": 25, "overlap_px": 71, "blank_segments": 0}
       ]
     },
     {
@@ -97,8 +100,8 @@
       "touch_emulation": "touch capable, mouse clicks",
       "initial_mode": "easy",
       "book_redirect_status": 307,
-      "checks_passed": 172,
-      "checks_total": 172,
+      "checks_passed": 179,
+      "checks_total": 179,
       "horizontal_overflow": false,
       "duplicate_dom_ids": [],
       "counts": {"findings": 3, "missing": 7, "questions": 11},
@@ -110,10 +113,10 @@
       "non_get_requests": 0,
       "console_errors": 0,
       "page_errors": 0,
-      "screenshots": {"total": 64, "scroll_segments": 40, "read_by_visual_worker": 4},
+      "screenshots": {"total": 66, "scroll_segments": 42, "read_by_visual_worker": 4},
       "long_page_captures": [
-        {"state": "easy-all-open-full", "page_height": 25455, "segments": 22, "blank_segments": 0},
-        {"state": "expert-all-open-full", "page_height": 20983, "segments": 18, "blank_segments": 0}
+        {"state": "easy-all-open-full", "page_height": 25455, "segments": 23, "overlap_px": 71, "blank_segments": 0},
+        {"state": "expert-all-open-full", "page_height": 20983, "segments": 19, "overlap_px": 71, "blank_segments": 0}
       ]
     },
     {
@@ -125,8 +128,8 @@
       "touch_emulation": "touch capable, mouse clicks",
       "initial_mode": "easy",
       "book_redirect_status": 307,
-      "checks_passed": 172,
-      "checks_total": 172,
+      "checks_passed": 179,
+      "checks_total": 179,
       "horizontal_overflow": false,
       "duplicate_dom_ids": [],
       "counts": {"findings": 3, "missing": 7, "questions": 11},
@@ -138,10 +141,10 @@
       "non_get_requests": 0,
       "console_errors": 0,
       "page_errors": 0,
-      "screenshots": {"total": 64, "scroll_segments": 40, "read_by_visual_worker": 6},
+      "screenshots": {"total": 66, "scroll_segments": 42, "read_by_visual_worker": 4},
       "long_page_captures": [
-        {"state": "easy-all-open-full", "page_height": 25455, "segments": 22, "blank_segments": 0},
-        {"state": "expert-all-open-full", "page_height": 20983, "segments": 18, "blank_segments": 0}
+        {"state": "easy-all-open-full", "page_height": 25455, "segments": 23, "overlap_px": 71, "blank_segments": 0},
+        {"state": "expert-all-open-full", "page_height": 20983, "segments": 19, "overlap_px": 71, "blank_segments": 0}
       ]
     },
     {
@@ -153,8 +156,8 @@
       "touch_emulation": "mobile + touch (tap)",
       "initial_mode": "easy",
       "book_redirect_status": 307,
-      "checks_passed": 172,
-      "checks_total": 172,
+      "checks_passed": 179,
+      "checks_total": 179,
       "horizontal_overflow": false,
       "duplicate_dom_ids": [],
       "counts": {"findings": 3, "missing": 7, "questions": 11},
@@ -166,10 +169,10 @@
       "non_get_requests": 0,
       "console_errors": 0,
       "page_errors": 0,
-      "screenshots": {"total": 102, "scroll_segments": 78, "read_by_visual_worker": 10},
+      "screenshots": {"total": 107, "scroll_segments": 83, "read_by_visual_worker": 9},
       "long_page_captures": [
-        {"state": "easy-all-open-full", "page_height": 35129, "segments": 42, "blank_segments": 0},
-        {"state": "expert-all-open-full", "page_height": 29659, "segments": 36, "blank_segments": 0}
+        {"state": "easy-all-open-full", "page_height": 35129, "segments": 45, "overlap_px": 50, "blank_segments": 0},
+        {"state": "expert-all-open-full", "page_height": 29659, "segments": 38, "overlap_px": 50, "blank_segments": 0}
       ]
     },
     {
@@ -181,8 +184,8 @@
       "touch_emulation": "mobile + touch (tap)",
       "initial_mode": "easy",
       "book_redirect_status": 307,
-      "checks_passed": 172,
-      "checks_total": 172,
+      "checks_passed": 179,
+      "checks_total": 179,
       "horizontal_overflow": false,
       "duplicate_dom_ids": [],
       "counts": {"findings": 3, "missing": 7, "questions": 11},
@@ -194,10 +197,10 @@
       "non_get_requests": 0,
       "console_errors": 0,
       "page_errors": 0,
-      "screenshots": {"total": 102, "scroll_segments": 78, "read_by_visual_worker": 7},
+      "screenshots": {"total": 107, "scroll_segments": 83, "read_by_visual_worker": 7},
       "long_page_captures": [
-        {"state": "easy-all-open-full", "page_height": 35129, "segments": 42, "blank_segments": 0},
-        {"state": "expert-all-open-full", "page_height": 29659, "segments": 36, "blank_segments": 0}
+        {"state": "easy-all-open-full", "page_height": 35129, "segments": 45, "overlap_px": 50, "blank_segments": 0},
+        {"state": "expert-all-open-full", "page_height": 29659, "segments": 38, "overlap_px": 50, "blank_segments": 0}
       ]
     },
     {
@@ -222,7 +225,7 @@
       "non_get_requests": 0,
       "console_errors": 0,
       "page_errors": 0,
-      "screenshots": {"total": 9, "scroll_segments": 0, "read_by_visual_worker": 4},
+      "screenshots": {"total": 9, "scroll_segments": 0, "read_by_visual_worker": 3},
       "long_page_captures": []
     },
     {
@@ -252,13 +255,13 @@
     }
   ],
   "check_catalog": {
-    "distinct_check_names": 126,
+    "distinct_check_names": 127,
     "runs_by_kind": {
       "첫 화면과 입력·검토 기본 동작": 179,
       "움직임": 14,
       "복사와 파일 저장": 96,
       "레이아웃(가로 넘침, id 중복)": 152,
-      "글자 대비(직접, 생성 글자, 표시 층, 선택 색, 초점 상태)": 178,
+      "글자 대비(직접, 생성 글자, 표시 층, 선택 색, 초점 상태)": 220,
       "키보드와 포커스": 72,
       "axe 위반": 36,
       "공고문 위 표시": 96,
@@ -272,10 +275,10 @@
     }
   },
   "visual_inspection": {
-    "inspected_images": 55,
+    "inspected_images": 52,
     "inspected_tiles": 3,
-    "total_screenshots": 500,
-    "scroll_segment_screenshots": 338,
+    "total_screenshots": 522,
+    "scroll_segment_screenshots": 360,
     "inspected_by": "visual worker (image viewer) on this run; the viewer role reviewed all 174 screenshots of an earlier run independently, see independent_review",
     "independent_review": {
       "by": "viewer role (Opus 5.5)",
@@ -289,7 +292,17 @@
       "judged_not_a_problem": ["V7"],
       "not_judgeable_from_stills": ["V6"],
       "new": ["P1", "P2", "P3", "P4", "P5", "P6", "P10"],
-      "note": "The viewer has not reread the integrated run; the visual worker read the screenshots listed by count in visual_inspection."
+      "second_review": {
+        "run": "run-2026-10-23T08-07-42 (integrated worktree 0cffa4a)",
+        "method": "Pixel comparison of the 162 non-segment screenshots against the first review run (97 identical, 9 below threshold, 56 changed in 72 regions, all viewed); blank-band check of all 338 segment captures (0 blank, 57 viewed).",
+        "resolved": ["V1", "V2", "P2", "P3", "P4 (over the field)"],
+        "partly": ["P1 (focus moved away: fixed; right after Next: R1)"],
+        "new": ["R1"],
+        "still_open": ["P5", "P6", "P7", "P8", "P9", "P10", "V6"],
+        "capture_advice": "overlap consecutive segment captures by the sticky bar height (about 45 px); applied in this run",
+        "file_local": "tmp\\overnight-2026-10-23\\viewer\\review-2.md (outside the repository)"
+      },
+      "note": "The viewer has not reread the run reported here; the visual worker read the screenshots listed by count in visual_inspection."
     },
     "blocking_issues": [],
     "issues": [
@@ -317,7 +330,7 @@
         "status": "fixed",
         "severity": "major",
         "title": "Chosen mark made field text unreadable in dark mode",
-        "detail": "Light yellow fill under light text was 1.36:1; now fill #6b5a17 (5.8:1) with a 2px yellow ring.",
+        "detail": "Light yellow fill under light text was 1.36:1; now fill #4f4210 (8.47:1) with a 2px yellow ring. The first fill (#6b5a17) still gave 3.28:1 while the step selection lay on top (R1).",
         "screenshots": ["desktop-dark__10-stepper-1.png", "mobile-dark__10-stepper-1.png"],
         "location": "web/styles.css .posting-mark.is-active (dark block)"
       },
@@ -337,9 +350,19 @@
         "status": "fixed",
         "severity": "minor",
         "title": "Selected text in the field was 3.98:1 in dark mode",
-        "detail": "::selection alpha 0.5 became 0.35; measured 5.99:1 (light 13.14:1).",
+        "detail": "::selection alpha 0.5 became 0.25; measured 7.9:1 over the field (light 13.14:1).",
         "screenshots": ["desktop-dark__17-stale-after-rewrite.png"],
         "location": "web/styles.css ::selection (dark block)"
+      },
+      {
+        "id": "R1",
+        "viewer_id": "R1",
+        "status": "fixed",
+        "severity": "major",
+        "title": "Step selection on top of the active mark fill gave 3.28:1 in dark mode",
+        "detail": "A step selects the finding text, so the dark selection color (alpha 0.35) lay on the new active fill #6b5a17: 3.25:1 right after Next (viewer 3.28:1). Now active fill #4f4210 and selection alpha 0.25: 4.96:1 with the selection on the active mark, 8.47:1 without, 7.9:1 over the field, 5.15:1 over the other marks. Found by the viewer in the second review; the earlier probe measured the selection over the field only. The harness now measures the selection stack over every mark.",
+        "screenshots": ["desktop-dark__10-stepper-1.png", "tablet-dark__10-stepper-1.png", "mobile-dark__10-stepper-1.png"],
+        "location": "web/styles.css .posting-mark.is-active and ::selection (dark block)"
       },
       {
         "id": "P3",
@@ -347,7 +370,7 @@
         "status": "resolved in harness",
         "severity": "major (confirm)",
         "title": "Full-page captures blank below about y 16,400 px",
-        "detail": "Reproduced: a desktop full-page capture (1366x24934) differs from scroll captures in 8 of 28 segments (y 16200 to 22500); Chromium capture limit, not layout. Pages over 15,000 px are now captured per scroll position (338 segments, 0 blank).",
+        "detail": "Reproduced: a desktop full-page capture (1366x24934) differs from scroll captures in 8 of 30 segments (y 16580 to 22383); Chromium capture limit, not layout. Pages over 15,000 px are now captured per scroll position, each shot overlapping the previous by the sticky jump bar height so no boundary band is missed (360 segments, 0 blank).",
         "screenshots": ["desktop-light__25-easy-all-open-full__s20.png"],
         "location": "visual/tools/audit.cjs"
       },
@@ -442,7 +465,8 @@
     "observations": [
       "First screen, /book entry, paste, check, marks, stepper, linked questions, jump bar, expert view, copy, save, rewrite, stale banner, re-check with comparison, clear and undo render without clipping, overlap or breakage in light and dark at 1366, 820 and 390 px in the screenshots read.",
       "Dark mode after the fixes: badges show dark digits on mint, the active mark shows light text on dark amber with a yellow ring, selected field text is readable.",
-      "Pages over 15,000 px are captured per scroll position; the part that was blank in full-page captures shows the question groups.",
+      "Pages over 15,000 px are captured per scroll position with an overlap equal to the sticky bar; the part that was blank in full-page captures shows the question groups.",
+      "Dark mode right after Next: active mark fill #4f4210 with the step selection on top, light text readable (4.93:1) and the yellow ring marks the chosen finding.",
       "At 820 px a pointer resting on a card can pre-select a finding after a check (stepper shows k/N); this is the documented hover-follow behavior."
     ]
   },
@@ -450,8 +474,8 @@
     "tool": "axe-core",
     "version": "4.13.0",
     "rules": ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"],
-    "started_at": "2026-10-22T23:07:42.831Z",
-    "finished_at": "2026-10-22T23:18:19.999Z",
+    "started_at": "2026-10-23T00:07:10.776Z",
+    "finished_at": "2026-10-23T00:16:26.570Z",
     "confirmed_violations": 0,
     "automated_check_complete": false,
     "injection": "Local axe-core injected with page.evaluate under the enforced CSP (no bypassCSP); the library file was an existing local copy, nothing was downloaded.",
@@ -563,7 +587,7 @@
       "highlight_marks_over_field_text": {"checked": 54, "failures": 0},
       "selection_contrast_ratio": {
         "light": [13.14],
-        "dark": [5.99]
+        "dark": [7.9]
       },
       "focus_state_contrast_failures": 0,
       "method": "Computed colors composited over solid ancestor backgrounds (WCAG 2.x ratio, 4.5 normal text, 3.0 large); elements over a background image or gradient are not judged."
@@ -578,8 +602,8 @@
     "blocked_requests": 0
   },
   "environment": {
-    "min_free_memory_gb_sampled": 3.44,
-    "memory_waits": 2,
+    "min_free_memory_gb_sampled": 4.24,
+    "memory_waits": 0,
     "retries": 0,
     "server": "python -m mcp_server.local_runtime web --port 8237 via visual/tools/serve.py (127.0.0.1, FAIRPOST_* environment removed, AI/law supplement disabled)",
     "served_files_match_worktree": true,
@@ -587,26 +611,26 @@
   },
   "style_change": {
     "file": "web/styles.css",
-    "commit": "1229563 (merged into 0cffa4a)",
-    "added_lines": 25,
+    "commit": "1229563 (merged into 0cffa4a) plus an uncommitted follow-up in the working tree (active fill #4f4210, selection alpha 0.25)",
+    "added_lines": 26,
     "placement": "inside the existing @media (prefers-color-scheme: dark) block, no deleted lines",
     "rules": [
-      ".posting-mark.is-active { background: #6b5a17; box-shadow: 0 0 0 2px var(--yellow); }",
+      ".posting-mark.is-active { background: #4f4210; box-shadow: 0 0 0 2px var(--yellow); }",
       ".skip-link, .skip-link:focus { color: #0e1613 }",
       ".book-entry .book-entry-kicker, .easy-steps li::before, .book-entry-steps li::before, .human-review-panel label::before { color: #0e1613 }",
-      "::selection { background: rgba(242, 201, 76, 0.35) }"
+      "::selection { background: rgba(242, 201, 76, 0.25) }"
     ],
     "computed_style_ab": {
-      "method": "git f39a2ed web/styles.css (route interception) against the integrated working copy; colors, borders, outlines, shadows, transform and geometry of every element and ::before/::after, 5 page states, 1366x900, reduced motion.",
+      "method": "git f39a2ed web/styles.css (route interception) against the integrated working copy including the follow-up; colors, borders, outlines, shadows, transform and geometry of every element and ::before/::after, 5 page states, 1366x900, reduced motion.",
       "elements_per_state": {"first-screen": 322, "skip-link-focused": 322, "easy-result": 1462, "expert-all-open": 1408, "book-entry": 322},
       "light_differences": 0,
       "dark_differences": 62,
       "dark_changed_elements": ["a.skip-link", "p.book-entry-kicker", "li", "label", "mark.posting-mark.is-active"]
     },
     "light_screenshot_comparison": {
-      "against_run": "run-2026-10-23T07-43-44",
-      "identical": 220,
-      "different": 30,
+      "against_run": "run-2026-10-23T08-07-42",
+      "identical": 65,
+      "different": 16,
       "note": "Differences are clock stamps and transition states, which differ between any two runs; the computed style comparison is the decisive light-mode check."
     }
   },
@@ -615,57 +639,63 @@
       "counter() numbers in the generated-text check",
       "field text against highlight mark backgrounds (active mark included)",
       "::selection contrast",
-      "scroll-position capture and blank-segment check for pages over 15,000 px"
+      "selection color stacked on every highlight mark fill (active mark included)",
+      "scroll-position capture, overlapping by the sticky bar height, and blank-segment check for pages over 15,000 px"
     ],
     "probes_on_old_css": {
-      "git_head_dark_failing_items": 19,
+      "git_head_dark_failing_items": 25,
       "badge_instances": 17,
       "mark_failures": 1,
       "selection_ratio": 3.99,
-      "head_plus_v1v2_dark_failing_items": 19,
+      "int_0cffa4a_dark": {
+        "failing_items": 6,
+        "selection_over_mark_failures": 6,
+        "selection_over_detail": ["result:n1:4.18", "result:n2:4.18", "result:n3:4.18", "result-active-mark:n1 active:3.25", "result-active-mark:n2:4.18", "result-active-mark:n3:4.18"],
+        "selection_ratio": 5.99
+      },
       "current_dark_failing_items": 0,
-      "light_failing_items_all_variants": [0, 0, 0]
+      "light_failing_items_all_variants": [0, 0, 0],
+      "current_dark_selection_over_mark_failures": 0
     },
     "long_page_capture": {
-      "segments_in_run": 338,
+      "segments_in_run": 360,
       "blank_segments": 0,
-      "legacy_check": {"image": "1366x24934", "segments": 28, "segments_differing": 8, "first_differing_y": 16200, "last_differing_y": 22500}
+      "legacy_check": {"image": "1366x24934", "segments": 30, "segments_differing": 8, "first_differing_y": 16580, "last_differing_y": 22383}
     }
   },
   "tests": {
     "worktree": "wt-int",
     "command": "FAIRPOST_REQUIRE_NODE=1 python -m pytest -k \"web or app or ui or visual\"",
-    "passed": 885,
-    "failed": 1,
+    "passed": 886,
+    "failed": 0,
     "skipped": 7,
     "deselected": 4969,
-    "duration": "0:06:19",
-    "failed_tests": ["tests/test_build_tools.py::test_data_validator_accepts_committed_dictionaries"],
-    "failure_note": "tools/validate_data.py rejects reports/corpus_rule_coverage.json because it is bound to the matching version from before the exclusion-engine fix; the evidence role regenerates it. Not a web screen problem."
+    "duration": "0:04:15",
+    "failed_tests": []
   },
   "artifacts": {
-    "local_directory": "C:\\workspace\\fairmcp\\tmp\\overnight-2026-10-23\\visual\\run-2026-10-23T08-07-42",
+    "local_directory": "C:\\workspace\\fairmcp\\tmp\\overnight-2026-10-23\\visual\\run-2026-10-23T09-07-09",
     "manifest_file": "manifest.json",
-    "manifest_sha256": "18d56223be55b084323cdc45b77088275c6b5edd031d1857d9e09cec6483378b",
-    "manifest_entries": 651,
+    "manifest_sha256": "f1b288afa60728b276a2f2b8369296b7e65a760c274489ed28e4e5938a5efa9f",
+    "manifest_entries": 674,
     "raw_report_file": "raw/raw-report.json",
-    "raw_report_sha256": "502ffbd52ec4ed7a73bd2d5ad5e7d3a78f460efdb648cc4581cf957106e6eb5d",
+    "raw_report_sha256": "a479af0e9e6f9a708936fa931b523f2a02e36116f917d6cbcea4826907863075",
     "inspection_file": "inspection.json",
-    "inspection_sha256": "ea112d15a2e28d55146cfdf8391c0ac55f7daa4a5d73f0c59cacd50299f48351",
-    "screenshot_count": 500,
+    "inspection_sha256": "b94f77f1638572534fa4304fe80a0340c9b52828c7958ff3f310fad51058c85b",
+    "screenshot_count": 522,
     "tile_count": 124,
     "harness_file": "visual/tools/audit.cjs",
-    "harness_sha256": "865e05a919649678deb34d15fbed6c83d142e928527f86645cbfa75e05b93894",
-    "inpage_probe_sha256": "7072ae3d14d7a28d297704c011cf766d7d77a6bd4b8011b2a835007235a2c7cd",
+    "harness_sha256": "b853c2ed0e7c17389243a3ccc0034817405d1eca2e90048d50b928e35572b04f",
+    "inpage_probe_sha256": "843313e3a721d124d6dfdd0f45dbe05c4a82f5a69b8331a3e096e90f9b21d5a1",
     "server_launcher_sha256": "af36feaab2d147a812ae3a1c64e62ebd4e1c3b6406231cffbc9d80f3bb9ab090",
-    "report_builder_sha256": "64601863d06e833afa45f4a4ac3082e0c55cf0cda795d2acf4418aef7e5276e3",
+    "report_builder_sha256": "44d8c29f94f386203598a7ccda442ad2e3b20e3ef6373f9167e50548a2182d01",
     "synthetic_posting_sha256": "62a0b5a85945e1c3e148cdb6f79d6d6b3bc888fdbb5a841f3338bfff5efe5ea5",
     "axe_core_file_sha256": "c24f097bd2f451d4f933e8bc7d8d539f8672a2ebcb5cc9f9f3eec8ca9470a0c1",
     "extra_originals": [
-      {"file": "evidence/style-ab.json", "sha256": "89276659a3eb4cf8cbbb85a270ab141f84b5dbd8fe10983eec5edf7d384dc5e7"},
-      {"file": "evidence/css-variant-probe.json", "sha256": "71b82a1793c22f87537525450f02213a9d3f2ee375b07ba4f1df1881f4682fae"},
-      {"file": "evidence/served-files-wt-int.json", "sha256": "b8f1d5be5546d16d0f3d3b1c3e48e7c814cb827579d04a4ad75d3d3659b4ebe5"},
-      {"file": "evidence/pytest-web-int.log", "sha256": "868c7d0b0df496d01417d8f7b05e431068eb84e81be5f32c4b2a03a202401c6b"}
+      {"file": "evidence/style-ab.json", "sha256": "c0aea69cd0006b08694a9dc73a18afdd06e37b381bc9f64e3caefef132da89d2"},
+      {"file": "evidence/css-variant-probe.json", "sha256": "86e6b705c29c1d40714a40e0def11d2f7db33b13b9de00c6fce2d65ce8715267"},
+      {"file": "evidence/served-files-wt-int.json", "sha256": "bf48734c6945d28da56a007e21add92766ab2abb81c1ad690783830ad530e79e"},
+      {"file": "evidence/pytest-web-int2.log", "sha256": "ff31a54ac511ef174d2f372589268a52f117384f6cdcfa1ebe6f7933d4943121"}
     ]
   },
   "limitations": [
@@ -675,10 +705,10 @@
     "AI and law-MCP supplement not exercised (no keys, run button never pressed); zero non-GET requests does not test that path.",
     "No screen reader, 200/400 percent zoom, 320 px reflow, text-spacing override, forced-colors or print check.",
     "axe cannot decide color-contrast for gradients, images, overlaps and generated content; manual scans skip text over background images (427). The scans caught the viewer's dark-mode findings only after being extended, so other unmeasured combinations may remain. Not a claim of full WCAG conformance.",
-    "Screenshots: the viewer read all 174 images of an earlier run; the visual worker read 55 of 500 images of this run plus 3 tiles. The viewer has not reread this run.",
+    "Screenshots: the viewer read all 174 images of an earlier run; the visual worker read 52 of 522 images of this run plus 3 tiles. The viewer has not reread this run.",
     "Clipboard checked with Chromium permissions on loopback (CRLF/LF and BOM normalized); pasting into another application not tested.",
-    "Shared PC under memory pressure: the harness waits for 4 GB free before each scenario (2 wait, minimum sampled 3.44 GB). An earlier exploratory run had one Chromium crash and one launch at 2.59 GB free; neither is part of this report.",
-    "Bound to merge commit 0cffa4a (exclusion-engine fix d1e45d8 plus the visual commit 1229563); any further engine or web change makes the runtime fingerprint, and this report, stale.",
+    "Shared PC under memory pressure: the harness waits for 4 GB free before each scenario (0 wait, minimum sampled 4.24 GB). An earlier exploratory run had one Chromium crash and one launch at 2.59 GB free; neither is part of this report.",
+    "Bound to merge commit 0cffa4a plus the uncommitted web/styles.css follow-up (active fill #4f4210, selection alpha 0.25); committing it or any further engine or web change makes the runtime fingerprint, and this report, stale until the audit is rerun.",
     "Open: V3 to V8, P5, P6, P10 (P5 needs app.js; P6 and P10 need behavior or design decisions, P10 also changes light mode)."
   ]
 }

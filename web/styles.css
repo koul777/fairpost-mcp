@@ -4011,9 +4011,10 @@ body[data-mode="easy"] .review-boundary::before {
   }
 
   /* The field keeps its light text in dark mode, so the chosen mark gets a dark
-     amber fill (5.8:1) and a yellow ring instead of the light yellow fill. */
+     amber fill (8.5:1) and a yellow ring instead of the light yellow fill. A step
+     also selects the text, so the fill stays dark enough for the selection on top. */
   .posting-mark.is-active {
-    background: #6b5a17;
+    background: #4f4210;
     box-shadow: 0 0 0 2px var(--yellow);
   }
 
@@ -4036,7 +4037,7 @@ body[data-mode="easy"] .review-boundary::before {
   }
 
   ::selection {
-    background: rgba(242, 201, 76, 0.35);
+    background: rgba(242, 201, 76, 0.25);
   }
 
   .review-nav a[aria-current="location"] {
