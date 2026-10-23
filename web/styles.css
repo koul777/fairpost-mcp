@@ -3531,24 +3531,32 @@ body[data-mode="easy"] .review-boundary::before {
 
 /* Card number above the start of each mark; the field's text stays on top. */
 /* Card number above the start of each mark. It is yellow with a dark digit so
-   the field's own text, drawn on top, stays readable where the two meet. */
+   the field's own text, drawn on top, stays readable where the two meet.
+   It is 13px high and sits in the gap between two text lines (about 13px at
+   15px text with a 1.8 line height), so it covers neither the line above nor the
+   leading dash of its own line. */
 .posting-mark::before {
   content: attr(data-n);
   position: absolute;
-  top: -12px;
-  left: -8px;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 4px;
+  top: -8px;
+  left: -4px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
   border: 1px solid rgba(61, 50, 20, 0.35);
-  border-radius: 9px;
+  border-radius: 7px;
   background: var(--yellow);
   color: #2b2410;
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 800;
-  line-height: 15px;
+  line-height: 11px;
   text-align: center;
+}
+
+/* A badge that the field's edge would cut in half is hidden (set by app.js). */
+.posting-mark.badge-clipped::before {
+  visibility: hidden;
 }
 
 .posting-mark.is-active {
@@ -4168,5 +4176,47 @@ body[data-mode="easy"] .review-boundary::before {
   .question-item:focus:not(:focus-visible) {
     outline: 3px solid var(--green);
     outline-offset: 2px;
+  }
+}
+
+/* Phones up to 420px: the section chips wrap onto a second line so that every chip is
+   visible without sideways scrolling. The pinned bar is taller then, so the jump
+   targets keep more room above them; on short screens (up to 600px high, such as a
+   320px phone or 400 percent zoom) the bar is not pinned, as three rows would take
+   a third of the screen. */
+@media (max-width: 420px) {
+  .review-nav {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  #easy-findings-heading,
+  #easy-missing-heading,
+  #easy-found-heading,
+  #findings-heading,
+  #slots-heading,
+  #questions-heading,
+  #human-review-heading,
+  #improvement-title,
+  .question-item {
+    scroll-margin-top: 136px;
+  }
+}
+
+@media (max-width: 420px) and (max-height: 600px) {
+  .review-nav {
+    position: static;
+  }
+
+  #easy-findings-heading,
+  #easy-missing-heading,
+  #easy-found-heading,
+  #findings-heading,
+  #slots-heading,
+  #questions-heading,
+  #human-review-heading,
+  #improvement-title,
+  .question-item {
+    scroll-margin-top: 16px;
   }
 }
