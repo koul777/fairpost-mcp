@@ -3399,8 +3399,8 @@
       : "";
     const followUp = question.follow_up.length
       ? `<p class="follow-up">${question.follow_up
-          .map((item) => `· ${escapeHtml(item)}`)
-          .join("<br>")}</p>`
+          .map((item) => `<span class="follow-up-item">${escapeHtml(item)}</span>`)
+          .join("")}</p>`
       : "";
     const evidence = question.matched_text
       ? `<p class="match-row">발동 문맥 <mark class="matched-text">${escapeHtml(question.matched_text)}</mark> <span>${escapeHtml(question.section || "")} · ${question.offset ? `${question.offset[0]}–${question.offset[1]}` : ""}</span></p>`
