@@ -9,7 +9,7 @@
     "timing_source": "time.perf_counter (monotonic)",
     "warmup_passes": 1
   },
-  "generated_at": "2026-10-19T16:38:44.784031+00:00",
+  "generated_at": "2026-10-19T18:30:26.494587+00:00",
   "input": {
     "records": 500,
     "sha256": "551cd8997556d05520a2e47b224b2aecae96fa0ea52bb3b48d507d6a72faeb2e",
@@ -17,24 +17,24 @@
   },
   "matching_version": "match-6610ccb35e08759a",
   "metrics": {
-    "elapsed_seconds": 3.742506,
+    "elapsed_seconds": 4.268014,
     "latency_ms": {
-      "max": 9.8396,
-      "mean": 1.497003,
-      "min": 0.3567,
-      "p50": 0.9828,
-      "p95": 3.9169,
-      "p99": 5.8323,
+      "max": 15.9132,
+      "mean": 1.707205,
+      "min": 0.3871,
+      "p50": 1.1318,
+      "p95": 4.3707,
+      "p99": 7.2084,
       "samples": 2500
     },
-    "pooled_postings_per_second": 668.002,
-    "postings_per_second": 670.097,
+    "pooled_postings_per_second": 585.753,
+    "postings_per_second": 582.286,
     "repeat_postings_per_second": [
-      677.901,
-      670.097,
-      662.116,
-      673.688,
-      656.653
+      681.929,
+      715.591,
+      582.286,
+      568.076,
+      455.694
     ]
   },
   "privacy": {
