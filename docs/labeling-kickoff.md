@@ -117,4 +117,4 @@
 4. 홀드아웃 이중 검토 범위: 로드맵 90일 단계는 "이중 라벨링", 프로토콜 최소안은 30%
 5. 일치율 기준, 재검토 조건, `uncertain` 비율 상한
 6. 10행 미만ㆍ0행 규칙 처리: 표본 보강 또는 `coverage_gap` 유지
-7. 이중 검토 병합과 일치율 계산: 현재 전용 도구가 없어 수작업 또는 도구 추가 결정
+7. 이중 검토 병합과 일치율 계산: 전용 도구 `tools/merge_dual_review.py`를 추가함. `python tools\merge_dual_review.py --input-a <1차 파일> --input-b <재검토 파일> --allow-subset --output-dir .private-review\dual-review`로 비교하고, 조정 파일을 채운 뒤 `--adjudication`을 추가해 다시 실행하면 최종 라벨 파일을 만듦. 기본 기준(규칙별 일치율 0.80, 전체 카파 0.60, `uncertain` 0.10)은 5번이 확정되면 옵션으로 바꿈. 옵션과 산출물은 [민간 모니터링 문서](private-fairness-monitoring.md)의 이중 검토 병합 절 참조
