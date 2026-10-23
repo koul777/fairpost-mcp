@@ -3,14 +3,14 @@
   "audit_date": "2026-10-23",
   "evidence_status": "current",
   "evidence_scope": "local-integrated-web-bundle",
-  "integration_commit": "2502d14afe38c4e98747eef1d70b6675f266b3ae",
-  "integration_branch": "overnight/2026-10-23",
+  "integration_commit": "d012d2318eee177b674239c5656ea40ebfe8394a",
+  "integration_branch": "overnight/2026-10-23-context",
   "integration_worktree_changes": [],
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-36f30cccacd4",
-  "matching_version": "match-ae2f8b43f9de8d64",
-  "runtime_source_fingerprint": "runtime-99db90b68b75318e3c5e6126d6967e85b32e435be33217ecea7bc5b180b44e4c",
-  "started_at": "2026-10-23T01:17:12.538Z",
-  "finished_at": "2026-10-23T01:26:32.435Z",
+  "matching_version": "match-13f5d6e7c53a493f",
+  "runtime_source_fingerprint": "runtime-02cdabd66b3a6515c675070e092deb42a561e130c25ab7af8cecd25b8e434e0b",
+  "started_at": "2026-10-23T05:54:11.948Z",
+  "finished_at": "2026-10-23T06:02:44.966Z",
   "browser": {
     "name": "Chromium headless shell",
     "version": "153.0.8010.12",
@@ -55,7 +55,7 @@
       "non_get_requests": 0,
       "console_errors": 0,
       "page_errors": 0,
-      "screenshots": {"total": 79, "scroll_segments": 55, "read_by_visual_worker": 7},
+      "screenshots": {"total": 79, "scroll_segments": 55, "read_by_visual_worker": 9},
       "long_page_captures": [
         {"state": "easy-all-open-full", "page_height": 24934, "segments": 30, "overlap_px": 71, "blank_segments": 0, "boundaries_checked": 29, "boundary_mismatches": 0},
         {"state": "expert-all-open-full", "page_height": 20421, "segments": 25, "overlap_px": 71, "blank_segments": 0, "boundaries_checked": 24, "boundary_mismatches": 0}
@@ -111,7 +111,7 @@
       "non_get_requests": 0,
       "console_errors": 0,
       "page_errors": 0,
-      "screenshots": {"total": 66, "scroll_segments": 42, "read_by_visual_worker": 4},
+      "screenshots": {"total": 66, "scroll_segments": 42, "read_by_visual_worker": 5},
       "long_page_captures": [
         {"state": "easy-all-open-full", "page_height": 25455, "segments": 23, "overlap_px": 71, "blank_segments": 0, "boundaries_checked": 22, "boundary_mismatches": 0},
         {"state": "expert-all-open-full", "page_height": 20983, "segments": 19, "overlap_px": 71, "blank_segments": 0, "boundaries_checked": 18, "boundary_mismatches": 0}
@@ -195,7 +195,7 @@
       "non_get_requests": 0,
       "console_errors": 0,
       "page_errors": 0,
-      "screenshots": {"total": 109, "scroll_segments": 85, "read_by_visual_worker": 10},
+      "screenshots": {"total": 109, "scroll_segments": 85, "read_by_visual_worker": 9},
       "long_page_captures": [
         {"state": "easy-all-open-full", "page_height": 35129, "segments": 46, "overlap_px": 71, "blank_segments": 0, "boundaries_checked": 45, "boundary_mismatches": 0},
         {"state": "expert-all-open-full", "page_height": 29659, "segments": 39, "overlap_px": 71, "blank_segments": 0, "boundaries_checked": 38, "boundary_mismatches": 0}
@@ -273,7 +273,7 @@
     }
   },
   "visual_inspection": {
-    "inspected_images": 48,
+    "inspected_images": 50,
     "inspected_tiles": 3,
     "total_screenshots": 526,
     "scroll_segment_screenshots": 364,
@@ -306,11 +306,11 @@
         "resolved": ["R1"],
         "measured": "selection on the active mark 4.98:1 (computed 4.93:1) in all three viewports; active mark alone 8.47:1; selection over the field 7.94:1; the yellow ring (10.76:1 against the dark field) carries the active marker because the active fill is almost the same as the other marks (1.05:1)",
         "new_product_issues": 0,
-        "harness_finding": ["T1 (mobile segment boundaries lose about 16 px, 162 boundaries), fixed in the rerun reported here"],
+        "harness_finding": ["T1 (mobile segment boundaries lose about 16 px, 162 boundaries), fixed in run-2026-10-23T10-17-10"],
         "still_open": ["P5", "P6", "P7", "P8", "P9", "P10", "V6"],
         "file_local": "tmp\\overnight-2026-10-23\\viewer\\review-3.md (outside the repository)"
       },
-      "note": "The third review covered the previous run (run-2026-10-23T09-07-09). This rerun changes only the capture harness (T1); the served web files are byte-identical to that run (SHA-256)."
+      "note": "The reviews covered earlier runs (third: run-2026-10-23T09-07-09). This rerun serves wt-ctx (engine-v7; only web/engine.js differs); the viewer did not read it."
     },
     "blocking_issues": [],
     "issues": [
@@ -388,7 +388,7 @@
         "status": "fixed",
         "severity": "low",
         "title": "Mobile scroll captures left about 16 px bands at boundaries",
-        "detail": "The harness read the sticky bar as 0 px on the mobile layout (the bar was not stuck yet at the measuring scroll position) and used a 50 px overlap against a 66 px bar, so about 16 px at each of 162 mobile boundaries appeared in no capture. Now the bar height is its pin offset plus box height (66 px, independent of scroll), the overlap is at least 71 px, and every boundary is checked by comparing the rows two neighbouring shots share. On the previous run's captures the check flags 148 of 162 mobile boundaries (desktop 0 of 106, tablet 0 of 80); in this run all 352 boundaries pass (mobile 166). Found in the third review.",
+        "detail": "The harness read the sticky bar as 0 px on the mobile layout (the bar was not stuck yet at the measuring scroll position) and used a 50 px overlap against a 66 px bar, so about 16 px at each of 162 mobile boundaries appeared in no capture. Now the bar height is its pin offset plus box height (66 px, independent of scroll), the overlap is at least 71 px, and every boundary is checked by comparing the rows two neighbouring shots share. On the captures of the old-harness run (run-2026-10-23T09-07-09) the check flags 148 of 162 mobile boundaries (desktop 0 of 106, tablet 0 of 80); in this run all 352 boundaries pass (mobile 166). Found in the third review.",
         "screenshots": ["mobile-light__25-easy-all-open-full__s20.png", "mobile-light__25-easy-all-open-full__s21.png"],
         "location": "visual/tools/audit.cjs shotSegments(), visual/tools/seam.cjs"
       },
@@ -482,7 +482,7 @@
     ],
     "observations": [
       "First screen, /book entry, paste, check, marks, stepper, linked questions, jump bar, expert view, copy, save, rewrite, stale banner, re-check with comparison, clear and undo render without clipping, overlap or breakage in light and dark at 1366, 820 and 390 px in the screenshots read.",
-      "Against the previous run (same web files by SHA-256), 125 of 162 non-segment screens are byte-identical; 37 differ in clock minute stamps, sub-pixel text offsets of the pinned editor pane and one scroll-spy chip state (changed regions viewed as crops). Only the mobile scroll captures moved, because the overlap changed.",
+      "Against the previous run (only web/engine.js differs), 133 of 162 non-segment screens are byte-identical; 29 differ in clock minute stamps, sub-pixel text offsets and one scroll-spy chip state (crops viewed). Result counts (3 findings, 7 not found, 11 questions), request counts and all 1350 check results equal the previous run.",
       "Dark mode after the fixes: badges show dark digits on mint, the active mark shows light text on dark amber with a yellow ring, selected field text is readable.",
       "Pages over 15,000 px are captured per scroll position, overlapping by 71 px at all three viewports (bar 66 px) with all 352 boundaries passing the shared-row check; the part that was blank in full-page captures shows the question groups.",
       "Dark mode right after Next: active mark fill #4f4210 with the step selection on top, light text readable (4.93:1) and the yellow ring marks the chosen finding.",
@@ -493,8 +493,8 @@
     "tool": "axe-core",
     "version": "4.13.0",
     "rules": ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"],
-    "started_at": "2026-10-23T01:17:12.538Z",
-    "finished_at": "2026-10-23T01:26:32.435Z",
+    "started_at": "2026-10-23T05:54:11.948Z",
+    "finished_at": "2026-10-23T06:02:44.966Z",
     "confirmed_violations": 0,
     "automated_check_complete": false,
     "injection": "Local axe-core injected with page.evaluate under the enforced CSP (no bypassCSP); the library file was an existing local copy, nothing was downloaded.",
@@ -621,12 +621,12 @@
     "blocked_requests": 0
   },
   "environment": {
-    "min_free_memory_gb_sampled": 4.44,
+    "min_free_memory_gb_sampled": 6.75,
     "memory_waits": 0,
     "retries": 0,
     "server": "python -m mcp_server.local_runtime web --port 8237 via visual/tools/serve.py (127.0.0.1, FAIRPOST_* environment removed, AI/law supplement disabled)",
     "served_files_match_worktree": true,
-    "served_files_file": "evidence/served-files-wt-int.json"
+    "served_files_file": "evidence/served-files-wt-ctx.json"
   },
   "style_change": {
     "file": "web/styles.css",
@@ -640,7 +640,7 @@
       "::selection { background: rgba(242, 201, 76, 0.25) }"
     ],
     "computed_style_ab": {
-      "carried_over_from": "run-2026-10-23T09-07-09",
+      "carried_over_from": "run-2026-10-23T10-17-10",
       "method": "git f39a2ed web/styles.css (route interception) against the integrated working copy including the follow-up; colors, borders, outlines, shadows, transform and geometry of every element and ::before/::after, 5 page states, 1366x900, reduced motion.",
       "elements_per_state": {"first-screen": 322, "skip-link-focused": 322, "easy-result": 1462, "expert-all-open": 1408, "book-entry": 322},
       "light_differences": 0,
@@ -648,7 +648,7 @@
       "dark_changed_elements": ["a.skip-link", "p.book-entry-kicker", "li", "label", "mark.posting-mark.is-active"]
     },
     "light_screenshot_comparison": {
-      "against_run": "run-2026-10-23T09-07-09",
+      "against_run": "run-2026-10-23T10-17-10",
       "identical": 63,
       "different": 18,
       "note": "Differences are clock stamps, sub-pixel text offsets of the pinned editor pane and transition states, which differ between any two runs; the computed style comparison is the decisive light-mode check."
@@ -691,7 +691,7 @@
           "tablet": {"boundaries": 80, "failures": 0},
           "mobile": {"boundaries": 166, "failures": 0}
         },
-        "previous_run_with_old_harness": {
+        "old_harness_run_09_07_09": {
           "desktop": {"boundaries": 106, "failures": 0},
           "tablet": {"boundaries": 80, "failures": 0},
           "mobile": {"boundaries": 162, "failures": 148}
@@ -702,25 +702,26 @@
     }
   },
   "tests": {
-    "worktree": "wt-int",
+    "worktree": "wt-ctx",
     "command": "FAIRPOST_REQUIRE_NODE=1 python -m pytest -k \"web or app or ui or visual\"",
-    "passed": 886,
-    "failed": 0,
+    "passed": 888,
+    "failed": 1,
     "skipped": 7,
-    "deselected": 4969,
-    "duration": "0:02:52",
-    "failed_tests": [],
-    "commit": "2502d14"
+    "deselected": 4976,
+    "duration": "0:01:58",
+    "failed_tests": ["tests/test_build_tools.py::test_data_validator_accepts_committed_dictionaries"],
+    "commit": "d012d23",
+    "failure_note": "tools/validate_data.py rejects reports/corpus_rule_coverage.json, bound to the matching version before engine-v7; evidence regeneration pending. Not a web screen problem."
   },
   "artifacts": {
-    "local_directory": "C:\\workspace\\fairmcp\\tmp\\overnight-2026-10-23\\visual\\run-2026-10-23T10-17-10",
+    "local_directory": "C:\\workspace\\fairmcp\\tmp\\overnight-2026-10-23\\visual\\run-2026-10-23T14-54-11",
     "manifest_file": "manifest.json",
-    "manifest_sha256": "0f71d041879c19ee4cdad649b9aa6a01ac95a37d4f06681348077619eaecdc56",
+    "manifest_sha256": "bf16f5aa999b47d26af8fea33d9247c25e46b82c204cb8a354a458625be425ef",
     "manifest_entries": 679,
     "raw_report_file": "raw/raw-report.json",
-    "raw_report_sha256": "1b9e1d0280c1bab2f9639f2201d73673ad4772feca15e22016b8e92a3b2986e0",
+    "raw_report_sha256": "890767eb4d81c49f221b8e75c0a44def1791dfe651316153a83a73d7575e9b9a",
     "inspection_file": "inspection.json",
-    "inspection_sha256": "fc96f198dcbf505e19319828a6b4fa0de7eacc6d2f4e683c685d6f027f44cfaa",
+    "inspection_sha256": "89b1d4c7aac49c1cf17b23fe34607b46f86d4ce8f47e88b0121ac49bd441c47b",
     "screenshot_count": 526,
     "tile_count": 124,
     "harness_file": "visual/tools/audit.cjs",
@@ -734,23 +735,23 @@
     "extra_originals": [
       {"file": "evidence/style-ab.json", "sha256": "c0aea69cd0006b08694a9dc73a18afdd06e37b381bc9f64e3caefef132da89d2"},
       {"file": "evidence/css-variant-probe.json", "sha256": "86e6b705c29c1d40714a40e0def11d2f7db33b13b9de00c6fce2d65ce8715267"},
-      {"file": "evidence/served-files-wt-int.json", "sha256": "e674b285cb4267be01af51ad462bd4f270897f0b9616a59fe7f68ff1fe3822d4"},
-      {"file": "evidence/pytest-web-int3.log", "sha256": "0ec37df63b8d96b50d2b5570ce31731b8cf1a40431b25c3187047d2dce3656c0"}
+      {"file": "evidence/served-files-wt-ctx.json", "sha256": "6b5d5081959415271670d15ea1aba5d1e6aae75b20d9f3ab3a203025c331e85d"},
+      {"file": "evidence/pytest-web-ctx.log", "sha256": "85b2452b42681a29427e9832a44ee2a800f99f5f20fa6926be07974f75094575"}
     ]
   },
   "limitations": [
-    "Local loopback server only, files of the integrated worktree (wt-int). No production deployment, Vercel rewrite or authenticated MCP endpoint; the /book 307 is the local runtime route.",
+    "Local loopback server only, files of the engine-v7 worktree (wt-ctx). No production deployment, Vercel rewrite or authenticated MCP endpoint; the /book 307 is the local runtime route.",
     "One synthetic posting with three flagged expressions. No-finding results, very long postings and other organization settings were not driven through every state.",
     "Chromium headless shell 153 only, device scale factor 1. No Firefox, WebKit or real iOS/Android devices; mobile is viewport plus touch emulation.",
     "AI and law-MCP supplement not exercised (no keys, run button never pressed); zero non-GET requests does not test that path.",
     "No screen reader, 200/400 percent zoom, 320 px reflow, text-spacing override, forced-colors or print check.",
     "axe cannot decide color-contrast for gradients, images, overlaps and generated content; manual scans skip text over background images (427). The scans caught the viewer's dark-mode findings only after being extended, so other unmeasured combinations may remain. Not a claim of full WCAG conformance.",
-    "Screenshots: the viewer read all 174 images of an earlier run; the visual worker read 48 of 526 images of this run plus 3 tiles. The viewer's second review covered the earlier integrated run and the third review the previous run (pixel comparison plus samples); this rerun was not reviewed by the viewer.",
+    "Screenshots: the viewer read all 174 images of an earlier run; the visual worker read 50 of 526 images of this run plus 3 tiles. The viewer's second review covered an earlier integrated run and the third review run-2026-10-23T09-07-09 (pixel comparison plus samples); this rerun was not reviewed by the viewer.",
     "Clipboard checked with Chromium permissions on loopback (CRLF/LF and BOM normalized); pasting into another application not tested.",
-    "Shared PC under memory pressure: the harness waits for 4 GB free before each scenario (0 wait, minimum sampled 4.44 GB). An earlier exploratory run had one Chromium crash and one launch at 2.59 GB free; neither is part of this report.",
-    "Bound to commit 2502d14 (R1 fix 8b4df43 plus later documentation and evidence commits; no web, core, mcp_server or test file differs from 8b4df43). Served files, worktree files and HEAD blobs (line endings normalized) have the same content and the runtime fingerprint is unchanged; a later engine or web change makes this report stale until the audit is rerun.",
+    "Shared PC under memory pressure: the harness waits for 4 GB free before each scenario (0 wait, minimum sampled 6.75 GB). An earlier exploratory run had one Chromium crash and one launch at 2.59 GB free; neither is part of this report.",
+    "Bound to commit d012d23 (engine-v7, matching match-13f5d6e7c53a493f). Only web/engine.js differs from the previous run (matchesContextGroups uses termInWindow); the other five served files have the same content (LF checkout here, CRLF in earlier runs, so SHA-256 differs). A later engine or web change makes this report stale until the audit is rerun.",
     "Boundary check of scroll captures: it compares 4 rows under the sticky bar, so a band over plain background is not caught (14 of the 162 old mobile boundaries passed: 4 clamped last shots with a large overlap and 10 with mostly plain rows); the overlap itself comes from the measured bar height. Border tints that change with the scroll position are tolerated (2 percent of pixels).",
-    "Style A/B and the CSS variant probe are carried over from the previous run: the served web files and the runtime fingerprint are unchanged, and git lists only README, docs and reports between 8b4df43 and 2502d14. The web test run was repeated on 2502d14.",
+    "Style A/B and the CSS variant probe are carried over from run-2026-10-23T09-07-09: styles.css, app.js and index.html have the same content. They do not cover web/engine.js, which this audit run and the web test run on d012d23 exercise.",
     "Open: V3 to V8, P5, P6, P10 (P5 needs app.js; P6 and P10 need behavior or design decisions, P10 also changes light mode)."
   ]
 }
