@@ -215,5 +215,6 @@ Pythonㆍ웹 무작위 30,000건과 경계 179건 불일치 0. 새 테스트는 
 - `candidate` 필터는 후보 글 자체에만 적용함(의도한 설계). 후보 앞 글자를 보는 lookbehind는 후보 글의 시작을
   글 시작으로 봄.
 - 공백 사다리의 family-omission-penalty 두 자리 20건은 main에서도 표시되지 않음. 이번 변경과 무관함.
-- `reports/*.json`은 매칭 버전에 묶여 있어 다시 만들어야 함. 지금 `tools/validate_data.py`는
-  `reports/corpus_rule_coverage.json` 매칭 버전 불일치로 실패함(증거 담당 몫).
+- `reports/*.json`은 매칭 버전에 묶여 있어 다시 만들어야 했음. 증거 담당이 매칭 버전에 묶인 보고서를
+  `match-ae2f8b43f9de8d64`로 다시 만들었고(2026-10-23), `tools/validate_data.py`와
+  `tools/check_evidence_versions.py --scope local`이 통과함.
