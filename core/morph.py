@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from bisect import bisect_left, bisect_right
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 import re
@@ -552,6 +553,156 @@ def find_matches(
     return [found[span] for span in sorted(found)]
 
 
+# How many characters past the end of an exclusion or context-group window the
+# search for a term's start and the bounded retry in _window_spans may read.
+# Assertions of the match that is kept otherwise read the whole text. See
+# docs/exclusion-window-2026-10-23.md.
+EXCLUDE_LOOKAHEAD = 1024
+_BOUNDED: dict[tuple[re.Pattern[str], int], re.Pattern[str] | None] = {}
+_BOUNDED_LIMIT = 4096
+# Global inline flags such as "(?i)" may only open a pattern, so they stay in
+# front of the group that wraps the rest.
+_LEADING_FLAGS = re.compile(r"(?:\(\?[aiLmsux]+\))+")
+
+
+def _bounded_regex(regex: re.Pattern[str], remaining: int) -> re.Pattern[str] | None:
+    """regex, accepted only where at least ``remaining`` characters follow its match.
+
+    None when the pattern cannot be wrapped: a verbose pattern (a trailing
+    comment would swallow the added lookahead) or one that does not compile.
+    """
+    key = (regex, remaining)
+    if key in _BOUNDED:
+        return _BOUNDED[key]
+    if len(_BOUNDED) >= _BOUNDED_LIMIT:
+        _BOUNDED.clear()
+    bounded = None
+    if not regex.flags & re.VERBOSE:
+        leading = _LEADING_FLAGS.match(regex.pattern)
+        flags = leading.group() if leading else ""
+        body = regex.pattern[len(flags) :]
+        try:
+            bounded = re.compile(
+                f"{flags}(?:{body})(?=[\\s\\S]{{{remaining}}})", regex.flags
+            )
+        except re.error:
+            bounded = None
+    _BOUNDED[key] = bounded
+    return bounded
+
+
+def _window_spans(
+    regex: re.Pattern[str], text: str, left: int, right: int
+) -> Iterator[tuple[int, int]]:
+    """Matches of regex in ``text`` that start and end inside [left, right].
+
+    Like finditer on ``text[left:right]`` (left to right, each search resuming
+    at the end of the previous match), except that lookarounds, ``^`` and
+    ``$`` read the text itself instead of a copy cut at the window. A start is
+    one that a search of text[:limit] finds, limit being ``right`` plus
+    EXCLUDE_LOOKAHEAD. The match kept there is regex.match on the whole text
+    when it ends by ``right``; when it runs past ``right``, the first match at
+    the same start that ends by ``right`` with assertions reading text[:limit].
+    A pattern that _bounded_regex cannot wrap falls back to the match on
+    text[:right], as the check before 2026-10-23 did.
+    """
+    limit = min(len(text), right + EXCLUDE_LOOKAHEAD)
+    position = left
+    while position <= right:
+        found = regex.search(text, position, limit)
+        if found is None:
+            return
+        start = found.start()
+        if start > right:
+            return
+        match = regex.match(text, start)
+        if match is not None and match.end() > right:
+            bounded = _bounded_regex(regex, limit - right)
+            if bounded is None:
+                match = regex.match(text, start, right)
+            else:
+                match = bounded.match(text, start, limit)
+        if match is None:
+            position = start + 1
+            continue
+        end = match.end()
+        yield start, end
+        position = end if end > start else start + 1
+
+
+def _window_admits(
+    text: str,
+    left: int,
+    right: int,
+    required: tuple[str, ...],
+    required_any_of: tuple[tuple[str, ...], ...],
+) -> bool:
+    """_admits for text[left:right] without copying it."""
+    for literal in required:
+        if text.find(literal, left, right) < 0:
+            return False
+    for group in required_any_of:
+        for literal in group:
+            if text.find(literal, left, right) >= 0:
+                break
+        else:
+            return False
+    return True
+
+
+def _term_in_window(
+    text: str, left: int, right: int, pattern: str, overlap: tuple[int, int] | None
+) -> bool:
+    """Whether pattern matches inside [left, right] of text (and overlaps ``overlap``).
+
+    The views and the scans follow _scan_matches: a raw regex reads the
+    normalized view once the text has compatibility or invisible characters,
+    a literal pattern reads the text and its match view. Views come from the
+    whole text, and window offsets are mapped into each view.
+    """
+    is_regex, regex, required, required_any_of = _pattern_plan(pattern)
+    normalized_differs, normalized, match_differs, matched = _text_views(text)
+    scans: list[tuple[_View | None, re.Pattern[str], tuple[str, ...]]] = []
+    if is_regex and normalized_differs:
+        scans.append((normalized, regex, required))
+    else:
+        scans.append((None, regex, required))
+        if not is_regex and match_differs:
+            view_regex, view_required = _match_view_plan(pattern)
+            scans.append((matched, view_regex, view_required))
+    for view, scan_regex, scan_required in scans:
+        starts = ends = None
+        if view is None:
+            search_text, view_left, view_right = text, left, right
+        elif type(view[1]) is range:
+            search_text, view_left, view_right = view[0], left, right
+        else:
+            search_text, starts, ends = view
+            # View characters wholly from source[left:right]: offsets only grow.
+            view_left = bisect_left(starts, left)
+            view_right = bisect_right(ends, right)
+            if view_right < view_left:
+                continue
+        if not _window_admits(
+            search_text, view_left, view_right, scan_required, required_any_of
+        ):
+            continue
+        for match_start, match_end in _window_spans(
+            scan_regex, search_text, view_left, view_right
+        ):
+            if view is not None:
+                # As in _scan_matches, a view keeps only non-empty matches.
+                if match_start == match_end:
+                    continue
+                if starts is not None:
+                    match_start, match_end = starts[match_start], ends[match_end - 1]
+            if overlap is None or (
+                match_start < overlap[1] and match_end > overlap[0]
+            ):
+                return True
+    return False
+
+
 def is_excluded(text: str, start: int, end: int, excludes: list[dict]) -> bool:
     for exclusion in excludes:
         candidate_pattern = exclusion.get("candidate")
@@ -562,15 +713,18 @@ def is_excluded(text: str, start: int, end: int, excludes: list[dict]) -> bool:
         window = int(exclusion.get("window", 0))
         left = max(0, start - window)
         right = min(len(text), end + window)
-        term_matches = find_matches(text[left:right], [str(exclusion["term"])])
-        if exclusion.get("overlap_candidate"):
-            relative_start = start - left
-            relative_end = end - left
-            if any(
-                match.start() < relative_end and match.end() > relative_start
-                for match in term_matches
-            ):
-                return True
-        elif term_matches:
+        overlap = (start, end) if exclusion.get("overlap_candidate") else None
+        if _term_in_window(text, left, right, str(exclusion["term"]), overlap):
             return True
     return False
+
+
+def found_in_window(text: str, left: int, right: int, patterns: list[str]) -> bool:
+    """Whether a pattern matches inside [left, right] of text.
+
+    find_first on text[left:right], except that lookarounds, ``^`` and ``$``
+    read the text itself, as in is_excluded.
+    """
+    return any(
+        _term_in_window(text, left, right, str(pattern), None) for pattern in patterns
+    )

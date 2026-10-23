@@ -62,6 +62,7 @@ TABLES: tuple[Table, ...] = (
     Table("DISCLAIMER", lambda: core_engine.DISCLAIMER),
     Table("MORPH_REWRITES", lambda: morph.MORPH_REWRITES),
     Table("ZERO_WIDTH", lambda: morph.ZERO_WIDTH, "unordered"),
+    Table("EXCLUDE_LOOKAHEAD", lambda: morph.EXCLUDE_LOOKAHEAD),
     Table("SECTION_ALIASES", lambda: extractor.SECTION_ALIASES),
     Table("DUTY_HEADINGS", _x("_DUTY_HEADINGS")),
     Table("HIRING_CONTEXT", _x("_HIRING_CONTEXT")),
@@ -116,6 +117,7 @@ JS_ONLY_CONSTANTS = frozenset(
         "CHAR_KEEP_HEADING",
         "NO_SCAN",  # marks a pattern whose scan was skipped because a required literal is missing
         "SCAN_MEMO_MIN",  # shortest text whose per-pattern scans are kept with its views
+        "BOUNDED_LIMIT",  # size limit of the bounded-regex cache of the exclusion window scan
         # Wording lists that candidateUnits, contextAllowed and sourceCandidateAllowed
         # wrote inline; hoisted so the pattern-list cache finds them by identity.
         # Their contents are compared with core/extractor.py by the string-list tests.
