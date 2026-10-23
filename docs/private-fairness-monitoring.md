@@ -287,8 +287,8 @@ python tools\check_private_fairness_drift.py `
 바뀐 두 보고서를 의도적으로 비교할 때에는 `--require-version-match`를 빼면 버전 차이는
 보고서에 남지만 그 차이만으로 실패시키지는 않는다. CI의 합성 공고 스모크 테스트는 기준선
 생성 후 통합 cycle을 실행해 snapshot, manifest 검증, 익명 감사, 자기 비교 드리프트와 선택
-규칙 review queue까지 재현한다. 이어 미라벨 큐의 summary가 산출물을 남기고 종료 코드 `2`로
-검토 미완료를 차단하는지도 확인한다.
+규칙 review queue까지 재현한다. 이어 미라벨 큐의 summary가 산출물을 남기고, 확정 라벨이 없는
+규칙을 `coverage_gap`(`status`와 종료 코드 `3`)으로 보고하는지도 확인한다.
 
 ## 사람 검토 큐
 
@@ -407,8 +407,8 @@ python tools\summarize_private_review.py `
   --expect-rule-id Q-DIST-010
 ```
 
-정상은 종료 코드 `0`, 입력 오류는 `1`, 검토 표본 부족 또는 정밀도 하한 미달은 보고서를
-쓴 뒤 `2`를 반환한다. 최소 검토 수에는 정밀도 분모를 실제로 형성하는 확정 라벨
+정상은 종료 코드 `0`, 입력 오류는 `1`, 정밀도 하한 미달 같은 게이트 경보는 보고서를 쓴 뒤
+`2`, 표본 부족 규칙만 남은 경우는 `3`을 반환한다. 최소 검토 수에는 정밀도 분모를 실제로 형성하는 확정 라벨
 `true_positive`와 `false_positive`만 포함한다. `uncertain`은 별도 집계하지만 최소 검토 수와
 정밀도 분모에서는 제외한다. 정밀도는
 `true_positive / (true_positive + false_positive)`로 계산한다. 집계 보고서에는
@@ -419,6 +419,24 @@ python tools\summarize_private_review.py `
 snapshot 해시도 검증해야 한다. 둘 중 하나라도 없으면 출처 미검증 경보가 생긴다. 따라서 큐가
 비었거나 0행 규칙이 manifest에서 빠지거나 라벨 외 필드가 바뀌거나 오래된 규칙셋ㆍ다른 원본
 큐를 현재 성능으로 오인하는 경로를 차단한다.
+
+요약 스키마 `private-review-summary-v3`의 `status`와 종료 코드:
+
+| `status` | 종료 코드 | 조건 |
+|---|---|---|
+| `alert` | `2` | `empty_queue`, `precision_below_threshold`, `unverified_provenance` 중 하나라도 비어 있지 않음 |
+| `coverage_gap` | `3` | 위 경보는 없고 `coverage_gap`만 비어 있지 않음 |
+| `ok` | `0` | 경보와 `coverage_gap`이 모두 비어 있음 |
+
+- 확정 라벨(`true_positive`+`false_positive`)이 `--min-reviewed-per-rule`보다 적은 규칙은 `alerts.coverage_gap`에 기록함. 항목은 `rule_id`, `reviewed`(확정 라벨 수), `minimum`, `reason`임.
+- `reason`은 확정 라벨이 0이면 `zero_observations`, 1 이상이면 `below_minimum`임. `--min-reviewed-per-rule 0`이고 `--min-precision`이 0보다 크면 확정 라벨이 0인 규칙도 `zero_observations`로 기록함.
+- `coverage_gap` 규칙은 정밀도 하한과 비교하지 않으며 `precision_below_threshold`에 넣지 않음. 표본이 작은 규칙의 낮은 정밀도를 실패로 세지 않기 위함임.
+- `precision_below_threshold`에는 확정 라벨이 최소 검토 수 이상인 규칙 중 정밀도가 하한보다 낮은 규칙만 들어감.
+- 이전 `insufficient_reviews` 키는 `coverage_gap`으로 대체했으며 별칭은 두지 않음.
+- 보고서의 `interpretation.coverage_gap_rules_excluded_from_performance_claims`는 `true`임. `coverage_gap` 규칙의 지표는 규칙별 성능 주장에 쓰지 않음.
+- `--manifest`, `--source-input`, 기대 규칙 중 하나라도 빠지면 `unverified_provenance`가 생기므로 `coverage_gap`만 있어도 `status`는 `alert`, 종료 코드는 `2`임.
+- `--min-reviewed-per-rule`과 `--min-precision`을 모두 0으로 둔 단순 집계에서는 확정 라벨이 0인 규칙도 `coverage_gap`으로 기록하지 않음.
+- `argparse` 사용법 오류도 종료 코드 `2`를 반환하며 기존 동작 그대로임. 보고서 파일이 새로 쓰였는지로 구분함.
 
 ### 이중 검토 병합과 일치율
 
@@ -520,8 +538,8 @@ python tools\summarize_private_review.py `
 17개에서 232행이며 모두 미라벨이다. 후보 매치는 3,043건, 고유 비식별 문맥은 2,629건이고
 규칙별 최대 20행을 선택했다. 착수 절차는 [사람 라벨링 착수 계획](labeling-kickoff.md)을 따른다.
 `AI-001`, `DISABILITY-001`, `FAMILY-001`, `HEALTH-001`, `Q-DIST-014`는 관찰 행이
-없어 큐가 비었다. 따라서
-`.private-review/summary.json`은 `alert`, precision은 `null`이다. 별도 모델 보조 triage 집계는
+없어 큐가 비었다. 따라서 이 규칙들은
+`.private-review/summary.json`에서 `coverage_gap`(`zero_observations`)이고 precision은 `null`이다. 별도 모델 보조 triage 집계는
 규칙 경계 탐색에만 사용했고 사람 라벨이나 성능 증거로 간주하지 않는다.
 
 병역ㆍ대리변수 질문 `Q-DIST-010`은 익명 문맥 재감사에서 기존 163건 중 136건이

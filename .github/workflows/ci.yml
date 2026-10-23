@@ -181,7 +181,7 @@ jobs:
             > "$work/review-summary-stdout.json"
           review_status=$?
           set -e
-          test "$review_status" -eq 2
+          test "$review_status" -eq 3
           python - "$work" <<'PY'
           import hashlib
           import json
@@ -234,7 +234,11 @@ jobs:
           assert "connect-src 'none'" in review_html
           assert "<script src=" not in review_html
           assert "https://" not in review_html and "http://" not in review_html
-          assert review_summary["status"] == "alert"
+          assert review_summary["status"] == "coverage_gap"
+          assert review_summary["alerts"]["coverage_gap"] == [
+              {"rule_id": "PHOTO-001", "reviewed": 0, "minimum": 1, "reason": "zero_observations"}
+          ]
+          assert review_summary["alerts"]["precision_below_threshold"] == []
           assert review_summary["provenance"]["verified"] is True
           assert review_summary["provenance"]["source_input_verified"] is True
           assert review_summary["provenance"]["expected_rules_explicit"] is True

@@ -65,8 +65,10 @@
 
 집계는 [민간 모니터링 문서](private-fairness-monitoring.md)의
 `tools/summarize_private_review.py` 명령으로 한다. 관찰 행이 없는 5개 규칙과 10행 미만
-규칙(`PHOTO-001`, `Q-DIST-012`, `Q-DIST-016`, `Q-DIST-017`) 때문에 검토를 마쳐도
-`alert`(종료 코드 2)가 예상된다. 이는 실패가 아니라 `coverage_gap`으로 보고한다.
+규칙(`PHOTO-001`, `Q-DIST-012`, `Q-DIST-016`, `Q-DIST-017`)은 정밀도 실패가 아니라
+`alerts.coverage_gap`에 기록된다. 이 규칙들 때문에 검토를 마쳐도 `status`는
+`coverage_gap`(종료 코드 3)이 예상된다. `alert`(종료 코드 2)는 확정 라벨이 최소 검토 수
+이상인 규칙의 정밀도가 하한보다 낮을 때, 또는 큐가 비었거나 출처가 검증되지 않았을 때만 나온다.
 
 ## 2단계: 봉인 홀드아웃 180건
 

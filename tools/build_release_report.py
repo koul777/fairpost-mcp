@@ -36,7 +36,10 @@ if str(ROOT) not in sys.path:
 
 from core import load_ruleset  # noqa: E402
 from mcp_server.build_identity import runtime_source_fingerprint  # noqa: E402
-from tools.evaluate import evaluator_fingerprint  # noqa: E402
+from tools.evaluate import (  # noqa: E402
+    EVALUATION_SCHEMA_VERSION,
+    evaluator_fingerprint,
+)
 from tools.release_inputs import (  # noqa: E402
     validation_inputs,
     validation_source_fingerprint,
@@ -465,7 +468,9 @@ def build_report(
         else None
     )
     if evaluation is not None:
-        _require_report_schema(evaluation, 3, "evaluation report")
+        _require_report_schema(
+            evaluation, EVALUATION_SCHEMA_VERSION, "evaluation report"
+        )
     package_name, package_version = _project_metadata()
     mcp_project_config = _project_mcp_config()
     ruleset = load_ruleset(ROOT / "data")
