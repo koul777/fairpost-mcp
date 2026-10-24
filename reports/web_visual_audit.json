@@ -3,14 +3,14 @@
   "audit_date": "2026-10-23",
   "evidence_status": "current",
   "evidence_scope": "local-integrated-web-bundle",
-  "integration_commit": "6d5de6b2bbec457bdcea6a01874b18290b5f8976",
-  "integration_branch": "agent/2026-10-23-web-badges",
+  "integration_commit": "85c9a6dfc301e04e759a4b7cd144e8488a1c9af0",
+  "integration_branch": "agent/2026-10-24-document-input",
   "integration_worktree_changes": [],
   "ruleset_version": "2026.07-local-v5-nfkc-whitespace-zero-width-regex-source-offset-36f30cccacd4",
   "matching_version": "match-13f5d6e7c53a493f",
-  "runtime_source_fingerprint": "runtime-b8918cacc919907ca26b3cad238fbb3c6c5671947620af9530d875c3abd03966",
-  "started_at": "2026-10-23T14:04:54.249Z",
-  "finished_at": "2026-10-23T14:16:58.625Z",
+  "runtime_source_fingerprint": "runtime-a9e36501f0718d56c34f761f26e80540f6ef98611dfb9ff36fce39a4214d5a5b",
+  "started_at": "2026-10-24T02:04:52.773Z",
+  "finished_at": "2026-10-24T02:16:00.597Z",
   "browser": {
     "name": "Chromium headless shell",
     "version": "153.0.8010.12",
@@ -527,7 +527,7 @@
         "still_open": ["P5", "P6", "P7", "P8", "P9", "P10", "V6"],
         "file_local": "tmp\\overnight-2026-10-23\\viewer\\review-3.md (outside the repository)"
       },
-      "note": "The reviews covered earlier runs (third: run-2026-10-23T09-07-09). This run serves wt-badges (badge and jump bar fixes on top of the accepted follow-ups); the viewer did not read it."
+      "note": "The reviews covered earlier runs (third: run-2026-10-23T09-07-09). This run is a fingerprint-only rerun on wt-docin; the served web files are byte-identical to run-badges-23-04-53 and the viewer did not read it."
     },
     "blocking_issues": [],
     "issues": [
@@ -735,7 +735,7 @@
     ],
     "observations": [
       "First screen, /book entry, paste, check, marks, stepper, linked questions, jump bar, expert view, copy, save, rewrite, stale banner, re-check with comparison, clear and undo render without clipping, overlap or breakage in light and dark at 1366, 820 and 390 px in the screenshots read.",
-      "Against the previous run (wt-ctx, before the follow-ups), 96 of 218 non-segment screens are byte-identical and 122 differ: the filled mode tab, the compact number badges, the wrapped jump bar on phones, clock stamps and sub-pixel offsets. Result counts (3 findings, 7 not found, 11 questions) and all 1350 original check results are unchanged.",
+      "Fingerprint-only rerun: against run-badges-23-04-53 (same served web files by SHA-256), 189 of 218 non-segment screens are byte-identical and 29 differ (clock minute stamps, sub-pixel text offsets, two no-preference-motion screens captured at another scroll offset, and one jump-chip paint variation in mobile-light__22). Every check result, the result counts (3 findings, 7 not found, 11 questions) and the 364 seam boundaries equal the previous run.",
       "Number badges: 13 px pills between the text lines, clear of the line above and of the leading dash in light and dark at 1366, 820, 390 and 320 px; a badge that the field edge would cut in half is hidden.",
       "Jump bar: up to 420 px every chip is visible on two (390 px) or three (320 px) rows without sideways scrolling; headings reached by a jump stay below the pinned bar. Up to 600 px high the bar is not pinned.",
       "Widened scenarios: 11 scenarios, 538 checks, all passed (zoom 200 and 400 percent, 320 px, forced colors, print, Firefox, WebKit).",
@@ -749,8 +749,8 @@
     "tool": "axe-core",
     "version": "4.13.0",
     "rules": ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"],
-    "started_at": "2026-10-23T14:04:54.249Z",
-    "finished_at": "2026-10-23T14:16:58.625Z",
+    "started_at": "2026-10-24T02:04:52.773Z",
+    "finished_at": "2026-10-24T02:16:00.597Z",
     "confirmed_violations": 0,
     "automated_check_complete": false,
     "injection": "Local axe-core injected with page.evaluate under the enforced CSP (no bypassCSP); the library file was an existing local copy, nothing was downloaded.",
@@ -791,7 +791,7 @@
     "page_errors": 0,
     "blocked_requests": 0
   },
-  "environment": {"min_free_memory_gb_sampled": 6.35, "memory_waits": 0, "retries": 0, "server": "python -m mcp_server.local_runtime web --port 8237 via visual/tools/serve.py (127.0.0.1, FAIRPOST_* environment removed, AI/law supplement disabled); pages http://127.0.0.1:8237/web/ and /book", "served_files_match_worktree": true, "served_files_file": "evidence/served-files-wt-badges.json"},
+  "environment": {"min_free_memory_gb_sampled": 5.91, "memory_waits": 0, "retries": 0, "server": "python -m mcp_server.local_runtime web --port 8237 via visual/tools/serve.py (127.0.0.1, FAIRPOST_* environment removed, AI/law supplement disabled); pages http://127.0.0.1:8237/web/ and /book", "served_files_match_worktree": true, "served_files_file": "evidence/served-files-wt-docin.json"},
   "style_change": {
     "file": "web/styles.css, web/app.js",
     "commit": "follow-up fcafffd (tests e6f4771) on agent/2026-10-23-web-followups, merged into 0625558; earlier dark-mode work 1229563 and 8b4df43",
@@ -806,10 +806,10 @@
       "earlier dark block: active mark #4f4210, skip link and badge digits #0e1613, ::selection alpha 0.25"
     ],
     "computed_style_ab": {"status": "not rerun", "reason": "the follow-up changes the light theme on purpose (chosen mode tab, reduced-motion rules); the before/after probe and the old-files run below replace the comparison"},
-    "light_screenshot_comparison": {"against_run": "run-follow-20-31-51", "identical": 46, "different": 55, "note": "Light screens differ from the previous run because the chosen mode tab is now a filled pill (accepted change) and because of clock stamps and sub-pixel offsets."}
+    "light_screenshot_comparison": {"against_run": "run-badges-23-04-53", "identical": 87, "different": 14, "note": "Light screens differ from the previous run because the chosen mode tab is now a filled pill (accepted change) and because of clock stamps and sub-pixel offsets."}
   },
   "followup_2026_10_23": {
-    "source_tree": "wt-badges, branch agent/2026-10-23-web-badges; PR #20 head 5bd72cb (ec274c0, dual-review tool, web follow-ups fcafffd and e6f4771, regenerated evidence) + badge and jump bar commit 6d5de6b",
+    "source_tree": "wt-docin, branch agent/2026-10-24-document-input at 85c9a6d: 3588b71 (badge and jump bar fixes 6d5de6b, audited in run-badges-23-04-53) + document input commits (cli/document_input.py, cli/main.py, cli/document_input.py added to RUNTIME_SOURCE_FILES in mcp_server/build_identity.py, tests, README, docs/document-input.md). web/ is byte-identical to 3588b71, so only the runtime fingerprint changed.",
     "earlier_follow_up": "V6, P6, P10, P5 and the forced-colors and footer additions (fcafffd) are carried over; their before/after probe and old-files run are in the evidence of run-follow-20-31-51.",
     "badges": {
       "fixed": ["V3/P8 badge size and place", "V4/P9 badges cut by the field edge are hidden", "V5/P7 jump bar wraps up to 420 px"],
@@ -901,24 +901,24 @@
     }
   },
   "tests": {
-    "worktree": "wt-badges",
-    "commit": "6d5de6b",
+    "worktree": "wt-docin",
+    "commit": "85c9a6d",
     "web_subset": {
       "command": "python -m pytest tests -k \"web or app or visual or style\"",
-      "passed": 406,
+      "passed": 408,
       "failed": 0,
       "skipped": 1,
-      "deselected": 5530,
-      "duration": "0:01:24",
+      "deselected": 5630,
+      "duration": "51.54s",
       "failed_tests": []
     },
     "evidence_and_report_tests": {
-      "command": "python -m pytest tests/test_evidence_versions.py tests/test_refresh_evidence.py tests/test_build_tools.py tests/test_tool_paths.py tests/test_question_relevance_audit.py",
-      "passed": 339,
+      "command": "python -m pytest tests/test_evidence_versions.py tests/test_refresh_evidence.py tests/test_build_tools.py tests/test_tool_paths.py tests/test_question_relevance_audit.py tests/test_document_input.py",
+      "passed": 424,
       "failed": 0,
-      "skipped": 13,
+      "skipped": 14,
       "deselected": 0,
-      "duration": "10.00s",
+      "duration": "15.47s",
       "failed_tests": []
     },
     "full_suite": {
@@ -928,19 +928,21 @@
       "skipped": 36,
       "deselected": 0,
       "duration": "0:08:42",
-      "failed_tests": []
+      "failed_tests": [],
+      "carried_over_from": "run-badges-23-04-53 on 6d5de6b",
+      "note": "not rerun in this fingerprint-only run; web files unchanged since 3588b71"
     },
     "note": "No test reads reports/web_visual_audit.json by name; tools/check_evidence_versions.py reads it as an operational report (version fields only)."
   },
   "artifacts": {
-    "local_directory": "C:\\workspace\\fairmcp\\tmp\\overnight-2026-10-23\\visual\\run-badges-23-04-53",
+    "local_directory": "C:\\workspace\\fairmcp\\tmp\\overnight-2026-10-23\\visual\\run-docin-11-04-50",
     "manifest_file": "manifest.json",
-    "manifest_sha256": "f4d161a325d6329619ef00420cdc8d2addd0dd38db96ed0183819ad3319273ec",
+    "manifest_sha256": "517609dff473b01780181b27bdaad77f6a2ec4891588c073d04bb2dfd7b38b17",
     "manifest_entries": 754,
     "raw_report_file": "raw/raw-report.json",
-    "raw_report_sha256": "fb2606cf4a2a7506a7092386d1e73ba8228d4d0a069864a92e4727ba25c01337",
+    "raw_report_sha256": "19d12ab77c363af6f59329a3a5c4da3688f0bfcc9fdbe3099a22ef9de717370a",
     "inspection_file": "inspection.json",
-    "inspection_sha256": "34fc8d8e6f89711ecfa4702e4df83f898f710f9f88b601bc7e91461c91ad4d56",
+    "inspection_sha256": "84fb4474e6990e81f2e5fa0083d9ac201379cf760b2552b06da646cbf67c35ce",
     "screenshot_count": 594,
     "tile_count": 124,
     "harness_file": "visual/tools/audit.cjs",
@@ -957,14 +959,15 @@
       {"file": "evidence/followup-probe.json", "sha256": "fe39d08ac5770203a32b8c9571ca851de54318d3d091d6f8195efcacf6664e3e"},
       {"file": "evidence/old-files-run-summary.json", "sha256": "4533ea464f9c72ae65e524ba51a127d7bbae5a87fe3868c712e88e09fdb6aa88"},
       {"file": "evidence/css-variant-probe.json", "sha256": "86e6b705c29c1d40714a40e0def11d2f7db33b13b9de00c6fce2d65ce8715267"},
-      {"file": "evidence/served-files-wt-badges.json", "sha256": "9e0992790878573ec3b6b50d681fbcfbe766126136b43a0b008895ddddd8a753"},
-      {"file": "evidence/pytest-subset-badges.log", "sha256": "a9584ef5242b9d4b56285d0e9ee9199b47a9beccb60cd53bbf9ed3edd007e4b3"},
-      {"file": "evidence/pytest-evidence-badges.log", "sha256": "f768972667ad79734ad9930de5364e436443ff029530dd036391116a5ca925b0"},
-      {"file": "evidence/pytest-full-badges.log", "sha256": "2eaa9cba30a211fe8ed52ac697d8ab55b6fc6e83f2637f2556870e08e16668ba"}
+      {"file": "evidence/served-files-wt-docin.json", "sha256": "9e0992790878573ec3b6b50d681fbcfbe766126136b43a0b008895ddddd8a753"},
+      {"file": "evidence/pytest-subset-docin.log", "sha256": "0f43b8606c5b2be463b514577d38811b534a67c172f7c554296844913a7bd662"},
+      {"file": "evidence/pytest-evidence-docin.log", "sha256": "5a2bc8f7c7ca7d45dc312db9621ec4cac75ecedf19473e8224b9c27f6c994924"},
+      {"file": "evidence/pytest-full-badges.log", "sha256": "2eaa9cba30a211fe8ed52ac697d8ab55b6fc6e83f2637f2556870e08e16668ba"},
+      {"file": "evidence/min-free-samples.json", "sha256": "384fac5a05e849a31c9b9e0fd5bc149e62309f6f9456bdf9bccc8293c106ff4a"}
     ]
   },
   "limitations": [
-    "Local loopback server only, files of the wt-badges worktree. No production deployment, Vercel rewrite or authenticated MCP endpoint; the /book 307 is the local runtime route.",
+    "Local loopback server only, files of the wt-docin worktree. No production deployment, Vercel rewrite or authenticated MCP endpoint; the /book 307 is the local runtime route.",
     "One synthetic posting with three flagged expressions. No-finding results, very long postings and other organization settings were not driven through every state.",
     "Chromium headless shell 153 for the original eight scenarios and most widened ones; Firefox 155.0 and WebKit 26.6 (Playwright builds, headless) for four widened scenarios. Firefox is the desktop build at a 390 px window, not mobile Firefox; WebKit is the Playwright Windows build, not iOS Safari. No real Android or iOS device.",
     "AI and law-MCP supplement not exercised (no keys, run button never pressed); zero non-GET requests does not test that path.",
@@ -973,8 +976,8 @@
     "axe cannot decide color-contrast for gradients, images, overlaps and generated content; manual scans skip text over background images (481). The scans caught the viewer's dark-mode findings only after being extended, so other unmeasured combinations may remain. Not a claim of full WCAG conformance.",
     "Screenshots: the viewer read all 174 images of an earlier run; the visual worker read 13 of 594 images of this run plus 0 tiles. The viewer's third review covered run-2026-10-23T09-07-09; this run was not reviewed by the viewer.",
     "Clipboard checked with Chromium permissions on loopback (CRLF/LF and BOM normalized); pasting into another application not tested. Firefox and WebKit fill the field directly.",
-    "Shared PC under memory pressure: the harness waits for 4 GB free before each scenario (0 wait, minimum sampled 6.35 GB).",
-    "Bound to source commit 6d5de6b (wt-badges, clean worktree, ruleset 36f30cccacd4, matching match-13f5d6e7c53a493f). The report and its doc are committed on top of it without changing web, core or mcp_server files. A later engine or web change makes this report stale until the audit is rerun.",
+    "Shared PC under memory pressure: the harness waits for 4 GB free before each scenario (0 wait, minimum sampled by the harness 5.91 GB). A watchdog sampled free memory every 2 s (333 samples) with a stop limit of 3 GB: minimum 5.75 GB, never stopped.",
+    "Bound to source commit 85c9a6d (wt-docin, clean worktree, ruleset 36f30cccacd4, matching match-13f5d6e7c53a493f). web/ is byte-identical to 3588b71 (audited on 6d5de6b); the fingerprint changed because cli/document_input.py joined the runtime source files. The report and its doc line are committed on top without changing web, core, cli or mcp_server files. A later engine, web or runtime-source change makes this report stale until the audit is rerun.",
     "Boundary check of scroll captures: it compares 4 rows under the sticky bar, so a band over plain background is not caught (14 of the 162 old mobile boundaries passed: 4 clamped last shots with a large overlap and 10 with mostly plain rows); the overlap itself comes from the measured bar height.",
     "The computed-style A/B of earlier runs was not rerun (the light theme changes on purpose); the CSS variant probe is carried over from run-2026-10-23T09-07-09 (dark contrast variants of the earlier fixes).",
     "Open: V7 (not a problem) and V8; print repeats the brand header and a fully expanded memo is 28 A4 pages; between 421 and about 540 px the jump bar is still one swipeable row.",
