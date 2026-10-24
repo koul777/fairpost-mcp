@@ -5,7 +5,9 @@ import codecs
 import json
 from pathlib import Path
 import sys
-from typing import Iterable, NoReturn
+from typing import Any, Iterable, NoReturn
+
+from cli import document_input
 
 
 DEFAULT_ENCODING = "utf-8"
@@ -20,6 +22,10 @@ SUBCOMMAND_EPILOG = """\
 각 하위 명령의 옵션은 fairpost web --help처럼 확인합니다.
 UTF-8 BOM과 UTF-16(BOM 포함) 입력은 자동으로 처리합니다. 다른 인코딩은
 --encoding cp949처럼 지정합니다.
+
+문서 파일: .docx, .hwpx, .pdf(글자층이 있는 파일)는 kordoc으로 이 PC에서 변환한 뒤
+점검합니다. kordoc은 npm install -g kordoc으로 설치하고, 변환한 글은
+--converted-text 경로에 저장해 확인합니다. .hwp, .doc와 이미지 파일은 지원하지 않습니다.
 """
 
 
@@ -32,6 +38,13 @@ class _InputDecodeError(Exception):
         super().__init__(source, encoding)
         self.source = source
         self.encoding = encoding
+
+
+class _DocumentConversionFailure(Exception):
+    def __init__(self, source: str, message: str) -> None:
+        super().__init__(source, message)
+        self.source = source
+        self.message = message
 
 
 class _PrivacySafePurgeParser(argparse.ArgumentParser):
@@ -84,16 +97,86 @@ def _read_stdin(encoding: str) -> str:
     return _decode_input(buffer.read(), encoding, "표준 입력")
 
 
-def _read_inputs(paths: list[str], encoding: str) -> Iterable[tuple[str, str]]:
+def _read_inputs(
+    paths: list[str], encoding: str
+) -> Iterable[tuple[str, str, dict[str, Any] | None]]:
+    """Yield ``(source, text, conversion_info)``; the info is None for plain text."""
+
     if not paths:
-        yield "-", _read_stdin(encoding)
+        yield "-", _read_stdin(encoding), None
         return
     for raw_path in paths:
         if raw_path == "-":
-            yield "-", _read_stdin(encoding)
+            yield "-", _read_stdin(encoding), None
             continue
         path = Path(raw_path)
-        yield str(path), _decode_input(path.read_bytes(), encoding, str(path))
+        if document_input.classify_input(raw_path) == "convert":
+            try:
+                text, info = document_input.convert_document(path)
+            except document_input.DocumentInputError as exc:
+                raise _DocumentConversionFailure(str(path), str(exc)) from exc
+            yield str(path), text, info
+            continue
+        yield str(path), _decode_input(path.read_bytes(), encoding, str(path)), None
+
+
+def _check_document_arguments(files: list[str], converted_text: Path | None) -> str | None:
+    """Return a Korean error for unsupported document files or a bad --converted-text."""
+
+    converting: list[str] = []
+    for raw_path in files:
+        kind = document_input.classify_input(raw_path) if raw_path != "-" else None
+        if kind == "convert":
+            converting.append(raw_path)
+        elif kind is not None:
+            return f"{raw_path}: {document_input.unsupported_message(kind)}"
+    if converted_text is None:
+        return None
+    if not converting:
+        return "--converted-text는 DOCX, HWPX, PDF 파일을 변환할 때만 쓸 수 있습니다."
+    if len(converting) > 1:
+        return (
+            "--converted-text는 변환하는 파일이 하나일 때만 쓸 수 있습니다. "
+            "파일을 하나씩 실행하세요."
+        )
+    try:
+        if converted_text.resolve() == Path(converting[0]).resolve():
+            return "--converted-text가 입력 파일과 같은 경로입니다. 다른 경로를 지정하세요."
+    except OSError:
+        pass
+    return None
+
+
+def _announce_conversion(
+    source: str, info: dict[str, Any], converted_text: Path | None
+) -> None:
+    print(
+        f"fairpost: {source}을(를) {info['converter']}로 변환해 점검합니다. "
+        "결과의 인용문과 위치는 원본 파일이 아니라 변환한 글을 기준으로 합니다. "
+        "쪽 머리글·바닥글이 본문에 섞일 수 있습니다.",
+        file=sys.stderr,
+    )
+    if converted_text is not None:
+        print(f"fairpost: 변환한 글을 {converted_text}에 저장했습니다.", file=sys.stderr)
+    else:
+        print(
+            "fairpost: 변환한 글은 --converted-text 경로를 지정하면 저장해 확인할 수 있습니다.",
+            file=sys.stderr,
+        )
+    if info.get("skipped_images"):
+        print(
+            f"fairpost: 문서 안의 그림 {info['skipped_images']}개는 글자를 읽지 않았습니다. "
+            "그림 속 글자는 점검에 들어가지 않습니다.",
+            file=sys.stderr,
+        )
+    pages = info.get("ocr_needed_pages") or []
+    if pages:
+        listed = ", ".join(str(page) for page in pages)
+        print(
+            f"fairpost: PDF {listed}쪽은 글자층이 없어 읽지 못했습니다. "
+            "이 쪽의 내용은 점검에 들어가지 않았습니다.",
+            file=sys.stderr,
+        )
 
 
 def _normalize_argv(argv: list[str] | None) -> list[str]:
@@ -113,13 +196,28 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=SUBCOMMAND_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("files", nargs="*", help="점검할 텍스트 파일. 생략하거나 -이면 표준 입력")
+    parser.add_argument(
+        "files",
+        nargs="*",
+        help=(
+            "점검할 텍스트 파일. .docx, .hwpx, .pdf는 kordoc으로 변환해 점검합니다. "
+            "생략하거나 -이면 표준 입력"
+        ),
+    )
     parser.add_argument(
         "--encoding",
         default=DEFAULT_ENCODING,
         help=(
             "입력 파일과 표준 입력의 인코딩(기본 utf-8, BOM 자동 처리). "
             "한글 Windows 메모장의 ANSI 파일은 cp949"
+        ),
+    )
+    parser.add_argument(
+        "--converted-text",
+        type=Path,
+        help=(
+            ".docx, .hwpx, .pdf를 변환한 글을 이 경로에 UTF-8로 저장합니다. "
+            "변환하는 파일이 하나일 때만 쓸 수 있습니다"
         ),
     )
     parser.add_argument("--data-dir", type=Path, help="규칙 데이터 디렉터리")
@@ -201,6 +299,10 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    document_error = _check_document_arguments(args.files, args.converted_text)
+    if document_error is not None:
+        print(f"fairpost: {document_error}", file=sys.stderr)
+        return 2
     verifier = None
     if args.review_packet:
         # Only the HR review packet needs asyncio and the review module; a
@@ -230,6 +332,9 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    except _DocumentConversionFailure as exc:
+        print(f"fairpost: {exc.source}: {exc.message}", file=sys.stderr)
+        return 2
     except FileNotFoundError as exc:
         print(f"fairpost: 파일을 찾을 수 없습니다: {exc.filename}", file=sys.stderr)
         return 2
@@ -242,7 +347,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Validate the whole batch before emitting JSON or starting optional review.
     # Keep the original text intact so finding offsets still address the input.
-    for source, text in inputs:
+    for source, text, _info in inputs:
         if not text.strip():
             label = "표준 입력" if source == "-" else source
             print(
@@ -252,7 +357,24 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 2
 
-    for source, text in inputs:
+    for source, text, info in inputs:
+        if info is None:
+            continue
+        if args.converted_text is not None:
+            try:
+                # Bytes, not text mode, so a Windows newline translation cannot
+                # shift the offsets the results refer to.
+                args.converted_text.write_bytes(text.encode("utf-8"))
+            except OSError as exc:
+                print(
+                    "fairpost: 변환한 글을 저장할 수 없습니다: "
+                    f"{exc.filename or args.converted_text}",
+                    file=sys.stderr,
+                )
+                return 2
+        _announce_conversion(source, info, args.converted_text)
+
+    for source, text, _info in inputs:
         if args.review_packet:
             payload = asyncio.run(
                 prepare_hr_review_packet(engine, text, verifier=verifier)

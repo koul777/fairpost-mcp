@@ -66,6 +66,7 @@ RUNTIME_SOURCE_FILES = (
     "api/__init__.py",
     "api/index.py",
     "cli/__init__.py",
+    "cli/document_input.py",
     "cli/main.py",
     "core/__init__.py",
     "core/direct_identifiers.py",
