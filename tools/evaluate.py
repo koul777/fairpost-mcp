@@ -30,7 +30,9 @@ TARGETS = {
 MIN_HOLDOUT_BY_SECTOR = {"public": 90, "private": 90}
 FINAL_RECEIPT_NAME = "final-evaluation-receipt.json"
 ATTESTATION_SCHEMA_VERSION = 2
-EVALUATION_SCHEMA_VERSION = 3
+# v4 adds expression_detection_by_rule and rule_coverage. The aggregate metrics
+# and the G1/G2 target gate are unchanged from v3.
+EVALUATION_SCHEMA_VERSION = 4
 EVALUATOR_SOURCE_FILES = (
     "tools/evaluate.py",
     "core/__init__.py",
@@ -453,6 +455,62 @@ def metrics(tp: int, fp: int, fn: int) -> dict[str, float | int | None]:
     }
 
 
+def tally_rule_findings(
+    rule_counts: dict[str, Counter[str]],
+    predicted: set[str],
+    expected: set[str],
+) -> None:
+    """Add one posting's per-rule counts using the aggregate's matching sets.
+
+    The sets are the same ``predicted``/``expected`` finding ids that feed the
+    aggregate ``expression_detection`` counts, so summing the per-rule counts
+    reproduces the aggregate exactly.
+    """
+    for rule_id in predicted & expected:
+        rule_counts.setdefault(rule_id, Counter())["true_positive"] += 1
+    for rule_id in predicted - expected:
+        rule_counts.setdefault(rule_id, Counter())["false_positive"] += 1
+    for rule_id in expected - predicted:
+        rule_counts.setdefault(rule_id, Counter())["false_negative"] += 1
+
+
+def expression_detection_by_rule(
+    rule_counts: dict[str, Counter[str]],
+) -> dict[str, dict[str, float | int | None]]:
+    return {
+        rule_id: metrics(
+            counts["true_positive"],
+            counts["false_positive"],
+            counts["false_negative"],
+        )
+        for rule_id, counts in sorted(rule_counts.items())
+    }
+
+
+def build_rule_coverage(
+    by_rule: dict[str, dict[str, float | int | None]],
+) -> dict[str, object]:
+    """Separate rules with no observation from rules that have evidence.
+
+    A law rule with zero tp, fp and fn in the evaluated set is a coverage gap.
+    It is not a precision failure, and no performance claim can rest on it.
+    """
+    observed: list[str] = []
+    coverage_gap: list[str] = []
+    for rule_id, rule_metrics in sorted(by_rule.items()):
+        observations = (
+            int(rule_metrics["true_positive"] or 0)
+            + int(rule_metrics["false_positive"] or 0)
+            + int(rule_metrics["false_negative"] or 0)
+        )
+        (observed if observations > 0 else coverage_gap).append(rule_id)
+    return {
+        "observed_rule_ids": observed,
+        "coverage_gap_rule_ids": coverage_gap,
+        "coverage_gap_excluded_from_performance_claims": True,
+    }
+
+
 def _target_gate(
     report: dict[str, object],
     sector_counts: Counter[str],
@@ -730,6 +788,9 @@ def main() -> int:
         for sector in MIN_HOLDOUT_BY_SECTOR
     }
     details = []
+    rule_counts: dict[str, Counter[str]] = {
+        rule_id: Counter() for rule_id in sorted(all_finding_rules)
+    }
     for record in records:
         result = engine.check(record["text"])
         predicted_findings = {item.id for item in result.findings}
@@ -746,6 +807,7 @@ def main() -> int:
         finding_tp += len(predicted_findings & expected_findings)
         finding_fp += len(predicted_findings - expected_findings)
         finding_fn += len(expected_findings - predicted_findings)
+        tally_rule_findings(rule_counts, predicted_findings, expected_findings)
         absence_tp += len(predicted_absence & expected_absence)
         absence_fp += len(predicted_absence - expected_absence)
         absence_fn += len(expected_absence - predicted_absence)
@@ -774,6 +836,7 @@ def main() -> int:
         evaluation_records[str(record["content_hash"])]["sector"]
         for record in records
     )
+    by_rule = expression_detection_by_rule(rule_counts)
     report = {
         "schema_version": EVALUATION_SCHEMA_VERSION,
         "evaluator_source_fingerprint": evaluator_source_fingerprint,
@@ -819,6 +882,8 @@ def main() -> int:
             "dimensions": ["relevance", "comprehension", "actionability"],
         },
         "expression_detection": metrics(finding_tp, finding_fp, finding_fn),
+        "expression_detection_by_rule": by_rule,
+        "rule_coverage": build_rule_coverage(by_rule),
         "absence_detection": metrics(absence_tp, absence_fp, absence_fn),
         "dictionary_coverage": round(
             expression_covered / expression_total, 6

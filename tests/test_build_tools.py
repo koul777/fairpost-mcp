@@ -395,7 +395,7 @@ def test_release_report_rejects_xml_entities() -> None:
             "fairpost-vercel-deployment-audit-v3",
             "Vercel deployment audit",
         ),
-        ({"schema_version": 2}, 3, "evaluation report"),
+        ({"schema_version": 3}, 4, "evaluation report"),
         (
             {"schema_version": "fairpost-web-engine-parity-v0"},
             "fairpost-web-engine-parity-v1",
@@ -1265,6 +1265,12 @@ def test_evaluation_enforces_targets_on_complete_two_sector_holdout(
     assert report["measurement_units"]["expression_detection"] == (
         "posting_rule_pair"
     )
+    # The per-rule breakdown does not change the G1/G2 aggregate: only SEX-001
+    # is observed here, and every other law rule is a coverage gap.
+    assert report["expression_detection"]["precision"] == 1.0
+    assert report["rule_coverage"]["observed_rule_ids"] == ["SEX-001"]
+    assert "SEX-001" not in report["rule_coverage"]["coverage_gap_rule_ids"]
+    assert report["expression_detection_by_rule"]["SEX-001"]["true_positive"] == 1
 
 
 def test_annotation_ui_is_local_and_embeds_exact_holdout(tmp_path: Path) -> None:

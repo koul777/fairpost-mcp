@@ -128,7 +128,10 @@ def test_counts_labels_and_calculates_decided_precision(tmp_path: Path) -> None:
     assert report["interpretation"][
         "labels_are_rule_relevance_not_discrimination_or_illegality_determinations"
     ] is True
-    assert report["schema_version"] == "private-review-summary-v2"
+    assert report["schema_version"] == "private-review-summary-v3"
+    assert report["interpretation"][
+        "coverage_gap_rules_excluded_from_performance_claims"
+    ] is True
     assert report["evaluation_phase"] == "train_review"
     assert report["release_claim_eligible"] is False
     assert all(value is False for value in report["privacy_boundary"].values())
@@ -288,16 +291,23 @@ def test_threshold_alerts_are_separate_and_report_is_written(tmp_path: Path) -> 
         min_precision=0.75,
     )
 
+    # The only rule has 2 decided rows, below the minimum of 3. It is a coverage
+    # gap, so its 0.5 precision is not judged against the 0.75 threshold. The
+    # alert comes from the unverified provenance alone.
     assert report["status"] == "alert"
-    assert report["alerts"]["insufficient_reviews"] == [
-        {"rule_id": "SEX-001", "reviewed": 2, "minimum": 3}
+    assert report["alerts"]["coverage_gap"] == [
+        {
+            "rule_id": "SEX-001",
+            "reviewed": 2,
+            "minimum": 3,
+            "reason": "below_minimum",
+        }
     ]
-    assert report["alerts"]["precision_below_threshold"] == [
-        {"rule_id": "SEX-001", "precision": 0.5, "minimum": 0.75}
-    ]
+    assert report["alerts"]["precision_below_threshold"] == []
     assert report["alerts"]["unverified_provenance"] == [
         {"required_for_quality_gate": True}
     ]
+    assert "insufficient_reviews" not in report["alerts"]
 
 
 def test_uncertain_rows_do_not_satisfy_minimum_precision_sample(
@@ -323,12 +333,18 @@ def test_uncertain_rows_do_not_satisfy_minimum_precision_sample(
     assert report["rules"][0]["uncertain"] == 9
     assert report["rules"][0]["precision"] == 1.0
     assert report["status"] == "alert"
-    assert report["alerts"]["insufficient_reviews"] == [
-        {"rule_id": "SEX-001", "reviewed": 1, "minimum": 10}
+    assert report["alerts"]["coverage_gap"] == [
+        {
+            "rule_id": "SEX-001",
+            "reviewed": 1,
+            "minimum": 10,
+            "reason": "below_minimum",
+        }
     ]
+    assert report["alerts"]["precision_below_threshold"] == []
 
 
-def test_missing_expected_rule_is_included_and_alerted(tmp_path: Path) -> None:
+def test_missing_expected_rule_is_included_as_coverage_gap(tmp_path: Path) -> None:
     input_path = tmp_path / "private" / "review.jsonl"
     output_path = tmp_path / "summary.json"
     write_jsonl(input_path, [queue_row(1, label="true_positive")])
@@ -344,13 +360,331 @@ def test_missing_expected_rule_is_included_and_alerted(tmp_path: Path) -> None:
     photo = next(row for row in report["rules"] if row["rule_id"] == "PHOTO-001")
     assert photo["decided"] == 0
     assert photo["precision"] is None
+    # PHOTO-001 has no decided rows: a coverage gap, not a precision failure.
+    # The alert status comes from the unverified provenance (no manifest).
     assert report["status"] == "alert"
-    assert report["alerts"]["insufficient_reviews"] == [
-        {"rule_id": "PHOTO-001", "reviewed": 0, "minimum": 1}
+    assert report["alerts"]["coverage_gap"] == [
+        {
+            "rule_id": "PHOTO-001",
+            "reviewed": 0,
+            "minimum": 1,
+            "reason": "zero_observations",
+        }
     ]
+    assert report["alerts"]["precision_below_threshold"] == []
+
+
+def verified_summary(
+    rows: list[dict[str, object]], **kwargs: object
+) -> dict[str, object]:
+    """Summarize in memory with provenance already verified."""
+    return summary.build_summary(rows, provenance_verified=True, **kwargs)  # type: ignore[arg-type]
+
+
+def test_zero_observation_rule_is_coverage_gap_not_precision_failure() -> None:
+    report = verified_summary(
+        [queue_row(1, label="true_positive")],
+        min_reviewed_per_rule=1,
+        min_precision=0.8,
+        expected_rule_ids=("SEX-001", "PHOTO-001"),
+    )
+
+    assert report["alerts"]["coverage_gap"] == [
+        {
+            "rule_id": "PHOTO-001",
+            "reviewed": 0,
+            "minimum": 1,
+            "reason": "zero_observations",
+        }
+    ]
+    assert report["alerts"]["precision_below_threshold"] == []
+    assert report["alerts"]["empty_queue"] == []
+    assert report["alerts"]["unverified_provenance"] == []
+    assert report["status"] == "coverage_gap"
+
+
+def test_zero_observation_rule_stays_coverage_gap_when_minimum_reviewed_is_zero() -> None:
+    report = verified_summary(
+        [queue_row(1, label="true_positive")],
+        min_reviewed_per_rule=0,
+        min_precision=0.8,
+        expected_rule_ids=("SEX-001", "PHOTO-001"),
+    )
+
+    assert report["alerts"]["coverage_gap"] == [
+        {
+            "rule_id": "PHOTO-001",
+            "reviewed": 0,
+            "minimum": 0,
+            "reason": "zero_observations",
+        }
+    ]
+    assert report["alerts"]["precision_below_threshold"] == []
+    assert report["status"] == "coverage_gap"
+
+
+def test_zero_observation_rule_is_not_reported_without_a_quality_gate() -> None:
+    report = verified_summary(
+        [queue_row(1, label="true_positive")],
+        expected_rule_ids=("SEX-001", "PHOTO-001"),
+    )
+
+    assert report["alerts"]["coverage_gap"] == []
+    assert report["alerts"]["precision_below_threshold"] == []
+    assert report["status"] == "ok"
+
+
+def test_below_minimum_rule_with_low_precision_is_coverage_gap_only() -> None:
+    report = verified_summary(
+        [
+            queue_row(1, label="true_positive"),
+            queue_row(2, label="false_positive"),
+            queue_row(3, label="false_positive"),
+        ],
+        min_reviewed_per_rule=5,
+        min_precision=0.8,
+    )
+
+    assert report["rules"][0]["decided"] == 3
+    assert report["rules"][0]["precision"] == 0.333333
+    assert report["alerts"]["coverage_gap"] == [
+        {
+            "rule_id": "SEX-001",
+            "reviewed": 3,
+            "minimum": 5,
+            "reason": "below_minimum",
+        }
+    ]
+    assert report["alerts"]["precision_below_threshold"] == []
+    assert report["status"] == "coverage_gap"
+
+
+def test_sufficient_rule_with_low_precision_is_precision_failure_and_alert() -> None:
+    report = verified_summary(
+        [
+            queue_row(1, label="true_positive"),
+            queue_row(2, label="false_positive"),
+            queue_row(3, label="false_positive"),
+        ],
+        min_reviewed_per_rule=3,
+        min_precision=0.8,
+    )
+
+    assert report["alerts"]["coverage_gap"] == []
     assert report["alerts"]["precision_below_threshold"] == [
-        {"rule_id": "PHOTO-001", "precision": None, "minimum": 0.8}
+        {"rule_id": "SEX-001", "precision": 0.333333, "minimum": 0.8}
     ]
+    assert report["status"] == "alert"
+
+
+def test_precision_failure_outranks_coverage_gap_in_status() -> None:
+    report = verified_summary(
+        [
+            queue_row(1, label="true_positive"),
+            queue_row(2, label="false_positive"),
+        ],
+        min_reviewed_per_rule=2,
+        min_precision=0.8,
+        expected_rule_ids=("SEX-001", "PHOTO-001"),
+    )
+
+    assert [item["rule_id"] for item in report["alerts"]["coverage_gap"]] == [
+        "PHOTO-001"
+    ]
+    assert [
+        item["rule_id"] for item in report["alerts"]["precision_below_threshold"]
+    ] == ["SEX-001"]
+    assert report["status"] == "alert"
+
+
+def test_sufficient_rule_at_threshold_with_no_gap_is_ok() -> None:
+    report = verified_summary(
+        [
+            queue_row(1, label="true_positive"),
+            queue_row(2, label="true_positive"),
+            queue_row(3, label="true_positive"),
+            queue_row(4, label="true_positive"),
+            queue_row(5, label="false_positive"),
+        ],
+        min_reviewed_per_rule=5,
+        min_precision=0.8,
+    )
+
+    assert report["alerts"] == {
+        "coverage_gap": [],
+        "empty_queue": [],
+        "precision_below_threshold": [],
+        "unverified_provenance": [],
+    }
+    assert report["status"] == "ok"
+
+
+def test_unverified_provenance_outranks_coverage_gap_in_status() -> None:
+    report = summary.build_summary(
+        [queue_row(1, label="true_positive")],
+        min_reviewed_per_rule=2,
+        min_precision=0.8,
+    )
+
+    assert report["alerts"]["coverage_gap"]
+    assert report["alerts"]["unverified_provenance"]
+    assert report["status"] == "alert"
+
+
+def test_summary_marks_coverage_gap_rules_as_excluded_from_performance_claims() -> None:
+    report = verified_summary([queue_row(1, label="true_positive")])
+
+    assert report["interpretation"][
+        "coverage_gap_rules_excluded_from_performance_claims"
+    ] is True
+    assert all(value is False for value in report["privacy_boundary"].values())
+
+
+def build_verified_queue(
+    tmp_path: Path,
+    *,
+    rule_ids: tuple[str, ...],
+    sex_label: str,
+) -> tuple[Path, Path]:
+    """Build a manifest-verified queue where only SEX-001 has a matching row."""
+    text = "여성만 모집합니다."
+    snapshot_path = tmp_path / "snapshot" / "train" / "records.jsonl"
+    queue_path = tmp_path / "private" / "queue.jsonl"
+    write_jsonl(
+        snapshot_path,
+        [
+            {
+                "content_hash": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                "sector": "private",
+                "split": "train",
+                "text": text,
+            }
+        ],
+    )
+    queue_builder.build_review_queue(
+        snapshot_path,
+        queue_path,
+        rule_ids=rule_ids,
+        per_rule=1,
+    )
+    rows = [json.loads(line) for line in queue_path.read_text("utf-8").splitlines()]
+    assert [row["rule_id"] for row in rows] == ["SEX-001"]
+    rows[0]["label"] = sex_label
+    write_jsonl(queue_path, rows)
+    return snapshot_path, queue_path
+
+
+def verified_cli_arguments(
+    tmp_path: Path,
+    snapshot_path: Path,
+    queue_path: Path,
+    rule_ids: tuple[str, ...],
+) -> list[str]:
+    arguments = [
+        "--input",
+        str(queue_path),
+        "--output",
+        str(tmp_path / "summary.json"),
+        "--manifest",
+        str(queue_builder.queue_manifest_path(queue_path)),
+        "--source-input",
+        str(snapshot_path),
+        "--min-reviewed-per-rule",
+        "1",
+        "--min-precision",
+        "0.8",
+    ]
+    for rule_id in rule_ids:
+        arguments += ["--expect-rule-id", rule_id]
+    return arguments
+
+
+def test_main_exits_zero_when_every_rule_is_sufficient_and_precise(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rule_ids = ("SEX-001",)
+    snapshot_path, queue_path = build_verified_queue(
+        tmp_path, rule_ids=rule_ids, sex_label="true_positive"
+    )
+
+    code = summary.main(
+        verified_cli_arguments(tmp_path, snapshot_path, queue_path, rule_ids)
+    )
+
+    report = json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))
+    assert code == 0
+    assert report["status"] == "ok"
+    assert report["alerts"]["coverage_gap"] == []
+    assert json.loads(capsys.readouterr().out) == report["aggregate"]
+
+
+def test_main_exits_three_when_only_coverage_gaps_remain(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rule_ids = ("SEX-001", "FAMILY-001")
+    snapshot_path, queue_path = build_verified_queue(
+        tmp_path, rule_ids=rule_ids, sex_label="true_positive"
+    )
+
+    code = summary.main(
+        verified_cli_arguments(tmp_path, snapshot_path, queue_path, rule_ids)
+    )
+
+    report = json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))
+    assert code == 3
+    assert report["status"] == "coverage_gap"
+    assert report["provenance"]["verified"] is True
+    assert report["alerts"]["coverage_gap"] == [
+        {
+            "rule_id": "FAMILY-001",
+            "reviewed": 0,
+            "minimum": 1,
+            "reason": "zero_observations",
+        }
+    ]
+    assert report["alerts"]["precision_below_threshold"] == []
+    assert json.loads(capsys.readouterr().out) == report["aggregate"]
+
+
+def test_main_exits_two_when_a_sufficient_rule_has_low_precision(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rule_ids = ("SEX-001", "FAMILY-001")
+    snapshot_path, queue_path = build_verified_queue(
+        tmp_path, rule_ids=rule_ids, sex_label="false_positive"
+    )
+
+    code = summary.main(
+        verified_cli_arguments(tmp_path, snapshot_path, queue_path, rule_ids)
+    )
+
+    report = json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))
+    assert code == 2
+    assert report["status"] == "alert"
+    assert [
+        item["rule_id"] for item in report["alerts"]["precision_below_threshold"]
+    ] == ["SEX-001"]
+    assert [item["rule_id"] for item in report["alerts"]["coverage_gap"]] == [
+        "FAMILY-001"
+    ]
+    capsys.readouterr()
+
+
+def test_cli_exits_three_for_coverage_gap_only(tmp_path: Path) -> None:
+    rule_ids = ("SEX-001", "FAMILY-001")
+    snapshot_path, queue_path = build_verified_queue(
+        tmp_path, rule_ids=rule_ids, sex_label="true_positive"
+    )
+
+    completed = run_cli(
+        *verified_cli_arguments(tmp_path, snapshot_path, queue_path, rule_ids)
+    )
+
+    assert completed.returncode == 3, completed.stderr
+    report = json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))
+    assert report["status"] == "coverage_gap"
+    assert json.loads(completed.stdout) == report["aggregate"]
+    assert "FAMILY-001" not in completed.stdout
 
 
 def test_empty_queue_with_thresholds_cannot_pass(tmp_path: Path) -> None:

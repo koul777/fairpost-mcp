@@ -354,14 +354,188 @@ def test_final_evaluation_reproduction_keeps_report_and_receipt_hashes(
     assert receipt.read_bytes() == first_receipt
     report = json.loads(first_report)
     receipt_payload = json.loads(first_receipt)
-    assert report["schema_version"] == 3
+    assert report["schema_version"] == 4
     assert report["final_evaluation_receipt"] == {
         "file": receipt.name,
         "status": "bound",
     }
+    # The new per-rule fields are part of the hashed report, so the receipt
+    # and the byte-identical reproduction above cover them. No labels or
+    # findings exist in this holdout, so every law rule is a coverage gap.
+    assert report["rule_coverage"]["observed_rule_ids"] == []
+    assert report["rule_coverage"]["coverage_gap_rule_ids"] == sorted(
+        report["expression_detection_by_rule"]
+    )
+    assert report["rule_coverage"][
+        "coverage_gap_excluded_from_performance_claims"
+    ] is True
     assert receipt_payload["report_sha256"] == hashlib.sha256(
         first_report
     ).hexdigest()
+
+
+def test_rule_breakdown_uses_the_same_sets_as_the_aggregate() -> None:
+    module = load_tool("evaluate")
+    postings = [
+        ({"SEX-001", "LOOK-001"}, {"SEX-001"}),
+        ({"LOOK-001"}, {"LOOK-001", "AGE-001"}),
+        (set(), set()),
+    ]
+    rule_counts = {
+        rule_id: module.Counter()
+        for rule_id in ("AGE-001", "LOOK-001", "SEX-001", "PHOTO-001")
+    }
+    aggregate = {"true_positive": 0, "false_positive": 0, "false_negative": 0}
+    for predicted, expected in postings:
+        module.tally_rule_findings(rule_counts, predicted, expected)
+        aggregate["true_positive"] += len(predicted & expected)
+        aggregate["false_positive"] += len(predicted - expected)
+        aggregate["false_negative"] += len(expected - predicted)
+
+    by_rule = module.expression_detection_by_rule(rule_counts)
+
+    assert list(by_rule) == ["AGE-001", "LOOK-001", "PHOTO-001", "SEX-001"]
+    assert by_rule["SEX-001"] == module.metrics(1, 0, 0)
+    assert by_rule["LOOK-001"] == module.metrics(1, 1, 0)
+    assert by_rule["AGE-001"] == module.metrics(0, 0, 1)
+    assert by_rule["PHOTO-001"] == module.metrics(0, 0, 0)
+    assert by_rule["PHOTO-001"]["precision"] is None
+    for key in aggregate:
+        assert sum(item[key] for item in by_rule.values()) == aggregate[key]
+
+
+def test_rule_coverage_separates_unobserved_rules_from_observed_ones() -> None:
+    module = load_tool("evaluate")
+    by_rule = {
+        "SEX-001": module.metrics(2, 0, 0),
+        "LOOK-001": module.metrics(0, 1, 0),
+        "AGE-001": module.metrics(0, 0, 3),
+        "PHOTO-001": module.metrics(0, 0, 0),
+        "BODY-001": module.metrics(0, 0, 0),
+    }
+
+    coverage = module.build_rule_coverage(by_rule)
+
+    assert coverage == {
+        "observed_rule_ids": ["AGE-001", "LOOK-001", "SEX-001"],
+        "coverage_gap_rule_ids": ["BODY-001", "PHOTO-001"],
+        "coverage_gap_excluded_from_performance_claims": True,
+    }
+
+
+def test_calibration_report_has_per_rule_breakdown_and_rule_coverage(
+    tmp_path: Path,
+) -> None:
+    train_dir = tmp_path / "train"
+    holdout_dir = tmp_path / "holdout"
+    train_dir.mkdir()
+    holdout_dir.mkdir()
+    # Synthetic postings only. The engine fires SEX-001 on the first text and
+    # LOOK-001 on the second. The third text fires nothing but is labeled with
+    # AGE-001, so AGE-001 is a false negative.
+    cases = [
+        ("지원자격: 남성만 지원 가능", ["SEX-001"]),
+        ("용모 단정한 여성 지원자 우대", []),
+        ("일반 사무직 채용", ["AGE-001"]),
+    ]
+    records = []
+    labels = []
+    for index, (text, expected) in enumerate(cases):
+        content_hash = hashlib.sha256(text.encode()).hexdigest()
+        records.append(
+            {
+                "id": f"train:{index}",
+                "content_hash": content_hash,
+                "text": text,
+                "sector": "public" if index % 2 == 0 else "private",
+                "source": "synthetic-train",
+            }
+        )
+        labels.append(
+            {
+                "id": f"train:{index}",
+                "content_hash": content_hash,
+                "text": text,
+                "expected_findings": expected,
+                "expected_absent_slots": [],
+                "expected_expressions": [{"rule_id": rule_id} for rule_id in expected],
+            }
+        )
+    hashes = [record["content_hash"] for record in records]
+    (train_dir / "manifest.json").write_text(
+        json.dumps({"content_hashes": hashes}), encoding="utf-8"
+    )
+    (train_dir / "records.jsonl").write_text(
+        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in records),
+        encoding="utf-8",
+    )
+    (holdout_dir / "manifest.json").write_text(
+        json.dumps({"content_hashes": []}), encoding="utf-8"
+    )
+    annotations = train_dir / "annotations.jsonl"
+    annotations.write_text(
+        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in labels),
+        encoding="utf-8",
+    )
+    outputs = []
+    for name in ("first.json", "second.json"):
+        output = tmp_path / name
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "tools/evaluate.py",
+                str(annotations),
+                "--phase",
+                "calibration",
+                "--train-manifest",
+                str(train_dir / "manifest.json"),
+                "--calibration-records",
+                str(train_dir / "records.jsonl"),
+                "--holdout-manifest",
+                str(holdout_dir / "manifest.json"),
+                "--output",
+                str(output),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        assert completed.returncode == 0, completed.stderr
+        outputs.append(output.read_bytes())
+    assert outputs[0] == outputs[1]
+    report = json.loads(outputs[0])
+
+    assert report["schema_version"] == 4
+    assert report["expression_detection"]["true_positive"] == 1
+    assert report["expression_detection"]["false_positive"] == 1
+    assert report["expression_detection"]["false_negative"] == 1
+    by_rule = report["expression_detection_by_rule"]
+    law_rules = set(by_rule)
+    assert {"AGE-001", "LOOK-001", "SEX-001", "PHOTO-001"} <= law_rules
+    assert by_rule["SEX-001"]["true_positive"] == 1
+    assert by_rule["LOOK-001"]["false_positive"] == 1
+    assert by_rule["AGE-001"]["false_negative"] == 1
+    assert by_rule["PHOTO-001"] == {
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 0,
+        "precision": None,
+        "recall": None,
+    }
+    for key in ("true_positive", "false_positive", "false_negative"):
+        assert sum(item[key] for item in by_rule.values()) == report[
+            "expression_detection"
+        ][key]
+    coverage = report["rule_coverage"]
+    assert coverage["observed_rule_ids"] == ["AGE-001", "LOOK-001", "SEX-001"]
+    assert coverage["coverage_gap_rule_ids"] == sorted(
+        law_rules - {"AGE-001", "LOOK-001", "SEX-001"}
+    )
+    assert "PHOTO-001" in coverage["coverage_gap_rule_ids"]
+    assert coverage["coverage_gap_excluded_from_performance_claims"] is True
+    # The calibration phase still makes no G1/G2 claim.
+    assert report["target_gate"]["applicable"] is False
 
 
 def test_evaluation_rejects_output_alias_and_writes_atomically(

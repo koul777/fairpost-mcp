@@ -379,8 +379,10 @@ details[open] > summary::after {
 }
 
 .mode-option[aria-pressed="true"] {
-  background: var(--panel);
-  color: var(--green-ink);
+  /* The chosen tab is a filled pill: its background is at least 3:1 against the
+     unchosen tabs (WCAG 1.4.11), in both colour schemes. */
+  background: var(--green);
+  color: #ffffff;
   box-shadow:
     0 1px 2px rgba(17, 38, 28, 0.12),
     0 4px 10px -6px rgba(17, 38, 28, 0.3);
@@ -3529,24 +3531,32 @@ body[data-mode="easy"] .review-boundary::before {
 
 /* Card number above the start of each mark; the field's text stays on top. */
 /* Card number above the start of each mark. It is yellow with a dark digit so
-   the field's own text, drawn on top, stays readable where the two meet. */
+   the field's own text, drawn on top, stays readable where the two meet.
+   It is 13px high and sits in the gap between two text lines (about 13px at
+   15px text with a 1.8 line height), so it covers neither the line above nor the
+   leading dash of its own line. */
 .posting-mark::before {
   content: attr(data-n);
   position: absolute;
-  top: -12px;
-  left: -8px;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 4px;
+  top: -8px;
+  left: -4px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
   border: 1px solid rgba(61, 50, 20, 0.35);
-  border-radius: 9px;
+  border-radius: 7px;
   background: var(--yellow);
   color: #2b2410;
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 800;
-  line-height: 15px;
+  line-height: 11px;
   text-align: center;
+}
+
+/* A badge that the field's edge would cut in half is hidden (set by app.js). */
+.posting-mark.badge-clipped::before {
+  visibility: hidden;
 }
 
 .posting-mark.is-active {
@@ -4029,6 +4039,10 @@ body[data-mode="easy"] .review-boundary::before {
     color: #0e1613;
   }
 
+  .mode-option[aria-pressed="true"] {
+    color: #0e1613;
+  }
+
   .book-entry .book-entry-kicker,
   .easy-steps li::before,
   .book-entry-steps li::before,
@@ -4106,5 +4120,103 @@ body[data-mode="easy"] .review-boundary::before {
 
   * {
     animation: none !important;
+  }
+}
+
+/* Follow-up questions: the dot is drawn beside the text instead of typed into it, so a long
+   unbreakable word can never leave the dot alone on a line (390 px phones). */
+.follow-up .follow-up-item {
+  display: block;
+  position: relative;
+  padding-left: 0.9em;
+}
+
+.follow-up .follow-up-item::before {
+  content: "\00b7";
+  position: absolute;
+  left: 0.15em;
+}
+
+/* The rule-set version in the footer is one long token; Firefox and WebKit do not break it at the
+   hyphens, so on a phone it ran past the right edge and was cut off. */
+.app-footer code {
+  overflow-wrap: anywhere;
+}
+
+/* Forced colours (Windows high contrast): colours are replaced by system colours, so the chosen
+   mode tab, which differed by colour only, is drawn with the system highlight pair, and the marks
+   in the posting field (a fill and an inset shadow, both dropped) get a border underline. */
+@media (forced-colors: active) {
+  .mode-option[aria-pressed="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .posting-mark {
+    border-bottom: 2px solid CanvasText;
+  }
+}
+
+/* Reduced motion: nothing moves and nothing fades. Transitions are switched off
+   everywhere (the mark fill, card borders and the other 150 to 180 ms colour
+   transitions still ran under "reduce") and any animation finishes at once; the
+   delayed boot notice keeps its delay. A card reached through a linked question
+   keeps a static outline in the accent colour instead of the flash. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .is-flash,
+  .question-item:focus:not(:focus-visible) {
+    outline: 3px solid var(--green);
+    outline-offset: 2px;
+  }
+}
+
+/* Phones up to 420px: the section chips wrap onto a second line so that every chip is
+   visible without sideways scrolling. The pinned bar is taller then, so the jump
+   targets keep more room above them; on short screens (up to 600px high, such as a
+   320px phone or 400 percent zoom) the bar is not pinned, as three rows would take
+   a third of the screen. */
+@media (max-width: 420px) {
+  .review-nav {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  #easy-findings-heading,
+  #easy-missing-heading,
+  #easy-found-heading,
+  #findings-heading,
+  #slots-heading,
+  #questions-heading,
+  #human-review-heading,
+  #improvement-title,
+  .question-item {
+    scroll-margin-top: 136px;
+  }
+}
+
+@media (max-width: 420px) and (max-height: 600px) {
+  .review-nav {
+    position: static;
+  }
+
+  #easy-findings-heading,
+  #easy-missing-heading,
+  #easy-found-heading,
+  #findings-heading,
+  #slots-heading,
+  #questions-heading,
+  #human-review-heading,
+  #improvement-title,
+  .question-item {
+    scroll-margin-top: 16px;
   }
 }

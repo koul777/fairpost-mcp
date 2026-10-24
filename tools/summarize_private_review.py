@@ -58,6 +58,17 @@ QUEUE_MANIFEST_FIELDS = frozenset(
 )
 
 
+STATUS_OK = "ok"
+STATUS_ALERT = "alert"
+STATUS_COVERAGE_GAP = "coverage_gap"
+# Alerts that make the gate fail. ``coverage_gap`` is reported separately.
+BLOCKING_ALERTS = ("empty_queue", "precision_below_threshold", "unverified_provenance")
+COVERAGE_GAP_ZERO_OBSERVATIONS = "zero_observations"
+COVERAGE_GAP_BELOW_MINIMUM = "below_minimum"
+# Exit code 1 is reserved for input/validation errors (ReviewSummaryError).
+EXIT_CODES = {STATUS_OK: 0, STATUS_ALERT: 2, STATUS_COVERAGE_GAP: 3}
+
+
 class ReviewSummaryError(ValueError):
     """A privacy-safe validation or report-writing failure."""
 
@@ -466,8 +477,9 @@ def build_summary(
         layer, _dimension = metadata
         grouped[(rule_id, layer)] += Counter()
 
+    quality_gate_requested = minimum_reviewed > 0 or minimum_precision > 0
     rule_summaries: list[dict[str, Any]] = []
-    insufficient_reviews: list[dict[str, Any]] = []
+    coverage_gap: list[dict[str, Any]] = []
     precision_below_threshold: list[dict[str, Any]] = []
     for (rule_id, layer), counts in sorted(grouped.items()):
         metrics = _metrics(counts)
@@ -476,21 +488,26 @@ def build_summary(
 
         # A precision gate needs an effective denominator. ``uncertain`` rows
         # document useful review effort but cannot count toward the minimum
-        # sample used to judge precision.
+        # sample used to judge precision. A rule without enough decided rows is
+        # a coverage gap, not a precision failure: it is recorded separately and
+        # never checked against the precision threshold.
         reviewed = int(metrics["decided"])
-        if reviewed < minimum_reviewed:
-            insufficient_reviews.append(
+        if reviewed < minimum_reviewed or (reviewed == 0 and quality_gate_requested):
+            coverage_gap.append(
                 {
                     "rule_id": rule_id,
                     "reviewed": reviewed,
                     "minimum": minimum_reviewed,
+                    "reason": (
+                        COVERAGE_GAP_ZERO_OBSERVATIONS
+                        if reviewed == 0
+                        else COVERAGE_GAP_BELOW_MINIMUM
+                    ),
                 }
             )
+            continue
         precision = metrics["precision"]
-        if (
-            precision is not None
-            and precision < minimum_precision
-        ) or (precision is None and minimum_precision > 0):
+        if precision is not None and precision < minimum_precision:
             precision_below_threshold.append(
                 {
                     "rule_id": rule_id,
@@ -500,9 +517,7 @@ def build_summary(
             )
 
     empty_queue = []
-    if row_count == 0 and not expected_rule_ids and (
-        minimum_reviewed > 0 or minimum_precision > 0
-    ):
+    if row_count == 0 and not expected_rule_ids and quality_gate_requested:
         empty_queue.append(
             {
                 "reviewed": 0,
@@ -511,19 +526,25 @@ def build_summary(
             }
         )
     alerts = {
+        "coverage_gap": coverage_gap,
         "empty_queue": empty_queue,
-        "insufficient_reviews": insufficient_reviews,
         "precision_below_threshold": precision_below_threshold,
         "unverified_provenance": (
             [{"required_for_quality_gate": True}]
-            if not provenance_verified
-            and (minimum_reviewed > 0 or minimum_precision > 0)
+            if not provenance_verified and quality_gate_requested
             else []
         ),
     }
-    status = "alert" if any(alerts.values()) else "ok"
+    # Coverage gaps alone never fail the precision gate: they only say that a
+    # rule has too few decided rows to support a performance claim.
+    if any(alerts[name] for name in BLOCKING_ALERTS):
+        status = STATUS_ALERT
+    elif alerts["coverage_gap"]:
+        status = STATUS_COVERAGE_GAP
+    else:
+        status = STATUS_OK
     return {
-        "schema_version": "private-review-summary-v2",
+        "schema_version": "private-review-summary-v3",
         "evaluation_phase": "train_review",
         "release_claim_eligible": False,
         "status": status,
@@ -540,6 +561,7 @@ def build_summary(
             "aggregate_is_row_weighted": True,
             "aggregate_is_not_posting_level_performance": True,
             "rule_metrics_are_primary": True,
+            "coverage_gap_rules_excluded_from_performance_claims": True,
             "labels_are_rule_relevance_not_discrimination_or_illegality_determinations": True,
         },
         "provenance": {
@@ -669,7 +691,13 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "Summarize a de-identified private review queue into deterministic "
             "per-rule and aggregate label metrics. No row text or review ID is "
             "written to the report or stdout."
-        )
+        ),
+        epilog=(
+            "Exit codes: 0 ok; 1 input or validation error; 2 alert (empty "
+            "queue, precision below threshold, or unverified provenance); 3 "
+            "coverage_gap only (rules with too few decided rows). Argparse "
+            "usage errors also exit 2."
+        ),
     )
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
@@ -725,7 +753,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             separators=(",", ":"),
         )
     )
-    return 2 if report["status"] == "alert" else 0
+    return EXIT_CODES[report["status"]]
 
 
 if __name__ == "__main__":

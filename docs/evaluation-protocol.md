@@ -103,6 +103,15 @@ G1/G2가 측정하는 대상은 다음뿐이다.
 - 절차 정보 부재 탐지: 공고-슬롯 ID 쌍의 재현율과 정밀도
 - 사전 커버리지: 사람이 표시한 문제 표현 중 현재 법령 규칙 ID로 연결된 비율(보조 지표)
 
+보고서(`schema_version` 4)에는 법령 표현 탐지의 규칙별 분해와 규칙 커버리지도 들어간다. 집계 지표와 `target_gate`는 바꾸지 않았으므로 G1/G2 정의는 그대로다.
+
+- `expression_detection_by_rule`: 법령 규칙 ID별 `true_positive`, `false_positive`, `false_negative`, 정밀도, 재현율. 집계와 같은 공고-규칙 쌍 판정으로 세므로 규칙별 값의 합이 `expression_detection`과 같다.
+- `rule_coverage.observed_rule_ids`: 평가 세트에서 `true_positive`, `false_positive`, `false_negative`의 합이 0보다 큰 규칙
+- `rule_coverage.coverage_gap_rule_ids`: 세 값의 합이 0인 법령 규칙. 정밀도 실패가 아니라 관찰이 없는 규칙으로 기록한다.
+- `rule_coverage.coverage_gap_excluded_from_performance_claims`: 항상 `true`
+
+`coverage_gap` 규칙은 규칙별 성능 주장에서 뺀다. 관찰 규칙의 규칙별 값을 성능 주장에 쓰는 데 필요한 최소 관찰 수는 아직 정하지 않았다(로드맵 P0). 두 필드는 train calibration과 final 보고서에 모두 들어가며 final에서는 영수증이 묶는 보고서 해시에 포함된다.
+
 현재 52개 질문 카드는 G1/G2 대상이 아니다. 질문 카드는 실제 채용담당자 파일럿에서 관련성, 이해도, 실행 가능성, 무관 판정 비율을 별도로 측정한다. 질문 카드 수나 자동 테스트 통과를 법령 표현·부재 탐지 성능의 근거로 사용하지 않는다.
 
 ## 6. 출시 판정

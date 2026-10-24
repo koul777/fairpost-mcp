@@ -1521,7 +1521,36 @@
     postingHighlights.innerHTML = `<div class="posting-highlights-inner">${markup}${escapeHtml(text.slice(cursor))}​</div>`;
     const inner = postingHighlights.firstElementChild;
     if (scrollTop !== null && inner && inner.style) inner.style.transform = `translateY(${-scrollTop}px)`;
+    clipMarkBadges();
     updateFindingStepper();
+  }
+
+  // A number badge sits just above its mark. Where the field's edge would cut a badge in
+  // half (a mark scrolled to or past the top or bottom edge), the badge is hidden instead
+  // of showing a piece of it. All boxes are read first, then the classes are set.
+  function clipMarkBadges() {
+    if (postingHighlights.hidden || typeof postingHighlights.querySelectorAll !== "function") return;
+    try {
+      const marks = Array.from(postingHighlights.querySelectorAll(".posting-mark"));
+      if (!marks.length) return;
+      const box = postingHighlights.getBoundingClientRect();
+      const hide = marks.map((mark) => {
+        const first = typeof mark.getClientRects === "function" ? mark.getClientRects()[0] : null;
+        if (!first) return false;
+        const badge = window.getComputedStyle(mark, "::before");
+        const top = parseFloat(badge.top);
+        const left = parseFloat(badge.left);
+        const width = parseFloat(badge.width);
+        const height = parseFloat(badge.height);
+        if (![top, left, width, height].every(Number.isFinite)) return false;
+        const x = first.left + left;
+        const y = first.top + top;
+        return !(x >= box.left - 0.5 && y >= box.top - 0.5 && x + width <= box.right + 0.5 && y + height <= box.bottom + 0.5);
+      });
+      marks.forEach((mark, index) => mark.classList.toggle("badge-clipped", hide[index]));
+    } catch (_error) {
+      // The badges are a convenience; the cards still carry every finding.
+    }
   }
 
   // Keeps the layer on the field's text box: same font, padding and wrapping,
@@ -1548,6 +1577,7 @@
       postingHighlights.style.height = `${height}px`;
       const inner = postingHighlights.firstElementChild;
       if (inner && inner.style) inner.style.transform = `translateY(${-scrollTop}px)`;
+      clipMarkBadges();
       return scrollTop;
     } catch (_error) {
       // The marks are a convenience; the cards still carry every finding.
@@ -3399,8 +3429,8 @@
       : "";
     const followUp = question.follow_up.length
       ? `<p class="follow-up">${question.follow_up
-          .map((item) => `· ${escapeHtml(item)}`)
-          .join("<br>")}</p>`
+          .map((item) => `<span class="follow-up-item">${escapeHtml(item)}</span>`)
+          .join("")}</p>`
       : "";
     const evidence = question.matched_text
       ? `<p class="match-row">발동 문맥 <mark class="matched-text">${escapeHtml(question.matched_text)}</mark> <span>${escapeHtml(question.section || "")} · ${question.offset ? `${question.offset[0]}–${question.offset[1]}` : ""}</span></p>`

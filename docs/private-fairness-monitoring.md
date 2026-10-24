@@ -287,8 +287,8 @@ python tools\check_private_fairness_drift.py `
 바뀐 두 보고서를 의도적으로 비교할 때에는 `--require-version-match`를 빼면 버전 차이는
 보고서에 남지만 그 차이만으로 실패시키지는 않는다. CI의 합성 공고 스모크 테스트는 기준선
 생성 후 통합 cycle을 실행해 snapshot, manifest 검증, 익명 감사, 자기 비교 드리프트와 선택
-규칙 review queue까지 재현한다. 이어 미라벨 큐의 summary가 산출물을 남기고 종료 코드 `2`로
-검토 미완료를 차단하는지도 확인한다.
+규칙 review queue까지 재현한다. 이어 미라벨 큐의 summary가 산출물을 남기고, 확정 라벨이 없는
+규칙을 `coverage_gap`(`status`와 종료 코드 `3`)으로 보고하는지도 확인한다.
 
 ## 사람 검토 큐
 
@@ -407,8 +407,8 @@ python tools\summarize_private_review.py `
   --expect-rule-id Q-DIST-010
 ```
 
-정상은 종료 코드 `0`, 입력 오류는 `1`, 검토 표본 부족 또는 정밀도 하한 미달은 보고서를
-쓴 뒤 `2`를 반환한다. 최소 검토 수에는 정밀도 분모를 실제로 형성하는 확정 라벨
+정상은 종료 코드 `0`, 입력 오류는 `1`, 정밀도 하한 미달 같은 게이트 경보는 보고서를 쓴 뒤
+`2`, 표본 부족 규칙만 남은 경우는 `3`을 반환한다. 최소 검토 수에는 정밀도 분모를 실제로 형성하는 확정 라벨
 `true_positive`와 `false_positive`만 포함한다. `uncertain`은 별도 집계하지만 최소 검토 수와
 정밀도 분모에서는 제외한다. 정밀도는
 `true_positive / (true_positive + false_positive)`로 계산한다. 집계 보고서에는
@@ -420,12 +420,126 @@ snapshot 해시도 검증해야 한다. 둘 중 하나라도 없으면 출처 �
 비었거나 0행 규칙이 manifest에서 빠지거나 라벨 외 필드가 바뀌거나 오래된 규칙셋ㆍ다른 원본
 큐를 현재 성능으로 오인하는 경로를 차단한다.
 
+요약 스키마 `private-review-summary-v3`의 `status`와 종료 코드:
+
+| `status` | 종료 코드 | 조건 |
+|---|---|---|
+| `alert` | `2` | `empty_queue`, `precision_below_threshold`, `unverified_provenance` 중 하나라도 비어 있지 않음 |
+| `coverage_gap` | `3` | 위 경보는 없고 `coverage_gap`만 비어 있지 않음 |
+| `ok` | `0` | 경보와 `coverage_gap`이 모두 비어 있음 |
+
+- 확정 라벨(`true_positive`+`false_positive`)이 `--min-reviewed-per-rule`보다 적은 규칙은 `alerts.coverage_gap`에 기록함. 항목은 `rule_id`, `reviewed`(확정 라벨 수), `minimum`, `reason`임.
+- `reason`은 확정 라벨이 0이면 `zero_observations`, 1 이상이면 `below_minimum`임. `--min-reviewed-per-rule 0`이고 `--min-precision`이 0보다 크면 확정 라벨이 0인 규칙도 `zero_observations`로 기록함.
+- `coverage_gap` 규칙은 정밀도 하한과 비교하지 않으며 `precision_below_threshold`에 넣지 않음. 표본이 작은 규칙의 낮은 정밀도를 실패로 세지 않기 위함임.
+- `precision_below_threshold`에는 확정 라벨이 최소 검토 수 이상인 규칙 중 정밀도가 하한보다 낮은 규칙만 들어감.
+- 이전 `insufficient_reviews` 키는 `coverage_gap`으로 대체했으며 별칭은 두지 않음.
+- 보고서의 `interpretation.coverage_gap_rules_excluded_from_performance_claims`는 `true`임. `coverage_gap` 규칙의 지표는 규칙별 성능 주장에 쓰지 않음.
+- `--manifest`, `--source-input`, 기대 규칙 중 하나라도 빠지면 `unverified_provenance`가 생기므로 `coverage_gap`만 있어도 `status`는 `alert`, 종료 코드는 `2`임.
+- `--min-reviewed-per-rule`과 `--min-precision`을 모두 0으로 둔 단순 집계에서는 확정 라벨이 0인 규칙도 `coverage_gap`으로 기록하지 않음.
+- `argparse` 사용법 오류도 종료 코드 `2`를 반환하며 기존 동작 그대로임. 보고서 파일이 새로 쓰였는지로 구분함.
+
+### 이중 검토 병합과 일치율
+
+두 검토자가 따로 라벨링한 파일은 집계 전에 `tools/merge_dual_review.py`로 병합함.
+[착수 계획](labeling-kickoff.md)의 불일치 조정 단계를 맡는 도구이며 입력은
+`summarize_private_review.py`와 같은 검토 화면 다운로드 형식(JSONL)임.
+
+| 단계 | 하는 일 |
+|---|---|
+| 1. 비교 | A, B 파일을 `review_id`로 맞추고 라벨 외 필드 지문이 같은지 확인함. 규칙별ㆍ전체 일치율, Cohen 카파, 검토자별 `uncertain` 비율을 계산해 `dual-review-report.json`에 씀 |
+| 2. 조정 파일 | 불일치 행만 모아 `dual-review-adjudication.jsonl`에 씀. 조정자가 행마다 `adjudicated_label`, `adjudicator_id`, `reason_code`를 채움 |
+| 3. 최종 라벨 | 같은 명령에 `--adjudication`을 추가해 다시 실행하면 합의 행과 조정 행을 합친 `dual-review-merged.jsonl`과 행별 출처 기록을 씀 |
+
+착수 계획 배치에서는 1차 라벨 파일 두 개(reviewer-A 104행, reviewer-B 128행)를 A쪽에,
+독립 재검토 파일 두 개(37행, 41행)를 B쪽에 지정하고 `--allow-subset`을 씀. 겹치는 78행만
+비교하고 나머지 154행은 1차 라벨 그대로 최종 파일에 들어가므로 결과는 232행 전체 큐임.
+파일 이름은 예시임.
+
+```powershell
+# 1단계: 비교, 보고서, 조정 파일 생성
+python tools\merge_dual_review.py `
+  --input-a .private-review\labeled\reviewer-A-primary.jsonl `
+            .private-review\labeled\reviewer-B-primary.jsonl `
+  --input-b .private-review\labeled\reviewer-B-secondary.jsonl `
+            .private-review\labeled\reviewer-A-secondary.jsonl `
+  --allow-subset `
+  --output-dir .private-review\dual-review
+
+# 2단계: 조정자가 조정 파일을 채운 뒤 최종 라벨 파일 생성
+python tools\merge_dual_review.py `
+  --input-a .private-review\labeled\reviewer-A-primary.jsonl `
+            .private-review\labeled\reviewer-B-primary.jsonl `
+  --input-b .private-review\labeled\reviewer-B-secondary.jsonl `
+            .private-review\labeled\reviewer-A-secondary.jsonl `
+  --allow-subset `
+  --output-dir .private-review\dual-review `
+  --adjudication .private-review\dual-review\dual-review-adjudication.jsonl `
+  --reviewer-id reviewer-A --reviewer-id reviewer-B
+
+# 3단계: 최종 라벨 파일을 기존 집계 게이트에 입력 (--manifest ... 옵션은 위 집계 명령과 같음)
+python tools\summarize_private_review.py `
+  --input .private-review\dual-review\dual-review-merged.jsonl `
+  --output .private-review\summary.json `
+  --manifest .private-review\queue.jsonl.manifest.json
+```
+
+산출물은 모두 `--output-dir`(기본 `.private-review`) 안에 쓰며 같은 이름의 파일은 매번 새로 씀.
+
+| 파일 | 내용 | 공고 문맥 |
+|---|---|---|
+| `dual-review-report.json` | 규칙별ㆍ전체 지표, 기준 평가, 불일치 `review_id` 목록 | 없음 |
+| `dual-review-adjudication.jsonl` | 불일치 행, 두 라벨(`label_a`, `label_b`), 비어 있는 조정자 필드 | 있음 |
+| `dual-review-merged.jsonl` | 최종 라벨. 큐 형식 그대로라 `summarize_private_review.py`가 바로 읽음 | 있음 |
+| `dual-review-merged.jsonl.sources.json` | 행별 출처(`agreed`, `adjudicated`, `single_review`, `incomplete`), 두 라벨, 조정자 ID, 사유 코드 | 없음 |
+
+출처 기록을 별도 파일로 둔 것은 집계 도구가 큐 스키마와 다른 필드가 있는 행을 거부하기
+때문임. 조정 파일은 `adjudicated_label`(`true_positive`, `false_positive`, `uncertain` 중
+하나), `adjudicator_id`(가명 ID), `reason_code`(공백 없는 짧은 코드)를 모두 채워야 하며
+현재 불일치 행과 정확히 일치해야 함. 조정자 ID가 `--reviewer-id`와 같으면 거부함. 조정 기록이
+들어 있는 조정 파일은 1단계를 다시 실행해도 덮어쓰지 않음.
+
+| 기준 | 기본값 | 적용 범위 | 옵션 |
+|---|---|---|---|
+| 일치율 | 0.80 이상 | 규칙별 | `--min-agreement` |
+| 카파 | 0.60 이상 | 전체 | `--min-kappa` |
+| `uncertain` 비율 | 0.10 이하 | 검토자별, 규칙별과 전체 | `--max-uncertain-share` |
+| 규칙별 최소 비교 행 | 10행 | 이보다 적은 규칙은 `coverage_gap` | `--min-rows-per-rule` |
+
+판정 규칙:
+
+- 기준을 하나라도 어기면 `status`는 `alert`, 종료 코드는 `2`임. 보고서와 조정 파일은 그대로 씀.
+- `coverage_gap` 규칙은 지표를 보고하되 규칙별 기준에서 뺌. 실패로 세지 않으며 `status`와 종료 코드에 영향이 없음.
+- `uncertain`은 세 번째 범주로 다룸. 한쪽이 `uncertain`이고 다른 쪽이 확정 라벨이면 불일치이며 조정 대상임.
+- 우연 일치율이 1이면(두 검토자가 모든 비교 행에 같은 한 가지 라벨만 씀) 카파는 `null`이고 사유는 `kappa_reason_code`에 있음. 이때 카파 기준은 평가하지 않음. NaN은 만들지 않음.
+- 라벨이 모두 채워진 비교 행이 없으면 오류임.
+- 계획대로 규칙당 이중 검토가 최대 6행이면 기본 최소 행 수 10에서는 모든 규칙이 `coverage_gap`임. 이 경우 실제로 평가되는 기준은 전체 카파와 전체 `uncertain` 비율뿐임. 규칙별 일치율을 보려면 `--min-rows-per-rule`을 낮추되 표본이 작아 값이 크게 흔들림.
+
+그 밖의 옵션:
+
+| 옵션 | 뜻 |
+|---|---|
+| `--allow-partial` | 미검토(`unreviewed`) 행을 허용함. 미검토 행은 지표에서 빠지고 최종 파일에는 `unreviewed`로 남음 |
+| `--allow-subset` | 한쪽 파일이 다른 쪽의 일부일 때 겹치는 행만 비교함. 한쪽에만 있는 행은 그 파일의 라벨 그대로 `single_review`로 들어감 |
+| `--reviewer-id` | 검토자 가명 ID. 여러 번 지정 가능하며 조정자와 같으면 거부함 |
+
+입력 오류(행 집합 불일치, 큐 지문 불일치, 중복 `review_id`, 잘못된 라벨, 미검토 행)는 한국어
+메시지와 종료 코드 `1`로 끝나며 아무 파일도 쓰지 않음. 메시지에는 줄 번호와 필드 이름만 나옴.
+
+개인정보 경계:
+
+- 표준 출력에는 ID, 규칙 ID, 숫자만 나옴. 공고 문맥과 매치 문자열은 출력하지 않음.
+- 보고서에는 문맥이 없지만 불일치 `review_id`가 있으므로 `.private-review/` 안에서만 다룸.
+- 조정 파일과 최종 라벨 파일은 큐와 같은 문맥을 담으므로 외부 전송, 공유, 커밋을 금지함.
+- 홀드아웃ㆍ평가ㆍ개발 분할 경로는 `summarize_private_review.py`와 같은 규칙으로 거부하며 해제 옵션이 없음. 이 도구는 train 검토 큐 형식만 읽음.
+
+### 현재 큐 상태와 문맥 재감사
+
 2026-10-04 현재(규칙 동결 후보 `match-8cc4dbbcae8c00fa`) 로컬 큐는 22개 선택 규칙 중
 17개에서 232행이며 모두 미라벨이다. 후보 매치는 3,043건, 고유 비식별 문맥은 2,629건이고
 규칙별 최대 20행을 선택했다. 착수 절차는 [사람 라벨링 착수 계획](labeling-kickoff.md)을 따른다.
 `AI-001`, `DISABILITY-001`, `FAMILY-001`, `HEALTH-001`, `Q-DIST-014`는 관찰 행이
-없어 큐가 비었다. 따라서
-`.private-review/summary.json`은 `alert`, precision은 `null`이다. 별도 모델 보조 triage 집계는
+없어 큐가 비었다. 따라서 이 규칙들은
+`.private-review/summary.json`에서 `coverage_gap`(`zero_observations`)이고 precision은 `null`이다. 별도 모델 보조 triage 집계는
 규칙 경계 탐색에만 사용했고 사람 라벨이나 성능 증거로 간주하지 않는다.
 
 병역ㆍ대리변수 질문 `Q-DIST-010`은 익명 문맥 재감사에서 기존 163건 중 136건이
