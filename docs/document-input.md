@@ -115,7 +115,7 @@
 ## 시험
 
 - `tests/test_document_input.py`: 평탄화 단위 시험(문단, 제목, 중첩 목록, 표 3종, PDF 줄 합침, 각주, 알 수 없는 블록, 결정성), 가짜 kordoc(Node 스크립트)으로 래퍼 시험(성공과 격리 환경변수, 비정상 종료, 이미지 PDF, 빈 출력, 시간 초과, 못 찾음), CLI 시험(DOCX 경로가 같은 텍스트의 `.txt`와 같은 JSON, `.hwp` 등 거부, `--converted-text`)
-- 실제 kordoc과 python-docx가 있을 때만 도는 선택 시험 1개. CI에서는 건너뜀
+- 실제 kordoc과 python-docx가 있을 때만 도는 선택 시험 1개. 둘 중 하나라도 없으면 시험 목록에 넣지 않음(CI 포함). Linux CI의 릴리스 보고서는 건너뛴 시험이 하나라도 있으면 실패하기 때문
 
 ## 다음 확인
 

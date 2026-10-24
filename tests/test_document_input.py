@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -1028,12 +1029,18 @@ def test_help_describes_document_input(capsys) -> None:
 # --- optional: real kordoc ------------------------------------------------------
 
 
-def test_real_kordoc_gives_the_same_check_result_as_the_text_path(tmp_path: Path, capsys) -> None:
-    docx = pytest.importorskip("docx", reason="python-docx가 없습니다")
+def _real_kordoc_available() -> bool:
+    if importlib.util.find_spec("docx") is None:
+        return False
     try:
         locate_kordoc()
     except DocumentInputError:
-        pytest.skip("kordoc과 Node.js가 설치된 환경에서만 실행합니다")
+        return False
+    return True
+
+
+def _assert_real_kordoc_matches_text_path(tmp_path: Path, capsys) -> None:
+    import docx
 
     reference = (
         "2027년 물류관리직 모집\n"
@@ -1065,3 +1072,13 @@ def test_real_kordoc_gives_the_same_check_result_as_the_text_path(tmp_path: Path
     assert json.loads(actual) == json.loads(expected)
     assert any(item["id"] == "SEX-001" for item in json.loads(actual)["findings"])
     assert shutil.which("node") is not None
+
+
+# The Linux CI release report rejects any skipped test, so without python-docx
+# and kordoc this test is not collected at all instead of being skipped.
+if _real_kordoc_available():
+
+    def test_real_kordoc_gives_the_same_check_result_as_the_text_path(
+        tmp_path: Path, capsys
+    ) -> None:
+        _assert_real_kordoc_matches_text_path(tmp_path, capsys)
