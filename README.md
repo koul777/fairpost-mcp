@@ -113,6 +113,29 @@ Get-Content .\posting.txt -Raw | fairpost check -
 반환합니다. 파일 여러 개를 함께 검사할 때도 입력을 먼저 확인하므로, 빈 파일이 섞이면
 일부 결과만 출력하거나 선택형 보강을 시작하지 않습니다.
 
+#### 문서 파일 점검(선택)
+
+DOCX, HWPX, 글자층이 있는 PDF 파일도 바로 넘길 수 있습니다. 이 PC에서 [kordoc](https://github.com/chrisryugj/kordoc)이
+파일을 텍스트로 바꾸고, 그 텍스트를 `.txt` 파일과 같은 방식으로 점검합니다. kordoc은 Node.js 20 이상에서
+한 번 설치해야 합니다. 설치하지 않아도 텍스트 점검은 그대로 동작합니다.
+
+```powershell
+npm install -g kordoc
+fairpost check .\공고.docx
+fairpost check .\공고.hwpx --converted-text .\변환한글.txt
+```
+
+- 변환은 이 PC에서 오프라인으로 실행하고(`KORDOC_OFFLINE=1`) 모델 내려받기와 OCR(그림 속 글자 인식)은 쓰지 않습니다.
+  일반 변환 경로에서 네트워크 접근이 없음을 합성 문서 213개로 확인했습니다. 규칙과 JSON 결과 형식은 텍스트 입력과 같습니다.
+- 결과의 인용문과 위치는 원본 파일이 아니라 변환한 글을 기준으로 합니다. `--converted-text 경로`를 주면 변환한 글을
+  UTF-8로 저장하므로 인용문의 출처를 확인할 수 있습니다. 변환하는 파일이 하나일 때만 쓸 수 있습니다.
+- 쪽 머리글·바닥글이 본문에 섞일 수 있습니다. 머리글에 소제목이나 금지 표현이 있으면 본문처럼 점검됩니다.
+- 바이너리 HWP(`.hwp`), `.doc`, 이미지 파일, 스캔본·이미지 PDF, 암호가 걸린 파일은 지원하지 않습니다. `.hwp`는
+  한글에서 HWPX나 PDF로 저장해 사용하세요. 그림 속 글자는 점검하지 않습니다.
+- kordoc 위치를 직접 지정하려면 환경변수 `FAIRPOST_KORDOC_CLI`에 kordoc의 `dist/cli.js` 경로를 넣습니다.
+
+실험 결과와 격리 방식은 [docs/document-input.md](docs/document-input.md)에 있습니다.
+
 ### 4. 선택형 MCP 연결
 
 빠른 시작 1절의 설치를 마친 폴더에서 MCP 서버를 실행하거나, 화면과 MCP를 함께 제공하는 런타임을 사용합니다. MCP는 선택 기능입니다.
